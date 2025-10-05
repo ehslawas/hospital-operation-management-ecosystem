@@ -1,7 +1,9 @@
+"use client";
 import { SlowMovingKpiCard } from '../components/SlowMovingKpiCard';
 import { SlowMovingTable } from '../components/SlowMovingTable';
 import { fetchSlowMovingKpis, fetchSlowMovingItems, fetchMovementTrend } from '../services/slowMovingData';
 import dynamic from 'next/dynamic';
+import { useEffect, useState } from 'react';
 
 // Dynamic import for charts to avoid SSR issues
 const SimpleLineChart = dynamic(() => import('@/components/charts/SimpleLineChart'), {
@@ -9,12 +11,42 @@ const SimpleLineChart = dynamic(() => import('@/components/charts/SimpleLineChar
   loading: () => <div className="h-[220px] flex items-center justify-center text-gray-500">Loading chart...</div>
 });
 
-export default async function SlowMovingDashboard() {
-  const [kpis, items, trend] = await Promise.all([
-    fetchSlowMovingKpis(),
-    fetchSlowMovingItems(),
-    fetchMovementTrend(),
-  ]);
+export default function SlowMovingDashboard() {
+  const [kpis, setKpis] = useState<any>(null);
+  const [items, setItems] = useState<any[]>([]);
+  const [trend, setTrend] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [kpisData, itemsData, trendData] = await Promise.all([
+          fetchSlowMovingKpis(),
+          fetchSlowMovingItems(),
+          fetchMovementTrend(),
+        ]);
+        setKpis(kpisData);
+        setItems(itemsData);
+        setTrend(trendData);
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, []);
+
+  if (loading || !kpis) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-MY', {

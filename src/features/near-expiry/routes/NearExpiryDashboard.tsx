@@ -1,7 +1,9 @@
+"use client";
 import { NearExpiryKpiCard } from '../components/NearExpiryKpiCard';
 import { NearExpiryTable } from '../components/NearExpiryTable';
 import { fetchNearExpiryKpis, fetchNearExpiryItems, fetchExpiryTimeline } from '../services/nearExpiryData';
 import dynamic from 'next/dynamic';
+import { useEffect, useState } from 'react';
 
 // Dynamic import for charts to avoid SSR issues
 const SimpleHistogramChart = dynamic(() => import('@/components/charts/SimpleHistogramChart'), {
@@ -9,12 +11,42 @@ const SimpleHistogramChart = dynamic(() => import('@/components/charts/SimpleHis
   loading: () => <div className="h-[220px] flex items-center justify-center text-gray-500">Loading chart...</div>
 });
 
-export default async function NearExpiryDashboard() {
-  const [kpis, items, timeline] = await Promise.all([
-    fetchNearExpiryKpis(),
-    fetchNearExpiryItems(),
-    fetchExpiryTimeline(),
-  ]);
+export default function NearExpiryDashboard() {
+  const [kpis, setKpis] = useState<any>(null);
+  const [items, setItems] = useState<any[]>([]);
+  const [timeline, setTimeline] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [kpisData, itemsData, timelineData] = await Promise.all([
+          fetchNearExpiryKpis(),
+          fetchNearExpiryItems(),
+          fetchExpiryTimeline(),
+        ]);
+        setKpis(kpisData);
+        setItems(itemsData);
+        setTimeline(timelineData);
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, []);
+
+  if (loading || !kpis) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50/30 to-red-50/50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-MY', {
