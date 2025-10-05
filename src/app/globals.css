@@ -20,7 +20,7 @@
 }
 
 body {
-  background: var(--background);
+  background: linear-gradient(180deg, #f8fbff 0%, #f4f7fb 60%, #f5f8fc 100%);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui;
 }
