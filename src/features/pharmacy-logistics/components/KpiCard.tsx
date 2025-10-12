@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 type KpiCardProps = {
   label: string;
@@ -18,5 +18,6 @@ export function KpiCard({ label, value, emphasisClassName }: KpiCardProps) {
     </Card>
   );
 }
+
 
 

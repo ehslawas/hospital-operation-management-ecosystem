@@ -1,4 +1,15 @@
+"use client";
+
+import { useEffect, useState } from 'react';
+
 export default function MedicalOxygenBalancePage() {
+  const [department, setDepartment] = useState<string | null>(null);
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setDepartment(localStorage.getItem('department'));
+    }
+  }, []);
+  const isViewOnly = department === 'Office Admin';
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50 relative overflow-hidden">
       {/* Background Pattern */}
@@ -44,7 +55,7 @@ export default function MedicalOxygenBalancePage() {
 
                   {/* Action Buttons */}
                   <div className="flex flex-wrap gap-3">
-                    <a href="/inventory/medical-oxygen/request" className="group relative px-6 py-4 bg-white/20 backdrop-blur-xl rounded-2xl font-bold shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center space-x-3 border border-white/30 overflow-hidden">
+                    <a href="/inventory/medical-oxygen/request" onClick={(e) => { if (isViewOnly) e.preventDefault(); }} title={isViewOnly ? 'View-only for Office Admin' : undefined} className={`group relative px-6 py-4 bg-white/20 backdrop-blur-xl rounded-2xl font-bold shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center space-x-3 border border-white/30 overflow-hidden ${isViewOnly ? 'opacity-60 grayscale cursor-not-allowed' : ''}`}>
                       <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-blue-600/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                       <div className="relative z-10 flex items-center space-x-3">
                         <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center border border-blue-400/30">
@@ -68,7 +79,7 @@ export default function MedicalOxygenBalancePage() {
                       </div>
                     </a>
 
-                    <a href="/inventory/medical-oxygen/issue" className="group relative px-6 py-4 bg-white/20 backdrop-blur-xl rounded-2xl font-bold shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center space-x-3 border border-white/30 overflow-hidden">
+                    <a href="/inventory/medical-oxygen/issue" onClick={(e) => { if (isViewOnly) e.preventDefault(); }} title={isViewOnly ? 'View-only for Office Admin' : undefined} className={`group relative px-6 py-4 bg-white/20 backdrop-blur-xl rounded-2xl font-bold shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center space-x-3 border border-white/30 overflow-hidden ${isViewOnly ? 'opacity-60 grayscale cursor-not-allowed' : ''}`}>
                       <div className="absolute inset-0 bg-gradient-to-r from-amber-500/20 to-orange-500/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                       <div className="relative z-10 flex items-center space-x-3">
                         <div className="w-8 h-8 bg-amber-500/20 rounded-lg flex items-center justify-center border border-amber-400/30">
@@ -80,7 +91,7 @@ export default function MedicalOxygenBalancePage() {
                       </div>
                     </a>
 
-                    <a href="/inventory/medical-oxygen/return" className="group relative px-6 py-4 bg-white/20 backdrop-blur-xl rounded-2xl font-bold shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center space-x-3 border border-white/30 overflow-hidden">
+                    <a href="/inventory/medical-oxygen/return" onClick={(e) => { if (isViewOnly) e.preventDefault(); }} title={isViewOnly ? 'View-only for Office Admin' : undefined} className={`group relative px-6 py-4 bg-white/20 backdrop-blur-xl rounded-2xl font-bold shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center space-x-3 border border-white/30 overflow-hidden ${isViewOnly ? 'opacity-60 grayscale cursor-not-allowed' : ''}`}>
                       <div className="absolute inset-0 bg-gradient-to-r from-red-500/20 to-rose-500/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                       <div className="relative z-10 flex items-center space-x-3">
                         <div className="w-8 h-8 bg-red-500/20 rounded-lg flex items-center justify-center border border-red-400/30">
@@ -92,7 +103,7 @@ export default function MedicalOxygenBalancePage() {
                       </div>
                     </a>
 
-                    <a href="/inventory/medical-oxygen/return-from-unit" className="group relative px-6 py-4 bg-white/20 backdrop-blur-xl rounded-2xl font-bold shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center space-x-3 border border-white/30 overflow-hidden">
+                    <a href="/inventory/medical-oxygen/return-from-unit" onClick={(e) => { if (isViewOnly) e.preventDefault(); }} title={isViewOnly ? 'View-only for Office Admin' : undefined} className={`group relative px-6 py-4 bg-white/20 backdrop-blur-xl rounded-2xl font-bold shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center space-x-3 border border-white/30 overflow-hidden ${isViewOnly ? 'opacity-60 grayscale cursor-not-allowed' : ''}`}>
                       <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-indigo-500/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                       <div className="relative z-10 flex items-center space-x-3">
                         <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center border border-purple-400/30">

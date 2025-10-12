@@ -1,10 +1,10 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import ClientOnly from '@/components/ClientOnly';
 import { IconBeaker, IconSearch, IconFilter, IconPlus, IconEdit, IconTrash, IconEye, IconSave } from '@/components/ui/Icons';
-import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
 interface KKMHospital {
   id: string;
@@ -1162,3 +1162,5 @@ export default function KKMHospitalCatalogPage() {
     </div>
   );
 }
+
+

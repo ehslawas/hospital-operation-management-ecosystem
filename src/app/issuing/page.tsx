@@ -26,6 +26,17 @@ export default function IssuingPage() {
 
   const [manualIssuanceModal, setManualIssuanceModal] = useState<{
     isOpen: boolean;
+    prefillItem?: {
+      itemName: string;
+      drugCode: string;
+      category: string;
+      quantity: number;
+      batchNumber: string;
+      expiryDate: string;
+      unitCost: number;
+      priority: string;
+    };
+    bulkItems?: any[];
   }>({ isOpen: false });
 
   // Compact toolbar state
@@ -63,6 +74,40 @@ export default function IssuingPage() {
     const variance = getVarianceReports();
     setRequests(all);
     setAllVariance(variance);
+
+    // Check for prefill parameters in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // Handle bulk items
+    if (urlParams.get('bulkItems')) {
+      try {
+        const bulkItemsJson = decodeURIComponent(urlParams.get('bulkItems') || '');
+        const bulkItems = JSON.parse(bulkItemsJson);
+        if (bulkItems && bulkItems.length > 0) {
+          setManualIssuanceModal({ isOpen: true, bulkItems });
+        }
+      } catch (error) {
+        console.error('Error parsing bulk items:', error);
+      }
+    }
+    // Handle single item prefill (legacy support)
+    else if (urlParams.get('prefillItem') === 'true') {
+      const prefillItem = {
+        itemName: urlParams.get('itemName') || '',
+        drugCode: urlParams.get('drugCode') || '',
+        category: urlParams.get('category') || '',
+        quantity: parseInt(urlParams.get('quantity') || '1'),
+        batchNumber: urlParams.get('batchNumber') || '',
+        expiryDate: urlParams.get('expiryDate') || '',
+        unitCost: parseFloat(urlParams.get('unitCost') || '0'),
+        priority: urlParams.get('priority') || 'MEDIUM'
+      };
+      
+      // Only open modal if we have valid item data
+      if (prefillItem.itemName && prefillItem.drugCode) {
+        setManualIssuanceModal({ isOpen: true, prefillItem });
+      }
+    }
   }, []);
 
   const handleRequestSelect = (request: DepartmentRequest) => {
@@ -114,7 +159,7 @@ export default function IssuingPage() {
   };
 
   const handleCloseManualIssuance = () => {
-    setManualIssuanceModal({ isOpen: false });
+    setManualIssuanceModal({ isOpen: false, prefillItem: undefined, bulkItems: undefined });
   };
 
 
@@ -743,6 +788,8 @@ export default function IssuingPage() {
           <ManualIssuanceModal
             isOpen={manualIssuanceModal.isOpen}
             onClose={handleCloseManualIssuance}
+            prefillItem={manualIssuanceModal.prefillItem}
+            bulkItems={manualIssuanceModal.bulkItems}
           />
         )}
       </div>

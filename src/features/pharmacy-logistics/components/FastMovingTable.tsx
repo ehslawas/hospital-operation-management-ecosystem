@@ -5,10 +5,15 @@ export type FastMovingItem = {
   category: 'Drug' | 'Non-drug';
   totalMovement: number;
   rank: number;
+  usagePerMonth: number;
+  onHand: number;
+  minLevel: number;
+  location?: string;
 };
 
 type FastMovingTableProps = {
   items: FastMovingItem[];
+  bare?: boolean; // when true, render rows without outer card container
 };
 
 function getCategoryBadge(category: string) {
@@ -37,7 +42,7 @@ function getCategoryBadge(category: string) {
   }
 }
 
-export function FastMovingTable({ items }: FastMovingTableProps) {
+export function FastMovingTable({ items, bare = false }: FastMovingTableProps) {
   // Use items directly without any client-side processing to avoid hydration mismatches
   const paddedItems = [...items];
   
@@ -49,86 +54,61 @@ export function FastMovingTable({ items }: FastMovingTableProps) {
       sku: '',
       category: 'Drug' as const,
       totalMovement: 0,
-      rank: paddedItems.length + 1
+      rank: paddedItems.length + 1,
+      usagePerMonth: 0,
+      onHand: 0,
+      minLevel: 0
     });
   }
 
-  return (
-    <div className="overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-white/90 via-blue-50/20 to-indigo-50/30 backdrop-blur-xl shadow-xl hover:shadow-2xl transition-all duration-500" suppressHydrationWarning>
-      <table className="min-w-full divide-y divide-white/40">
-        <thead className="bg-gradient-to-r from-gray-50/80 to-blue-50/60 backdrop-blur-sm">
-          <tr>
-            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">Rank</th>
-            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Item Name</th>
-            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">SKU</th>
-            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">Category</th>
-            <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">Total Movement</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-white/40 bg-gradient-to-br from-white/70 via-blue-50/10 to-indigo-50/20 backdrop-blur-sm">
-          {paddedItems.map((item, index) => (
-            <tr key={item.id} className="group hover:bg-white/90 transition-all duration-300 hover:shadow-lg" suppressHydrationWarning>
-              <td className="px-6 py-4 text-center" suppressHydrationWarning>
-                {item.name ? (
-                  <div className="relative" suppressHydrationWarning>
-                    <div className={`absolute inset-0 rounded-full blur-md opacity-60 ${
-                      item.rank <= 3 
-                        ? 'bg-gradient-to-br from-blue-500 to-indigo-600' 
-                        : item.rank <= 5 
-                        ? 'bg-gradient-to-br from-amber-500 to-orange-600'
-                        : 'bg-gradient-to-br from-gray-500 to-slate-600'
-                    }`} suppressHydrationWarning></div>
-                    <span className={`relative inline-flex items-center justify-center w-12 h-12 rounded-full text-sm font-bold shadow-xl ${
-                      item.rank <= 3 
-                        ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white' 
-                        : item.rank <= 5 
-                        ? 'bg-gradient-to-br from-amber-500 to-orange-600 text-white'
-                        : 'bg-gradient-to-br from-gray-500 to-slate-600 text-white'
-                    }`} suppressHydrationWarning>
-                      {item.rank}
+  function colorsFor(category: 'Drug' | 'Non-drug') {
+    return category === 'Drug'
+      ? { bg: 'bg-blue-50', border: 'border-blue-200', chip: 'bg-blue-100 text-blue-700', circle: 'bg-blue-500' }
+      : { bg: 'bg-green-50', border: 'border-green-200', chip: 'bg-green-100 text-green-700', circle: 'bg-green-500' };
+  }
+
+  const Rows = (
+      <div className="space-y-2" suppressHydrationWarning>
+        {paddedItems.map((item, index) => {
+          const color = colorsFor(item.category);
+          return (
+            <div key={item.id} className={`flex items-center justify-between p-3 rounded-lg border ${color.border} ${color.bg}`} suppressHydrationWarning>
+              <div className="flex items-center gap-3 min-w-0" suppressHydrationWarning>
+                <span className="inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold bg-slate-100 text-slate-700" suppressHydrationWarning>
+                  {item.name ? item.rank : index + 1}
+                </span>
+                <div className="min-w-0" suppressHydrationWarning>
+                  <p className="text-sm font-medium text-gray-900 truncate" suppressHydrationWarning>{item.name || '-'}</p>
+                  <div className="flex items-center gap-2" suppressHydrationWarning>
+                    <span className="text-xs text-gray-600 font-mono" suppressHydrationWarning>{item.sku || '-'}</span>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${color.chip}`} suppressHydrationWarning>
+                      {item.category}
                     </span>
                   </div>
-                ) : (
-                  <span className="inline-flex items-center justify-center w-12 h-12 rounded-full text-sm font-bold bg-white/60 text-gray-400 border border-gray-200/50" suppressHydrationWarning>
-                    {index + 1}
-                  </span>
-                )}
-              </td>
-              <td className="px-6 py-4" suppressHydrationWarning>
-                <div className="text-sm font-bold text-gray-900 group-hover:text-gray-700 transition-colors duration-200" suppressHydrationWarning>
-                  {item.name || '-'}
+                  <p className="text-xs text-gray-600" suppressHydrationWarning>
+                    Balance: {(item.onHand - item.minLevel) || 0} | Min: {item.minLevel > 0 ? item.minLevel.toLocaleString() : '-'}
+                  </p>
+                  <p className="text-xs text-gray-600" suppressHydrationWarning>
+                    Location: {item.location || '-'}
+                  </p>
                 </div>
-              </td>
-              <td className="px-6 py-4" suppressHydrationWarning>
-                <div className="inline-flex items-center px-3 py-1.5 bg-white/70 backdrop-blur-sm rounded-xl border border-white/50 shadow-sm" suppressHydrationWarning>
-                  <span className="text-xs text-gray-600 font-mono font-medium" suppressHydrationWarning>
-                    {item.sku || '-'}
-                  </span>
-                </div>
-              </td>
-              <td className="px-6 py-4 text-center" suppressHydrationWarning>
-                {item.name ? getCategoryBadge(item.category) : (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-100/80 text-gray-500 border border-gray-200/50" suppressHydrationWarning>
-                    -
-                  </span>
-                )}
-              </td>
-              <td className="px-6 py-4 text-right" suppressHydrationWarning>
-                <div className="text-sm font-bold text-gray-900 group-hover:text-gray-700 transition-colors duration-200" suppressHydrationWarning>
-                  {item.totalMovement > 0 ? (
-                    <span className="inline-flex items-center gap-1" suppressHydrationWarning>
-                      <span className="text-lg" suppressHydrationWarning>{item.totalMovement.toLocaleString()}</span>
-                      <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" suppressHydrationWarning>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                      </svg>
-                    </span>
-                  ) : '-'}
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              </div>
+              <div className={`flex items-center justify-center h-8 w-8 ${color.circle} rounded-full text-white text-xs font-bold flex-shrink-0 ml-2`} suppressHydrationWarning>
+                {item.usagePerMonth > 0 ? item.usagePerMonth : '-'}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+  );
+
+  if (bare) {
+    return Rows;
+  }
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white shadow-sm p-3" suppressHydrationWarning>
+      {Rows}
     </div>
   );
 }

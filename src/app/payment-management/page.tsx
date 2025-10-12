@@ -48,6 +48,7 @@ interface PaymentItem {
 
 export default function PaymentOversightPage() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [department, setDepartment] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -162,6 +163,11 @@ export default function PaymentOversightPage() {
 
   useEffect(() => {
     setPayments(generateMockPayments());
+    if (typeof document !== 'undefined') {
+      const dept = localStorage.getItem('department') ||
+        document.cookie.split('; ').find(r => r.startsWith('department='))?.split('=')[1] || '';
+      try { setDepartment(decodeURIComponent(dept)); } catch { setDepartment(dept); }
+    }
   }, []);
 
   // Filter payments
@@ -291,7 +297,13 @@ export default function PaymentOversightPage() {
               <h1 className="text-3xl font-bold text-slate-900">Payment Oversight</h1>
               <p className="text-slate-600 mt-1">Track payment processing for delivered items</p>
             </div>
-            <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            <button
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                department === 'Office Admin' ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
+              aria-disabled={department === 'Office Admin'}
+              title={department === 'Office Admin' ? 'View-only for Office Admin' : 'Refresh'}
+            >
               <IconRefresh className="h-4 w-4" />
               Refresh
             </button>
@@ -477,11 +489,12 @@ export default function PaymentOversightPage() {
                           <IconEye className="h-4 w-4 text-slate-500" />
                         </button>
                         <button
-                          onClick={() => handleUploadDocument(payment, 'eGRN')}
-                          className="p-1 hover:bg-green-100 rounded transition-colors"
-                          title="Upload eGRN"
+                          onClick={department === 'Office Admin' ? undefined : () => handleUploadDocument(payment, 'eGRN')}
+                          className={`p-1 rounded transition-colors ${department === 'Office Admin' ? 'cursor-not-allowed' : 'hover:bg-green-100'}`}
+                          title={department === 'Office Admin' ? 'View-only for Office Admin' : 'Upload eGRN'}
+                          aria-disabled={department === 'Office Admin'}
                         >
-                          <IconUpload className="h-4 w-4 text-green-600" />
+                          <IconUpload className={`h-4 w-4 ${department === 'Office Admin' ? 'text-slate-400' : 'text-green-600'}`} />
                         </button>
                       </div>
                     </td>

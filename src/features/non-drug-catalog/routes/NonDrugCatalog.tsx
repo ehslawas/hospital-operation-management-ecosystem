@@ -1,12 +1,20 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { getNonDrugItems, getNonDrugStats } from '../services/nonDrugData';
 import type { NonDrugItem, NonDrugCatalogFilters } from '../types/NonDrugItem';
 import NonDrugEditModal from '../components/NonDrugEditModal';
 import Pagination from '@/components/ui/Pagination';
 
 export default function NonDrugCatalog() {
+  const [department, setDepartment] = useState<string>('');
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      const dept = localStorage.getItem('department') ||
+        document.cookie.split('; ').find(r => r.startsWith('department='))?.split('=')[1] || '';
+      try { setDepartment(decodeURIComponent(dept)); } catch { setDepartment(dept); }
+    }
+  }, []);
   const [filters, setFilters] = useState<NonDrugCatalogFilters>({
     search: '',
     category: '',
@@ -259,7 +267,13 @@ export default function NonDrugCatalog() {
                 Medical Supplies Inventory ({filteredItems.length} items)
               </h2>
               <div className="flex items-center gap-4">
-                <button className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl">
+                <button
+                  className={`px-6 py-3 rounded-xl transition-all duration-200 shadow-lg ${
+                    department === 'Office Admin' ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 hover:shadow-xl'
+                  }`}
+                  aria-disabled={department === 'Office Admin'}
+                  title={department === 'Office Admin' ? 'View-only for Office Admin' : 'Add New Item'}
+                >
                   Add New Item
                 </button>
                 <button className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl">
@@ -337,10 +351,10 @@ export default function NonDrugCatalog() {
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleEditItem(item);
+                                if (department !== 'Office Admin') handleEditItem(item);
                               }}
-                              className="p-2 text-green-600 hover:text-green-800 hover:bg-green-100 rounded-lg transition-all duration-200"
-                              title="Edit item"
+                              className={`p-2 rounded-lg transition-all duration-200 ${department === 'Office Admin' ? 'text-slate-400 cursor-not-allowed' : 'text-green-600 hover:text-green-800 hover:bg-green-100'}`}
+                              title={department === 'Office Admin' ? 'View-only for Office Admin' : 'Edit item'}
                             >
                               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -349,10 +363,10 @@ export default function NonDrugCatalog() {
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleDeleteItem(item.id);
+                                if (department !== 'Office Admin') handleDeleteItem(item.id);
                               }}
-                              className="p-2 text-red-600 hover:text-red-800 hover:bg-red-100 rounded-lg transition-all duration-200"
-                              title="Delete item"
+                              className={`p-2 rounded-lg transition-all duration-200 ${department === 'Office Admin' ? 'text-slate-400 cursor-not-allowed' : 'text-red-600 hover:text-red-800 hover:bg-red-100'}`}
+                              title={department === 'Office Admin' ? 'View-only for Office Admin' : 'Delete item'}
                             >
                               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

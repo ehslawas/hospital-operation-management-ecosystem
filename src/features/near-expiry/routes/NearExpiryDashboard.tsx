@@ -1,9 +1,9 @@
 "use client";
-import { NearExpiryKpiCard } from '../components/NearExpiryKpiCard';
 import { NearExpiryTable } from '../components/NearExpiryTable';
 import { fetchNearExpiryKpis, fetchNearExpiryItems, fetchExpiryTimeline } from '../services/nearExpiryData';
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
+import Pagination from '@/components/ui/Pagination';
 
 // Dynamic import for charts to avoid SSR issues
 const SimpleHistogramChart = dynamic(() => import('@/components/charts/SimpleHistogramChart'), {
@@ -16,6 +16,9 @@ export default function NearExpiryDashboard() {
   const [items, setItems] = useState<any[]>([]);
   const [timeline, setTimeline] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [categoryFilter, setCategoryFilter] = useState<string>('All');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     async function loadData() {
@@ -26,7 +29,9 @@ export default function NearExpiryDashboard() {
           fetchExpiryTimeline(),
         ]);
         setKpis(kpisData);
-        setItems(itemsData);
+        // Sort items by daysLeft in ascending order (smallest to biggest)
+        const sortedItems = itemsData.sort((a, b) => a.daysLeft - b.daysLeft);
+        setItems(sortedItems);
         setTimeline(timelineData);
       } catch (error) {
         console.error('Error loading data:', error);
@@ -47,6 +52,14 @@ export default function NearExpiryDashboard() {
       </div>
     );
   }
+
+  // Filter and paginate
+  const filteredItems = categoryFilter === 'All' ? items : items.filter(i => i.category === categoryFilter);
+  const totalItems = filteredItems.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const start = (safePage - 1) * itemsPerPage;
+  const pageItems = filteredItems.slice(start, start + itemsPerPage);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-MY', {
@@ -203,7 +216,21 @@ export default function NearExpiryDashboard() {
         </div>
 
         {/* Full Items Table */}
-        <NearExpiryTable items={items} />
+        <NearExpiryTable 
+          items={pageItems}
+          categoryFilter={categoryFilter}
+          onCategoryFilterChange={(cat) => { setCategoryFilter(cat); setCurrentPage(1); }}
+        />
+
+        <div className="mt-6">
+          <Pagination 
+            currentPage={safePage}
+            totalPages={totalPages}
+            onPageChange={(p)=> setCurrentPage(Math.min(Math.max(1, p), totalPages))}
+            itemsPerPage={itemsPerPage}
+            totalItems={totalItems}
+          />
+        </div>
       </div>
     </div>
   );

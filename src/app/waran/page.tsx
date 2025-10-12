@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 export default function WaranPage() {
   return (
     <div className="space-y-6">
@@ -18,9 +20,9 @@ export default function WaranPage() {
           </div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Financial Overview</h3>
           <p className="text-gray-600 text-sm mb-4">Comprehensive view of financial status and performance metrics</p>
-          <a href="/waran/budget-overview" className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+          <Link href="/waran/budget-overview" className="text-blue-600 hover:text-blue-700 text-sm font-medium">
             View Details →
-          </a>
+          </Link>
         </div>
         
         <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow">
@@ -34,9 +36,9 @@ export default function WaranPage() {
           </div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Budgetary Allocation</h3>
           <p className="text-gray-600 text-sm mb-4">Manage and allocate budget across departments and categories</p>
-          <a href="/waran/budget-allocation" className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+          <Link href="/waran/budget-allocation" className="text-blue-600 hover:text-blue-700 text-sm font-medium">
             View Details →
-          </a>
+          </Link>
         </div>
         
         <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow">
@@ -50,9 +52,9 @@ export default function WaranPage() {
           </div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Annual Procurement Plan (APPL)</h3>
           <p className="text-gray-600 text-sm mb-4">Annual Procurement Plan and List budget management</p>
-          <a href="/waran/appl-budget" className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+          <Link href="/waran/appl-budget" className="text-blue-600 hover:text-blue-700 text-sm font-medium">
             View Details →
-          </a>
+          </Link>
         </div>
         
         <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow">
@@ -66,9 +68,9 @@ export default function WaranPage() {
           </div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Contractual Budgeting</h3>
           <p className="text-gray-600 text-sm mb-4">Manage contract-based procurement budgets and agreements</p>
-          <a href="/waran/contract-budget" className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+          <Link href="/waran/contract-budget" className="text-blue-600 hover:text-blue-700 text-sm font-medium">
             View Details →
-          </a>
+          </Link>
         </div>
       </div>
       

@@ -1,12 +1,20 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { getDrugItems, getDrugStats } from '../services/drugData';
 import type { DrugItem, DrugCatalogFilters } from '../types/DrugItem';
 import DrugEditModal from '../components/DrugEditModal';
 import Pagination from '@/components/ui/Pagination';
 
 export default function DrugCatalog() {
+  const [department, setDepartment] = useState<string>('');
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      const dept = localStorage.getItem('department') ||
+        document.cookie.split('; ').find(r => r.startsWith('department='))?.split('=')[1] || '';
+      try { setDepartment(decodeURIComponent(dept)); } catch { setDepartment(dept); }
+    }
+  }, []);
   const [filters, setFilters] = useState<DrugCatalogFilters>({
     search: '',
     category: '',
@@ -267,7 +275,13 @@ export default function DrugCatalog() {
                 Drug Inventory ({filteredDrugs.length} items)
               </h2>
               <div className="flex items-center gap-4">
-                <button className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl">
+                <button
+                  className={`px-6 py-3 rounded-xl transition-all duration-200 shadow-lg ${
+                    department === 'Office Admin' ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 hover:shadow-xl'
+                  }`}
+                  aria-disabled={department === 'Office Admin'}
+                  title={department === 'Office Admin' ? 'View-only for Office Admin' : 'Add New Drug'}
+                >
                   Add New Drug
                 </button>
                 <button className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl">
@@ -345,10 +359,10 @@ export default function DrugCatalog() {
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleEditDrug(drug);
+                                if (department !== 'Office Admin') handleEditDrug(drug);
                               }}
-                              className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-lg transition-all duration-200"
-                              title="Edit drug"
+                              className={`p-2 rounded-lg transition-all duration-200 ${department === 'Office Admin' ? 'text-slate-400 cursor-not-allowed' : 'text-blue-600 hover:text-blue-800 hover:bg-blue-100'}`}
+                              title={department === 'Office Admin' ? 'View-only for Office Admin' : 'Edit drug'}
                             >
                               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -357,10 +371,10 @@ export default function DrugCatalog() {
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleDeleteDrug(drug.id);
+                                if (department !== 'Office Admin') handleDeleteDrug(drug.id);
                               }}
-                              className="p-2 text-red-600 hover:text-red-800 hover:bg-red-100 rounded-lg transition-all duration-200"
-                              title="Delete drug"
+                              className={`p-2 rounded-lg transition-all duration-200 ${department === 'Office Admin' ? 'text-slate-400 cursor-not-allowed' : 'text-red-600 hover:text-red-800 hover:bg-red-100'}`}
+                              title={department === 'Office Admin' ? 'View-only for Office Admin' : 'Delete drug'}
                             >
                               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

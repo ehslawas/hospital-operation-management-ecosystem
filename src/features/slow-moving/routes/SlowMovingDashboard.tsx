@@ -1,9 +1,9 @@
 "use client";
-import { SlowMovingKpiCard } from '../components/SlowMovingKpiCard';
 import { SlowMovingTable } from '../components/SlowMovingTable';
 import { fetchSlowMovingKpis, fetchSlowMovingItems, fetchMovementTrend } from '../services/slowMovingData';
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
+import Pagination from '@/components/ui/Pagination';
 
 // Dynamic import for charts to avoid SSR issues
 const SimpleLineChart = dynamic(() => import('@/components/charts/SimpleLineChart'), {
@@ -16,6 +16,9 @@ export default function SlowMovingDashboard() {
   const [items, setItems] = useState<any[]>([]);
   const [trend, setTrend] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [categoryFilter, setCategoryFilter] = useState<string>('All');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     async function loadData() {
@@ -26,7 +29,9 @@ export default function SlowMovingDashboard() {
           fetchMovementTrend(),
         ]);
         setKpis(kpisData);
-        setItems(itemsData);
+        // Sort items by daysOfInventory in descending order (biggest to smallest)
+        const sortedItems = itemsData.sort((a, b) => b.daysOfInventory - a.daysOfInventory);
+        setItems(sortedItems);
         setTrend(trendData);
       } catch (error) {
         console.error('Error loading data:', error);
@@ -47,6 +52,14 @@ export default function SlowMovingDashboard() {
       </div>
     );
   }
+
+  // Filter and paginate
+  const filteredItems = categoryFilter === 'All' ? items : items.filter(i => i.category === categoryFilter);
+  const totalItems = filteredItems.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const start = (safePage - 1) * itemsPerPage;
+  const pageItems = filteredItems.slice(start, start + itemsPerPage);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-MY', {
@@ -202,7 +215,21 @@ export default function SlowMovingDashboard() {
         </div>
 
         {/* Full Items Table */}
-        <SlowMovingTable items={items} />
+        <SlowMovingTable 
+          items={pageItems}
+          categoryFilter={categoryFilter}
+          onCategoryFilterChange={(cat)=> { setCategoryFilter(cat); setCurrentPage(1); }}
+        />
+
+        <div className="mt-6">
+          <Pagination 
+            currentPage={safePage}
+            totalPages={totalPages}
+            onPageChange={(p)=> setCurrentPage(Math.min(Math.max(1, p), totalPages))}
+            itemsPerPage={itemsPerPage}
+            totalItems={totalItems}
+          />
+        </div>
       </div>
     </div>
   );

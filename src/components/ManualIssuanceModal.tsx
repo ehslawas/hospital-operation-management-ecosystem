@@ -1,10 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface ManualIssuanceModalProps {
   isOpen: boolean;
   onClose: () => void;
+  prefillItem?: {
+    itemName: string;
+    drugCode: string;
+    category: string;
+    quantity: number;
+    batchNumber: string;
+    expiryDate: string;
+    unitCost: number;
+    priority: string;
+  };
+  bulkItems?: any[];
 }
 
 interface IssuanceItem {
@@ -27,6 +38,8 @@ interface IssuanceItem {
 export default function ManualIssuanceModal({
   isOpen,
   onClose,
+  prefillItem,
+  bulkItems,
 }: ManualIssuanceModalProps) {
   const [items, setItems] = useState<IssuanceItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -39,6 +52,75 @@ export default function ManualIssuanceModal({
   const [reviewComments, setReviewComments] = useState('');
   const [approvalComments, setApprovalComments] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'drug' | 'non-drug'>('all');
+  const [editingItem, setEditingItem] = useState<IssuanceItem | null>(null);
+  const [editQuantity, setEditQuantity] = useState(1);
+
+  // Handle prefillItem and bulkItems when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      if (bulkItems && bulkItems.length > 0) {
+        // Handle bulk items
+        const mockItems: IssuanceItem[] = bulkItems.map((item, index) => ({
+          id: `bulk-${Date.now()}-${index}`,
+          itemName: item.name,
+          drugCode: item.sku,
+          dosageForm: item.category === 'Drug' ? 'Tablet' : 'Unit',
+          quantity: item.quantity || item.currentStock || 1,
+          unit: item.category === 'Drug' ? 'tablets' : 'units',
+          batchNumber: item.batch,
+          expiryDate: item.expiry,
+          location: 'Cabinet A, Level 1, Column 1', // Default location
+          sku: item.sku,
+          pku: `PKU-${item.sku}`,
+          packaging: `pack of ${item.quantity || item.currentStock || 1}`,
+          balance: (item.quantity || item.currentStock || 1) * 2, // Assume double the quantity is available
+          category: item.category.toLowerCase(),
+        }));
+        
+        setItems(mockItems);
+        
+        // Set default recipient based on first item's priority
+        const firstItem = bulkItems[0];
+        const priority = firstItem.priority || firstItem.status;
+        if (priority === 'URGENT' || priority === 'CRITICAL') {
+          setRecipient('Emergency Department');
+          setDepartment('EMERGENCY');
+        } else {
+          setRecipient('General Ward');
+          setDepartment('WARD A');
+        }
+      } else if (prefillItem) {
+        // Handle single item prefill (legacy support)
+        const mockItem: IssuanceItem = {
+          id: `prefill-${Date.now()}`,
+          itemName: prefillItem.itemName,
+          drugCode: prefillItem.drugCode,
+          dosageForm: prefillItem.category === 'Drug' ? 'Tablet' : 'Unit',
+          quantity: prefillItem.quantity,
+          unit: prefillItem.category === 'Drug' ? 'tablets' : 'units',
+          batchNumber: prefillItem.batchNumber,
+          expiryDate: prefillItem.expiryDate,
+          location: 'Cabinet A, Level 1, Column 1', // Default location
+          sku: prefillItem.drugCode,
+          pku: `PKU-${prefillItem.drugCode}`,
+          packaging: `pack of ${prefillItem.quantity}`,
+          balance: prefillItem.quantity * 2, // Assume double the quantity is available
+          category: prefillItem.category.toLowerCase(),
+        };
+        
+        setItems([mockItem]);
+        
+        // Set default recipient based on priority
+        if (prefillItem.priority === 'URGENT') {
+          setRecipient('Emergency Department');
+          setDepartment('EMERGENCY');
+        } else {
+          setRecipient('General Ward');
+          setDepartment('WARD A');
+        }
+      }
+    }
+  }, [isOpen, prefillItem, bulkItems]);
 
   // Mock inventory data
   const inventoryItems = [
@@ -175,6 +257,28 @@ export default function ManualIssuanceModal({
 
   const handleRemoveItem = (itemId: string) => {
     setItems(items.filter(item => item.id !== itemId));
+  };
+
+  const handleEditItem = (item: IssuanceItem) => {
+    setEditingItem(item);
+    setEditQuantity(item.quantity);
+  };
+
+  const handleSaveEdit = () => {
+    if (editingItem && editQuantity > 0 && editQuantity <= editingItem.balance) {
+      setItems(items.map(item => 
+        item.id === editingItem.id 
+          ? { ...item, quantity: editQuantity }
+          : item
+      ));
+      setEditingItem(null);
+      setEditQuantity(1);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingItem(null);
+    setEditQuantity(1);
   };
 
   const handleSubmitForReview = () => {
@@ -576,14 +680,26 @@ export default function ManualIssuanceModal({
                             {item.location}
                           </div>
                         </div>
-                        <button
-                          onClick={() => handleRemoveItem(item.id)}
-                          className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all duration-200 group"
-                        >
-                          <svg className="h-4 w-4 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleEditItem(item)}
+                            className="p-2 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-200 group"
+                            title="Edit item quantity"
+                          >
+                            <svg className="h-4 w-4 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleRemoveItem(item.id)}
+                            className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all duration-200 group"
+                            title="Remove item"
+                          >
+                            <svg className="h-4 w-4 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -812,6 +928,58 @@ export default function ManualIssuanceModal({
             </div>
           )}
         </div>
+
+        {/* Edit Item Modal */}
+        {editingItem && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4">
+              <h3 className="text-lg font-semibold text-slate-800 mb-4">Edit Item Quantity</h3>
+              
+              <div className="mb-4">
+                <div className="font-medium text-slate-800">{editingItem.itemName}</div>
+                <div className="text-sm text-slate-600">{editingItem.drugCode} • {editingItem.dosageForm}</div>
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Issue Quantity ({editingItem.unit})
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max={editingItem.balance}
+                  value={editQuantity}
+                  onChange={(e) => setEditQuantity(parseInt(e.target.value) || 1)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <div className="text-xs text-slate-500 mt-1">
+                  Available: {editingItem.balance.toLocaleString()} {editingItem.unit}
+                </div>
+                {editQuantity > editingItem.balance && (
+                  <div className="text-xs text-red-600 mt-1">
+                    Cannot issue more than available balance
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCancelEdit}
+                  className="flex-1 px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={editQuantity <= 0 || editQuantity > editingItem.balance}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,9 +1,9 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { IconBeaker, IconSearch, IconFilter, IconPlus, IconEdit, IconTrash, IconEye } from '@/components/ui/Icons';
-import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
 interface KKMClinic {
   id: string;
@@ -536,3 +536,5 @@ export default function KKMClinicCatalogPage() {
     </div>
   );
 }
+
+

@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RequestStats } from '../../types/RequestWorkflow';
 
 interface RequestStatsCardsProps {
@@ -77,4 +77,5 @@ export function RequestStatsCards({ stats }: RequestStatsCardsProps) {
     </div>
   );
 }
+
 

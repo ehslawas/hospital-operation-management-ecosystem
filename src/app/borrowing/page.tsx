@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { IconArrowRight, IconArrowLeft, IconPackage, IconClipboardList, IconEye, IconPlus, IconSearch, IconFilter, IconX } from '@/components/ui/Icons';
@@ -41,7 +41,7 @@ interface TransferItem {
   notes?: string;
 }
 
-export default function InterFacilityTransferPage() {
+function InterFacilityTransferPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isClient, setIsClient] = useState(false);
@@ -1955,5 +1955,15 @@ export default function InterFacilityTransferPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function InterFacilityTransferPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
+    </div>}>
+      <InterFacilityTransferPageContent />
+    </Suspense>
   );
 }

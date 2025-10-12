@@ -1,0 +1,67 @@
+[
+  {
+    "id": "FAC001",
+    "code": "HKL",
+    "name": "Hospital Kuala Lumpur",
+    "type": "Hospital",
+    "state": "Wilayah Persekutuan Kuala Lumpur",
+    "address": "Jalan Pahang, 50586 Kuala Lumpur"
+  },
+  {
+    "id": "FAC002",
+    "code": "HSA",
+    "name": "Hospital Sultanah Aminah",
+    "type": "Hospital",
+    "state": "Johor",
+    "address": "Jalan Abu Bakar, 80100 Johor Bahru, Johor"
+  },
+  {
+    "id": "FAC003",
+    "code": "HQE",
+    "name": "Hospital Queen Elizabeth",
+    "type": "Hospital",
+    "state": "Sabah",
+    "address": "Karung Berkunci 2029, 88586 Kota Kinabalu, Sabah"
+  },
+  {
+    "id": "FAC004",
+    "code": "HSG",
+    "name": "Hospital Sarawak General",
+    "type": "Hospital",
+    "state": "Sarawak",
+    "address": "Jalan Tun Ahmad Zaidi Adruce, 93586 Kuching, Sarawak"
+  },
+  {
+    "id": "FAC005",
+    "code": "HPP",
+    "name": "Hospital Pulau Pinang",
+    "type": "Hospital",
+    "state": "Pulau Pinang",
+    "address": "Jalan Residensi, 10990 George Town, Pulau Pinang"
+  },
+  {
+    "id": "FAC006",
+    "code": "KK001",
+    "name": "Klinik Kesihatan Cheras",
+    "type": "Klinik Kesihatan",
+    "state": "Wilayah Persekutuan Kuala Lumpur",
+    "address": "Jalan Yaacob Latif, Bandar Tun Razak, 56000 Kuala Lumpur"
+  },
+  {
+    "id": "FAC007",
+    "code": "KK002",
+    "name": "Klinik Kesihatan Sg. Buloh",
+    "type": "Klinik Kesihatan",
+    "state": "Selangor",
+    "address": "Jalan Hospital, 47000 Sungai Buloh, Selangor"
+  },
+  {
+    "id": "FAC008",
+    "code": "KD001",
+    "name": "Klinik Desa Kampung Baru",
+    "type": "Klinik Desa",
+    "state": "Selangor",
+    "address": "Kampung Baru, 43000 Kajang, Selangor"
+  }
+]
+

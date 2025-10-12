@@ -3,6 +3,12 @@
 import { useState, useEffect } from 'react';
 
 export default function OxygenReceivePage() {
+  const [department, setDepartment] = useState<string | null>(null);
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setDepartment(localStorage.getItem('department'));
+    }
+  }, []);
   const [formData, setFormData] = useState({
     date: '',
     doNo: '',
@@ -328,19 +334,22 @@ export default function OxygenReceivePage() {
             </div>
           </div>
           <div className="flex space-x-4">
-            <button 
-              onClick={() => isClient && window.print()}
-              className="px-6 py-3 bg-white/80 backdrop-blur-sm text-slate-900 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center border border-white/20"
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-              </svg>
-              Print
-            </button>
+            {department !== 'Office Admin' && (
+              <button 
+                onClick={() => isClient && window.print()}
+                className="px-6 py-3 bg-white/80 backdrop-blur-sm text-slate-900 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center border border-white/20"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+                Print
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Receive Form */}
+        {/* Receive Form (hidden for Office Admin) */}
+        {department !== 'Office Admin' && (
         <div className="mb-8">
           <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
             <div className="px-8 py-6 border-b border-slate-200 bg-slate-50">
@@ -547,6 +556,7 @@ export default function OxygenReceivePage() {
             </div>
           </div>
         </div>
+        )}
 
         {/* Deliveries Log */}
         <div>

@@ -1,3 +1,10 @@
+import { PharmacyProviders } from '@/features/pharmacy-counter/components/Providers';
+import Dashboard from '@/features/pharmacy-counter/routes/Dashboard';
+
 export default function DispensingPage() {
-	return <div className="p-4">Dispensing — coming soon</div>;
+  return (
+    <PharmacyProviders>
+      <Dashboard />
+    </PharmacyProviders>
+  );
 }

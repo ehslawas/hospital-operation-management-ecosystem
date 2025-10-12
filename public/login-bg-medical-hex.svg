@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <defs>
+    <linearGradient id="wash" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e6f4ff"/>
+      <stop offset="1" stop-color="#eafaf7"/>
+    </linearGradient>
+    <pattern id="hex" width="64" height="55.4" patternUnits="userSpaceOnUse">
+      <path d="M16 0l16 9.24v18.48L16 36-0 27.72V9.24L16 0z" fill="none" stroke="#3b82f6" stroke-opacity="0.35" stroke-width="1"/>
+    </pattern>
+    <linearGradient id="ekgGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#06b6d4" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="#22c55e" stop-opacity="0.6"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#wash)"/>
+  <rect width="1920" height="1080" fill="url(#hex)"/>
+
+  <!-- prominent but soft EKG line for medical feel -->
+  <polyline points="0,680 140,640 220,700 300,620 420,700 520,630 620,700 760,640 900,720 1040,630 1180,710 1320,640 1460,710 1600,650 1760,720 1920,680"
+            fill="none" stroke="url(#ekgGrad)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" opacity="0.7"/>
+</svg>
+

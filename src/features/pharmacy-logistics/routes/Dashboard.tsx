@@ -21,408 +21,380 @@ export default async function PharmacyLogisticsDashboard() {
   const slowMovingNonDrugs = slowMovingItems.filter(item => item.category === 'Non-drug').slice(0, 5);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50 relative overflow-hidden" suppressHydrationWarning>
-      {/* Modern Background Elements */}
-      <div className="absolute inset-0 overflow-hidden" suppressHydrationWarning>
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-blue-400/10 to-indigo-500/10 rounded-full filter blur-3xl animate-pulse" suppressHydrationWarning></div>
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-gradient-to-br from-purple-400/10 to-pink-500/10 rounded-full filter blur-3xl animate-pulse" suppressHydrationWarning></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-br from-cyan-400/5 to-blue-500/5 rounded-full filter blur-3xl animate-pulse" suppressHydrationWarning></div>
-        <div className="absolute top-1/4 right-1/4 w-72 h-72 bg-gradient-to-br from-green-400/5 to-emerald-500/5 rounded-full filter blur-3xl animate-pulse" suppressHydrationWarning></div>
-        {/* Subtle grid pattern */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(59,130,246,0.05)_1px,transparent_0)] bg-[size:32px_32px]" suppressHydrationWarning></div>
-        {/* Modern overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-white/20" suppressHydrationWarning></div>
+    <div className="min-h-screen bg-gray-50" suppressHydrationWarning>
+      <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto px-3 sm:px-4 py-4 space-y-3 md:space-y-4" suppressHydrationWarning>
+        
+        {/* Header */}
+        <div className="bg-white rounded-xl border border-gray-200 p-5 md:p-6 shadow-sm" suppressHydrationWarning>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4" suppressHydrationWarning>
+            <div className="flex items-center gap-3 md:gap-4" suppressHydrationWarning>
+              <div className="h-10 w-10 md:h-12 md:w-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0" suppressHydrationWarning>
+                <svg className="h-5 w-5 md:h-6 md:w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                </svg>
+              </div>
+              <div suppressHydrationWarning>
+                <h1 className="text-xl md:text-2xl font-bold text-gray-900">Pharmacy Logistics</h1>
+                <p className="text-xs md:text-sm text-gray-600">Enterprise inventory management</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap" suppressHydrationWarning>
+              <div className="flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1 bg-green-50 rounded-full border border-green-200" suppressHydrationWarning>
+                <div className="h-1.5 w-1.5 md:h-2 md:w-2 bg-green-500 rounded-full" suppressHydrationWarning></div>
+                <span className="text-xs text-green-700 font-medium">Live</span>
+              </div>
+              <div className="hidden sm:flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1 bg-blue-50 rounded-full border border-blue-200" suppressHydrationWarning>
+                <div className="h-1.5 w-1.5 md:h-2 md:w-2 bg-blue-500 rounded-full" suppressHydrationWarning></div>
+                <span className="text-xs text-blue-700 font-medium">Operational</span>
+              </div>
+            </div>
+          </div>
       </div>
 
-      <div className="relative z-10 space-y-8 p-6" suppressHydrationWarning>
-      <HeaderHero />
-
-        {/* Modern KPI Cards */}
-        <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-6" suppressHydrationWarning>
-          <div className="group relative bg-gradient-to-br from-white via-blue-50/20 to-indigo-50/30 backdrop-blur-xl rounded-3xl border border-white/40 shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-[1.02] hover:-translate-y-1" suppressHydrationWarning>
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-indigo-600/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" suppressHydrationWarning></div>
-            <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-white/10 rounded-3xl" suppressHydrationWarning></div>
-            <div className="relative p-6" suppressHydrationWarning>
+        {/* KPI Cards */}
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4" suppressHydrationWarning>
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200/50 p-4 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1" suppressHydrationWarning>
               <div className="flex items-center justify-between mb-4" suppressHydrationWarning>
-                <div className="relative group/icon" suppressHydrationWarning>
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl blur-lg opacity-60 group-hover/icon:opacity-100 transition-opacity duration-300" suppressHydrationWarning></div>
-                  <div className="relative h-12 w-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-xl group-hover/icon:scale-110 transition-transform duration-300" suppressHydrationWarning>
+              <div className="h-12 w-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg" suppressHydrationWarning>
                     <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                   </svg>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 backdrop-blur-sm rounded-full border border-green-500/20" suppressHydrationWarning>
-                  <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse shadow-lg" suppressHydrationWarning></div>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/20 rounded-full border border-green-500/30" suppressHydrationWarning>
+                <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" suppressHydrationWarning></div>
                   <span className="text-xs text-green-700 font-semibold">Live</span>
-                </div>
               </div>
-              <div className="text-center" suppressHydrationWarning>
-                <p className="text-sm font-semibold text-gray-600 mb-2">Pending Request</p>
-                <p className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent mb-3">{ops.pendingDepartmentRequests}</p>
-                <div className="relative h-2 bg-gray-200/60 rounded-full overflow-hidden" suppressHydrationWarning>
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full shadow-lg animate-pulse" style={{width: '75%'}} suppressHydrationWarning></div>
                 </div>
-              </div>
+            <div suppressHydrationWarning>
+              <p className="text-sm font-medium text-gray-700 mb-2">Pending Requests</p>
+              <p className="text-3xl font-bold text-gray-900 mb-3">{ops?.pendingDepartmentRequests ?? 0}</p>
+              
+              
             </div>
           </div>
 
-          <div className="group relative bg-gradient-to-br from-white via-amber-50/20 to-orange-50/30 backdrop-blur-xl rounded-3xl border border-white/40 shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-[1.02] hover:-translate-y-1" suppressHydrationWarning>
-            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-orange-600/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" suppressHydrationWarning></div>
-            <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-white/10 rounded-3xl" suppressHydrationWarning></div>
-            <div className="relative p-6" suppressHydrationWarning>
+          <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl border border-amber-200/50 p-4 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1" suppressHydrationWarning>
               <div className="flex items-center justify-between mb-4" suppressHydrationWarning>
-                <div className="relative group/icon" suppressHydrationWarning>
-                  <div className="absolute inset-0 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl blur-lg opacity-60 group-hover/icon:opacity-100 transition-opacity duration-300" suppressHydrationWarning></div>
-                  <div className="relative h-12 w-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-xl group-hover/icon:scale-110 transition-transform duration-300" suppressHydrationWarning>
+              <div className="h-12 w-12 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center shadow-lg" suppressHydrationWarning>
                     <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 backdrop-blur-sm rounded-full border border-green-500/20" suppressHydrationWarning>
-                  <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse shadow-lg" suppressHydrationWarning></div>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/20 rounded-full border border-green-500/30" suppressHydrationWarning>
+                <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" suppressHydrationWarning></div>
                   <span className="text-xs text-green-700 font-semibold">Live</span>
-                </div>
               </div>
-              <div className="text-center" suppressHydrationWarning>
-                <p className="text-sm font-semibold text-gray-600 mb-2" style={{textAlign: 'center'}}>Pending LPO</p>
-                <p className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent mb-3" style={{textAlign: 'center'}}>{ops.longOpenOrders}</p>
-                <div className="relative h-2 bg-gray-200/60 rounded-full overflow-hidden" suppressHydrationWarning>
-                  <div className="absolute inset-0 bg-gradient-to-r from-amber-500 to-orange-600 rounded-full shadow-lg animate-pulse" style={{width: '60%'}} suppressHydrationWarning></div>
                 </div>
-              </div>
+            <div suppressHydrationWarning>
+              <p className="text-sm font-medium text-gray-700 mb-2">Pending LPO</p>
+              <p className="text-3xl font-bold text-gray-900 mb-3">{ops?.longOpenOrders ?? 0}</p>
+              
+              
             </div>
           </div>
 
-          <div className="group relative bg-gradient-to-br from-white via-cyan-50/20 to-blue-50/30 backdrop-blur-xl rounded-3xl border border-white/40 shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-[1.02] hover:-translate-y-1" suppressHydrationWarning>
-            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-blue-600/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" suppressHydrationWarning></div>
-            <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-white/10 rounded-3xl" suppressHydrationWarning></div>
-            <div className="relative p-6" suppressHydrationWarning>
+          <div className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl border border-teal-200/50 p-4 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1" suppressHydrationWarning>
               <div className="flex items-center justify-between mb-4" suppressHydrationWarning>
-                <div className="relative group/icon" suppressHydrationWarning>
-                  <div className="absolute inset-0 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl blur-lg opacity-60 group-hover/icon:opacity-100 transition-opacity duration-300" suppressHydrationWarning></div>
-                  <div className="relative h-12 w-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-xl group-hover/icon:scale-110 transition-transform duration-300" suppressHydrationWarning>
+              <div className="h-12 w-12 bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg" suppressHydrationWarning>
                     <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                   </svg>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 backdrop-blur-sm rounded-full border border-green-500/20" suppressHydrationWarning>
-                  <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse shadow-lg" suppressHydrationWarning></div>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/20 rounded-full border border-green-500/30" suppressHydrationWarning>
+                <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" suppressHydrationWarning></div>
                   <span className="text-xs text-green-700 font-semibold">Live</span>
-                </div>
               </div>
-              <div className="text-center" suppressHydrationWarning>
-                <p className="text-sm font-semibold text-gray-600 mb-2">Pending Deliveries</p>
-                <p className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent mb-3">{ops.receivedNotPaid}</p>
-                <div className="relative h-2 bg-gray-200/60 rounded-full overflow-hidden" suppressHydrationWarning>
-                  <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full shadow-lg animate-pulse" style={{width: '85%'}} suppressHydrationWarning></div>
                 </div>
-              </div>
+            <div suppressHydrationWarning>
+              <p className="text-sm font-medium text-gray-700 mb-2">Pending Deliveries</p>
+              <p className="text-3xl font-bold text-gray-900 mb-3">{ops?.pendingDeliveries ?? 0}</p>
+              
+              
             </div>
           </div>
 
-          <div className="group relative bg-gradient-to-br from-white via-green-50/20 to-emerald-50/30 backdrop-blur-xl rounded-3xl border border-white/40 shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-[1.02] hover:-translate-y-1" suppressHydrationWarning>
-            <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-emerald-600/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" suppressHydrationWarning></div>
-            <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-white/10 rounded-3xl" suppressHydrationWarning></div>
-            <div className="relative p-6" suppressHydrationWarning>
+          <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl border border-green-200/50 p-4 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1" suppressHydrationWarning>
               <div className="flex items-center justify-between mb-4" suppressHydrationWarning>
-                <div className="relative group/icon" suppressHydrationWarning>
-                  <div className="absolute inset-0 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl blur-lg opacity-60 group-hover/icon:opacity-100 transition-opacity duration-300" suppressHydrationWarning></div>
-                  <div className="relative h-12 w-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-xl group-hover/icon:scale-110 transition-transform duration-300" suppressHydrationWarning>
+              <div className="h-12 w-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg" suppressHydrationWarning>
                     <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                   </svg>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 backdrop-blur-sm rounded-full border border-green-500/20" suppressHydrationWarning>
-                  <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse shadow-lg" suppressHydrationWarning></div>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/20 rounded-full border border-green-500/30" suppressHydrationWarning>
+                <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" suppressHydrationWarning></div>
                   <span className="text-xs text-green-700 font-semibold">Live</span>
-                </div>
               </div>
-              <div className="text-center" suppressHydrationWarning>
-                <p className="text-sm font-semibold text-gray-600 mb-2">Pending Payment</p>
-                <p className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent mb-3">{ops.receivedNotPaid}</p>
-                <div className="relative h-2 bg-gray-200/60 rounded-full overflow-hidden" suppressHydrationWarning>
-                  <div className="absolute inset-0 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full shadow-lg animate-pulse" style={{width: '70%'}} suppressHydrationWarning></div>
                 </div>
-              </div>
+            <div suppressHydrationWarning>
+              <p className="text-sm font-medium text-gray-700 mb-2">Pending Payment</p>
+              <p className="text-3xl font-bold text-gray-900 mb-3">{ops?.pendingPayments ?? 0}</p>
+              
+              
             </div>
           </div>
 
-          <div className="group relative bg-gradient-to-br from-white via-purple-50/20 to-pink-50/30 backdrop-blur-xl rounded-3xl border border-white/40 shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-[1.02] hover:-translate-y-1" suppressHydrationWarning>
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-pink-600/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" suppressHydrationWarning></div>
-            <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-white/10 rounded-3xl" suppressHydrationWarning></div>
-            <div className="relative p-6" suppressHydrationWarning>
+          <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl border border-purple-200/50 p-4 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1" suppressHydrationWarning>
               <div className="flex items-center justify-between mb-4" suppressHydrationWarning>
-                <div className="relative group/icon" suppressHydrationWarning>
-                  <div className="absolute inset-0 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl blur-lg opacity-60 group-hover/icon:opacity-100 transition-opacity duration-300" suppressHydrationWarning></div>
-                  <div className="relative h-12 w-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-xl group-hover/icon:scale-110 transition-transform duration-300" suppressHydrationWarning>
+              <div className="h-12 w-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg" suppressHydrationWarning>
                     <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 backdrop-blur-sm rounded-full border border-green-500/20" suppressHydrationWarning>
-                  <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse shadow-lg" suppressHydrationWarning></div>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/20 rounded-full border border-green-500/30" suppressHydrationWarning>
+                <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" suppressHydrationWarning></div>
                   <span className="text-xs text-green-700 font-semibold">Live</span>
-                </div>
               </div>
-              <div className="text-center" suppressHydrationWarning>
-                <p className="text-sm font-semibold text-gray-600 mb-2">Pending Approval</p>
-                <p className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent mb-3">{ops.pendingApproval}</p>
-                <div className="relative h-2 bg-gray-200/60 rounded-full overflow-hidden" suppressHydrationWarning>
-                  <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full shadow-lg animate-pulse" style={{width: '90%'}} suppressHydrationWarning></div>
                 </div>
-              </div>
+            <div suppressHydrationWarning>
+              <p className="text-sm font-medium text-gray-700 mb-2">Pending Approval</p>
+              <p className="text-3xl font-bold text-gray-900 mb-3">{ops?.pendingApprovals ?? 0}</p>
+              
+              
             </div>
           </div>
 
-          <div className="group relative bg-gradient-to-br from-white via-red-50/20 to-orange-50/30 backdrop-blur-xl rounded-3xl border border-white/40 shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-[1.02] hover:-translate-y-1" suppressHydrationWarning>
-            <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-orange-600/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" suppressHydrationWarning></div>
-            <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-white/10 rounded-3xl" suppressHydrationWarning></div>
-            <div className="relative p-6" suppressHydrationWarning>
+          <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl border border-red-200/50 p-4 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1" suppressHydrationWarning>
               <div className="flex items-center justify-between mb-4" suppressHydrationWarning>
-                <div className="relative group/icon" suppressHydrationWarning>
-                  <div className="absolute inset-0 bg-gradient-to-br from-red-500 to-orange-600 rounded-2xl blur-lg opacity-60 group-hover/icon:opacity-100 transition-opacity duration-300" suppressHydrationWarning></div>
-                  <div className="relative h-12 w-12 bg-gradient-to-br from-red-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-xl group-hover/icon:scale-110 transition-transform duration-300" suppressHydrationWarning>
+              <div className="h-12 w-12 bg-gradient-to-br from-red-500 to-red-600 rounded-xl flex items-center justify-center shadow-lg" suppressHydrationWarning>
                     <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
                   </svg>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 backdrop-blur-sm rounded-full border border-green-500/20" suppressHydrationWarning>
-                  <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse shadow-lg" suppressHydrationWarning></div>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/20 rounded-full border border-green-500/30" suppressHydrationWarning>
+                <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" suppressHydrationWarning></div>
                   <span className="text-xs text-green-700 font-semibold">Live</span>
-                </div>
               </div>
-              <div className="text-center" suppressHydrationWarning>
-                <p className="text-sm font-semibold text-gray-600 mb-2">Pending Penalty</p>
-                <p className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent mb-3">{ops.overdueDeliveries}</p>
-                <div className="relative h-2 bg-gray-200/60 rounded-full overflow-hidden" suppressHydrationWarning>
-                  <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-orange-600 rounded-full shadow-lg animate-pulse" style={{width: '45%'}} suppressHydrationWarning></div>
                 </div>
-              </div>
+            <div suppressHydrationWarning>
+              <p className="text-sm font-medium text-gray-700 mb-2">Pending Penalty</p>
+              <p className="text-3xl font-bold text-gray-900 mb-3">{ops?.pendingPenalties ?? 0}</p>
+              
+              
             </div>
           </div>
       </section>
 
-        {/* Modern Content Grid */}
-      <section className="grid gap-8 lg:grid-cols-3" suppressHydrationWarning>
-          <div className="lg:col-span-2 space-y-8" suppressHydrationWarning>
-            <div className="group relative bg-gradient-to-br from-white via-blue-50/20 to-indigo-50/30 backdrop-blur-xl rounded-3xl border border-white/40 shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-[1.01]" suppressHydrationWarning>
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-indigo-600/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" suppressHydrationWarning></div>
-              <div className="relative p-8 border-b border-white/40" suppressHydrationWarning>
-                <div className="flex items-center gap-6" suppressHydrationWarning>
-                  <div className="relative group/icon" suppressHydrationWarning>
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl blur-lg opacity-60 group-hover/icon:opacity-100 transition-opacity duration-300" suppressHydrationWarning></div>
-                    <div className="relative h-14 w-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-2xl group-hover/icon:scale-110 transition-transform duration-300" suppressHydrationWarning>
-                      <svg className="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+        {/* Main Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-4" suppressHydrationWarning>
+          
+          {/* Left Column - Alerts */}
+          <div className="space-y-4 md:space-y-6" suppressHydrationWarning>
+            <div className="bg-white rounded-xl border border-gray-200 p-5 md:p-6 shadow-sm" suppressHydrationWarning>
+              <div className="flex items-center gap-3 mb-4" suppressHydrationWarning>
+                <div className="h-8 w-8 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0" suppressHydrationWarning>
+                  <svg className="h-4 w-4 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
                     </svg>
-                    </div>
                   </div>
                   <div suppressHydrationWarning>
-                    <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-900 to-indigo-900 bg-clip-text text-transparent">Fast Moving Drugs</h2>
-                    <p className="text-sm text-gray-600 mt-1">Top performing pharmaceutical items by movement volume</p>
-                  </div>
-                </div>
-              </div>
-              <div className="relative p-8" suppressHydrationWarning>
-                <FastMovingTable items={fastMovingDrugs} />
+                  <h3 className="text-base md:text-lg font-semibold text-gray-900">Low Stock Alert</h3>
+                  <p className="text-xs md:text-sm text-gray-600 hidden sm:block">Items requiring attention</p>
               </div>
             </div>
 
-            <div className="group relative bg-gradient-to-br from-white via-green-50/20 to-emerald-50/30 backdrop-blur-xl rounded-3xl border border-white/40 shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-[1.01]" suppressHydrationWarning>
-              <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-emerald-600/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" suppressHydrationWarning></div>
-              <div className="relative p-8 border-b border-white/40" suppressHydrationWarning>
-                <div className="flex items-center gap-6" suppressHydrationWarning>
-                  <div className="relative group/icon" suppressHydrationWarning>
-                    <div className="absolute inset-0 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl blur-lg opacity-60 group-hover/icon:opacity-100 transition-opacity duration-300" suppressHydrationWarning></div>
-                    <div className="relative h-14 w-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-2xl group-hover/icon:scale-110 transition-transform duration-300" suppressHydrationWarning>
-                      <svg className="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              {/* Drug Category */}
+              <div className="mb-4" suppressHydrationWarning>
+                <div className="flex items-center gap-2 mb-3" suppressHydrationWarning>
+                  <div className="h-6 w-6 bg-blue-100 rounded-md flex items-center justify-center" suppressHydrationWarning>
+                    <svg className="h-3 w-3 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    </div>
                   </div>
-                  <div suppressHydrationWarning>
-                    <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-green-900 to-emerald-900 bg-clip-text text-transparent">Fast Moving Non-Drugs</h2>
-                    <p className="text-sm text-gray-600 mt-1">Top performing medical supplies and equipment by movement volume</p>
+                  <h4 className="text-sm font-semibold text-gray-800">Drug</h4>
+                </div>
+                <div className="space-y-2" suppressHydrationWarning>
+                  {lowStock.filter(item => item.category === 'Drug').slice(0, 5).map((item, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200" suppressHydrationWarning>
+                      <div className="flex-1 min-w-0" suppressHydrationWarning>
+                        <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
+                        <p className="text-xs text-gray-600">Exp: {item.expiry} | Batch: {item.batchNo}</p>
+                        <p className="text-xs text-gray-600">Location: {item.location || '-'}</p>
                   </div>
+                      <div className="flex items-center justify-center h-8 w-8 bg-red-500 rounded-full text-white text-xs font-bold flex-shrink-0 ml-2" suppressHydrationWarning>
+                        {Math.max(item.onHand - item.minLevel, 0)}
                 </div>
               </div>
-              <div className="relative p-8" suppressHydrationWarning>
-                <FastMovingTable items={fastMovingNonDrugs} />
+                  ))}
               </div>
             </div>
 
-            <div className="group relative bg-gradient-to-br from-white via-amber-50/20 to-orange-50/30 backdrop-blur-xl rounded-3xl border border-white/40 shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-[1.01]" suppressHydrationWarning>
-              <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-orange-600/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" suppressHydrationWarning></div>
-              <div className="relative p-8 border-b border-white/40" suppressHydrationWarning>
-                <div className="flex items-center gap-6" suppressHydrationWarning>
-                  <div className="relative group/icon" suppressHydrationWarning>
-                    <div className="absolute inset-0 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl blur-lg opacity-60 group-hover/icon:opacity-100 transition-opacity duration-300" suppressHydrationWarning></div>
-                    <div className="relative h-14 w-14 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-2xl group-hover/icon:scale-110 transition-transform duration-300" suppressHydrationWarning>
-                      <svg className="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              {/* Non-Drug Category */}
+              <div suppressHydrationWarning>
+                <div className="flex items-center gap-2 mb-3" suppressHydrationWarning>
+                  <div className="h-6 w-6 bg-green-100 rounded-md flex items-center justify-center" suppressHydrationWarning>
+                    <svg className="h-3 w-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                     </svg>
-                    </div>
                   </div>
-                  <div suppressHydrationWarning>
-                    <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-amber-900 to-orange-900 bg-clip-text text-transparent">Slow Moving Drugs</h2>
-                    <p className="text-sm text-gray-600 mt-1">Pharmaceutical items requiring attention and optimization</p>
-                  </div>
+                  <h4 className="text-sm font-semibold text-gray-800">Non-Drug</h4>
                 </div>
-              </div>
-              <div className="relative p-8" suppressHydrationWarning>
-                <FastMovingTable items={slowMovingDrugs} />
+                <div className="space-y-2" suppressHydrationWarning>
+                  {lowStock.filter(item => item.category === 'Non-drug').slice(0, 5).map((item, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200" suppressHydrationWarning>
+                      <div className="flex-1 min-w-0" suppressHydrationWarning>
+                        <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
+                        <p className="text-xs text-gray-600">Exp: {item.expiry} | Batch: {item.batchNo}</p>
+                        <p className="text-xs text-gray-600">Location: {item.location || '-'}</p>
+                      </div>
+                      <div className="flex items-center justify-center h-8 w-8 bg-red-500 rounded-full text-white text-xs font-bold flex-shrink-0 ml-2" suppressHydrationWarning>
+                        {Math.max(item.onHand - item.minLevel, 0)}
+                      </div>
+                  </div>
+                  ))}
+                </div>
               </div>
             </div>
 
-            <div className="group relative bg-gradient-to-br from-white via-purple-50/20 to-pink-50/30 backdrop-blur-xl rounded-3xl border border-white/40 shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-[1.01]" suppressHydrationWarning>
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-pink-600/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" suppressHydrationWarning></div>
-              <div className="relative p-8 border-b border-white/40" suppressHydrationWarning>
-                <div className="flex items-center gap-6" suppressHydrationWarning>
-                  <div className="relative group/icon" suppressHydrationWarning>
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl blur-lg opacity-60 group-hover/icon:opacity-100 transition-opacity duration-300" suppressHydrationWarning></div>
-                    <div className="relative h-14 w-14 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-2xl group-hover/icon:scale-110 transition-transform duration-300" suppressHydrationWarning>
-                      <svg className="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2v-6m16 0V8a2 2 0 00-2-2H6a2 2 0 00-2 2v4m16 0H4" />
-                    </svg>
-                    </div>
-                  </div>
-                  <div suppressHydrationWarning>
-                    <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-purple-900 to-pink-900 bg-clip-text text-transparent">Slow Moving Non-Drugs</h2>
-                    <p className="text-sm text-gray-600 mt-1">Medical supplies and equipment requiring inventory review</p>
-                  </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-5 md:p-6 shadow-sm" suppressHydrationWarning>
+              <div className="flex items-center gap-3 mb-4" suppressHydrationWarning>
+                <div className="h-8 w-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0" suppressHydrationWarning>
+                  <svg className="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                  </svg>
+                </div>
+                <div suppressHydrationWarning>
+                  <h3 className="text-base md:text-lg font-semibold text-gray-900">Fast Moving Items</h3>
+                  <p className="text-xs md:text-sm text-gray-600 hidden sm:block">Top performing drugs and medical supplies</p>
                 </div>
               </div>
-              <div className="relative p-8" suppressHydrationWarning>
-                <FastMovingTable items={slowMovingNonDrugs} />
+
+              {/* Drug Category */}
+              <div className="mb-4" suppressHydrationWarning>
+                <div className="flex items-center gap-2 mb-3" suppressHydrationWarning>
+                  <div className="h-6 w-6 bg-blue-100 rounded-md flex items-center justify-center" suppressHydrationWarning>
+                    <svg className="h-3 w-3 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <h4 className="text-sm font-semibold text-gray-800">Drug</h4>
+                </div>
+                <FastMovingTable items={fastMovingDrugs} bare />
+              </div>
+
+              {/* Non-Drug Category */}
+                  <div suppressHydrationWarning>
+                <div className="flex items-center gap-2 mb-3" suppressHydrationWarning>
+                  <div className="h-6 w-6 bg-green-100 rounded-md flex items-center justify-center" suppressHydrationWarning>
+                    <svg className="h-3 w-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                  </div>
+                  <h4 className="text-sm font-semibold text-gray-800">Non-Drug</h4>
+                </div>
+                <FastMovingTable items={fastMovingNonDrugs} bare />
               </div>
             </div>
         </div>
 
-          <div className="space-y-8" suppressHydrationWarning>
-            <div className="group relative bg-gradient-to-br from-white via-red-50/20 to-orange-50/30 backdrop-blur-xl rounded-3xl border border-white/40 shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-[1.02]" suppressHydrationWarning>
-              <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-orange-600/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" suppressHydrationWarning></div>
-              <div className="relative p-8 border-b border-white/40" suppressHydrationWarning>
-                <div className="flex items-center gap-6" suppressHydrationWarning>
-                  <div className="relative group/icon" suppressHydrationWarning>
-                    <div className="absolute inset-0 bg-gradient-to-br from-red-500 to-orange-600 rounded-2xl blur-lg opacity-60 group-hover/icon:opacity-100 transition-opacity duration-300" suppressHydrationWarning></div>
-                    <div className="relative h-14 w-14 bg-gradient-to-br from-red-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-2xl group-hover/icon:scale-110 transition-transform duration-300" suppressHydrationWarning>
-                      <svg className="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                    </svg>
-                    </div>
-                  </div>
-                  <div suppressHydrationWarning>
-                    <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-red-900 to-orange-900 bg-clip-text text-transparent">Low Stock Alert</h2>
-                    <p className="text-sm text-gray-600 mt-1">Items requiring immediate attention</p>
-                  </div>
+            {/* Expiring Soon */}
+            <div className="bg-white rounded-xl border border-gray-200 p-5 md:p-6 shadow-sm" suppressHydrationWarning>
+              <div className="flex items-center gap-3 mb-4" suppressHydrationWarning>
+                <div className="h-8 w-8 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0" suppressHydrationWarning>
+                  <svg className="h-4 w-4 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                 </div>
+                <div suppressHydrationWarning>
+                  <h3 className="text-base md:text-lg font-semibold text-gray-900">Expiring Soon</h3>
+                  <p className="text-xs md:text-sm text-gray-600 hidden sm:block">Within 90 days</p>
               </div>
-              <div className="relative p-8" suppressHydrationWarning>
-                <div className="space-y-4" suppressHydrationWarning>
-              {lowStock.length === 0 ? (
-                    <div className="text-sm text-gray-600 p-8 text-center bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl border border-green-200/50">
-                      <div className="flex items-center justify-center mb-2">
-                        <svg className="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
+            </div>
+
+              {/* Drug Category */}
+              <div className="mb-4" suppressHydrationWarning>
+                <div className="flex items-center gap-2 mb-3" suppressHydrationWarning>
+                  <div className="h-6 w-6 bg-blue-100 rounded-md flex items-center justify-center" suppressHydrationWarning>
+                    <svg className="h-3 w-3 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <h4 className="text-sm font-semibold text-gray-800">Drug</h4>
+                </div>
+                <div className="space-y-2" suppressHydrationWarning>
+                  {expiringSoon.filter(item => item.category === 'Drug').slice(0, 3).map((item, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-orange-50 rounded-lg border border-orange-200" suppressHydrationWarning>
+                      <div className="flex-1 min-w-0" suppressHydrationWarning>
+                        <p className="text-sm font-medium text-gray-900 truncate">{item.itemName}</p>
+                        <p className="text-xs text-gray-600">Exp: {item.expiry} | Batch: {item.batchNo}</p>
+                        <p className="text-xs text-gray-600">Location: {item.location || '-'}</p>
+              </div>
+                      <div className="text-xs text-orange-700 font-medium flex-shrink-0 ml-2" suppressHydrationWarning>
+                        {item.daysLeft}d
                       </div>
-                      <div className="font-semibold text-green-800">All items well-stocked</div>
-                      <div className="text-green-600">No low stock alerts</div>
                     </div>
-                  ) : (
-                    lowStock.map(it => (
-                      <div key={it.id} className="group/item flex items-center justify-between p-6 bg-gradient-to-r from-white/90 via-red-50/20 to-orange-50/30 backdrop-blur-sm rounded-2xl border border-red-200/40 hover:from-white hover:to-red-50/40 transition-all duration-300 shadow-sm hover:shadow-lg" suppressHydrationWarning>
-                        <div className="min-w-0 flex-1" suppressHydrationWarning>
-                          <div className="text-sm font-bold text-gray-900 truncate group-hover/item:text-gray-700">{it.name}</div>
-                          <div className="text-xs text-gray-600 mt-1 flex items-center gap-2">
-                            <span>On-hand: <span className="font-semibold text-red-600">{it.onHand}</span></span>
-                            <span>•</span>
-                            <span>Min: <span className="font-semibold">{it.minLevel}</span></span>
-                          </div>
-                        </div>
-                        <div className="ml-4" suppressHydrationWarning>
-                          <span className="inline-flex items-center px-4 py-2 rounded-full text-xs font-bold bg-gradient-to-r from-red-500 to-orange-500 text-white border border-red-500/20 shadow-sm">
-                            -{it.deficit}
-                          </span>
-                        </div>
+                  ))}
+              </div>
+            </div>
+
+              {/* Non-Drug Category */}
+              <div suppressHydrationWarning>
+                <div className="flex items-center gap-2 mb-3" suppressHydrationWarning>
+                  <div className="h-6 w-6 bg-green-100 rounded-md flex items-center justify-center" suppressHydrationWarning>
+                    <svg className="h-3 w-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                  </div>
+                  <h4 className="text-sm font-semibold text-gray-800">Non-Drug</h4>
+                </div>
+                <div className="space-y-2" suppressHydrationWarning>
+                  {expiringSoon.filter(item => item.category === 'Non-drug').slice(0, 5).map((item, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-orange-50 rounded-lg border border-orange-200" suppressHydrationWarning>
+                      <div className="flex-1 min-w-0" suppressHydrationWarning>
+                        <p className="text-sm font-medium text-gray-900 truncate">{item.itemName}</p>
+                        <p className="text-xs text-gray-600">Exp: {item.expiry} | Batch: {item.batchNo}</p>
+                        <p className="text-xs text-gray-600">Location: {item.location || '-'}</p>
                       </div>
-                    ))
-              )}
+                      <div className="text-xs text-orange-700 font-medium flex-shrink-0 ml-2" suppressHydrationWarning>
+                        {item.daysLeft}d
+                      </div>
+                  </div>
+                  ))}
                 </div>
               </div>
             </div>
 
-            <div className="group relative bg-gradient-to-br from-white via-yellow-50/20 to-amber-50/30 backdrop-blur-xl rounded-3xl border border-white/40 shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-[1.02]" suppressHydrationWarning>
-              <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/5 to-amber-600/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" suppressHydrationWarning></div>
-              <div className="relative p-8 border-b border-white/40" suppressHydrationWarning>
-                <div className="flex items-center gap-6" suppressHydrationWarning>
-                  <div className="relative group/icon" suppressHydrationWarning>
-                    <div className="absolute inset-0 bg-gradient-to-br from-yellow-500 to-amber-600 rounded-2xl blur-lg opacity-60 group-hover/icon:opacity-100 transition-opacity duration-300" suppressHydrationWarning></div>
-                    <div className="relative h-14 w-14 bg-gradient-to-br from-yellow-500 to-amber-600 rounded-2xl flex items-center justify-center shadow-2xl group-hover/icon:scale-110 transition-transform duration-300" suppressHydrationWarning>
-                      <svg className="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    </div>
-                  </div>
-                  <div suppressHydrationWarning>
-                    <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-yellow-900 to-amber-900 bg-clip-text text-transparent">Expiring Soon</h2>
-                    <p className="text-sm text-gray-600 mt-1">Items expiring within 90 days</p>
-                  </div>
-                </div>
-              </div>
-              <div className="relative p-8" suppressHydrationWarning>
-                <div className="space-y-4" suppressHydrationWarning>
-              {expiringSoon.length === 0 ? (
-                    <div className="text-sm text-gray-600 p-8 text-center bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl border border-green-200/50">
-                      <div className="flex items-center justify-center mb-2">
-                        <svg className="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            {/* Slow Moving - Combined */}
+            <div className="bg-white rounded-xl border border-gray-200 p-5 md:p-6 shadow-sm" suppressHydrationWarning>
+              <div className="flex items-center gap-3 mb-4" suppressHydrationWarning>
+                <div className="h-8 w-8 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0" suppressHydrationWarning>
+                  <svg className="h-4 w-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 17l4 4 4-4m0-10l-4-4-4 4" />
                         </svg>
                       </div>
-                      <div className="font-semibold text-green-800">All batches fresh</div>
-                      <div className="text-green-600">No near-expiry items</div>
-                    </div>
-                  ) : (
-                    expiringSoon.map(b => (
-                      <div key={b.id} className="group/item flex items-center justify-between p-6 bg-gradient-to-r from-white/90 via-yellow-50/20 to-amber-50/30 backdrop-blur-sm rounded-2xl border border-yellow-200/40 hover:from-white hover:to-yellow-50/40 transition-all duration-300 shadow-sm hover:shadow-lg" suppressHydrationWarning>
-                        <div className="min-w-0 flex-1" suppressHydrationWarning>
-                          <div className="text-sm font-bold text-gray-900 truncate group-hover/item:text-gray-700">{b.itemName}</div>
-                          <div className="text-xs text-gray-600 mt-1 flex items-center gap-2">
-                            <span>Batch: <span className="font-semibold">{b.id}</span></span>
-                            <span>•</span>
-                            <span>Qty: <span className="font-semibold">{b.quantity}</span></span>
-                            <span>•</span>
-                            <span>Exp: <span className="font-semibold text-amber-600">{b.expiry}</span></span>
+                <div suppressHydrationWarning>
+                  <h3 className="text-base md:text-lg font-semibold text-gray-900">Slow Moving Items</h3>
+                  <p className="text-xs md:text-sm text-gray-600 hidden sm:block">Lowest monthly usage</p>
                           </div>
                         </div>
-                        <div className="ml-4" suppressHydrationWarning>
-                          <span className={`inline-flex items-center px-4 py-2 rounded-full text-xs font-bold border shadow-sm ${
-                            b.daysLeft <= 30 
-                              ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white border-red-500/20' 
-                              : b.daysLeft <= 60 
-                              ? 'bg-gradient-to-r from-yellow-500 to-amber-500 text-white border-yellow-500/20'
-                              : 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white border-blue-500/20'
-                          }`}>
-                            {b.daysLeft}d
-                          </span>
-                        </div>
-                      </div>
-                    ))
-              )}
+
+              {/* Drug Category */}
+              <div className="mb-4" suppressHydrationWarning>
+                <div className="flex items-center gap-2 mb-3" suppressHydrationWarning>
+                  <div className="h-6 w-6 bg-blue-100 rounded-md flex items-center justify-center" suppressHydrationWarning>
+                    <svg className="h-3 w-3 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <h4 className="text-sm font-semibold text-gray-800">Drug</h4>
                 </div>
+                <FastMovingTable items={slowMovingDrugs} bare />
+                        </div>
+
+              {/* Non-Drug Category */}
+              <div suppressHydrationWarning>
+                <div className="flex items-center gap-2 mb-3" suppressHydrationWarning>
+                  <div className="h-6 w-6 bg-green-100 rounded-md flex items-center justify-center" suppressHydrationWarning>
+                    <svg className="h-3 w-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                      </div>
+                  <h4 className="text-sm font-semibold text-gray-800">Non-Drug</h4>
+                </div>
+                <FastMovingTable items={slowMovingNonDrugs} bare />
               </div>
             </div>
         </div>
-      </section>
       </div>
     </div>
   );
 }
-
-

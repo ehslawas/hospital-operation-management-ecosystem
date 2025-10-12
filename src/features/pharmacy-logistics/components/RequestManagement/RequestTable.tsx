@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { DepartmentRequest, RequestStatus, Department, RequestPriority } from '../../types/RequestWorkflow';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface RequestTableProps {
   requests: DepartmentRequest[];
@@ -253,4 +253,5 @@ export function RequestTable({ requests, onRequestSelect, onStatusUpdate }: Requ
     </div>
   );
 }
+
 

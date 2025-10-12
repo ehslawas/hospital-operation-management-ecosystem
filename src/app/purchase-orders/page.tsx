@@ -39,6 +39,7 @@ interface PurchaseOrderItem {
 
 export default function PurchaseOrdersPage() {
   const [isClient, setIsClient] = useState(false);
+  const [department, setDepartment] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
@@ -663,6 +664,11 @@ export default function PurchaseOrdersPage() {
 
   useEffect(() => {
     setIsClient(true);
+    if (typeof document !== 'undefined') {
+      const dept = localStorage.getItem('department') ||
+        document.cookie.split('; ').find(r => r.startsWith('department='))?.split('=')[1] || '';
+      try { setDepartment(decodeURIComponent(dept)); } catch { setDepartment(dept); }
+    }
   }, []);
 
   if (!isClient) return null;
@@ -861,8 +867,14 @@ export default function PurchaseOrdersPage() {
               Showing <span className="font-semibold text-slate-700">{filteredOrders.length}</span> of <span className="font-semibold text-slate-700">{purchaseOrders.length}</span> orders
             </div>
             <button
-              onClick={() => setShowCreateModal(true)}
-              className="px-10 py-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white rounded-2xl hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 transition-all duration-300 font-bold flex items-center gap-3 shadow-2xl hover:shadow-3xl transform hover:scale-105 hover:-translate-y-1"
+              onClick={department === 'Office Admin' ? undefined : () => setShowCreateModal(true)}
+              className={`px-10 py-4 rounded-2xl font-bold flex items-center gap-3 transition-all duration-300 ${
+                department === 'Office Admin'
+                  ? 'bg-slate-300 text-slate-600 cursor-not-allowed shadow'
+                  : 'bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 shadow-2xl hover:shadow-3xl transform hover:scale-105 hover:-translate-y-1'
+              }`}
+              title={department === 'Office Admin' ? 'View-only for Office Admin' : 'Create New PO'}
+              aria-disabled={department === 'Office Admin'}
             >
               <IconPlus className="h-5 w-5" />
               Create New PO
@@ -1022,7 +1034,7 @@ export default function PurchaseOrdersPage() {
         )}
 
         {/* Create PO Modal */}
-        {showCreateModal && (
+        {showCreateModal && department !== 'Office Admin' && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
               <div className="p-6 border-b border-slate-200">

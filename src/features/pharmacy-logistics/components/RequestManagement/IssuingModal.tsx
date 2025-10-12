@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { DepartmentRequest, IssuedItem } from '../../types/RequestWorkflow';
 import { getBatches } from '../../services/dataStore';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface IssuingModalProps {
   request: DepartmentRequest | null;
@@ -278,4 +278,5 @@ export function IssuingModal({ request, isOpen, onClose, onIssue }: IssuingModal
     </div>
   );
 }
+
 

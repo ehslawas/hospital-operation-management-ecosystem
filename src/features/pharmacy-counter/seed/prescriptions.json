@@ -1,0 +1,222 @@
+[
+  {
+    "id": "RX001",
+    "prescriptionNumber": "RX-2025-10-001",
+    "patientId": "PAT001",
+    "prescriberName": "Dr. Lim Wei Ming",
+    "prescriberMmc": "MMC-12345",
+    "department": "General Medicine",
+    "date": "2025-10-11T08:30:00Z",
+    "items": [
+      {
+        "drugCode": "METF500",
+        "dose": "500 mg",
+        "frequency": "BD",
+        "route": "PO",
+        "duration": "1/12",
+        "quantity": 60,
+        "remarks": "Take with meals"
+      },
+      {
+        "drugCode": "AMLO5",
+        "dose": "5 mg",
+        "frequency": "OD",
+        "route": "PO",
+        "duration": "1/12",
+        "quantity": 30,
+        "remarks": ""
+      },
+      {
+        "drugCode": "ATOR20",
+        "dose": "20 mg",
+        "frequency": "ON",
+        "route": "PO",
+        "duration": "1/12",
+        "quantity": 30,
+        "remarks": "Take at bedtime"
+      }
+    ],
+    "source": "OPD",
+    "status": "dispensed",
+    "priority": "routine",
+    "diagnosis": "Type 2 Diabetes Mellitus, Hypertension, Hyperlipidemia",
+    "screenedBy": "Pharmacist Sarah Tan",
+    "screenedAt": "2025-10-11T09:00:00Z",
+    "dispensedBy": "Pharmacist Sarah Tan",
+    "dispensedAt": "2025-10-11T09:15:00Z",
+    "collectedAt": "2025-10-11T09:30:00Z",
+    "totalAmount": 15.50
+  },
+  {
+    "id": "RX002",
+    "prescriptionNumber": "RX-2025-10-002",
+    "patientId": "PAT002",
+    "prescriberName": "Dr. Kumar Velan",
+    "prescriberMmc": "MMC-23456",
+    "department": "Emergency & Trauma",
+    "date": "2025-10-11T09:00:00Z",
+    "items": [
+      {
+        "drugCode": "AMOX500",
+        "dose": "500 mg",
+        "frequency": "TDS",
+        "route": "PO",
+        "duration": "5/7",
+        "quantity": 15,
+        "remarks": "Complete full course"
+      },
+      {
+        "drugCode": "PARA500",
+        "dose": "1000 mg",
+        "frequency": "QID PRN",
+        "route": "PO",
+        "duration": "5/7",
+        "quantity": 20,
+        "remarks": "For pain and fever"
+      }
+    ],
+    "source": "Emergency",
+    "status": "ready",
+    "priority": "urgent",
+    "diagnosis": "Upper Respiratory Tract Infection",
+    "screenedBy": "Pharmacist John Wong",
+    "screenedAt": "2025-10-11T09:10:00Z",
+    "dispensedBy": "Pharmacist John Wong",
+    "dispensedAt": "2025-10-11T09:25:00Z"
+  },
+  {
+    "id": "RX003",
+    "prescriptionNumber": "RX-2025-10-003",
+    "patientId": "PAT003",
+    "prescriberName": "Dr. Chan Kok Wai",
+    "prescriberMmc": "MMC-34567",
+    "department": "Orthopedics",
+    "date": "2025-10-11T09:30:00Z",
+    "items": [
+      {
+        "drugCode": "DICLO50",
+        "dose": "50 mg",
+        "frequency": "TDS",
+        "route": "PO",
+        "duration": "5/7",
+        "quantity": 15,
+        "remarks": "Take with food"
+      },
+      {
+        "drugCode": "OMEP20",
+        "dose": "20 mg",
+        "frequency": "OD",
+        "route": "PO",
+        "duration": "5/7",
+        "quantity": 5,
+        "remarks": "Take before breakfast"
+      }
+    ],
+    "source": "OPD",
+    "status": "verified",
+    "priority": "routine",
+    "diagnosis": "Right knee sprain with pain",
+    "screenedBy": "Pharmacist Sarah Tan",
+    "screenedAt": "2025-10-11T09:45:00Z"
+  },
+  {
+    "id": "RX004",
+    "prescriptionNumber": "RX-2025-10-004",
+    "patientId": "PAT004",
+    "prescriberName": "Dr. Faridah Ahmad",
+    "prescriberMmc": "MMC-45678",
+    "department": "Psychiatry",
+    "date": "2025-10-11T10:00:00Z",
+    "items": [
+      {
+        "drugCode": "FLUOX20",
+        "dose": "20 mg",
+        "frequency": "OD",
+        "route": "PO",
+        "duration": "1/12",
+        "quantity": 30,
+        "remarks": "Take in the morning"
+      }
+    ],
+    "source": "Specialist Clinic",
+    "status": "screening",
+    "priority": "routine",
+    "diagnosis": "Major Depressive Disorder"
+  },
+  {
+    "id": "RX005",
+    "prescriptionNumber": "RX-2025-10-005",
+    "patientId": "PAT005",
+    "prescriberName": "Dr. Azizah Rahman",
+    "prescriberMmc": "MMC-56789",
+    "department": "Cardiology",
+    "date": "2025-10-11T10:15:00Z",
+    "items": [
+      {
+        "drugCode": "ASA100",
+        "dose": "100 mg",
+        "frequency": "OD",
+        "route": "PO",
+        "duration": "1/12",
+        "quantity": 30,
+        "remarks": "Dissolve in water, take after food"
+      },
+      {
+        "drugCode": "ATOR20",
+        "dose": "40 mg",
+        "frequency": "ON",
+        "route": "PO",
+        "duration": "1/12",
+        "quantity": 30,
+        "remarks": "Take at bedtime"
+      },
+      {
+        "drugCode": "BISO5",
+        "dose": "5 mg",
+        "frequency": "OD",
+        "route": "PO",
+        "duration": "1/12",
+        "quantity": 30,
+        "remarks": "Take in the morning"
+      }
+    ],
+    "source": "Specialist Clinic",
+    "status": "new",
+    "priority": "urgent",
+    "diagnosis": "Acute Coronary Syndrome, post-PCI"
+  },
+  {
+    "id": "RX006",
+    "prescriptionNumber": "RX-2025-10-006",
+    "patientId": "PAT006",
+    "prescriberName": "Dr. Salmah Hassan",
+    "prescriberMmc": "MMC-67890",
+    "department": "Respiratory",
+    "date": "2025-10-11T10:30:00Z",
+    "items": [
+      {
+        "drugCode": "SALB200",
+        "dose": "200 mcg",
+        "frequency": "2 puffs QID PRN",
+        "route": "Inhalation",
+        "duration": "1/12",
+        "quantity": 2,
+        "remarks": "Use with spacer if available"
+      },
+      {
+        "drugCode": "PRED5",
+        "dose": "30 mg",
+        "frequency": "OD",
+        "route": "PO",
+        "duration": "5/7",
+        "quantity": 30,
+        "remarks": "Take in the morning with food"
+      }
+    ],
+    "source": "OPD",
+    "status": "new",
+    "priority": "urgent",
+    "diagnosis": "Acute asthma exacerbation"
+  }
+]
+

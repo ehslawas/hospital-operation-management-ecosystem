@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { VarianceReport } from '../../types/RequestWorkflow';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface VarianceReportProps {
   varianceReports: VarianceReport[];
@@ -247,4 +247,5 @@ export function VarianceReportComponent({ varianceReports }: VarianceReportProps
     </div>
   );
 }
+
 

@@ -54,6 +54,7 @@ interface OrderTracking {
 
 export default function OrderTrackingPage() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [department, setDepartment] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [showEmailModal, setShowEmailModal] = useState(false);
@@ -298,6 +299,15 @@ Pharmacy Logistics Team
     alert(`${reminderText} sent to ${order.supplier} (${order.supplierEmail})`);
   };
 
+  // Load department for role-gated UI
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      const dept = localStorage.getItem('department') ||
+        document.cookie.split('; ').find(r => r.startsWith('department='))?.split('=')[1] || '';
+      try { setDepartment(decodeURIComponent(dept)); } catch { setDepartment(dept); }
+    }
+  }, []);
+
   // Auto-send emails for overdue orders (simulate)
   useEffect(() => {
     const overdueOrders = orders.filter(o => o.status === 'OVERDUE' && !o.lastEmailSent);
@@ -324,8 +334,10 @@ Pharmacy Logistics Team
               <p className="text-slate-600 mt-2">Track purchase orders with LPOs and monitor delivery status</p>
             </div>
             <button
-              onClick={() => window.location.reload()}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              onClick={department === 'Office Admin' ? undefined : () => window.location.reload()}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg ${department === 'Office Admin' ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+              aria-disabled={department === 'Office Admin'}
+              title={department === 'Office Admin' ? 'View-only for Office Admin' : 'Refresh'}
             >
               <IconRefresh className="h-4 w-4" />
               Refresh
@@ -520,25 +532,12 @@ Pharmacy Logistics Team
                         </button>
                         {order.status === 'OVERDUE' && (
                           <button
-                            onClick={() => {
-                              setSelectedOrder(order);
-                              sendEmailNotification(order);
-                            }}
-                            className={`p-1 rounded transition-colors ${
-                              order.reminderCount === 0 ? 'hover:bg-yellow-100' :
-                              order.reminderCount <= 2 ? 'hover:bg-orange-100' :
-                              'hover:bg-red-100'
-                            }`}
-                            title={`Send ${order.reminderCount === 0 ? '1st' : 
-                                    order.reminderCount === 1 ? '2nd' :
-                                    order.reminderCount === 2 ? '3rd' :
-                                    `${order.reminderCount + 1}th`} Reminder`}
+                            onClick={department === 'Office Admin' ? undefined : () => { setSelectedOrder(order); sendEmailNotification(order); }}
+                            className={`p-1 rounded transition-colors ${department === 'Office Admin' ? '' : (order.reminderCount === 0 ? 'hover:bg-yellow-100' : order.reminderCount <= 2 ? 'hover:bg-orange-100' : 'hover:bg-red-100')}`}
+                            title={department === 'Office Admin' ? 'View-only for Office Admin' : `Send ${order.reminderCount === 0 ? '1st' : order.reminderCount === 1 ? '2nd' : order.reminderCount === 2 ? '3rd' : `${order.reminderCount + 1}th`} Reminder`}
+                            aria-disabled={department === 'Office Admin'}
                           >
-                            <IconMail className={`h-4 w-4 ${
-                              order.reminderCount === 0 ? 'text-yellow-500' :
-                              order.reminderCount <= 2 ? 'text-orange-500' :
-                              'text-red-500'
-                            }`} />
+                            <IconMail className={`h-4 w-4 ${department === 'Office Admin' ? 'text-slate-400' : (order.reminderCount === 0 ? 'text-yellow-500' : order.reminderCount <= 2 ? 'text-orange-500' : 'text-red-500')}`} />
                           </button>
                         )}
                       </div>
@@ -702,12 +701,10 @@ Pharmacy Logistics Team
                   </button>
                   {selectedOrder.status === 'OVERDUE' && (
                     <button
-                      onClick={() => sendEmailNotification(selectedOrder)}
-                      className={`px-4 py-2 text-white rounded-lg transition-colors font-medium ${
-                        selectedOrder.reminderCount === 0 ? 'bg-yellow-600 hover:bg-yellow-700' :
-                        selectedOrder.reminderCount <= 2 ? 'bg-orange-600 hover:bg-orange-700' :
-                        'bg-red-600 hover:bg-red-700'
-                      }`}
+                      onClick={department === 'Office Admin' ? undefined : () => sendEmailNotification(selectedOrder)}
+                      className={`px-4 py-2 rounded-lg transition-colors font-medium ${department === 'Office Admin' ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : (selectedOrder.reminderCount === 0 ? 'bg-yellow-600 hover:bg-yellow-700 text-white' : selectedOrder.reminderCount <= 2 ? 'bg-orange-600 hover:bg-orange-700 text-white' : 'bg-red-600 hover:bg-red-700 text-white')}`}
+                      aria-disabled={department === 'Office Admin'}
+                      title={department === 'Office Admin' ? 'View-only for Office Admin' : 'Send Reminder'}
                     >
                       Send {selectedOrder.reminderCount === 0 ? '1st' : 
                             selectedOrder.reminderCount === 1 ? '2nd' :

@@ -16,6 +16,11 @@ export type LowStockItem = {
   onHand: number;
   minLevel: number;
   deficit: number;
+  category: 'Drug' | 'Non-drug';
+  expiry: string;
+  batchNo: string;
+  quantity: number;
+  location?: string;
 };
 
 export type ExpiringBatch = {
@@ -24,6 +29,9 @@ export type ExpiringBatch = {
   expiry: string; // ISO date
   daysLeft: number;
   quantity: number;
+  category: 'Drug' | 'Non-drug';
+  batchNo: string;
+  location?: string;
 };
 
 // Simple deterministic mock data set (server only)
@@ -174,12 +182,19 @@ export async function fetchLowStockItems(): Promise<LowStockItem[]> {
   const onHandByItem = new Map<string, number>();
   for (const b of dbBatches) onHandByItem.set(b.itemId, (onHandByItem.get(b.itemId) || 0) + b.quantity);
   
-  // Create deterministic low stock items with consistent data
+  // Create deterministic low stock items with consistent data - 10 items (5 Drug, 5 Non-drug)
   const lowStockItems: LowStockItem[] = [
-    { id: 'itm-b', name: 'Amoxicillin 250mg Cap', sku: 'AMOX-250-CAP', onHand: 90, minLevel: 150, deficit: 60 },
-    { id: 'itm-c', name: 'Normal Saline 500ml', sku: 'NS-500', onHand: 60, minLevel: 80, deficit: 20 },
-    { id: 'itm-g', name: 'Hydrocortisone 100mg Inj', sku: 'HYDRO-100-INJ', onHand: 45, minLevel: 60, deficit: 15 },
-    { id: 'itm-k', name: 'Zinc Sulfate 20mg', sku: 'ZINC-20', onHand: 95, minLevel: 100, deficit: 5 },
+    { id: 'itm-b', name: 'Amoxicillin 250mg Cap', sku: 'AMOX-250-CAP', onHand: 90, minLevel: 150, deficit: 60, category: 'Drug', expiry: '2025-10-15', batchNo: 'AMX-001', quantity: 90, location: 'S(A)-Cab(B)-LVL(5)-20' },
+    { id: 'itm-c', name: 'Normal Saline 500ml', sku: 'NS-500', onHand: 60, minLevel: 80, deficit: 20, category: 'Drug', expiry: '2025-11-20', batchNo: 'NS-002', quantity: 60, location: 'S(A)-Cab(C)-LVL(3)-05' },
+    { id: 'itm-g', name: 'Hydrocortisone 100mg Inj', sku: 'HYDRO-100-INJ', onHand: 45, minLevel: 60, deficit: 15, category: 'Drug', expiry: '2025-09-25', batchNo: 'HC-003', quantity: 45, location: 'S(B)-Cab(A)-LVL(2)-12' },
+    { id: 'itm-k', name: 'Zinc Sulfate 20mg', sku: 'ZINC-20', onHand: 95, minLevel: 100, deficit: 5, category: 'Drug', expiry: '2025-12-10', batchNo: 'ZN-004', quantity: 95, location: 'S(B)-Cab(D)-LVL(4)-18' },
+    { id: 'itm-m', name: 'Paracetamol 500mg Tab', sku: 'PARA-500-TAB', onHand: 120, minLevel: 200, deficit: 80, category: 'Drug', expiry: '2025-10-30', batchNo: 'PAR-005', quantity: 120, location: 'S(C)-Cab(A)-LVL(1)-02' },
+    // Non-drug low stock
+    { id: 'nd-1', name: 'Gloves Nitrile Large', sku: 'GLOVE-NIT-L', onHand: 200, minLevel: 300, deficit: 100, category: 'Non-drug', expiry: '2026-06-01', batchNo: 'GNV-L-001', quantity: 200, location: 'S(D)-Cab(B)-LVL(6)-10' },
+    { id: 'nd-2', name: 'Syringe 5ml', sku: 'SYR-5ML', onHand: 380, minLevel: 400, deficit: 20, category: 'Non-drug', expiry: '2027-03-01', batchNo: 'SYR-5-002', quantity: 380, location: 'S(E)-Cab(A)-LVL(2)-07' },
+    { id: 'nd-3', name: 'Tape Surgical 1in', sku: 'TAPE-1IN', onHand: 120, minLevel: 180, deficit: 60, category: 'Non-drug', expiry: '2026-01-15', batchNo: 'TP-1-003', quantity: 120, location: 'S(C)-Cab(C)-LVL(3)-14' },
+    { id: 'nd-4', name: 'Cotton Roll 500g', sku: 'COT-500', onHand: 70, minLevel: 120, deficit: 50, category: 'Non-drug', expiry: '2026-02-20', batchNo: 'CT-500-004', quantity: 70, location: 'S(B)-Cab(E)-LVL(5)-08' },
+    { id: 'nd-5', name: 'Face Shield', sku: 'FS-STD', onHand: 40, minLevel: 100, deficit: 60, category: 'Non-drug', expiry: '2026-09-01', batchNo: 'FS-005', quantity: 40, location: 'S(A)-Cab(D)-LVL(4)-03' },
   ];
   
   return lowStockItems;
@@ -188,12 +203,20 @@ export async function fetchLowStockItems(): Promise<LowStockItem[]> {
 export async function fetchExpiringBatchesSoon(): Promise<ExpiringBatch[]> {
   const base = new Date(process.env.NEXT_PUBLIC_DEMO_DATE || '2025-09-01T00:00:00Z');
   
-  // Create deterministic expiring batches with consistent data
+  // Create deterministic expiring batches with consistent data - 10 items (5 Drug, 5 Non-drug)
   const expiringBatches: ExpiringBatch[] = [
-    { id: 'b5', itemName: 'Hydrocortisone 100mg Inj', expiry: '2025-09-21', daysLeft: 20, quantity: 45 },
-    { id: 'b3', itemName: 'Amoxicillin 250mg Cap', expiry: '2025-10-16', daysLeft: 45, quantity: 90 },
-    { id: 'b4', itemName: 'Normal Saline 500ml', expiry: '2025-11-15', daysLeft: 75, quantity: 60 },
-    { id: 'b6', itemName: 'Zinc Sulfate 20mg', expiry: '2025-10-21', daysLeft: 50, quantity: 95 },
+    // Drug
+    { id: 'b5', itemName: 'Hydrocortisone 100mg Inj', expiry: '2025-09-21', daysLeft: 20, quantity: 45, category: 'Drug', batchNo: 'HC-003', location: 'S(B)-Cab(A)-LVL(2)-12' },
+    { id: 'b3', itemName: 'Amoxicillin 250mg Cap', expiry: '2025-10-16', daysLeft: 45, quantity: 90, category: 'Drug', batchNo: 'AMX-001', location: 'S(A)-Cab(B)-LVL(5)-20' },
+    { id: 'b4', itemName: 'Normal Saline 500ml', expiry: '2025-11-15', daysLeft: 75, quantity: 60, category: 'Drug', batchNo: 'NS-002', location: 'S(A)-Cab(C)-LVL(3)-05' },
+    { id: 'b6', itemName: 'Zinc Sulfate 20mg', expiry: '2025-10-21', daysLeft: 50, quantity: 95, category: 'Drug', batchNo: 'ZN-004', location: 'S(B)-Cab(D)-LVL(4)-18' },
+    { id: 'b7', itemName: 'Ibuprofen 200mg Tab', expiry: '2025-12-10', daysLeft: 100, quantity: 150, category: 'Drug', batchNo: 'IBU-006', location: 'S(C)-Cab(A)-LVL(1)-02' },
+    // Non-drug
+    { id: 'nb1', itemName: 'Gloves Nitrile Large', expiry: '2025-10-05', daysLeft: 34, quantity: 200, category: 'Non-drug', batchNo: 'GNV-L-EXP', location: 'S(D)-Cab(B)-LVL(6)-10' },
+    { id: 'nb2', itemName: 'Syringe 5ml', expiry: '2025-11-12', daysLeft: 72, quantity: 380, category: 'Non-drug', batchNo: 'SYR-5-EXP', location: 'S(E)-Cab(A)-LVL(2)-07' },
+    { id: 'nb3', itemName: 'Tape Surgical 1in', expiry: '2025-09-28', daysLeft: 27, quantity: 120, category: 'Non-drug', batchNo: 'TP-1-EXP', location: 'S(C)-Cab(C)-LVL(3)-14' },
+    { id: 'nb4', itemName: 'Cotton Roll 500g', expiry: '2025-10-30', daysLeft: 60, quantity: 70, category: 'Non-drug', batchNo: 'CT-500-EXP', location: 'S(B)-Cab(E)-LVL(5)-08' },
+    { id: 'nb5', itemName: 'Face Shield', expiry: '2025-12-01', daysLeft: 91, quantity: 40, category: 'Non-drug', batchNo: 'FS-EXP', location: 'S(A)-Cab(D)-LVL(4)-03' },
   ];
   
   return expiringBatches;
@@ -202,16 +225,16 @@ export async function fetchExpiringBatchesSoon(): Promise<ExpiringBatch[]> {
 export async function fetchFastMovingItems(): Promise<FastMovingItem[]> {
   // Create deterministic fast moving items with consistent data, pre-sorted by movement
   const fastMovingItems: FastMovingItem[] = [
-    { id: 'itm-a', name: 'Paracetamol 500mg Tab', sku: 'PARA-500-TAB', category: 'Drug', totalMovement: 600, rank: 1 },
-    { id: 'itm-j', name: 'Vitamin C 100mg Chewable', sku: 'VITC-100-CHEW', category: 'Drug', totalMovement: 550, rank: 2 },
-    { id: 'itm-h', name: 'Ibuprofen 200mg Tab', sku: 'IBU-200-TAB', category: 'Drug', totalMovement: 380, rank: 3 },
-    { id: 'itm-i', name: 'Metformin 500mg Tab', sku: 'MET-500-TAB', category: 'Drug', totalMovement: 320, rank: 4 },
-    { id: 'itm-f', name: 'Omeprazole 20mg Cap', sku: 'OMEP-20-CAP', category: 'Drug', totalMovement: 280, rank: 5 },
-    { id: 'itm-l', name: 'Mask Surgical 3-Ply', sku: 'MASK-3PLY', category: 'Non-drug', totalMovement: 450, rank: 1 },
-    { id: 'itm-d', name: 'Alcohol Swab', sku: 'ALC-SWAB', category: 'Non-drug', totalMovement: 260, rank: 2 },
-    { id: 'itm-e', name: 'Syringe 5ml', sku: 'SYR-5ML', category: 'Non-drug', totalMovement: 240, rank: 3 },
-    { id: 'itm-m', name: 'Gauze Pad 4x4', sku: 'GAUZE-4X4', category: 'Non-drug', totalMovement: 220, rank: 4 },
-    { id: 'itm-n', name: 'Bandage Elastic 2in', sku: 'BAND-2IN', category: 'Non-drug', totalMovement: 200, rank: 5 },
+    { id: 'itm-a', name: 'Paracetamol 500mg Tab', sku: 'PARA-500-TAB', category: 'Drug', totalMovement: 600, rank: 1, usagePerMonth: 150, onHand: 1200, minLevel: 200, location: 'S(C)-Cab(A)-LVL(1)-02' },
+    { id: 'itm-j', name: 'Vitamin C 100mg Chewable', sku: 'VITC-100-CHEW', category: 'Drug', totalMovement: 550, rank: 2, usagePerMonth: 140, onHand: 800, minLevel: 120, location: 'S(A)-Cab(C)-LVL(3)-05' },
+    { id: 'itm-h', name: 'Ibuprofen 200mg Tab', sku: 'IBU-200-TAB', category: 'Drug', totalMovement: 380, rank: 3, usagePerMonth: 95, onHand: 480, minLevel: 250, location: 'S(B)-Cab(D)-LVL(4)-18' },
+    { id: 'itm-i', name: 'Metformin 500mg Tab', sku: 'MET-500-TAB', category: 'Drug', totalMovement: 320, rank: 4, usagePerMonth: 80, onHand: 310, minLevel: 300, location: 'S(B)-Cab(A)-LVL(2)-12' },
+    { id: 'itm-f', name: 'Omeprazole 20mg Cap', sku: 'OMEP-20-CAP', category: 'Drug', totalMovement: 280, rank: 5, usagePerMonth: 70, onHand: 210, minLevel: 200, location: 'S(A)-Cab(B)-LVL(5)-20' },
+    { id: 'itm-l', name: 'Mask Surgical 3-Ply', sku: 'MASK-3PLY', category: 'Non-drug', totalMovement: 450, rank: 1, usagePerMonth: 110, onHand: 1200, minLevel: 500, location: 'S(D)-Cab(B)-LVL(6)-10' },
+    { id: 'itm-d', name: 'Alcohol Swab', sku: 'ALC-SWAB', category: 'Non-drug', totalMovement: 260, rank: 2, usagePerMonth: 65, onHand: 520, minLevel: 300, location: 'S(E)-Cab(A)-LVL(2)-07' },
+    { id: 'itm-e', name: 'Syringe 5ml', sku: 'SYR-5ML', category: 'Non-drug', totalMovement: 240, rank: 3, usagePerMonth: 60, onHand: 380, minLevel: 400, location: 'S(B)-Cab(E)-LVL(5)-08' },
+    { id: 'itm-m', name: 'Gauze Pad 4x4', sku: 'GAUZE-4X4', category: 'Non-drug', totalMovement: 220, rank: 4, usagePerMonth: 55, onHand: 250, minLevel: 200, location: 'S(C)-Cab(C)-LVL(3)-14' },
+    { id: 'itm-n', name: 'Bandage Elastic 2in', sku: 'BAND-2IN', category: 'Non-drug', totalMovement: 200, rank: 5, usagePerMonth: 50, onHand: 180, minLevel: 150, location: 'S(A)-Cab(D)-LVL(4)-03' },
   ];
   
   return fastMovingItems;
@@ -220,11 +243,15 @@ export async function fetchFastMovingItems(): Promise<FastMovingItem[]> {
 export async function fetchSlowMovingItems(): Promise<FastMovingItem[]> {
   // Create deterministic slow moving items with consistent data, pre-sorted by movement
   const slowMovingItems: FastMovingItem[] = [
-    { id: 'itm-g', name: 'Hydrocortisone 100mg Inj', sku: 'HYDRO-100-INJ', category: 'Drug', totalMovement: 15, rank: 1 },
-    { id: 'itm-k', name: 'Zinc Sulfate 20mg', sku: 'ZINC-20', category: 'Drug', totalMovement: 25, rank: 2 },
-    { id: 'itm-c', name: 'Normal Saline 500ml', sku: 'NS-500', category: 'Drug', totalMovement: 35, rank: 3 },
-    { id: 'itm-b', name: 'Amoxicillin 250mg Cap', sku: 'AMOX-250-CAP', category: 'Drug', totalMovement: 45, rank: 4 },
-    { id: 'itm-o', name: 'Gloves Nitrile Large', sku: 'GLOVE-NIT-L', category: 'Non-drug', totalMovement: 55, rank: 1 },
+    { id: 'itm-g', name: 'Hydrocortisone 100mg Inj', sku: 'HYDRO-100-INJ', category: 'Drug', totalMovement: 15, rank: 1, usagePerMonth: 4, onHand: 45, minLevel: 60 },
+    { id: 'itm-k', name: 'Zinc Sulfate 20mg', sku: 'ZINC-20', category: 'Drug', totalMovement: 25, rank: 2, usagePerMonth: 6, onHand: 95, minLevel: 100 },
+    { id: 'itm-c', name: 'Normal Saline 500ml', sku: 'NS-500', category: 'Drug', totalMovement: 35, rank: 3, usagePerMonth: 9, onHand: 60, minLevel: 80 },
+    { id: 'itm-b', name: 'Amoxicillin 250mg Cap', sku: 'AMOX-250-CAP', category: 'Drug', totalMovement: 45, rank: 4, usagePerMonth: 11, onHand: 90, minLevel: 150 },
+    { id: 'itm-o', name: 'Gloves Nitrile Large', sku: 'GLOVE-NIT-L', category: 'Non-drug', totalMovement: 55, rank: 1, usagePerMonth: 14, onHand: 200, minLevel: 300 },
+    { id: 'itm-d', name: 'Alcohol Swab', sku: 'ALC-SWAB', category: 'Non-drug', totalMovement: 50, rank: 2, usagePerMonth: 13, onHand: 520, minLevel: 300 },
+    { id: 'itm-e', name: 'Syringe 5ml', sku: 'SYR-5ML', category: 'Non-drug', totalMovement: 48, rank: 3, usagePerMonth: 12, onHand: 380, minLevel: 400 },
+    { id: 'itm-m', name: 'Gauze Pad 4x4', sku: 'GAUZE-4X4', category: 'Non-drug', totalMovement: 40, rank: 4, usagePerMonth: 10, onHand: 250, minLevel: 200 },
+    { id: 'itm-n', name: 'Bandage Elastic 2in', sku: 'BAND-2IN', category: 'Non-drug', totalMovement: 38, rank: 5, usagePerMonth: 9, onHand: 180, minLevel: 150 },
   ];
   
   return slowMovingItems;

@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { AppShell } from "@/components/AppShell";
+import AuthWrapper from "@/components/AuthWrapper";
+import { Toaster } from "@/components/ui/toaster";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,16 +28,26 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning style={{overscrollBehavior: 'none', height: '100%', margin: 0, padding: 0}}>
+      <head>
+        <script dangerouslySetInnerHTML={{__html: `
+          if (typeof window !== 'undefined') {
+            window.addEventListener('load', function() {
+              document.body.style.overscrollBehavior = 'none';
+              document.documentElement.style.overscrollBehavior = 'none';
+            });
+          }
+        `}} />
+      </head>
       <body
         suppressHydrationWarning
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased app-background`}
+        style={{overscrollBehavior: 'none', margin: 0, padding: 0}}
       >
-        <AppShell>
-          <main className="mx-auto max-w-6xl px-4 py-6">
-            {children}
-          </main>
-        </AppShell>
+        <AuthWrapper>
+          {children}
+        </AuthWrapper>
+        <Toaster />
       </body>
     </html>
   );

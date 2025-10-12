@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { IconArrowLeft, IconSearch, IconCheck, IconClock, IconPackage } from '@/components/ui/Icons';
 
@@ -82,6 +82,7 @@ function generateMock(): ReceivingPO[] {
 
 export default function ReceivingOversightPage() {
   const [records, setRecords] = useState<ReceivingPO[]>(generateMock());
+  const [department, setDepartment] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [search, setSearch] = useState('');
@@ -435,6 +436,14 @@ export default function ReceivingOversightPage() {
     return filtered.slice(start, start + itemsPerPage);
   }, [filtered, currentPage]);
 
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      const dept = localStorage.getItem('department') ||
+        document.cookie.split('; ').find(r => r.startsWith('department='))?.split('=')[1] || '';
+      try { setDepartment(decodeURIComponent(dept)); } catch { setDepartment(dept); }
+    }
+  }, []);
+
   function openReceive(po: ReceivingPO) {
     setActivePO(po);
     setActiveItemId(po.items[0]?.id ?? '');
@@ -621,7 +630,11 @@ export default function ReceivingOversightPage() {
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-800">{po.deliveryDate || '-'}</td>
                       <td className="px-4 py-3 text-right">
-                        <button onClick={() => openReceive(po)} className="px-3 py-1.5 text-xs font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-700 shadow-sm">Record Receiving</button>
+                        {department === 'Office Admin' ? (
+                          <button className="px-3 py-1.5 text-xs font-semibold rounded-md bg-slate-300 text-slate-600 cursor-not-allowed" aria-disabled title="View-only for Office Admin">Record Receiving</button>
+                        ) : (
+                          <button onClick={() => openReceive(po)} className="px-3 py-1.5 text-xs font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-700 shadow-sm">Record Receiving</button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -639,7 +652,7 @@ export default function ReceivingOversightPage() {
         </div>
 
         {/* Modal */}
-        {modalOpen && activePO && (
+        {modalOpen && activePO && department !== 'Office Admin' && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full overflow-hidden">
               <div className="p-5 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-indigo-50">

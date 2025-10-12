@@ -99,6 +99,92 @@ export default function TransferRequestPage() {
 
   useEffect(() => {
     setIsClient(true);
+    
+    // Check for prefill parameters in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // Handle bulk items
+    if (urlParams.get('bulkItems')) {
+      try {
+        const bulkItemsJson = decodeURIComponent(urlParams.get('bulkItems') || '');
+        const bulkItems = JSON.parse(bulkItemsJson);
+        if (bulkItems && bulkItems.length > 0) {
+          const newItems: TransferItem[] = bulkItems.map((item: any, index: number) => ({
+            id: `bulk-${Date.now()}-${index}`,
+            itemName: item.name,
+            drugCode: item.sku,
+            category: item.category === 'Drug' ? 'DRUG' : 'NON_DRUG',
+            quantity: item.quantity || item.currentStock || 1,
+            unit: item.category === 'Drug' ? 'tablets' : 'units',
+            batchNumber: item.batch,
+            expiryDate: item.expiry,
+            condition: 'GOOD',
+            packaging: `pack of ${item.quantity || item.currentStock || 1}`,
+            balance: (item.quantity || item.currentStock || 1) * 2, // Assume double the quantity is available
+            location: 'Cabinet A, Level 1, Column 1',
+            notes: `Auto-added from bulk selection`
+          }));
+          
+          // Set priority based on first item
+          const firstItem = bulkItems[0];
+          const priority = firstItem.priority || firstItem.status;
+          const priorityMap = {
+            'CRITICAL': 'URGENT',
+            'URGENT': 'URGENT',
+            'HIGH': 'HIGH',
+            'MEDIUM': 'MEDIUM',
+            'LOW': 'LOW'
+          };
+          
+          setFormData(prev => ({
+            ...prev,
+            items: [...prev.items, ...newItems],
+            priority: priorityMap[priority as keyof typeof priorityMap] || 'MEDIUM'
+          }));
+        }
+      } catch (error) {
+        console.error('Error parsing bulk items:', error);
+      }
+    }
+    // Handle single item prefill (legacy support)
+    else if (urlParams.get('prefillItem') === 'true') {
+      const prefillItem = {
+        itemName: urlParams.get('itemName') || '',
+        drugCode: urlParams.get('drugCode') || '',
+        category: urlParams.get('category') || '',
+        quantity: parseInt(urlParams.get('quantity') || '1'),
+        batchNumber: urlParams.get('batchNumber') || '',
+        expiryDate: urlParams.get('expiryDate') || '',
+        unitCost: parseFloat(urlParams.get('unitCost') || '0'),
+        priority: urlParams.get('priority') || 'MEDIUM'
+      };
+      
+      // Only add item if we have valid item data
+      if (prefillItem.itemName && prefillItem.drugCode) {
+        const newItem: TransferItem = {
+          id: `prefill-${Date.now()}`,
+          itemName: prefillItem.itemName,
+          drugCode: prefillItem.drugCode,
+          category: prefillItem.category === 'Drug' ? 'DRUG' : 'NON_DRUG',
+          quantity: prefillItem.quantity,
+          unit: prefillItem.category === 'Drug' ? 'tablets' : 'units',
+          batchNumber: prefillItem.batchNumber,
+          expiryDate: prefillItem.expiryDate,
+          condition: 'GOOD',
+          packaging: `pack of ${prefillItem.quantity}`,
+          balance: prefillItem.quantity * 2, // Assume double the quantity is available
+          location: 'Cabinet A, Level 1, Column 1',
+          notes: `Auto-added from ${prefillItem.priority} priority item`
+        };
+        
+        // Add the item to the transfer list
+        setFormData(prev => ({
+          ...prev,
+          items: [...prev.items, newItem],
+          priority: prefillItem.priority as 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+        }));
+      }
+    }
   }, []);
 
   const handleAddItem = () => {

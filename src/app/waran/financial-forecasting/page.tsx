@@ -1,10 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function FinancialForecastingPage() {
   const [selectedPeriod, setSelectedPeriod] = useState('12');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
+  const [department, setDepartment] = useState<string>('');
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      const dept = localStorage.getItem('department') ||
+        document.cookie.split('; ').find(r => r.startsWith('department='))?.split('=')[1] || '';
+      try { setDepartment(decodeURIComponent(dept)); } catch { setDepartment(dept); }
+    }
+  }, []);
 
   // Mock data for financial forecasting
   const forecastData = [
@@ -126,7 +135,13 @@ export default function FinancialForecastingPage() {
               </select>
             </div>
             <div className="flex items-end">
-              <button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl">
+              <button
+                className={`w-full px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg ${
+                  department === 'Office Admin' ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl'
+                }`}
+                aria-disabled={department === 'Office Admin'}
+                title={department === 'Office Admin' ? 'View-only for Office Admin' : 'Generate New Forecast'}
+              >
                 Generate New Forecast
               </button>
             </div>
@@ -266,8 +281,8 @@ export default function FinancialForecastingPage() {
                     <td className="px-6 py-4">
                       <div className="flex space-x-2">
                         <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">View Details</button>
-                        <button className="text-green-600 hover:text-green-800 text-sm font-medium">Update</button>
-                        <button className="text-red-600 hover:text-red-800 text-sm font-medium">Delete</button>
+                        <button className={`text-sm font-medium ${department === 'Office Admin' ? 'text-slate-400 cursor-not-allowed' : 'text-green-600 hover:text-green-800'}`} aria-disabled={department==='Office Admin'} title={department==='Office Admin'?'View-only for Office Admin':'Update'}>Update</button>
+                        <button className={`text-sm font-medium ${department === 'Office Admin' ? 'text-slate-400 cursor-not-allowed' : 'text-red-600 hover:text-red-800'}`} aria-disabled={department==='Office Admin'} title={department==='Office Admin'?'View-only for Office Admin':'Delete'}>Delete</button>
                       </div>
                     </td>
                   </tr>

@@ -65,6 +65,7 @@ interface ItemBatch {
 
 export default function DeliveryOrdersPage() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [department, setDepartment] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
@@ -103,6 +104,15 @@ export default function DeliveryOrdersPage() {
       setCameraLoading(false);
     }
   }, [showCameraModal]);
+
+  // Load department for Office Admin view-only gating
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      const dept = localStorage.getItem('department') ||
+        document.cookie.split('; ').find(r => r.startsWith('department='))?.split('=')[1] || '';
+      try { setDepartment(decodeURIComponent(dept)); } catch { setDepartment(dept); }
+    }
+  }, []);
 
   // Reset to first page when filters change
   useEffect(() => {
@@ -504,11 +514,15 @@ export default function DeliveryOrdersPage() {
             </div>
             <div className="flex items-center gap-3">
               <button
-                onClick={() => setShowScanModal(true)}
-                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 font-medium shadow-lg"
+                onClick={department === 'Office Admin' ? undefined : () => setShowScanModal(true)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all duration-200 font-medium shadow-lg ${
+                  department === 'Office Admin' ? 'bg-slate-300 text-slate-600 cursor-not-allowed shadow' : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700'
+                }`}
+                aria-disabled={department === 'Office Admin'}
+                title={department === 'Office Admin' ? 'View-only for Office Admin' : 'Scan QR Code'}
               >
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                 </svg>
                 Scan QR Code
               </button>
@@ -719,15 +733,19 @@ export default function DeliveryOrdersPage() {
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-2">
                         <button
-                          onClick={() => handleDOUpload(order.id)}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:text-blue-800 transition-colors"
+                          onClick={department === 'Office Admin' ? undefined : () => handleDOUpload(order.id)}
+                          className={`inline-flex items-center gap-1 px-2 py-1 text-xs transition-colors ${department === 'Office Admin' ? 'text-slate-400 cursor-not-allowed' : 'text-blue-600 hover:text-blue-800'}`}
+                          aria-disabled={department === 'Office Admin'}
+                          title={department === 'Office Admin' ? 'View-only for Office Admin' : 'Upload PDF'}
                         >
                           <IconUpload className="h-4 w-4" />
                           PDF
                         </button>
                         <button
-                          onClick={() => handleCameraCapture(order.id)}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-xs text-green-600 hover:text-green-800 transition-colors"
+                          onClick={department === 'Office Admin' ? undefined : () => handleCameraCapture(order.id)}
+                          className={`inline-flex items-center gap-1 px-2 py-1 text-xs transition-colors ${department === 'Office Admin' ? 'text-slate-400 cursor-not-allowed' : 'text-green-600 hover:text-green-800'}`}
+                          aria-disabled={department === 'Office Admin'}
+                          title={department === 'Office Admin' ? 'View-only for Office Admin' : 'Open Camera'}
                         >
                           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -803,7 +821,7 @@ export default function DeliveryOrdersPage() {
         </div>
 
         {/* Receive Items Modal */}
-        {showReceiveModal && selectedDO && (
+        {showReceiveModal && selectedDO && department !== 'Office Admin' && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
               <div className="p-6 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-indigo-50">
@@ -991,7 +1009,7 @@ export default function DeliveryOrdersPage() {
         )}
 
         {/* Scan QR Modal */}
-        {showScanModal && (
+        {showScanModal && department !== 'Office Admin' && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
               <div className="p-6 border-b border-slate-200 bg-gradient-to-r from-indigo-50 to-purple-50">
@@ -1050,7 +1068,7 @@ export default function DeliveryOrdersPage() {
         )}
 
         {/* Camera Modal */}
-        {showCameraModal && (
+        {showCameraModal && department !== 'Office Admin' && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
               <div className="p-6 border-b border-slate-200 bg-gradient-to-r from-green-50 to-emerald-50">

@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 type SlowMovingKpiCardProps = {
   label: string;
@@ -53,3 +53,4 @@ export function SlowMovingKpiCard({
     </Card>
   );
 }
+

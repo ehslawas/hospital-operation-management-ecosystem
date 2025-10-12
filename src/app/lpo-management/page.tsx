@@ -45,6 +45,7 @@ interface LPOItem {
 
 export default function LPOOversightPage() {
   const [isClient, setIsClient] = useState(false);
+  const [department, setDepartment] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [supplierFilter, setSupplierFilter] = useState('all');
@@ -470,6 +471,11 @@ export default function LPOOversightPage() {
 
   useEffect(() => {
     setIsClient(true);
+    if (typeof document !== 'undefined') {
+      const dept = localStorage.getItem('department') ||
+        document.cookie.split('; ').find(r => r.startsWith('department='))?.split('=')[1] || '';
+      try { setDepartment(decodeURIComponent(dept)); } catch { setDepartment(dept); }
+    }
   }, []);
 
   if (!isClient) return null;
@@ -771,7 +777,6 @@ export default function LPOOversightPage() {
                     <td className="px-2 py-2 text-center">
                       <div className="flex items-center justify-center gap-1">
                         {lpo.uploadedFileName ? (
-                          // Show view button when file is uploaded
                           <button
                             onClick={() => handleViewFile(lpo)}
                             className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50/80 rounded-xl transition-all duration-200 group-hover:scale-105 hover:shadow-md cursor-pointer"
@@ -780,7 +785,6 @@ export default function LPOOversightPage() {
                             <IconEye className="h-4 w-4" />
                           </button>
                         ) : (
-                          // Show upload button when no file is uploaded
                           <>
                             <input
                               type="file"
@@ -788,7 +792,7 @@ export default function LPOOversightPage() {
                               accept=".pdf"
                               onChange={(e) => {
                                 const file = e.target.files?.[0];
-                                if (file) {
+                                if (file && department !== 'Office Admin') {
                                   handleLPOUpload(lpo.id, file);
                                 }
                               }}
@@ -799,9 +803,12 @@ export default function LPOOversightPage() {
                               className={`p-2 rounded-xl transition-all duration-200 group-hover:scale-105 hover:shadow-md cursor-pointer ${
                                 uploadingLPOId === lpo.id
                                   ? 'text-gray-400 cursor-not-allowed'
-                                  : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50/80'
+                                  : department === 'Office Admin'
+                                    ? 'text-slate-400 cursor-not-allowed'
+                                    : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50/80'
                               }`}
-                              title="Upload PDF file"
+                              title={department === 'Office Admin' ? 'View-only for Office Admin' : 'Upload PDF file'}
+                              aria-disabled={department === 'Office Admin'}
                             >
                               {uploadingLPOId === lpo.id ? (
                                 <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></div>
