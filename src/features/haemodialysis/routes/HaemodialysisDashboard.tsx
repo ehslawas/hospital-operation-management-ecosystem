@@ -45,7 +45,7 @@ export default function HaemodialysisDashboard() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-gradient-to-r from-cyan-600 to-blue-700 text-white shadow-lg">
-        <div className="max-w-[1600px] mx-auto px-6 py-6">
+        <div className="px-6 py-6">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold">Haemodialysis Unit</h1>
@@ -67,7 +67,7 @@ export default function HaemodialysisDashboard() {
         </div>
       </div>
 
-      <div className="max-w-[1600px] mx-auto px-6 py-6 space-y-6">
+      <div className="px-6 py-6 space-y-6">
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">

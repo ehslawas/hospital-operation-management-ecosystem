@@ -252,7 +252,7 @@ export default function TransferRequestPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-cyan-50/30 to-indigo-50/40">
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
+      <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
           <Link

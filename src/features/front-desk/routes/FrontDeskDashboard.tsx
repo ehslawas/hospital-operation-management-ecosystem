@@ -71,7 +71,7 @@ export default function FrontDeskDashboard() {
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-blue-50 to-cyan-50">
       {/* Modern Refreshing Header */}
       <div className="bg-white/80 backdrop-blur-md border-b border-emerald-200/50 shadow-lg">
-        <div className="max-w-[1800px] mx-auto px-8 py-6">
+        <div className="px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg">
@@ -112,7 +112,7 @@ export default function FrontDeskDashboard() {
         </div>
       </div>
 
-      <div className="max-w-[1800px] mx-auto px-8 py-8 space-y-6">
+      <div className="px-8 py-8 space-y-6">
         {/* Key Metrics Row */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <MetricCard

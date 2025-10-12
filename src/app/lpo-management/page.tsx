@@ -489,7 +489,7 @@ export default function LPOOversightPage() {
           backgroundSize: '20px 20px'
         }}></div>
       </div>
-      <div className="relative max-w-7xl mx-auto p-4 space-y-4">
+      <div className="relative p-4 space-y-4">
         {/* Header */}
         <div className="relative overflow-hidden group">
           <div className="absolute inset-0 bg-gradient-to-r from-blue-600/8 via-indigo-600/8 to-purple-600/8 rounded-2xl group-hover:from-blue-600/12 group-hover:via-indigo-600/12 group-hover:to-purple-600/12 transition-all duration-500"></div>

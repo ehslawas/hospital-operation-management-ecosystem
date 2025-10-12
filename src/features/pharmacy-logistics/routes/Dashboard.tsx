@@ -22,7 +22,7 @@ export default async function PharmacyLogisticsDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50" suppressHydrationWarning>
-      <div className="max-w-[1400px] xl:max-w-[1600px] mx-auto px-3 sm:px-4 py-4 space-y-3 md:space-y-4" suppressHydrationWarning>
+      <div className="px-3 sm:px-4 py-4 space-y-3 md:space-y-4" suppressHydrationWarning>
         
         {/* Header */}
         <div className="bg-white rounded-xl border border-gray-200 p-5 md:p-6 shadow-sm" suppressHydrationWarning>

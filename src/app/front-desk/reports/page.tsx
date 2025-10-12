@@ -55,7 +55,7 @@ export default function FrontDeskReportsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50">
-      <div className="max-w-7xl mx-auto p-6 space-y-8">
+      <div className="p-6 space-y-8">
         {/* Header */}
         <div className="bg-white/90 rounded-2xl shadow-lg border border-white/50 p-6">
           <div className="flex items-center justify-between">

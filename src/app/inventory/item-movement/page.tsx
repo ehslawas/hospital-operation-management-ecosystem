@@ -262,7 +262,7 @@ export default function ItemMovementPage() {
   return (
     <ClientOnly>
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
-      <div className="container mx-auto p-6">
+      <div className=" p-6">
         {/* Modern Header */}
         <div className="mb-8">
           <div className="flex items-center space-x-4 mb-6">

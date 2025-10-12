@@ -481,7 +481,7 @@ export default function ReceivingOversightPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      <div className="max-w-7xl mx-auto p-4 space-y-6">
+      <div className="p-4 space-y-6">
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl ring-1 ring-slate-200 p-6">
           <div className="flex items-center gap-4">
             <Link href="/procurement" className="p-2 hover:bg-slate-100 rounded-lg transition-colors">

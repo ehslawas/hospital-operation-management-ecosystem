@@ -324,7 +324,7 @@ export default function VisitManagementPage() {
       
         {/* Modern Header */}
         <header className="relative bg-white/80 backdrop-blur-xl border-b border-white/20 shadow-lg">
-          <div className="max-w-7xl mx-auto px-6 py-6">
+          <div className="px-6 py-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-6">
                 <div className="relative">
@@ -390,7 +390,7 @@ export default function VisitManagementPage() {
           </div>
         </header>
 
-        <main className="relative z-10 max-w-7xl mx-auto px-6 py-8">
+        <main className="relative z-10 px-6 py-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Patient List */}
             <div>

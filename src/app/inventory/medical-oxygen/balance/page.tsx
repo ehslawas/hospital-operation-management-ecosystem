@@ -25,7 +25,7 @@ export default function MedicalOxygenBalancePage() {
       <div className="absolute bottom-20 left-20 w-96 h-96 bg-gradient-to-br from-indigo-400/20 to-blue-400/20 rounded-full blur-3xl"></div>
       <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-gradient-to-br from-purple-400/15 to-pink-400/15 rounded-full blur-3xl"></div>
       
-      <div className="relative z-10 container mx-auto p-6 lg:p-8">
+      <div className="relative z-10  p-6 lg:p-8">
         {/* Modern Header */}
         <div className="mb-12">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">

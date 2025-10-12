@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { IconHome, IconDashboard, IconBox, IconReceipt, IconTruck, IconFile, IconAlert, IconArrows, IconBeaker, IconChart, IconCog, IconMoney, IconMaintenance } from '@/components/ui/Icons';
+import { IconHome, IconDashboard, IconBox, IconReceipt, IconTruck, IconFile, IconAlert, IconArrows, IconBeaker, IconChart, IconCog, IconMoney, IconMaintenance, IconUsers } from '@/components/ui/Icons';
 
 type Props = { collapsed?: boolean };
 
@@ -194,6 +194,17 @@ export default function SidebarNav({ collapsed = false }: Props) {
         {item('/', <IconHome />, 'Dashboard')}
       </div>
       
+      {/* Patient Management - Universal menu for all departments */}
+      <div className="space-y-1.5">
+        {item('/patient-management', <IconUsers />, 'Patient Management', true, 'patient-management')}
+        {expandedItems.includes('patient-management') && (
+          <div className="ml-2 mt-1.5 space-y-1 border-l-2 border-blue-200/50 pl-3.5">
+            {subItem('/patient-management/patient-visit', 'Patient Visit')}
+            {subItem('/patient-management/patient-data', 'Patient Data')}
+          </div>
+        )}
+      </div>
+      
       {/* Emergency & Trauma - for emergency department */}
       {mounted && department === 'Emergency & Trauma' && (
         <>
@@ -284,11 +295,6 @@ export default function SidebarNav({ collapsed = false }: Props) {
               <div className="ml-2 mt-1.5 space-y-1 border-l-2 border-blue-200/50 pl-3.5">
                 {subItem('/drug-catalog', 'Drug Catalog')}
                 {subItem('/non-drug-catalog', 'Non Drug Catalog')}
-                {subItem('/supplier-catalog', 'Supplier Catalog')}
-                {subItem('/contract-catalog', 'Contract Catalog')}
-                {subItem('/mof-catalog', 'MOF Catalog')}
-                {subItem('/kkm-hospital-catalog', 'KKM Hospital Catalog')}
-                {subItem('/kkm-clinic-catalog', 'KKM Clinic Catalog')}
               </div>
             )}
           </div>

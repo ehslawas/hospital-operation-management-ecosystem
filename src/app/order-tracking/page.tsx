@@ -318,7 +318,7 @@ Pharmacy Logistics Team
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      <div className="max-w-7xl mx-auto p-4 space-y-6">
+      <div className="p-4 space-y-6">
         {/* Header */}
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-lg border border-white/50 p-6">
           <div className="flex items-center justify-between">

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import Link from 'next/link';
@@ -85,7 +85,7 @@ export default function SPUBDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="space-y-6">
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
@@ -186,7 +186,7 @@ export default function SPUBDashboard() {
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-gray-600">{step.countLabel}</span>
                       <Button variant="ghost" size="sm" className="h-8">
-                        View →
+                        View ?
                       </Button>
                     </div>
                   </CardContent>
@@ -229,7 +229,7 @@ export default function SPUBDashboard() {
                       </span>
                     </div>
                     <div className="mt-2 text-xs text-gray-500">
-                      → {request.targetFacility}
+                      ? {request.targetFacility}
                     </div>
                   </div>
                 ))}

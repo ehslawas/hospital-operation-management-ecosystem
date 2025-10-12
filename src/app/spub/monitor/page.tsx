@@ -1,4 +1,4 @@
-ï»¿'use client';
+'use client';
 
 import { useState } from 'react';
 import Link from 'next/link';
@@ -129,7 +129,7 @@ export default function SPUBMonitorPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="space-y-6">
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
@@ -239,10 +239,10 @@ export default function SPUBMonitorPage() {
                   <p className="font-semibold text-red-900 mb-1">Urgent Attention Required</p>
                   <div className="space-y-1 text-sm text-red-800">
                     {stats.critical > 0 && (
-                      <p>â€¢ {stats.critical} medication{stats.critical > 1 ? 's' : ''} at critical stock levels</p>
+                      <p>• {stats.critical} medication{stats.critical > 1 ? 's' : ''} at critical stock levels</p>
                     )}
                     {stats.expired > 0 && (
-                      <p>â€¢ {stats.expired} medication{stats.expired > 1 ? 's' : ''} expired or expiring soon</p>
+                      <p>• {stats.expired} medication{stats.expired > 1 ? 's' : ''} expired or expiring soon</p>
                     )}
                   </div>
                 </div>
@@ -476,7 +476,7 @@ export default function SPUBMonitorPage() {
                           {patient.patientName}
                         </CardTitle>
                         <CardDescription className="mt-1">
-                          Patient ID: {patient.patientId} â€¢ {patient.medications.length} medication{patient.medications.length > 1 ? 's' : ''}
+                          Patient ID: {patient.patientId} • {patient.medications.length} medication{patient.medications.length > 1 ? 's' : ''}
                         </CardDescription>
                       </div>
                       <div className="flex gap-2">

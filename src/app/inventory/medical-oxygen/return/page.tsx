@@ -336,7 +336,7 @@ export default function OxygenReturnPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-red-50/30 to-rose-50/50">
-      <div className="container mx-auto p-8">
+      <div className=" p-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center space-x-4">

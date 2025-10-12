@@ -297,69 +297,18 @@ export default function ETUDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
-      <header className="bg-white border-b border-slate-200 shadow-sm mt-16">
-        <div className="px-6 py-4">
-          <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 text-white grid place-items-center shadow-lg shadow-blue-600/30">
-              <Stethoscope className="h-6 w-6" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-900 tracking-tight">Patient Assessment</h1>
-              <p className="text-sm text-slate-600 font-medium">Emergency & Trauma Unit</p>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main content full width */}
-      <main className="px-6 py-6">
-        {/* Assessment Section */}
-        <section className="space-y-4">
-          <Card className="rounded-xl bg-white border-0 shadow-lg hover:shadow-xl transition-shadow">
-            <CardContent className="p-0">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-5 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-white">
-                <div className="flex items-center gap-4 min-w-0 flex-1">
-                  <div className="h-14 w-14 flex-shrink-0 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 text-white grid place-items-center shadow-lg shadow-blue-600/30">
-                    <UserRound className="h-7 w-7" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-2xl font-bold truncate text-slate-900">{activePatient?.name || "Select a patient"}</div>
-                    {activePatient && (
-                      <div className="text-sm text-slate-600 flex flex-wrap gap-x-4 gap-y-2 mt-3">
-                        <UIBadge className="bg-gradient-to-r from-blue-600 to-blue-700 text-white border-0 font-bold px-3 py-1.5">{activePatient.id}</UIBadge>
-                        <span className="font-semibold text-slate-700">{activePatient.sex} / {activePatient.age} years old</span>
-                        <span className="font-medium text-slate-600">IC: {activePatient.ic}</span>
-                        <span className="flex items-center gap-2 font-medium"><Ambulance className="h-4 w-4 text-blue-600"/> {activePatient.arrival}</span>
-                        <span className="flex items-center gap-2 text-slate-500"><FileClock className="h-4 w-4"/> {new Date().toLocaleString()}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                  </div>
-
-              <div className="p-6">
-                {!activePatient ? (
-                  <div className="text-sm text-slate-500 flex items-center gap-2"><Info className="h-4 w-4"/> Pick a patient from the left queues to begin assessment.</div>
-                ) : (
-                  <AssessmentTabs
-                    patient={activePatient}
-                    onUpdate={(updater)=>updatePatient(activePatient.id, updater)}
-                    onSummary={()=>{}}
-                    saving={saving}
-                    setSaving={setSaving}
-                    orders={orders}
-                    onAddOrder={addOrder}
-                    onRemoveOrder={removeOrder}
-                    registerSave={(fn)=> setSaveAssessmentFn(()=>fn)}
-                  />
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </section>
-      </main>
-
+    <div className="space-y-4">
+      <AssessmentTabs
+        patient={activePatient}
+        onUpdate={(updater)=>updatePatient(activePatient.id, updater)}
+        onSummary={()=>{}}
+        saving={saving}
+        setSaving={setSaving}
+        orders={orders}
+        onAddOrder={addOrder}
+        onRemoveOrder={removeOrder}
+        registerSave={(fn)=> setSaveAssessmentFn(()=>fn)}
+      />
     </div>
   );
 }
@@ -473,36 +422,36 @@ function AssessmentForm({ patient, onUpdate, onSummary, saving, setSaving, order
               <div className="h-8 w-8 rounded-lg bg-red-100 text-red-600 grid place-items-center">
                 <Activity className="h-4 w-4" />
               </div>
-              Vital Signs + Pain Score + Weight
+              Vital Signs • Pain Score • Weight
             </Label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               <div>
                 <label className="text-xs font-semibold text-slate-600 mb-1 block">BP (mmHg)</label>
-                <Input value={bp} onChange={(e)=>setBp(e.target.value)} placeholder="120/80" className="border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
+                <Input value={bp} onChange={(e)=>setBp(e.target.value)} placeholder="120/80" className="h-9 text-sm border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
               </div>
               <div>
                 <label className="text-xs font-semibold text-slate-600 mb-1 block">HR (bpm)</label>
-                <Input value={hr} onChange={(e)=>setHr(e.target.value)} placeholder="72" type="number" className="border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
+                <Input value={hr} onChange={(e)=>setHr(e.target.value)} placeholder="72" type="number" className="h-9 text-sm border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
               </div>
               <div>
                 <label className="text-xs font-semibold text-slate-600 mb-1 block">RR (bpm)</label>
-                <Input value={rr} onChange={(e)=>setRr(e.target.value)} placeholder="16" type="number" className="border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
+                <Input value={rr} onChange={(e)=>setRr(e.target.value)} placeholder="16" type="number" className="h-9 text-sm border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
               </div>
               <div>
                 <label className="text-xs font-semibold text-slate-600 mb-1 block">Temp (°C)</label>
-                <Input value={temp} onChange={(e)=>setTemp(e.target.value)} placeholder="37.0" type="number" step="0.1" className="border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
+                <Input value={temp} onChange={(e)=>setTemp(e.target.value)} placeholder="37.0" type="number" step="0.1" className="h-9 text-sm border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
               </div>
               <div>
                 <label className="text-xs font-semibold text-slate-600 mb-1 block">SpO2 (%)</label>
-                <Input value={spo2} onChange={(e)=>setSpo2(e.target.value)} placeholder="98" type="number" className="border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
+                <Input value={spo2} onChange={(e)=>setSpo2(e.target.value)} placeholder="98" type="number" className="h-9 text-sm border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
               </div>
               <div>
                 <label className="text-xs font-semibold text-slate-600 mb-1 block">Pain (0-10)</label>
-                <Input value={pain} onChange={(e)=>setPain(e.target.value)} placeholder="5" type="number" min="0" max="10" className="border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
+                <Input value={pain} onChange={(e)=>setPain(e.target.value)} placeholder="5" type="number" min="0" max="10" className="h-9 text-sm border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
               </div>
               <div className="col-span-2">
                 <label className="text-xs font-semibold text-slate-600 mb-1 block">Weight (kg)</label>
-                <Input value={weight} onChange={(e)=>setWeight(e.target.value)} placeholder="70" type="number" step="0.1" className="border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
+                <Input value={weight} onChange={(e)=>setWeight(e.target.value)} placeholder="70" type="number" step="0.1" className="h-9 text-sm border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
               </div>
             </div>
           </CardContent>

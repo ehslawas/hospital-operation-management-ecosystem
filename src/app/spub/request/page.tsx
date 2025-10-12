@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import Link from 'next/link';
@@ -97,7 +97,7 @@ export default function SPUBRequestPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="space-y-6">
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
@@ -338,7 +338,7 @@ export default function SPUBRequestPage() {
                                   {idx + 1}. {med.drugName} {med.strength}
                                 </p>
                                 <p className="text-sm text-gray-600">
-                                  {med.form} • Code: {med.drugCode}
+                                  {med.form} � Code: {med.drugCode}
                                 </p>
                               </div>
                               <Badge variant="outline" className="ml-2">

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import Link from 'next/link';
@@ -87,7 +87,7 @@ export default function SPUBReceivePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="space-y-6">
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
@@ -221,7 +221,7 @@ export default function SPUBReceivePage() {
                   <div className="mt-2 space-y-1">
                     {pendingRequests.slice(0, 3).map(req => (
                       <p key={req.id} className="text-sm text-blue-800">
-                        • {req.requestNumber} - {req.patient.name} ({req.targetFacility})
+                        � {req.requestNumber} - {req.patient.name} ({req.targetFacility})
                       </p>
                     ))}
                     {pendingRequests.length > 3 && (

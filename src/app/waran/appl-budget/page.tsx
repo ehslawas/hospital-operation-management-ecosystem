@@ -186,7 +186,7 @@ export default function APPLBudgetPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100" suppressHydrationWarning>
-      <div className="container mx-auto px-6 py-8" suppressHydrationWarning>
+      <div className=" px-6 py-8" suppressHydrationWarning>
         {/* Modern Header */}
         <div className="mb-8" suppressHydrationWarning>
           <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-8 shadow-xl border border-white/20" suppressHydrationWarning>

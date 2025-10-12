@@ -56,7 +56,7 @@ export default function BudgetOverviewPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/30 p-4 sm:p-6" suppressHydrationWarning>
-      <div className="max-w-7xl mx-auto space-y-8" suppressHydrationWarning>
+      <div className="space-y-8" suppressHydrationWarning>
         {/* Modern Header */}
         <div className="relative overflow-hidden bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 p-8 sm:p-10" suppressHydrationWarning>
           <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 via-transparent to-purple-600/5"></div>
