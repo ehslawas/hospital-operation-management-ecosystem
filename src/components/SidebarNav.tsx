@@ -194,16 +194,18 @@ export default function SidebarNav({ collapsed = false }: Props) {
         {item('/', <IconHome />, 'Dashboard')}
       </div>
       
-      {/* Patient Management - Universal menu for all departments */}
-      <div className="space-y-1.5">
-        {item('/patient-management', <IconUsers />, 'Patient Management', true, 'patient-management')}
-        {expandedItems.includes('patient-management') && (
-          <div className="ml-2 mt-1.5 space-y-1 border-l-2 border-blue-200/50 pl-3.5">
-            {subItem('/patient-management/patient-visit', 'Patient Visit')}
-            {subItem('/patient-management/patient-data', 'Patient Data')}
-          </div>
-        )}
-      </div>
+      {/* Patient Management - Universal menu for all departments except Administrator */}
+      {mounted && department !== 'Administrator' && (
+        <div className="space-y-1.5">
+          {item('/patient-management', <IconUsers />, 'Patient Management', true, 'patient-management')}
+          {expandedItems.includes('patient-management') && (
+            <div className="ml-2 mt-1.5 space-y-1 border-l-2 border-blue-200/50 pl-3.5">
+              {subItem('/patient-management/patient-visit', 'Patient Visit')}
+              {subItem('/patient-management/patient-data', 'Patient Data')}
+            </div>
+          )}
+        </div>
+      )}
       
       {/* Emergency & Trauma - for emergency department */}
       {mounted && department === 'Emergency & Trauma' && (

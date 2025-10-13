@@ -200,3 +200,5 @@ export function WardCensusBoard({ patients, onPatientClick }: WardCensusBoardPro
 
 
 
+
+

@@ -216,6 +216,7 @@ function LoginPageContent() {
                     required
                   >
                     <option value="" className="text-slate-500">Select your department</option>
+                    <option value="Administrator">🛡️ Administrator (System Control)</option>
                     <option value="Pharmacy Logistic">Pharmacy Logistic</option>
                     <option value="Pharmacy Sub Store">Pharmacy Sub Store</option>
                     <option value="Pharmacy Counter">Pharmacy Counter</option>

@@ -259,12 +259,6 @@ export default function PatientChartPage() {
         <div className="px-6 py-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-5">
-              <Link href="/general-ward">
-                <Button variant="ghost" size="sm" className="gap-2 hover:bg-slate-100">
-                  <ArrowLeft className="h-4 w-4" />
-                  Back to Ward
-                </Button>
-              </Link>
               <div className="h-14 w-14 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
                 <User className="h-7 w-7 text-white" />
               </div>

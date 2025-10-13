@@ -135,3 +135,5 @@ export function BedManagement({ beds, patients, onBedClick }: BedManagementProps
 
 
 
+
+

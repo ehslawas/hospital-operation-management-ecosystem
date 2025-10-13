@@ -1,4 +1,5 @@
 export type Department =
+  | 'Administrator'
   | 'Pharmacy Logistic'
   | 'Pharmacy Sub Store'
   | 'Pharmacy Counter'
@@ -13,6 +14,7 @@ export type Department =
   | 'Office Admin';
 
 const departmentLandingMap: Record<Department, string> = {
+  'Administrator': '/administrator',
   'Pharmacy Logistic': '/pharmacy/logistics',
   'Pharmacy Sub Store': '/issuing',
   'Pharmacy Counter': '/dispensing',

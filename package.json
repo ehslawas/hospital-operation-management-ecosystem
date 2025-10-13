@@ -19,6 +19,8 @@
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
+    "@prisma/client": "^6.17.1",
+    "bcryptjs": "^3.0.2",
     "lightweight-charts": "5.0.8",
     "lightweight-charts-react-wrapper": "2.1.1",
     "lucide-react": "^0.545.0",
@@ -35,7 +37,9 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.5.4",
+    "prisma": "^6.17.1",
     "tailwindcss": "^4",
+    "tsx": "^4.20.6",
     "typescript": "^5"
   }
 }

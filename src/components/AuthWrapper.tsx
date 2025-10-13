@@ -34,14 +34,20 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
         setIsAuthenticated(authenticated);
         
         // If not authenticated and not on a public route, redirect to login
-        if (!authenticated && !pathname.startsWith('/login') && !pathname.startsWith('/dev/login')) {
+        // Allow patient portal routes (patients have separate authentication)
+        if (!authenticated && 
+            !pathname.startsWith('/login') && 
+            !pathname.startsWith('/dev/login') && 
+            !pathname.startsWith('/patient-portal')) {
           router.push('/login');
           router.refresh(); // Force refresh to prevent cached content
         }
       } catch (error) {
         // localStorage not available, assume not authenticated
         setIsAuthenticated(false);
-        if (!pathname.startsWith('/login') && !pathname.startsWith('/dev/login')) {
+        if (!pathname.startsWith('/login') && 
+            !pathname.startsWith('/dev/login') && 
+            !pathname.startsWith('/patient-portal')) {
           router.push('/login');
           router.refresh();
         }
@@ -73,8 +79,8 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
     };
   }, [mounted, pathname, router]);
 
-  // If on login page, render without AppShell
-  if (pathname === '/login' || pathname === '/dev/login') {
+  // If on login page or patient portal, render without AppShell
+  if (pathname === '/login' || pathname === '/dev/login' || pathname.startsWith('/patient-portal')) {
     return <>{children}</>;
   }
 

@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -131,6 +132,10 @@ async function main() {
 
   // Seed Patients
   console.log('👤 Seeding patients...');
+  
+  // Hash PIN for patient portal test account
+  const testPinHash = await bcrypt.hash('123456', 10);
+  
   const patientData = [
     {
       mrn: 'MRN2024001',
@@ -179,12 +184,27 @@ async function main() {
       email: 'meiling@example.com',
       allergies: ['Sulfa drugs'],
     },
+    {
+      mrn: 'MRN2024006',
+      nric: '940120126733',
+      name: 'Muhammad Hafiz bin Ahmad',
+      dob: new Date('1994-01-20'),
+      gender: 'Male',
+      phone: '0123334455',
+      email: 'hafiz@example.com',
+      allergies: [],
+      // Patient Portal Access
+      pinHash: testPinHash,
+      isPortalActive: true,
+      portalActivatedAt: new Date(),
+      portalLanguage: 'en',
+    },
   ];
 
   for (const data of patientData) {
     await prisma.patient.create({ data });
   }
-  console.log(`✅ Created ${patientData.length} patients`);
+  console.log(`✅ Created ${patientData.length} patients (including 1 patient portal test account)`);
 
   // Seed Drug Interactions
   console.log('⚠️ Seeding drug interactions...');
@@ -239,7 +259,7 @@ async function main() {
   // Seed Sample Prescriptions
   console.log('📋 Seeding prescriptions...');
   
-  const patients = await prisma.patient.findMany({ take: 3 });
+  const patients = await prisma.patient.findMany({ take: 4 });
   
   if (patients.length > 0) {
     for (let i = 0; i < patients.length; i++) {
@@ -278,6 +298,47 @@ async function main() {
       });
     }
     console.log(`✅ Created ${patients.length} prescriptions`);
+  }
+  
+  // Add specific prescriptions for patient portal test account
+  const portalTestPatient = await prisma.patient.findUnique({
+    where: { nric: '940120126733' }
+  });
+  
+  if (portalTestPatient) {
+    // Current ongoing medications
+    await prisma.prescription.create({
+      data: {
+        patientId: portalTestPatient.id,
+        source: 'Outpatient',
+        status: 'dispensed',
+        prescribedBy: 'Dr. Fatimah Zahra',
+        prescribedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
+        priority: 'normal',
+        notes: 'Chronic disease management',
+        items: {
+          create: [
+            {
+              drugCode: 'METF500',
+              quantity: 60,
+              dosage: '500mg',
+              frequency: 'BD',
+              duration: '30 days',
+              instructions: 'Take with meals',
+            },
+            {
+              drugCode: 'AMLO5',
+              quantity: 30,
+              dosage: '5mg',
+              frequency: 'OD',
+              duration: '30 days',
+              instructions: 'Take in the morning',
+            },
+          ],
+        },
+      },
+    });
+    console.log('✅ Created patient portal test prescriptions');
   }
 
   // Seed Sample Appointments

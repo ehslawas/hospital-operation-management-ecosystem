@@ -28,9 +28,19 @@ model Patient {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   
+  // Patient Portal Authentication Fields
+  passwordHash       String?  // For password-based login
+  pinHash            String?  // For simple 6-digit PIN login
+  isPortalActive     Boolean  @default(false)
+  portalActivatedAt  DateTime?
+  lastPortalLogin    DateTime?
+  portalLanguage     String   @default("en") // 'en' or 'ms'
+  
   prescriptions Prescription[]
   appointments  Appointment[]
   adrIncidents  AdrIncident[]
+  portalAccessLogs PatientPortalAccess[]
+  sharedRecords    PatientSharedRecord[]
   
   @@index([mrn])
   @@index([nric])
@@ -280,5 +290,169 @@ model AuditLog {
   @@index([entity])
   @@index([timestamp])
   @@map("audit_logs")
+}
+
+// ============================================
+// ADMINISTRATOR MANAGEMENT
+// ============================================
+
+model SystemAlert {
+  id          String   @id @default(cuid())
+  type        String   // 'security', 'performance', 'maintenance', 'backup', 'error'
+  severity    String   // 'low', 'medium', 'high', 'critical'
+  department  String?
+  title       String
+  message     String
+  status      String   // 'new', 'acknowledged', 'resolved'
+  resolvedBy  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([status])
+  @@index([severity])
+  @@index([type])
+  @@index([createdAt])
+  @@map("system_alerts")
+}
+
+model DepartmentStatus {
+  id                String   @id @default(cuid())
+  departmentName    String   @unique
+  status            String   // 'active', 'idle', 'maintenance', 'offline'
+  activeUsers       Int      @default(0)
+  todayTransactions Int      @default(0)
+  performance       Int      @default(100) // percentage
+  alerts            Int      @default(0)
+  lastActivity      DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([departmentName])
+  @@index([status])
+  @@map("department_statuses")
+}
+
+model BackupHistory {
+  id          String   @id @default(cuid())
+  type        String   // 'full', 'incremental', 'differential'
+  status      String   // 'completed', 'failed', 'in-progress', 'scheduled'
+  sizeGB      Float
+  duration    String?
+  location    String
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+  error       String?
+  
+  @@index([status])
+  @@index([startedAt])
+  @@map("backup_history")
+}
+
+model SystemConfiguration {
+  id          String   @id @default(cuid())
+  category    String
+  key         String   @unique
+  value       String
+  description String
+  type        String   // 'string', 'number', 'boolean', 'select'
+  options     String[] // For select type
+  updatedBy   String?
+  updatedAt   DateTime @updatedAt
+  
+  @@index([category])
+  @@index([key])
+  @@map("system_configurations")
+}
+
+model IntegrationStatus {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  type         String   // 'api', 'database', 'service', 'external'
+  endpoint     String
+  status       String   // 'connected', 'disconnected', 'error', 'maintenance'
+  responseTime Int      @default(0) // in milliseconds
+  lastSync     DateTime @default(now())
+  errorMessage String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@index([name])
+  @@index([status])
+  @@map("integration_statuses")
+}
+
+model PerformanceMetric {
+  id                 String   @id @default(cuid())
+  timestamp          DateTime @default(now())
+  cpuUsage           Float
+  memoryUsage        Float
+  diskUsage          Float
+  networkIn          Float
+  networkOut         Float
+  activeConnections  Int
+  requestsPerSecond  Int
+  
+  @@index([timestamp])
+  @@map("performance_metrics")
+}
+
+model LicenseInfo {
+  id           String   @id @default(cuid())
+  feature      String   @unique
+  status       String   // 'active', 'expired', 'trial'
+  type         String   // 'essential', 'professional', 'enterprise'
+  expiryDate   DateTime
+  usersAllowed Int
+  usersActive  Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@index([feature])
+  @@index([status])
+  @@map("license_info")
+}
+
+// ============================================
+// PATIENT PORTAL
+// ============================================
+
+model PatientPortalAccess {
+  id          String   @id @default(cuid())
+  patientId   String
+  accessType  String   // 'login', 'view_medications', 'view_labs', 'share_qr', 'download', etc.
+  accessedAt  DateTime @default(now())
+  ipAddress   String?
+  userAgent   String?
+  deviceInfo  String?
+  
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  @@index([patientId])
+  @@index([accessType])
+  @@index([accessedAt])
+  @@map("patient_portal_access")
+}
+
+model PatientSharedRecord {
+  id             String    @id @default(cuid())
+  patientId      String
+  shareToken     String    @unique
+  sharedAt       DateTime  @default(now())
+  expiresAt      DateTime
+  accessCount    Int       @default(0)
+  lastAccessedAt DateTime?
+  isActive       Boolean   @default(true)
+  includedData   String[]  // ['medications', 'allergies', 'labs', 'vitals', 'visits']
+  accessedBy     String?   // Optional: track who accessed it
+  
+  patient        Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  @@index([patientId])
+  @@index([shareToken])
+  @@index([expiresAt])
+  @@map("patient_shared_records")
 }
 
