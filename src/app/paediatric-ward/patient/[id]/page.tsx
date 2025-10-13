@@ -39,7 +39,6 @@ export default function PatientChartPage() {
   const patientId = params.id as string;
   
   const [activeTab, setActiveTab] = useState('overview');
-  const [showDischargeModal, setShowDischargeModal] = useState(false);
   const [moTab, setMoTab] = useState('soap');
   const [nursingTab, setNursingTab] = useState('notes');
   const [expandedMedication, setExpandedMedication] = useState<number | null>(null);
@@ -188,13 +187,14 @@ export default function PatientChartPage() {
                 <Download className="h-4 w-4" />
                 Export
               </Button>
-              <Button 
-                onClick={() => setShowDischargeModal(true)}
-                className="gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white"
-              >
-                <FileText className="h-4 w-4" />
-                Discharge Notes
-              </Button>
+              <Link href={`/paediatric-ward/patient/${patientId}/discharge`}>
+                <Button 
+                  className="gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white"
+                >
+                  <FileText className="h-4 w-4" />
+                  Discharge Notes
+                </Button>
+              </Link>
             </div>
           </div>
         </div>
@@ -2715,157 +2715,6 @@ export default function PatientChartPage() {
         </Tabs>
       </div>
 
-      {/* Discharge Notes Modal */}
-      {showDischargeModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-              <h3 className="text-xl font-bold text-white">Discharge Summary</h3>
-              <button
-                onClick={() => setShowDischargeModal(false)}
-                className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="p-6 space-y-6">
-              {/* Patient Info Summary */}
-              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-xs text-blue-700">Patient Name</div>
-                    <div className="font-bold text-blue-900">{patient.name}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-blue-700">IC Number</div>
-                    <div className="font-bold text-blue-900">{patient.ic}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-blue-700">Admission Date</div>
-                    <div className="font-bold text-blue-900">{patient.admissionDate}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-blue-700">Ward/Bed</div>
-                    <div className="font-bold text-blue-900">{patient.ward} - {patient.bed}</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Discharge Details */}
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Discharge Date & Time</label>
-                  <Input type="datetime-local" defaultValue={new Date().toISOString().slice(0, 16)} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Discharge Type</label>
-                  <select className="w-full px-3 py-2 border border-slate-300 rounded-lg">
-                    <option>Home</option>
-                    <option>Transfer to Another Facility</option>
-                    <option>Against Medical Advice (AMA)</option>
-                    <option>Death</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Diagnosis */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Primary Diagnosis</label>
-                <Input placeholder="Enter primary diagnosis" defaultValue={patient.diagnosis} />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Secondary Diagnosis</label>
-                <Textarea placeholder="Enter secondary diagnosis if any..." className="min-h-20" />
-              </div>
-
-              {/* Hospital Course */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Hospital Course Summary</label>
-                <Textarea 
-                  placeholder="Brief summary of hospital stay, treatments, and progress..."
-                  className="min-h-32"
-                  defaultValue="Patient admitted with community-acquired pneumonia. Treated with IV Ceftriaxone for 5 days with good response. Vital signs stabilized. Patient able to ambulate independently. Chest clear on auscultation."
-                />
-              </div>
-
-              {/* Condition on Discharge */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Condition on Discharge</label>
-                <select className="w-full px-3 py-2 border border-slate-300 rounded-lg">
-                  <option>Improved</option>
-                  <option>Stable</option>
-                  <option>Unchanged</option>
-                  <option>Deteriorated</option>
-                </select>
-              </div>
-
-              {/* Discharge Medications */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Discharge Medications</label>
-                <Textarea 
-                  placeholder="List all medications to continue at home..."
-                  className="min-h-24"
-                  defaultValue="1. Tab Amoxicillin 500mg TDS x 7 days&#10;2. Tab Paracetamol 1g PRN fever/pain&#10;3. Salbutamol inhaler 2 puffs PRN SOB"
-                />
-              </div>
-
-              {/* Follow-up Instructions */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Follow-up Instructions</label>
-                <Textarea 
-                  placeholder="Follow-up appointments, precautions, warning signs..."
-                  className="min-h-24"
-                  defaultValue="- Follow up at Medical OPD in 1 week&#10;- Return immediately if fever > 38°C, worsening SOB, or chest pain&#10;- Continue breathing exercises&#10;- Adequate rest and hydration"
-                />
-              </div>
-
-              {/* Activity & Diet */}
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Activity Level</label>
-                  <select className="w-full px-3 py-2 border border-slate-300 rounded-lg">
-                    <option>No restriction</option>
-                    <option>Light activity only</option>
-                    <option>Bed rest</option>
-                    <option>As tolerated</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Diet</label>
-                  <select className="w-full px-3 py-2 border border-slate-300 rounded-lg">
-                    <option>Normal diet</option>
-                    <option>Diabetic diet</option>
-                    <option>Low salt diet</option>
-                    <option>Soft diet</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Discharging Doctor */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Discharging Doctor</label>
-                <Input placeholder="Doctor name" defaultValue={patient.doctor} />
-              </div>
-            </div>
-
-            <div className="bg-slate-50 px-6 py-4 flex items-center justify-end gap-3 border-t border-slate-200 rounded-b-2xl sticky bottom-0">
-              <Button
-                variant="outline"
-                onClick={() => setShowDischargeModal(false)}
-              >
-                Cancel
-              </Button>
-              <Button className="bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800">
-                Complete Discharge
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

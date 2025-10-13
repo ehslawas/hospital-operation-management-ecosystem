@@ -187,3 +187,4 @@ export function TriageBoard({ patients, onPatientClick }: TriageBoardProps) {
 
 
 
+

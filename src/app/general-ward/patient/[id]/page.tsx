@@ -33,6 +33,8 @@ import {
   AlertCircle,
   ChevronDown,
   ChevronUp,
+  Camera,
+  Image,
 } from 'lucide-react';
 
 export default function PatientChartPage() {
@@ -40,7 +42,6 @@ export default function PatientChartPage() {
   const patientId = params.id as string;
   
   const [activeTab, setActiveTab] = useState('overview');
-  const [showDischargeModal, setShowDischargeModal] = useState(false);
   const [moTab, setMoTab] = useState('soap');
   const [nursingTab, setNursingTab] = useState('care-plan'); // Default to care plan tab
   const [selectedAssessment, setSelectedAssessment] = useState(''); // For dynamic filtering
@@ -287,13 +288,14 @@ export default function PatientChartPage() {
                 <Download className="h-4 w-4" />
                 Export
               </Button>
-              <Button 
-                onClick={() => setShowDischargeModal(true)}
-                className="gap-2 h-10 px-5 bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
-              >
-                <FileText className="h-4 w-4" />
-                Discharge Notes
-              </Button>
+              <Link href={`/general-ward/patient/${patientId}/discharge`}>
+                <Button 
+                  className="gap-2 h-10 px-5 bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                >
+                  <FileText className="h-4 w-4" />
+                  Discharge Notes
+                </Button>
+              </Link>
             </div>
           </div>
         </div>
@@ -748,7 +750,95 @@ export default function PatientChartPage() {
                     
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">Subjective (S)</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">Diagnosis</label>
+                        <select className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                          <option value="">-- Select Diagnosis --</option>
+                          <option value="Pneumonia">Pneumonia</option>
+                          <option value="Acute Bronchitis">Acute Bronchitis</option>
+                          <option value="COPD">Chronic Obstructive Pulmonary Disease (COPD)</option>
+                          <option value="Asthma">Asthma Exacerbation</option>
+                          <option value="Diabetes Mellitus">Diabetes Mellitus Type 2</option>
+                          <option value="Hypertension">Hypertension</option>
+                          <option value="Heart Failure">Congestive Heart Failure</option>
+                          <option value="Acute MI">Acute Myocardial Infarction</option>
+                          <option value="Angina">Unstable Angina</option>
+                          <option value="Stroke">Cerebrovascular Accident (Stroke)</option>
+                          <option value="UTI">Urinary Tract Infection</option>
+                          <option value="Pyelonephritis">Acute Pyelonephritis</option>
+                          <option value="AKI">Acute Kidney Injury</option>
+                          <option value="CKD">Chronic Kidney Disease</option>
+                          <option value="Gastroenteritis">Acute Gastroenteritis</option>
+                          <option value="GERD">Gastroesophageal Reflux Disease</option>
+                          <option value="Peptic Ulcer">Peptic Ulcer Disease</option>
+                          <option value="Appendicitis">Acute Appendicitis</option>
+                          <option value="Cholecystitis">Acute Cholecystitis</option>
+                          <option value="Pancreatitis">Acute Pancreatitis</option>
+                          <option value="Cellulitis">Cellulitis</option>
+                          <option value="Sepsis">Sepsis</option>
+                          <option value="DVT">Deep Vein Thrombosis</option>
+                          <option value="PE">Pulmonary Embolism</option>
+                          <option value="Anemia">Anemia</option>
+                          <option value="Dehydration">Dehydration</option>
+                          <option value="Electrolyte Imbalance">Electrolyte Imbalance</option>
+                          <option value="Malnutrition">Malnutrition</option>
+                          <option value="Fever of Unknown Origin">Fever of Unknown Origin</option>
+                          <option value="Other">Other (Please Specify)</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="block text-sm font-medium text-slate-700">Subjective (S)</label>
+                          <div className="flex gap-1">
+                            <button 
+                              type="button"
+                              title="Take Photo (Camera)"
+                              className="h-7 w-7 p-1 border-2 border-blue-600 rounded-md hover:bg-blue-50 flex items-center justify-center transition-colors"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                const input = document.createElement('input');
+                                input.type = 'file';
+                                input.accept = 'image/*';
+                                input.capture = 'environment' as any;
+                                input.multiple = true;
+                                input.onchange = (event: any) => {
+                                  const files = Array.from(event.target.files) as File[];
+                                  if (files.length > 0) {
+                                    console.log('Subjective camera images:', files);
+                                    alert(`${files.length} photo(s) selected from camera`);
+                                    // Handle file upload here
+                                  }
+                                };
+                                input.click();
+                              }}
+                            >
+                              <Camera className="h-4 w-4 text-blue-600" />
+                            </button>
+                            <button 
+                              type="button"
+                              title="Upload from Gallery"
+                              className="h-7 w-7 p-1 border-2 border-green-600 rounded-md hover:bg-green-50 flex items-center justify-center transition-colors"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                const input = document.createElement('input');
+                                input.type = 'file';
+                                input.accept = 'image/*';
+                                input.multiple = true;
+                                input.onchange = (event: any) => {
+                                  const files = Array.from(event.target.files) as File[];
+                                  if (files.length > 0) {
+                                    console.log('Subjective gallery images:', files);
+                                    alert(`${files.length} photo(s) selected from gallery`);
+                                    // Handle file upload here
+                                  }
+                                };
+                                input.click();
+                              }}
+                            >
+                              <Image className="h-4 w-4 text-green-600" />
+                            </button>
+                          </div>
+                        </div>
                         <Textarea 
                           placeholder="Patient's complaints and symptoms..."
                           className="min-h-24 bg-white"
@@ -756,7 +846,58 @@ export default function PatientChartPage() {
                       </div>
                       
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">Objective (O)</label>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="block text-sm font-medium text-slate-700">Objective (O)</label>
+                          <div className="flex gap-1">
+                            <button 
+                              type="button"
+                              title="Take Photo (Camera)"
+                              className="h-7 w-7 p-1 border-2 border-blue-600 rounded-md hover:bg-blue-50 flex items-center justify-center transition-colors"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                const input = document.createElement('input');
+                                input.type = 'file';
+                                input.accept = 'image/*';
+                                input.capture = 'environment' as any;
+                                input.multiple = true;
+                                input.onchange = (event: any) => {
+                                  const files = Array.from(event.target.files) as File[];
+                                  if (files.length > 0) {
+                                    console.log('Objective camera images:', files);
+                                    alert(`${files.length} photo(s) selected from camera`);
+                                    // Handle file upload here
+                                  }
+                                };
+                                input.click();
+                              }}
+                            >
+                              <Camera className="h-4 w-4 text-blue-600" />
+                            </button>
+                            <button 
+                              type="button"
+                              title="Upload from Gallery"
+                              className="h-7 w-7 p-1 border-2 border-green-600 rounded-md hover:bg-green-50 flex items-center justify-center transition-colors"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                const input = document.createElement('input');
+                                input.type = 'file';
+                                input.accept = 'image/*';
+                                input.multiple = true;
+                                input.onchange = (event: any) => {
+                                  const files = Array.from(event.target.files) as File[];
+                                  if (files.length > 0) {
+                                    console.log('Objective gallery images:', files);
+                                    alert(`${files.length} photo(s) selected from gallery`);
+                                    // Handle file upload here
+                                  }
+                                };
+                                input.click();
+                              }}
+                            >
+                              <Image className="h-4 w-4 text-green-600" />
+                            </button>
+                          </div>
+                        </div>
                         <Textarea 
                           placeholder="Physical examination findings, vital signs, lab results..."
                           className="min-h-24 bg-white"
@@ -764,7 +905,58 @@ export default function PatientChartPage() {
                       </div>
                       
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">Assessment (A)</label>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="block text-sm font-medium text-slate-700">Assessment (A)</label>
+                          <div className="flex gap-1">
+                            <button 
+                              type="button"
+                              title="Take Photo (Camera)"
+                              className="h-7 w-7 p-1 border-2 border-blue-600 rounded-md hover:bg-blue-50 flex items-center justify-center transition-colors"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                const input = document.createElement('input');
+                                input.type = 'file';
+                                input.accept = 'image/*';
+                                input.capture = 'environment' as any;
+                                input.multiple = true;
+                                input.onchange = (event: any) => {
+                                  const files = Array.from(event.target.files) as File[];
+                                  if (files.length > 0) {
+                                    console.log('Assessment camera images:', files);
+                                    alert(`${files.length} photo(s) selected from camera`);
+                                    // Handle file upload here
+                                  }
+                                };
+                                input.click();
+                              }}
+                            >
+                              <Camera className="h-4 w-4 text-blue-600" />
+                            </button>
+                            <button 
+                              type="button"
+                              title="Upload from Gallery"
+                              className="h-7 w-7 p-1 border-2 border-green-600 rounded-md hover:bg-green-50 flex items-center justify-center transition-colors"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                const input = document.createElement('input');
+                                input.type = 'file';
+                                input.accept = 'image/*';
+                                input.multiple = true;
+                                input.onchange = (event: any) => {
+                                  const files = Array.from(event.target.files) as File[];
+                                  if (files.length > 0) {
+                                    console.log('Assessment gallery images:', files);
+                                    alert(`${files.length} photo(s) selected from gallery`);
+                                    // Handle file upload here
+                                  }
+                                };
+                                input.click();
+                              }}
+                            >
+                              <Image className="h-4 w-4 text-green-600" />
+                            </button>
+                          </div>
+                        </div>
                         <Textarea 
                           placeholder="Clinical impression and diagnosis..."
                           className="min-h-24 bg-white"
@@ -1623,11 +1815,10 @@ export default function PatientChartPage() {
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-4">
+                          <div className="flex flex-wrap gap-4">
                               <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-2">General Condition</label>
-                                <select className="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                              <select className="px-3 py-2 border border-slate-300 rounded-lg text-sm">
                                   <option>Alert and oriented</option>
                                   <option>Drowsy but rousable</option>
                                   <option>Confused</option>
@@ -1636,7 +1827,7 @@ export default function PatientChartPage() {
                               </div>
                               <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-2">Skin Condition</label>
-                                <select className="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                              <select className="px-3 py-2 border border-slate-300 rounded-lg text-sm">
                                   <option>Normal</option>
                                   <option>Pale</option>
                                   <option>Cyanosed</option>
@@ -1646,22 +1837,20 @@ export default function PatientChartPage() {
                               </div>
                               <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-2">Mobility</label>
-                                <select className="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                              <select className="px-3 py-2 border border-slate-300 rounded-lg text-sm">
                                   <option>Fully mobile</option>
                                   <option>Mobile with assistance</option>
                                   <option>Bed bound</option>
                                   <option>Wheelchair bound</option>
                                 </select>
                               </div>
-                            </div>
-                            <div className="space-y-4">
                               <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-2">Pain Score (0-10)</label>
-                                <Input type="number" min="0" max="10" placeholder="0-10" />
+                              <Input type="number" min="0" max="10" placeholder="0-10" className="text-sm w-32" />
                               </div>
                               <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-2">Nutritional Status</label>
-                                <select className="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                              <select className="px-3 py-2 border border-slate-300 rounded-lg text-sm">
                                   <option>Taking full diet</option>
                                   <option>Taking half diet</option>
                                   <option>Poor appetite</option>
@@ -1670,19 +1859,246 @@ export default function PatientChartPage() {
                               </div>
                               <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-2">Elimination</label>
-                                <select className="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                              <select className="px-3 py-2 border border-slate-300 rounded-lg text-sm">
                                   <option>Normal bowel/bladder</option>
                                   <option>Constipated</option>
                                   <option>Diarrhea</option>
                                   <option>Catheterized</option>
                                 </select>
-                              </div>
                             </div>
                           </div>
 
                           <div className="mt-6">
-                            <label className="block text-sm font-medium text-slate-700 mb-2">Nursing Notes</label>
-                            <Textarea placeholder="Additional nursing observations and notes..." className="min-h-24" />
+                            <h3 className="text-lg font-bold text-slate-900 mb-4">Nursing Notes (SBAR Format)</h3>
+                            <div className="space-y-4">
+                              <div>
+                                <div className="flex items-center justify-between mb-2">
+                                  <label className="block text-sm font-bold text-slate-700">
+                                    <span className="text-blue-600">S</span>ituation - What is happening with the patient?
+                                  </label>
+                                  <div className="flex gap-1">
+                                    <button 
+                                      type="button"
+                                      title="Take Photo (Camera)"
+                                      className="h-7 w-7 p-1 border-2 border-blue-600 rounded-md hover:bg-blue-50 flex items-center justify-center transition-colors"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        const input = document.createElement('input');
+                                        input.type = 'file';
+                                        input.accept = 'image/*';
+                                        input.capture = 'environment' as any;
+                                        input.multiple = true;
+                                        input.onchange = (event: any) => {
+                                          const files = Array.from(event.target.files) as File[];
+                                          if (files.length > 0) {
+                                            alert(`${files.length} photo(s) added to Situation`);
+                                          }
+                                        };
+                                        input.click();
+                                      }}
+                                    >
+                                      <Camera className="h-4 w-4" />
+                                    </button>
+                                    <button 
+                                      type="button"
+                                      title="Upload from Gallery"
+                                      className="h-7 w-7 p-1 border-2 border-green-600 rounded-md hover:bg-green-50 flex items-center justify-center transition-colors"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        const input = document.createElement('input');
+                                        input.type = 'file';
+                                        input.accept = 'image/*';
+                                        input.multiple = true;
+                                        input.onchange = (event: any) => {
+                                          const files = Array.from(event.target.files) as File[];
+                                          if (files.length > 0) {
+                                            alert(`${files.length} photo(s) added to Situation`);
+                                          }
+                                        };
+                                        input.click();
+                                      }}
+                                    >
+                                      <Image className="h-4 w-4 text-green-600" />
+                                    </button>
+                                  </div>
+                                </div>
+                                <Textarea 
+                                  placeholder="Describe the current situation (e.g., Patient's current condition, vital signs, symptoms...)" 
+                                  className="min-h-24 text-sm"
+                                />
+                              </div>
+                              
+                              <div>
+                                <div className="flex items-center justify-between mb-2">
+                                  <label className="block text-sm font-bold text-slate-700">
+                                    <span className="text-green-600">B</span>ackground - What is the clinical context?
+                                  </label>
+                                  <div className="flex gap-1">
+                                    <button 
+                                      type="button"
+                                      title="Take Photo (Camera)"
+                                      className="h-7 w-7 p-1 border-2 border-blue-600 rounded-md hover:bg-blue-50 flex items-center justify-center transition-colors"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        const input = document.createElement('input');
+                                        input.type = 'file';
+                                        input.accept = 'image/*';
+                                        input.capture = 'environment' as any;
+                                        input.multiple = true;
+                                        input.onchange = (event: any) => {
+                                          const files = Array.from(event.target.files) as File[];
+                                          if (files.length > 0) {
+                                            alert(`${files.length} photo(s) added to Background`);
+                                          }
+                                        };
+                                        input.click();
+                                      }}
+                                    >
+                                      <Camera className="h-4 w-4" />
+                                    </button>
+                                    <button 
+                                      type="button"
+                                      title="Upload from Gallery"
+                                      className="h-7 w-7 p-1 border-2 border-green-600 rounded-md hover:bg-green-50 flex items-center justify-center transition-colors"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        const input = document.createElement('input');
+                                        input.type = 'file';
+                                        input.accept = 'image/*';
+                                        input.multiple = true;
+                                        input.onchange = (event: any) => {
+                                          const files = Array.from(event.target.files) as File[];
+                                          if (files.length > 0) {
+                                            alert(`${files.length} photo(s) added to Background`);
+                                          }
+                                        };
+                                        input.click();
+                                      }}
+                                    >
+                                      <Image className="h-4 w-4 text-green-600" />
+                                    </button>
+                                  </div>
+                                </div>
+                                <Textarea 
+                                  placeholder="Provide background information (e.g., Admission diagnosis, relevant medical history, treatments given...)" 
+                                  className="min-h-24 text-sm"
+                                />
+                              </div>
+                              
+                              <div>
+                                <div className="flex items-center justify-between mb-2">
+                                  <label className="block text-sm font-bold text-slate-700">
+                                    <span className="text-orange-600">A</span>ssessment - What do you think the problem is?
+                                  </label>
+                                  <div className="flex gap-1">
+                                    <button 
+                                      type="button"
+                                      title="Take Photo (Camera)"
+                                      className="h-7 w-7 p-1 border-2 border-blue-600 rounded-md hover:bg-blue-50 flex items-center justify-center transition-colors"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        const input = document.createElement('input');
+                                        input.type = 'file';
+                                        input.accept = 'image/*';
+                                        input.capture = 'environment' as any;
+                                        input.multiple = true;
+                                        input.onchange = (event: any) => {
+                                          const files = Array.from(event.target.files) as File[];
+                                          if (files.length > 0) {
+                                            alert(`${files.length} photo(s) added to Assessment`);
+                                          }
+                                        };
+                                        input.click();
+                                      }}
+                                    >
+                                      <Camera className="h-4 w-4" />
+                                    </button>
+                                    <button 
+                                      type="button"
+                                      title="Upload from Gallery"
+                                      className="h-7 w-7 p-1 border-2 border-green-600 rounded-md hover:bg-green-50 flex items-center justify-center transition-colors"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        const input = document.createElement('input');
+                                        input.type = 'file';
+                                        input.accept = 'image/*';
+                                        input.multiple = true;
+                                        input.onchange = (event: any) => {
+                                          const files = Array.from(event.target.files) as File[];
+                                          if (files.length > 0) {
+                                            alert(`${files.length} photo(s) added to Assessment`);
+                                          }
+                                        };
+                                        input.click();
+                                      }}
+                                    >
+                                      <Image className="h-4 w-4 text-green-600" />
+                                    </button>
+                                  </div>
+                                </div>
+                                <Textarea 
+                                  placeholder="Your assessment (e.g., Clinical impression, patient response to treatment, concerns...)" 
+                                  className="min-h-24 text-sm"
+                                />
+                              </div>
+                              
+                              <div>
+                                <div className="flex items-center justify-between mb-2">
+                                  <label className="block text-sm font-bold text-slate-700">
+                                    <span className="text-red-600">R</span>ecommendation - What should be done?
+                                  </label>
+                                  <div className="flex gap-1">
+                                    <button 
+                                      type="button"
+                                      title="Take Photo (Camera)"
+                                      className="h-7 w-7 p-1 border-2 border-blue-600 rounded-md hover:bg-blue-50 flex items-center justify-center transition-colors"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        const input = document.createElement('input');
+                                        input.type = 'file';
+                                        input.accept = 'image/*';
+                                        input.capture = 'environment' as any;
+                                        input.multiple = true;
+                                        input.onchange = (event: any) => {
+                                          const files = Array.from(event.target.files) as File[];
+                                          if (files.length > 0) {
+                                            alert(`${files.length} photo(s) added to Recommendation`);
+                                          }
+                                        };
+                                        input.click();
+                                      }}
+                                    >
+                                      <Camera className="h-4 w-4" />
+                                    </button>
+                                    <button 
+                                      type="button"
+                                      title="Upload from Gallery"
+                                      className="h-7 w-7 p-1 border-2 border-green-600 rounded-md hover:bg-green-50 flex items-center justify-center transition-colors"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        const input = document.createElement('input');
+                                        input.type = 'file';
+                                        input.accept = 'image/*';
+                                        input.multiple = true;
+                                        input.onchange = (event: any) => {
+                                          const files = Array.from(event.target.files) as File[];
+                                          if (files.length > 0) {
+                                            alert(`${files.length} photo(s) added to Recommendation`);
+                                          }
+                                        };
+                                        input.click();
+                                      }}
+                                    >
+                                      <Image className="h-4 w-4 text-green-600" />
+                                    </button>
+                                  </div>
+                                </div>
+                                <Textarea 
+                                  placeholder="Your recommendations (e.g., Actions needed, follow-up required, doctor notification...)" 
+                                  className="min-h-24 text-sm"
+                                />
+                              </div>
+                            </div>
                           </div>
 
                           {/* Takeover Notes Section */}
@@ -1759,13 +2175,36 @@ export default function PatientChartPage() {
                               </div>
                               
                               <div className="bg-yellow-50 p-4 space-y-4">
-                                {/* Shift Observations - READ ONLY */}
+                                {/* Shift Observations - READ ONLY - SBAR Format */}
                                 <div>
-                                  <label className="block text-sm font-bold text-slate-900 mb-2">Shift Observations</label>
-                                  <div className="p-4 bg-white border-2 border-yellow-200 rounded-lg text-sm text-slate-700 min-h-24">
-                                    Patient alert and responsive. Vital signs stable. Breakfast taken well. Chest physiotherapy done at 09:00. No complaints of pain. Ambulated to bathroom with assistance.
+                                  <label className="block text-sm font-bold text-slate-900 mb-3">Shift Observations (SBAR Format)</label>
+                                  <div className="space-y-3">
+                                    <div>
+                                      <div className="text-xs font-bold text-blue-600 mb-1">SITUATION</div>
+                                      <div className="p-3 bg-white border-2 border-yellow-200 rounded-lg text-sm text-slate-700">
+                                        Patient alert and responsive. Vital signs stable at 08:00.
                                   </div>
-                                  <div className="text-xs text-slate-500 mt-1">By: Sr. Fatimah (AM Shift)</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-xs font-bold text-green-600 mb-1">BACKGROUND</div>
+                                      <div className="p-3 bg-white border-2 border-yellow-200 rounded-lg text-sm text-slate-700">
+                                        Day 3 post-admission for pneumonia. Currently on IV antibiotics and oxygen therapy.
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="text-xs font-bold text-orange-600 mb-1">ASSESSMENT</div>
+                                      <div className="p-3 bg-white border-2 border-yellow-200 rounded-lg text-sm text-slate-700">
+                                        Patient showing improvement. No complaints of pain. Breakfast taken well.
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="text-xs font-bold text-red-600 mb-1">RECOMMENDATION</div>
+                                      <div className="p-3 bg-white border-2 border-yellow-200 rounded-lg text-sm text-slate-700">
+                                        Continue current treatment. Chest physiotherapy at 09:00. Monitor vital signs 4-hourly.
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-slate-500 mt-2">By: Sr. Fatimah (AM Shift)</div>
                                 </div>
 
                                 {/* Handover Section - READ ONLY */}
@@ -1799,13 +2238,36 @@ export default function PatientChartPage() {
                               </div>
                               
                               <div className="bg-blue-50 p-4 space-y-4">
-                                {/* Shift Observations - READ ONLY */}
+                                {/* Shift Observations - READ ONLY - SBAR Format */}
                                 <div>
-                                  <label className="block text-sm font-bold text-slate-900 mb-2">Shift Observations</label>
-                                  <div className="p-4 bg-white border-2 border-blue-200 rounded-lg text-sm text-slate-700 min-h-24">
-                                    Patient continues to be stable. Lunch intake adequate. IV antibiotics given at 14:00. Respiratory rate slightly elevated at 22/min. Nebulizer given. Family visited.
+                                  <label className="block text-sm font-bold text-slate-900 mb-3">Shift Observations (SBAR Format)</label>
+                                  <div className="space-y-3">
+                                    <div>
+                                      <div className="text-xs font-bold text-blue-600 mb-1">SITUATION</div>
+                                      <div className="p-3 bg-white border-2 border-blue-200 rounded-lg text-sm text-slate-700">
+                                        Patient continues to be stable. Vital signs monitored at 16:00.
                                   </div>
-                                  <div className="text-xs text-slate-500 mt-1">By: Sr. Aishah (PM Shift)</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-xs font-bold text-green-600 mb-1">BACKGROUND</div>
+                                      <div className="p-3 bg-white border-2 border-blue-200 rounded-lg text-sm text-slate-700">
+                                        IV antibiotics given at 14:00. Lunch intake adequate.
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="text-xs font-bold text-orange-600 mb-1">ASSESSMENT</div>
+                                      <div className="p-3 bg-white border-2 border-blue-200 rounded-lg text-sm text-slate-700">
+                                        Respiratory rate slightly elevated at 22/min. Patient comfortable after nebulizer treatment.
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="text-xs font-bold text-red-600 mb-1">RECOMMENDATION</div>
+                                      <div className="p-3 bg-white border-2 border-blue-200 rounded-lg text-sm text-slate-700">
+                                        Continue monitoring respiratory rate. Family visited and updated on condition.
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-slate-500 mt-2">By: Sr. Aishah (PM Shift)</div>
                                 </div>
 
                                 {/* Handover Section - READ ONLY */}
@@ -1839,13 +2301,36 @@ export default function PatientChartPage() {
                               </div>
                               
                               <div className="bg-indigo-50 p-4 space-y-4">
-                                {/* Shift Observations - READ ONLY */}
+                                {/* Shift Observations - READ ONLY - SBAR Format */}
                                 <div>
-                                  <label className="block text-sm font-bold text-slate-900 mb-2">Shift Observations</label>
-                                  <div className="p-4 bg-white border-2 border-indigo-200 rounded-lg text-sm text-slate-700 min-h-24">
-                                    Patient sleeping well. Woke up once at 02:00 for bathroom. Vital signs checked at 22:00 and 02:00 - all stable. No complaints. IV fluids running well.
+                                  <label className="block text-sm font-bold text-slate-900 mb-3">Shift Observations (SBAR Format)</label>
+                                  <div className="space-y-3">
+                                    <div>
+                                      <div className="text-xs font-bold text-blue-600 mb-1">SITUATION</div>
+                                      <div className="p-3 bg-white border-2 border-indigo-200 rounded-lg text-sm text-slate-700">
+                                        Patient sleeping well throughout the night. Vital signs checked at 22:00 and 02:00 - all stable.
                                   </div>
-                                  <div className="text-xs text-slate-500 mt-1">By: Sr. Nurul (Night Shift)</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-xs font-bold text-green-600 mb-1">BACKGROUND</div>
+                                      <div className="p-3 bg-white border-2 border-indigo-200 rounded-lg text-sm text-slate-700">
+                                        IV fluids running well. All evening medications completed before sleep.
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="text-xs font-bold text-orange-600 mb-1">ASSESSMENT</div>
+                                      <div className="p-3 bg-white border-2 border-indigo-200 rounded-lg text-sm text-slate-700">
+                                        Patient rested well. Woke up once at 02:00 for bathroom, ambulated safely. No complaints.
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="text-xs font-bold text-red-600 mb-1">RECOMMENDATION</div>
+                                      <div className="p-3 bg-white border-2 border-indigo-200 rounded-lg text-sm text-slate-700">
+                                        Continue routine monitoring. Morning medications due at 08:00. Patient ready for day shift handover.
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-slate-500 mt-2">By: Sr. Nurul (Night Shift)</div>
                                 </div>
 
                                 {/* Handover Section - READ ONLY */}
@@ -1889,43 +2374,43 @@ export default function PatientChartPage() {
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
                           {/* Temperature Chart */}
                           <Card className="border-0 shadow-lg bg-gradient-to-br from-red-50 to-orange-50">
-                            <CardContent className="p-4">
-                              <div className="mb-3">
-                                <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                                  <TrendingUp className="h-4 w-4 text-red-600" />
+                            <CardContent className="p-6">
+                              <div className="mb-4">
+                                <h4 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                                  <TrendingUp className="h-5 w-5 text-red-600" />
                                   Temperature Trend
                                 </h4>
-                                <p className="text-xs text-slate-600 mt-0.5">Body temperature over time</p>
+                                <p className="text-sm text-slate-600 mt-1">Body temperature over time</p>
                               </div>
 
                               <div 
-                                className="bg-white p-3 rounded-xl border border-red-200 cursor-pointer hover:shadow-lg transition-shadow" 
+                                className="bg-white p-8 rounded-xl border border-red-200 cursor-pointer hover:shadow-lg transition-shadow" 
                                 onClick={() => setExpandedChart('temperature')}
                                 title="Click to enlarge"
                               >
-                                <svg viewBox="0 0 300 250" className="w-full h-64">
+                                <svg viewBox="0 0 500 350" className="w-full" style={{height: '400px'}}>
                                   {/* Background zones */}
-                                  <rect x="40" y="20" width="240" height="40" fill="#fee2e2" opacity="0.3" /> {/* High fever */}
-                                  <rect x="40" y="60" width="240" height="80" fill="#d1fae5" opacity="0.3" /> {/* Normal */}
+                                  <rect x="80" y="50" width="400" height="70" fill="#fee2e2" opacity="0.3" /> {/* High fever */}
+                                  <rect x="80" y="120" width="400" height="120" fill="#d1fae5" opacity="0.3" /> {/* Normal */}
 
                                   {/* Grid lines */}
-                                  <line x1="40" y1="20" x2="280" y2="20" stroke="#e2e8f0" strokeWidth="1" />
-                                  <line x1="40" y1="60" x2="280" y2="60" stroke="#e2e8f0" strokeWidth="1" />
-                                  <line x1="40" y1="100" x2="280" y2="100" stroke="#e2e8f0" strokeWidth="1" />
-                                  <line x1="40" y1="140" x2="280" y2="140" stroke="#e2e8f0" strokeWidth="1" />
+                                  <line x1="80" y1="50" x2="480" y2="50" stroke="#e2e8f0" strokeWidth="2" />
+                                  <line x1="80" y1="120" x2="480" y2="120" stroke="#e2e8f0" strokeWidth="2" />
+                                  <line x1="80" y1="180" x2="480" y2="180" stroke="#e2e8f0" strokeWidth="2" />
+                                  <line x1="80" y1="240" x2="480" y2="240" stroke="#e2e8f0" strokeWidth="2" />
 
                                   {/* Y-axis labels */}
-                                  <text x="35" y="25" textAnchor="end" fontSize="12" fill="#64748b" fontWeight="bold">38.5°C</text>
-                                  <text x="35" y="65" textAnchor="end" fontSize="12" fill="#64748b" fontWeight="bold">37.5°C</text>
-                                  <text x="35" y="105" textAnchor="end" fontSize="12" fill="#64748b" fontWeight="bold">37.0°C</text>
-                                  <text x="35" y="145" textAnchor="end" fontSize="12" fill="#64748b" fontWeight="bold">36.5°C</text>
+                                  <text x="68" y="58" textAnchor="end" fontSize="16" fill="#64748b">38.5°C</text>
+                                  <text x="68" y="128" textAnchor="end" fontSize="16" fill="#64748b">37.5°C</text>
+                                  <text x="68" y="188" textAnchor="end" fontSize="16" fill="#64748b">37.0°C</text>
+                                  <text x="68" y="248" textAnchor="end" fontSize="16" fill="#64748b">36.5°C</text>
 
                                   {/* Normal range line */}
-                                  <line x1="40" y1="100" x2="280" y2="100" stroke="#10b981" strokeWidth="2" strokeDasharray="5,3" />
+                                  <line x1="80" y1="180" x2="480" y2="180" stroke="#10b981" strokeWidth="3" strokeDasharray="8,4" />
 
                                   {/* Temperature trend line */}
                                   <polyline
-                                    points="40,105 88,100 136,55 184,107 232,113"
+                                    points="130,188 210,180 290,95 370,192 440,204"
                                     fill="none"
                                     stroke="#dc2626"
                                     strokeWidth="3"
@@ -1934,29 +2419,29 @@ export default function PatientChartPage() {
                                   />
 
                                   {/* Data points */}
-                                  <circle cx="40" cy="105" r="4" fill="#10b981" stroke="white" strokeWidth="2" />
-                                  <circle cx="88" cy="100" r="4" fill="#10b981" stroke="white" strokeWidth="2" />
-                                  <circle cx="136" cy="55" r="4" fill="#dc2626" stroke="white" strokeWidth="2" />
-                                  <circle cx="184" cy="107" r="4" fill="#10b981" stroke="white" strokeWidth="2" />
-                                  <circle cx="232" cy="113" r="4" fill="#10b981" stroke="white" strokeWidth="2" />
+                                  <circle cx="130" cy="188" r="8" fill="#10b981" stroke="white" strokeWidth="3" />
+                                  <circle cx="210" cy="180" r="8" fill="#10b981" stroke="white" strokeWidth="3" />
+                                  <circle cx="290" cy="95" r="8" fill="#dc2626" stroke="white" strokeWidth="3" />
+                                  <circle cx="370" cy="192" r="8" fill="#10b981" stroke="white" strokeWidth="3" />
+                                  <circle cx="440" cy="204" r="8" fill="#10b981" stroke="white" strokeWidth="3" />
 
                                   {/* Value labels */}
-                                  <text x="40" y="120" textAnchor="middle" fontSize="11" fill="#10b981" fontWeight="bold">37.2</text>
-                                  <text x="88" y="115" textAnchor="middle" fontSize="11" fill="#10b981" fontWeight="bold">37.5</text>
-                                  <text x="136" y="70" textAnchor="middle" fontSize="11" fill="#dc2626" fontWeight="bold">37.8</text>
-                                  <text x="184" y="122" textAnchor="middle" fontSize="11" fill="#10b981" fontWeight="bold">37.4</text>
-                                  <text x="232" y="128" textAnchor="middle" fontSize="11" fill="#10b981" fontWeight="bold">37.1</text>
+                                  <text x="130" y="215" textAnchor="middle" fontSize="15" fill="#10b981">37.2</text>
+                                  <text x="210" y="207" textAnchor="middle" fontSize="15" fill="#10b981">37.5</text>
+                                  <text x="290" y="122" textAnchor="middle" fontSize="15" fill="#dc2626">37.8</text>
+                                  <text x="370" y="219" textAnchor="middle" fontSize="15" fill="#10b981">37.4</text>
+                                  <text x="440" y="231" textAnchor="middle" fontSize="15" fill="#10b981">37.1</text>
 
                                   {/* X-axis time labels */}
-                                  <text x="40" y="165" textAnchor="middle" fontSize="11" fill="#64748b" fontWeight="bold">06:00</text>
-                                  <text x="88" y="165" textAnchor="middle" fontSize="11" fill="#64748b" fontWeight="bold">10:00</text>
-                                  <text x="136" y="165" textAnchor="middle" fontSize="11" fill="#64748b" fontWeight="bold">14:00</text>
-                                  <text x="184" y="165" textAnchor="middle" fontSize="11" fill="#64748b" fontWeight="bold">18:00</text>
-                                  <text x="232" y="165" textAnchor="middle" fontSize="11" fill="#64748b" fontWeight="bold">22:00</text>
+                                  <text x="130" y="290" textAnchor="middle" fontSize="16" fill="#64748b">06:00</text>
+                                  <text x="210" y="290" textAnchor="middle" fontSize="16" fill="#64748b">10:00</text>
+                                  <text x="290" y="290" textAnchor="middle" fontSize="16" fill="#64748b">14:00</text>
+                                  <text x="370" y="290" textAnchor="middle" fontSize="16" fill="#64748b">18:00</text>
+                                  <text x="440" y="290" textAnchor="middle" fontSize="16" fill="#64748b">22:00</text>
 
                                   {/* Zone label */}
-                                  <text x="45" y="50" fontSize="10" fill="#991b1b" fontWeight="bold">High (&gt;37.5°C)</text>
-                                  <text x="45" y="100" fontSize="10" fill="#047857" fontWeight="bold">Normal Range</text>
+                                  <text x="90" y="88" fontSize="14" fill="#991b1b">High (&gt;37.5°C)</text>
+                                  <text x="90" y="180" fontSize="14" fill="#047857">Normal Range</text>
                                 </svg>
                               </div>
 
@@ -1975,43 +2460,43 @@ export default function PatientChartPage() {
 
                           {/* Heart Rate Chart */}
                           <Card className="border-0 shadow-lg bg-gradient-to-br from-pink-50 to-red-50">
-                            <CardContent className="p-4">
-                              <div className="mb-3">
-                                <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                                  <TrendingUp className="h-4 w-4 text-pink-600" />
+                            <CardContent className="p-6">
+                              <div className="mb-4">
+                                <h4 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                                  <TrendingUp className="h-5 w-5 text-pink-600" />
                                   Heart Rate Trend
                                 </h4>
-                                <p className="text-xs text-slate-600 mt-0.5">Heart rate (BPM) over time</p>
+                                <p className="text-sm text-slate-600 mt-1">Heart rate (BPM) over time</p>
                               </div>
 
                               <div 
-                                className="bg-white p-3 rounded-xl border border-pink-200 cursor-pointer hover:shadow-lg transition-shadow" 
+                                className="bg-white p-8 rounded-xl border border-pink-200 cursor-pointer hover:shadow-lg transition-shadow" 
                                 onClick={() => setExpandedChart('heartrate')}
                                 title="Click to enlarge"
                               >
-                                <svg viewBox="0 0 300 250" className="w-full h-64">
+                                <svg viewBox="0 0 500 350" className="w-full" style={{height: '400px'}}>
                                   {/* Background zones */}
-                                  <rect x="40" y="20" width="240" height="35" fill="#fee2e2" opacity="0.3" /> {/* High */}
-                                  <rect x="40" y="55" width="240" height="90" fill="#d1fae5" opacity="0.3" /> {/* Normal */}
+                                  <rect x="80" y="50" width="400" height="50" fill="#fee2e2" opacity="0.3" /> {/* High */}
+                                  <rect x="80" y="100" width="400" height="120" fill="#d1fae5" opacity="0.3" /> {/* Normal */}
 
                                   {/* Grid lines */}
-                                  <line x1="40" y1="20" x2="280" y2="20" stroke="#e2e8f0" strokeWidth="1" />
-                                  <line x1="40" y1="55" x2="280" y2="55" stroke="#e2e8f0" strokeWidth="1" />
-                                  <line x1="40" y1="90" x2="280" y2="90" stroke="#e2e8f0" strokeWidth="1" />
-                                  <line x1="40" y1="125" x2="280" y2="125" stroke="#e2e8f0" strokeWidth="1" />
+                                  <line x1="80" y1="50" x2="480" y2="50" stroke="#e2e8f0" strokeWidth="2" />
+                                  <line x1="80" y1="100" x2="480" y2="100" stroke="#e2e8f0" strokeWidth="2" />
+                                  <line x1="80" y1="160" x2="480" y2="160" stroke="#e2e8f0" strokeWidth="2" />
+                                  <line x1="80" y1="220" x2="480" y2="220" stroke="#e2e8f0" strokeWidth="2" />
 
                                   {/* Y-axis labels */}
-                                  <text x="35" y="25" textAnchor="end" fontSize="12" fill="#64748b" fontWeight="bold">100</text>
-                                  <text x="35" y="60" textAnchor="end" fontSize="12" fill="#64748b" fontWeight="bold">90</text>
-                                  <text x="35" y="95" textAnchor="end" fontSize="12" fill="#64748b" fontWeight="bold">80</text>
-                                  <text x="35" y="130" textAnchor="end" fontSize="12" fill="#64748b" fontWeight="bold">70</text>
+                                  <text x="68" y="58" textAnchor="end" fontSize="16" fill="#64748b">100</text>
+                                  <text x="68" y="108" textAnchor="end" fontSize="16" fill="#64748b">90</text>
+                                  <text x="68" y="168" textAnchor="end" fontSize="16" fill="#64748b">80</text>
+                                  <text x="68" y="228" textAnchor="end" fontSize="16" fill="#64748b">70</text>
 
                                   {/* Normal range line */}
-                                  <line x1="40" y1="55" x2="280" y2="55" stroke="#10b981" strokeWidth="2" strokeDasharray="5,3" />
+                                  <line x1="80" y1="100" x2="480" y2="100" stroke="#10b981" strokeWidth="3" strokeDasharray="8,4" />
 
                                   {/* HR trend line */}
                                   <polyline
-                                    points="40,83 88,69 136,48 184,76 232,90"
+                                    points="130,148 210,122 290,86 370,135 440,160"
                                     fill="none"
                                     stroke="#ec4899"
                                     strokeWidth="3"
@@ -2020,29 +2505,29 @@ export default function PatientChartPage() {
                                   />
 
                                   {/* Data points */}
-                                  <circle cx="40" cy="83" r="4" fill="#10b981" stroke="white" strokeWidth="2" />
-                                  <circle cx="88" cy="69" r="4" fill="#10b981" stroke="white" strokeWidth="2" />
-                                  <circle cx="136" cy="48" r="4" fill="#10b981" stroke="white" strokeWidth="2" />
-                                  <circle cx="184" cy="76" r="4" fill="#10b981" stroke="white" strokeWidth="2" />
-                                  <circle cx="232" cy="90" r="4" fill="#10b981" stroke="white" strokeWidth="2" />
+                                  <circle cx="130" cy="148" r="8" fill="#10b981" stroke="white" strokeWidth="3" />
+                                  <circle cx="210" cy="122" r="8" fill="#10b981" stroke="white" strokeWidth="3" />
+                                  <circle cx="290" cy="86" r="8" fill="#10b981" stroke="white" strokeWidth="3" />
+                                  <circle cx="370" cy="135" r="8" fill="#10b981" stroke="white" strokeWidth="3" />
+                                  <circle cx="440" cy="160" r="8" fill="#10b981" stroke="white" strokeWidth="3" />
 
                                   {/* Value labels */}
-                                  <text x="40" y="98" textAnchor="middle" fontSize="11" fill="#10b981" fontWeight="bold">78</text>
-                                  <text x="88" y="84" textAnchor="middle" fontSize="11" fill="#10b981" fontWeight="bold">82</text>
-                                  <text x="136" y="63" textAnchor="middle" fontSize="11" fill="#10b981" fontWeight="bold">85</text>
-                                  <text x="184" y="91" textAnchor="middle" fontSize="11" fill="#10b981" fontWeight="bold">80</text>
-                                  <text x="232" y="105" textAnchor="middle" fontSize="11" fill="#10b981" fontWeight="bold">76</text>
+                                  <text x="130" y="175" textAnchor="middle" fontSize="15" fill="#10b981">78</text>
+                                  <text x="210" y="149" textAnchor="middle" fontSize="15" fill="#10b981">82</text>
+                                  <text x="290" y="113" textAnchor="middle" fontSize="15" fill="#10b981">85</text>
+                                  <text x="370" y="162" textAnchor="middle" fontSize="15" fill="#10b981">80</text>
+                                  <text x="440" y="187" textAnchor="middle" fontSize="15" fill="#10b981">76</text>
 
                                   {/* X-axis time labels */}
-                                  <text x="40" y="165" textAnchor="middle" fontSize="11" fill="#64748b" fontWeight="bold">06:00</text>
-                                  <text x="88" y="165" textAnchor="middle" fontSize="11" fill="#64748b" fontWeight="bold">10:00</text>
-                                  <text x="136" y="165" textAnchor="middle" fontSize="11" fill="#64748b" fontWeight="bold">14:00</text>
-                                  <text x="184" y="165" textAnchor="middle" fontSize="11" fill="#64748b" fontWeight="bold">18:00</text>
-                                  <text x="232" y="165" textAnchor="middle" fontSize="11" fill="#64748b" fontWeight="bold">22:00</text>
+                                  <text x="130" y="290" textAnchor="middle" fontSize="16" fill="#64748b">06:00</text>
+                                  <text x="210" y="290" textAnchor="middle" fontSize="16" fill="#64748b">10:00</text>
+                                  <text x="290" y="290" textAnchor="middle" fontSize="16" fill="#64748b">14:00</text>
+                                  <text x="370" y="290" textAnchor="middle" fontSize="16" fill="#64748b">18:00</text>
+                                  <text x="440" y="290" textAnchor="middle" fontSize="16" fill="#64748b">22:00</text>
 
                                   {/* Zone label */}
-                                  <text x="45" y="45" fontSize="10" fill="#991b1b" fontWeight="bold">High (&gt;100 bpm)</text>
-                                  <text x="45" y="85" fontSize="10" fill="#047857" fontWeight="bold">Normal (60-100)</text>
+                                  <text x="90" y="80" fontSize="14" fill="#991b1b">High (&gt;100 bpm)</text>
+                                  <text x="90" y="155" fontSize="14" fill="#047857">Normal (60-100)</text>
                                 </svg>
                               </div>
 
@@ -2061,43 +2546,43 @@ export default function PatientChartPage() {
 
                           {/* Blood Pressure Chart */}
                           <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-cyan-50">
-                            <CardContent className="p-4">
-                              <div className="mb-3">
-                                <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                                  <TrendingUp className="h-4 w-4 text-blue-600" />
+                            <CardContent className="p-6">
+                              <div className="mb-4">
+                                <h4 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                                  <TrendingUp className="h-5 w-5 text-blue-600" />
                                   Blood Pressure Trend
                                 </h4>
-                                <p className="text-xs text-slate-600 mt-0.5">Systolic/Diastolic (mmHg)</p>
+                                <p className="text-sm text-slate-600 mt-1">Systolic/Diastolic (mmHg)</p>
                               </div>
 
                               <div 
-                                className="bg-white p-3 rounded-xl border border-blue-200 cursor-pointer hover:shadow-lg transition-shadow" 
+                                className="bg-white p-8 rounded-xl border border-blue-200 cursor-pointer hover:shadow-lg transition-shadow" 
                                 onClick={() => setExpandedChart('bloodpressure')}
                                 title="Click to enlarge"
                               >
-                                <svg viewBox="0 0 300 250" className="w-full h-64">
+                                <svg viewBox="0 0 500 350" className="w-full" style={{height: '400px'}}>
                                   {/* Background zones */}
-                                  <rect x="40" y="20" width="240" height="35" fill="#fee2e2" opacity="0.3" /> {/* High */}
-                                  <rect x="40" y="55" width="240" height="75" fill="#d1fae5" opacity="0.3" /> {/* Normal */}
+                                  <rect x="80" y="50" width="400" height="50" fill="#fee2e2" opacity="0.3" /> {/* High */}
+                                  <rect x="80" y="100" width="400" height="100" fill="#d1fae5" opacity="0.3" /> {/* Normal */}
 
                                   {/* Grid lines */}
-                                  <line x1="40" y1="20" x2="280" y2="20" stroke="#e2e8f0" strokeWidth="1" />
-                                  <line x1="40" y1="55" x2="280" y2="55" stroke="#e2e8f0" strokeWidth="1" />
-                                  <line x1="40" y1="90" x2="280" y2="90" stroke="#e2e8f0" strokeWidth="1" />
-                                  <line x1="40" y1="130" x2="280" y2="130" stroke="#e2e8f0" strokeWidth="1" />
+                                  <line x1="80" y1="50" x2="480" y2="50" stroke="#e2e8f0" strokeWidth="2" />
+                                  <line x1="80" y1="100" x2="480" y2="100" stroke="#e2e8f0" strokeWidth="2" />
+                                  <line x1="80" y1="150" x2="480" y2="150" stroke="#e2e8f0" strokeWidth="2" />
+                                  <line x1="80" y1="200" x2="480" y2="200" stroke="#e2e8f0" strokeWidth="2" />
 
                                   {/* Y-axis labels */}
-                                  <text x="35" y="25" textAnchor="end" fontSize="12" fill="#64748b" fontWeight="bold">140</text>
-                                  <text x="35" y="60" textAnchor="end" fontSize="12" fill="#64748b" fontWeight="bold">130</text>
-                                  <text x="35" y="95" textAnchor="end" fontSize="12" fill="#64748b" fontWeight="bold">120</text>
-                                  <text x="35" y="135" textAnchor="end" fontSize="12" fill="#64748b" fontWeight="bold">110</text>
+                                  <text x="68" y="58" textAnchor="end" fontSize="16" fill="#64748b">140</text>
+                                  <text x="68" y="108" textAnchor="end" fontSize="16" fill="#64748b">130</text>
+                                  <text x="68" y="158" textAnchor="end" fontSize="16" fill="#64748b">120</text>
+                                  <text x="68" y="208" textAnchor="end" fontSize="16" fill="#64748b">110</text>
 
                                   {/* Normal range line */}
-                                  <line x1="40" y1="55" x2="280" y2="55" stroke="#10b981" strokeWidth="2" strokeDasharray="5,3" />
+                                  <line x1="80" y1="100" x2="480" y2="100" stroke="#10b981" strokeWidth="3" strokeDasharray="8,4" />
 
                                   {/* Systolic BP trend line */}
                                   <polyline
-                                    points="40,71 88,62 136,53 184,65 232,77"
+                                    points="130,126 210,112 290,95 370,115 440,136"
                                     fill="none"
                                     stroke="#3b82f6"
                                     strokeWidth="3"
@@ -2107,55 +2592,55 @@ export default function PatientChartPage() {
 
                                   {/* Diastolic BP trend line */}
                                   <polyline
-                                    points="40,113 88,106 136,99 184,107 232,113"
+                                    points="130,200 210,188 290,176 370,190 440,200"
                                     fill="none"
                                     stroke="#06b6d4"
-                                    strokeWidth="2"
+                                    strokeWidth="2.5"
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
-                                    strokeDasharray="3,2"
+                                    strokeDasharray="6,3"
                                   />
 
                                   {/* Data points - Systolic */}
-                                  <circle cx="40" cy="71" r="4" fill="#3b82f6" stroke="white" strokeWidth="2" />
-                                  <circle cx="88" cy="62" r="4" fill="#3b82f6" stroke="white" strokeWidth="2" />
-                                  <circle cx="136" cy="53" r="4" fill="#3b82f6" stroke="white" strokeWidth="2" />
-                                  <circle cx="184" cy="65" r="4" fill="#3b82f6" stroke="white" strokeWidth="2" />
-                                  <circle cx="232" cy="77" r="4" fill="#3b82f6" stroke="white" strokeWidth="2" />
+                                  <circle cx="130" cy="126" r="8" fill="#3b82f6" stroke="white" strokeWidth="3" />
+                                  <circle cx="210" cy="112" r="8" fill="#3b82f6" stroke="white" strokeWidth="3" />
+                                  <circle cx="290" cy="95" r="8" fill="#3b82f6" stroke="white" strokeWidth="3" />
+                                  <circle cx="370" cy="115" r="8" fill="#3b82f6" stroke="white" strokeWidth="3" />
+                                  <circle cx="440" cy="136" r="8" fill="#3b82f6" stroke="white" strokeWidth="3" />
 
                                   {/* Data points - Diastolic */}
-                                  <circle cx="40" cy="113" r="3" fill="#06b6d4" stroke="white" strokeWidth="2" />
-                                  <circle cx="88" cy="106" r="3" fill="#06b6d4" stroke="white" strokeWidth="2" />
-                                  <circle cx="136" cy="99" r="3" fill="#06b6d4" stroke="white" strokeWidth="2" />
-                                  <circle cx="184" cy="107" r="3" fill="#06b6d4" stroke="white" strokeWidth="2" />
-                                  <circle cx="232" cy="113" r="3" fill="#06b6d4" stroke="white" strokeWidth="2" />
+                                  <circle cx="130" cy="200" r="6" fill="#06b6d4" stroke="white" strokeWidth="3" />
+                                  <circle cx="210" cy="188" r="6" fill="#06b6d4" stroke="white" strokeWidth="3" />
+                                  <circle cx="290" cy="176" r="6" fill="#06b6d4" stroke="white" strokeWidth="3" />
+                                  <circle cx="370" cy="190" r="6" fill="#06b6d4" stroke="white" strokeWidth="3" />
+                                  <circle cx="440" cy="200" r="6" fill="#06b6d4" stroke="white" strokeWidth="3" />
 
                                   {/* BP Value labels */}
-                                  <text x="40" y="85" textAnchor="middle" fontSize="10" fill="#3b82f6" fontWeight="bold">130</text>
-                                  <text x="40" y="127" textAnchor="middle" fontSize="9" fill="#06b6d4" fontWeight="bold">85</text>
+                                  <text x="130" y="150" textAnchor="middle" fontSize="14" fill="#3b82f6">130</text>
+                                  <text x="130" y="225" textAnchor="middle" fontSize="13" fill="#06b6d4">85</text>
                                   
-                                  <text x="88" y="76" textAnchor="middle" fontSize="10" fill="#3b82f6" fontWeight="bold">135</text>
-                                  <text x="88" y="120" textAnchor="middle" fontSize="9" fill="#06b6d4" fontWeight="bold">88</text>
+                                  <text x="210" y="136" textAnchor="middle" fontSize="14" fill="#3b82f6">135</text>
+                                  <text x="210" y="212" textAnchor="middle" fontSize="13" fill="#06b6d4">88</text>
                                   
-                                  <text x="136" y="67" textAnchor="middle" fontSize="10" fill="#3b82f6" fontWeight="bold">138</text>
-                                  <text x="136" y="113" textAnchor="middle" fontSize="9" fill="#06b6d4" fontWeight="bold">90</text>
+                                  <text x="290" y="119" textAnchor="middle" fontSize="14" fill="#3b82f6">138</text>
+                                  <text x="290" y="200" textAnchor="middle" fontSize="13" fill="#06b6d4">90</text>
                                   
-                                  <text x="184" y="79" textAnchor="middle" fontSize="10" fill="#3b82f6" fontWeight="bold">132</text>
-                                  <text x="184" y="121" textAnchor="middle" fontSize="9" fill="#06b6d4" fontWeight="bold">86</text>
+                                  <text x="370" y="139" textAnchor="middle" fontSize="14" fill="#3b82f6">132</text>
+                                  <text x="370" y="214" textAnchor="middle" fontSize="13" fill="#06b6d4">86</text>
                                   
-                                  <text x="232" y="91" textAnchor="middle" fontSize="10" fill="#3b82f6" fontWeight="bold">128</text>
-                                  <text x="232" y="127" textAnchor="middle" fontSize="9" fill="#06b6d4" fontWeight="bold">82</text>
+                                  <text x="440" y="160" textAnchor="middle" fontSize="14" fill="#3b82f6">128</text>
+                                  <text x="440" y="224" textAnchor="middle" fontSize="13" fill="#06b6d4">82</text>
 
                                   {/* X-axis time labels */}
-                                  <text x="40" y="165" textAnchor="middle" fontSize="11" fill="#64748b" fontWeight="bold">06:00</text>
-                                  <text x="88" y="165" textAnchor="middle" fontSize="11" fill="#64748b" fontWeight="bold">10:00</text>
-                                  <text x="136" y="165" textAnchor="middle" fontSize="11" fill="#64748b" fontWeight="bold">14:00</text>
-                                  <text x="184" y="165" textAnchor="middle" fontSize="11" fill="#64748b" fontWeight="bold">18:00</text>
-                                  <text x="232" y="165" textAnchor="middle" fontSize="11" fill="#64748b" fontWeight="bold">22:00</text>
+                                  <text x="130" y="290" textAnchor="middle" fontSize="16" fill="#64748b">06:00</text>
+                                  <text x="210" y="290" textAnchor="middle" fontSize="16" fill="#64748b">10:00</text>
+                                  <text x="290" y="290" textAnchor="middle" fontSize="16" fill="#64748b">14:00</text>
+                                  <text x="370" y="290" textAnchor="middle" fontSize="16" fill="#64748b">18:00</text>
+                                  <text x="440" y="290" textAnchor="middle" fontSize="16" fill="#64748b">22:00</text>
 
                                   {/* Zone label */}
-                                  <text x="45" y="45" fontSize="10" fill="#991b1b" fontWeight="bold">High (≥140/90)</text>
-                                  <text x="45" y="85" fontSize="10" fill="#047857" fontWeight="bold">Normal (&lt;140/90)</text>
+                                  <text x="90" y="80" fontSize="14" fill="#991b1b">High (≥140/90)</text>
+                                  <text x="90" y="145" fontSize="14" fill="#047857">Normal (&lt;140/90)</text>
                                 </svg>
                               </div>
 
@@ -3512,157 +3997,6 @@ export default function PatientChartPage() {
       </div>
       </div>
 
-      {/* Discharge Notes Modal */}
-      {showDischargeModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-              <h3 className="text-xl font-bold text-white">Discharge Summary</h3>
-              <button
-                onClick={() => setShowDischargeModal(false)}
-                className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="p-6 space-y-6">
-              {/* Patient Info Summary */}
-              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-xs text-blue-700">Patient Name</div>
-                    <div className="font-bold text-blue-900">{patient.name}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-blue-700">IC Number</div>
-                    <div className="font-bold text-blue-900">{patient.ic}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-blue-700">Admission Date</div>
-                    <div className="font-bold text-blue-900">{patient.admissionDate}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-blue-700">Ward/Bed</div>
-                    <div className="font-bold text-blue-900">{patient.ward} - {patient.bed}</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Discharge Details */}
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Discharge Date & Time</label>
-                  <Input type="datetime-local" defaultValue={new Date().toISOString().slice(0, 16)} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Discharge Type</label>
-                  <select className="w-full px-3 py-2 border border-slate-300 rounded-lg">
-                    <option>Home</option>
-                    <option>Transfer to Another Facility</option>
-                    <option>Against Medical Advice (AMA)</option>
-                    <option>Death</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Diagnosis */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Primary Diagnosis</label>
-                <Input placeholder="Enter primary diagnosis" defaultValue={patient.diagnosis} />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Secondary Diagnosis</label>
-                <Textarea placeholder="Enter secondary diagnosis if any..." className="min-h-20" />
-              </div>
-
-              {/* Hospital Course */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Hospital Course Summary</label>
-                <Textarea 
-                  placeholder="Brief summary of hospital stay, treatments, and progress..."
-                  className="min-h-32"
-                  defaultValue="Patient admitted with community-acquired pneumonia. Treated with IV Ceftriaxone for 5 days with good response. Vital signs stabilized. Patient able to ambulate independently. Chest clear on auscultation."
-                />
-              </div>
-
-              {/* Condition on Discharge */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Condition on Discharge</label>
-                <select className="w-full px-3 py-2 border border-slate-300 rounded-lg">
-                  <option>Improved</option>
-                  <option>Stable</option>
-                  <option>Unchanged</option>
-                  <option>Deteriorated</option>
-                </select>
-              </div>
-
-              {/* Discharge Medications */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Discharge Medications</label>
-                <Textarea 
-                  placeholder="List all medications to continue at home..."
-                  className="min-h-24"
-                  defaultValue="1. Tab Amoxicillin 500mg TDS x 7 days&#10;2. Tab Paracetamol 1g PRN fever/pain&#10;3. Salbutamol inhaler 2 puffs PRN SOB"
-                />
-              </div>
-
-              {/* Follow-up Instructions */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Follow-up Instructions</label>
-                <Textarea 
-                  placeholder="Follow-up appointments, precautions, warning signs..."
-                  className="min-h-24"
-                  defaultValue="- Follow up at Medical OPD in 1 week&#10;- Return immediately if fever > 38°C, worsening SOB, or chest pain&#10;- Continue breathing exercises&#10;- Adequate rest and hydration"
-                />
-              </div>
-
-              {/* Activity & Diet */}
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Activity Level</label>
-                  <select className="w-full px-3 py-2 border border-slate-300 rounded-lg">
-                    <option>No restriction</option>
-                    <option>Light activity only</option>
-                    <option>Bed rest</option>
-                    <option>As tolerated</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Diet</label>
-                  <select className="w-full px-3 py-2 border border-slate-300 rounded-lg">
-                    <option>Normal diet</option>
-                    <option>Diabetic diet</option>
-                    <option>Low salt diet</option>
-                    <option>Soft diet</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Discharging Doctor */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Discharging Doctor</label>
-                <Input placeholder="Doctor name" defaultValue={patient.doctor} />
-              </div>
-            </div>
-
-            <div className="bg-slate-50 px-6 py-4 flex items-center justify-end gap-3 border-t border-slate-200 rounded-b-2xl sticky bottom-0">
-              <Button
-                variant="outline"
-                onClick={() => setShowDischargeModal(false)}
-              >
-                Cancel
-              </Button>
-              <Button className="bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800">
-                Complete Discharge
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Chart Expansion Modal */}
       <Dialog open={expandedChart !== null} onOpenChange={() => setExpandedChart(null)}>

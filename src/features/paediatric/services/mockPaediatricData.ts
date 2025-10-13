@@ -608,3 +608,4 @@ export function calculatePaediatricStats(patients: PaediatricPatient[], beds: Pa
 
 
 
+

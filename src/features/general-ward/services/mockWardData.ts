@@ -564,3 +564,4 @@ export function calculateWardStats(patients: WardPatient[], beds: WardBed[]): Wa
 
 
 
+
