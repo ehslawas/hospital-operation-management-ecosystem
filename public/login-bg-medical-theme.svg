@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <defs>
+    <!-- Soft medical wash -->
+    <linearGradient id="wash" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e6f4ff"/>
+      <stop offset="1" stop-color="#eafaf7"/>
+    </linearGradient>
+
+    <!-- Medical cross pattern -->
+    <pattern id="cross" width="72" height="72" patternUnits="userSpaceOnUse">
+      <path d="M36 14v44M14 36h44" stroke="#0ea5e9" stroke-width="2" stroke-opacity="0.35" stroke-linecap="round"/>
+    </pattern>
+
+    <!-- Capsule/pill pattern (offset) -->
+    <pattern id="pill" width="160" height="120" patternUnits="userSpaceOnUse">
+      <g opacity="0.3">
+        <rect x="20" y="20" rx="16" ry="16" width="80" height="32" fill="none" stroke="#10b981" stroke-width="2"/>
+        <line x1="60" y1="20" x2="60" y2="52" stroke="#10b981" stroke-width="2"/>
+      </g>
+    </pattern>
+
+    <!-- DNA helix stroke -->
+    <linearGradient id="dnaGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#22c55e"/>
+      <stop offset="1" stop-color="#06b6d4"/>
+    </linearGradient>
+
+    <!-- Stethoscope watermark -->
+    <linearGradient id="stethGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#38bdf8" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#34d399" stop-opacity="0.35"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background wash -->
+  <rect width="1920" height="1080" fill="url(#wash)"/>
+
+  <!-- Patterns -->
+  <rect width="1920" height="1080" fill="url(#cross)"/>
+  <rect width="1920" height="1080" fill="url(#pill)" transform="translate(40,40)"/>
+
+  <!-- EKG line -->
+  <polyline points="0,700 120,650 240,720 360,610 520,690 680,620 820,700 980,640 1140,710 1300,630 1480,700 1640,650 1800,720 1920,680"
+            fill="none" stroke="#38bdf8" stroke-opacity="0.6" stroke-width="3"/>
+
+  <!-- DNA helix along bottom third -->
+  <g opacity="0.5" transform="translate(0,760)">
+    <path d="M0,0 C120,60 240,-60 360,0 S600,60 720,0 960,-60 1080,0 1320,60 1440,0 1680,-60 1800,0 1920,60 2040,0" fill="none" stroke="url(#dnaGrad)" stroke-width="2"/>
+    <path d="M0,0 C120,-60 240,60 360,0 S600,-60 720,0 960,60 1080,0 1320,-60 1440,0 1680,60 1800,0 1920,-60 2040,0" fill="none" stroke="url(#dnaGrad)" stroke-width="2"/>
+  </g>
+
+  <!-- Stethoscope watermark (large, faint, centered) -->
+  <g opacity="0.25" transform="translate(960,360)">
+    <path d="M-120,-80 c-40,60 20,140 80,140 60,0 120,-80 80,-140" fill="none" stroke="url(#stethGrad)" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="-140" cy="-100" r="20" fill="none" stroke="url(#stethGrad)" stroke-width="6"/>
+    <circle cx="140" cy="-100" r="20" fill="none" stroke="url(#stethGrad)" stroke-width="6"/>
+    <path d="M40,40 a30,30 0 1,0 60,0 a30,30 0 1,0 -60,0" fill="none" stroke="url(#stethGrad)" stroke-width="6"/>
+  </g>
+</svg>
+
+

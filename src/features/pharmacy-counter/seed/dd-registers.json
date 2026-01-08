@@ -1,0 +1,53 @@
+[
+  {
+    "id": "DD001",
+    "date": "2025-10-10T08:00:00Z",
+    "medicationCode": "MORPH10",
+    "movement": "receipt",
+    "quantity": 100,
+    "runningBalance": 250,
+    "witness": "Supervisor Wong Mei Ling",
+    "remarks": "Stock receipt from pharmacy store",
+    "enteredBy": "Pharmacist Sarah Tan"
+  },
+  {
+    "id": "DD002",
+    "date": "2025-10-10T10:30:00Z",
+    "medicationCode": "MORPH10",
+    "movement": "issue",
+    "quantity": 10,
+    "runningBalance": 240,
+    "prescriptionNumber": "RX-2025-10-050",
+    "patientMrn": "MRN-2024-015678",
+    "witness": "Pharmacist John Wong",
+    "remarks": "Issued to cancer patient for pain management",
+    "enteredBy": "Pharmacist Sarah Tan"
+  },
+  {
+    "id": "DD003",
+    "date": "2025-10-10T14:15:00Z",
+    "medicationCode": "MORPH10",
+    "movement": "issue",
+    "quantity": 20,
+    "runningBalance": 220,
+    "prescriptionNumber": "RX-2025-10-051",
+    "patientMrn": "MRN-2024-016789",
+    "witness": "Supervisor Wong Mei Ling",
+    "remarks": "TTO discharge prescription",
+    "enteredBy": "Pharmacist John Wong"
+  },
+  {
+    "id": "DD004",
+    "date": "2025-10-11T09:00:00Z",
+    "medicationCode": "MORPH10",
+    "movement": "issue",
+    "quantity": 14,
+    "runningBalance": 206,
+    "prescriptionNumber": "RX-2025-10-052",
+    "patientMrn": "MRN-2024-017890",
+    "witness": "Pharmacist Aisha Rahman",
+    "remarks": "2-week supply for palliative care",
+    "enteredBy": "Pharmacist Sarah Tan"
+  }
+]
+

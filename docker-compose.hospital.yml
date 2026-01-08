@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: hospital_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hospital
+      POSTGRES_PASSWORD: HospitalLawas2025!
+      POSTGRES_DB: hospital_management
+    ports:
+      - '5432:5432'
+    volumes:
+      - hospital_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U hospital']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hospital_network
+
+  # Hospital Management App
+  hospital-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: hospital-management:latest
+    container_name: hospital_app
+    restart: unless-stopped
+    ports:
+      - '3001:3000'
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=postgresql://hospital:HospitalLawas2025!@postgres:5432/hospital_management?schema=public
+      - USE_REAL_DATABASE=true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hospital_network
+
+networks:
+  hospital_network:
+    driver: bridge
+
+volumes:
+  hospital_data:
+    driver: local
+
+

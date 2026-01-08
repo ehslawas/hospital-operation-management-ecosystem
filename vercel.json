@@ -1,0 +1,10 @@
+{
+  "projectSettings": {
+    "name": "hospital-operation-management-ecosystem"
+  },
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "outputDirectory": ".next"
+}
