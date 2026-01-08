@@ -2,9 +2,9 @@
   "projectSettings": {
     "name": "hospital-operation-management-ecosystem"
   },
-  "buildCommand": "npm run build",
+  "buildCommand": "vite build",
   "devCommand": "npm run dev",
   "installCommand": "npm install",
-  "framework": "nextjs",
-  "outputDirectory": ".next"
+  "framework": "vite",
+  "outputDirectory": "dist"
 }
