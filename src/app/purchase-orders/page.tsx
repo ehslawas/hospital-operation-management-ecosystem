@@ -547,7 +547,7 @@ export default function PurchaseOrdersPage() {
       
       mockPOs.push({
         id: i.toString(),
-        poNumber: `PO-2024-${i.toString().padStart(3, '0')}`,
+        poNumber: `PO-2026-${i.toString().padStart(4, '0')}`,
         supplier,
         supplierContact: `+60 3-${Math.floor(Math.random() * 9000) + 1000} ${Math.floor(Math.random() * 9000) + 1000}`,
         createdDate,
@@ -603,6 +603,13 @@ export default function PurchaseOrdersPage() {
     const matchesVoteActivity = voteActivityFilter === 'all' || 
       (po.paymentType === 'APPL' && getOrderActivityCodes(po.items).includes(voteActivityFilter));
     return matchesSearch && matchesStatus && matchesDepartment && matchesVoteCode && matchesVoteActivity;
+  }).sort((a, b) => {
+    // Extract the numeric part from PO numbers (e.g., "PO-2026-0001" -> 1)
+    const getPONumber = (poNumber: string) => {
+      const match = poNumber.match(/PO-2026-(\d+)/);
+      return match ? parseInt(match[1], 10) : 0;
+    };
+    return getPONumber(a.poNumber) - getPONumber(b.poNumber);
   });
 
   // Pagination logic

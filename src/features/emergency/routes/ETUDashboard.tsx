@@ -1879,9 +1879,12 @@ function BodyMap({ selected, onToggle, findings, onFindingChange }: {
         <div className="relative max-w-3xl mx-auto cursor-pointer" onClick={handleImageClick}>
           <img 
             src="https://www.mygcphysio.com.au/wp-content/uploads/2020/09/Body-chart.png" 
+            srcSet="https://www.mygcphysio.com.au/wp-content/uploads/2020/09/Body-chart.png 1x"
             alt="Body Chart - Click to select regions" 
             className="w-full h-auto select-none" 
             draggable="false"
+            loading="lazy"
+            decoding="async"
           />
           {/* Professional gradient overlay for selected regions */}
           <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute top-0 left-0 w-full h-full pointer-events-none">

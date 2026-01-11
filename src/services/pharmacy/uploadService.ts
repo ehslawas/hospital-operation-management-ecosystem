@@ -14,7 +14,7 @@ export interface UploadedFile {
   file_hash: string
   file_size: number
   file_type: 'excel' | 'pdf' | 'image'
-  catalog_type: 'drug' | 'non_drug'
+  catalog_type: 'drug' | 'non_drug' | 'contract'
   upload_status: 'pending' | 'processing' | 'completed' | 'failed'
   items_imported: number
   errors_count: number
@@ -69,8 +69,7 @@ export async function checkFileDuplicate(
       .eq('file_hash', fileHash)
       .eq('upload_status', 'completed')
       .order('uploaded_at', { ascending: false })
-      .limit(1)
-      .single()
+      .maybeSingle()
 
     if (error && error.code !== 'PGRST116') {
       // PGRST116 is "not found" which is fine
@@ -107,15 +106,15 @@ export async function recordFileUpload(
   hospitalId: string,
   file: File,
   fileHash: string,
-  catalogType: 'drug' | 'non_drug',
+  catalogType: 'drug' | 'non_drug' | 'contract',
   uploadedBy?: string
 ): Promise<ApiResponse<UploadedFile>> {
   try {
     const fileType = file.name.toLowerCase().endsWith('.pdf')
       ? 'pdf'
       : file.type.startsWith('image/')
-      ? 'image'
-      : 'excel'
+        ? 'image'
+        : 'excel'
 
     const uploadRecord: Partial<UploadedFile> = {
       hospital_id: hospitalId,
@@ -166,7 +165,7 @@ export async function recordFileUpload(
           .select('*')
           .eq('hospital_id', hospitalId)
           .eq('file_hash', fileHash)
-          .single()
+          .maybeSingle()
 
         if (existingError) {
           console.error(

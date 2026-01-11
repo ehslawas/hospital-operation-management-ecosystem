@@ -55,6 +55,8 @@ const SlowMovingPage = lazy(() => import('@/pages/pharmacy/inventory/SlowMovingP
 const OxygenDashboardPage = lazy(() => import('@/pages/pharmacy/oxygen/OxygenDashboardPage'))
 const PurchaseOrderListPage = lazy(() => import('@/pages/pharmacy/procurement/PurchaseOrderListPage'))
 const PurchaseOrderCreatePage = lazy(() => import('@/pages/pharmacy/procurement/PurchaseOrderCreatePage'))
+const InvSqCreatePage = lazy(() => import('@/pages/pharmacy/procurement/InvSqCreatePage'))
+const ManualPoCreatePage = lazy(() => import('@/pages/pharmacy/procurement/ManualPoCreatePage'))
 const PurchaseOrderDetailPage = lazy(() => import('@/pages/pharmacy/procurement/PurchaseOrderDetailPage'))
 const ReceivingPage = lazy(() => import('@/pages/pharmacy/procurement/ReceivingPage'))
 const TransferRequestListPage = lazy(() => import('@/pages/pharmacy/distribution/TransferRequestListPage'))
@@ -70,6 +72,8 @@ const DrugCatalogPage = lazy(() => import('@/pages/pharmacy/catalog/DrugCatalogP
 const NonDrugCatalogPage = lazy(() => import('@/pages/pharmacy/catalog/NonDrugCatalogPage'))
 const SupplierCatalogPage = lazy(() => import('@/pages/pharmacy/catalog/SupplierCatalogPage'))
 const ContractCatalogPage = lazy(() => import('@/pages/pharmacy/catalog/ContractCatalogPage'))
+const HospitalFacilityCatalogPage = lazy(() => import('@/pages/pharmacy/catalog/HospitalFacilityCatalogPage'))
+const ClinicFacilityCatalogPage = lazy(() => import('@/pages/pharmacy/catalog/ClinicFacilityCatalogPage'))
 
 // Fallback loading component
 const PageLoader = () => <LoadingOverlay fullScreen message="Loading page..." />
@@ -77,848 +81,916 @@ const PageLoader = () => <LoadingOverlay fullScreen message="Loading page..." />
 // Create router with v7 future flags
 const router = createBrowserRouter(
   [
-  {
-    path: ROUTES.LOGIN,
-    element: (
-      <Suspense fallback={<PageLoader />}>
-        <LoginPage />
-      </Suspense>
-    ),
-  },
-  {
-    path: ROUTES.PRIVACY_POLICY,
-    element: (
-      <Suspense fallback={<PageLoader />}>
-        <PrivacyPolicyPage />
-      </Suspense>
-    ),
-  },
-  {
-    path: ROUTES.TERMS_OF_SERVICE,
-    element: (
-      <Suspense fallback={<PageLoader />}>
-        <TermsOfServicePage />
-      </Suspense>
-    ),
-  },
-  {
-    path: '/',
-    element: (
-      <ProtectedRoute>
-        <MainLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        index: true,
-        element: <Navigate to={ROUTES.DASHBOARD} replace />,
-      },
-      {
-        path: 'dashboard',
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <DashboardPage />
-          </Suspense>
-        ),
-      },
-      {
-        path: ROUTES.PROFILE,
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <ProfilePage />
-          </Suspense>
-        ),
-      },
-      // Admin routes
-      {
-        path: ROUTES.ADMIN_USERS,
-        element: (
-          <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMIN]}>
+    {
+      path: ROUTES.LOGIN,
+      element: (
+        <Suspense fallback={<PageLoader />}>
+          <LoginPage />
+        </Suspense>
+      ),
+    },
+    {
+      path: ROUTES.PRIVACY_POLICY,
+      element: (
+        <Suspense fallback={<PageLoader />}>
+          <PrivacyPolicyPage />
+        </Suspense>
+      ),
+    },
+    {
+      path: ROUTES.TERMS_OF_SERVICE,
+      element: (
+        <Suspense fallback={<PageLoader />}>
+          <TermsOfServicePage />
+        </Suspense>
+      ),
+    },
+    {
+      path: '/',
+      element: (
+        <ProtectedRoute>
+          <MainLayout />
+        </ProtectedRoute>
+      ),
+      children: [
+        {
+          index: true,
+          element: <Navigate to={ROUTES.DASHBOARD} replace />,
+        },
+        {
+          path: 'dashboard',
+          element: (
             <Suspense fallback={<PageLoader />}>
-              <UserListPage />
+              <DashboardPage />
             </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: `${ROUTES.ADMIN_USERS}/:userId`,
-        element: (
-          <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMIN]}>
+          ),
+        },
+        {
+          path: ROUTES.PROFILE,
+          element: (
             <Suspense fallback={<PageLoader />}>
-              <UserDetailPage />
+              <ProfilePage />
             </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: ROUTES.ADMIN_ACCESS_REQUESTS,
-        element: (
-          <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMIN]}>
-            <Suspense fallback={<PageLoader />}>
-              <AccessRequestListPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: `${ROUTES.ADMIN_ACCESS_REQUESTS}/:requestId`,
-        element: (
-          <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMIN]}>
-            <Suspense fallback={<PageLoader />}>
-              <AccessRequestDetailPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: ROUTES.ADMIN_HOSPITALS,
-        element: (
-          <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN]}>
-            <Suspense fallback={<PageLoader />}>
-              <HospitalListPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: `${ROUTES.ADMIN_HOSPITALS}/:hospitalId`,
-        element: (
-          <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN]}>
-            <Suspense fallback={<PageLoader />}>
-              <HospitalDetailPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: ROUTES.ADMIN_CLINICS,
-        element: (
-          <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN]}>
-            <Suspense fallback={<PageLoader />}>
-              <ClinicListPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: `${ROUTES.ADMIN_CLINICS}/:clinicId`,
-        element: (
-          <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN]}>
-            <Suspense fallback={<PageLoader />}>
-              <ClinicDetailPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: ROUTES.ADMIN_DEPARTMENTS,
-        element: (
-          <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMIN]}>
-            <Suspense fallback={<PageLoader />}>
-              <DepartmentListPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: `${ROUTES.ADMIN_DEPARTMENTS}/:departmentId`,
-        element: (
-          <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMIN]}>
-            <Suspense fallback={<PageLoader />}>
-              <DepartmentDetailPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: ROUTES.ADMIN_ROLES,
-        element: (
-          <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMIN]}>
-            <Suspense fallback={<PageLoader />}>
-              <RoleListPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: `${ROUTES.ADMIN_ROLES}/:roleId`,
-        element: (
-          <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMIN]}>
-            <Suspense fallback={<PageLoader />}>
-              <RolePermissionPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: ROUTES.ADMIN_AUDIT_LOGS,
-        element: (
-          <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN]}>
-            <Suspense fallback={<PageLoader />}>
-              <AuditLogPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: ROUTES.ADMIN_SETTINGS,
-        element: (
-          <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN]}>
-            <Suspense fallback={<PageLoader />}>
-              <SystemSettingsPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: ROUTES.ADMIN_MODULES,
-        element: (
-          <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN]}>
-            <Suspense fallback={<PageLoader />}>
-              <ModuleAccessControlPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: ROUTES.ADMIN_MONITORING,
-        element: (
-          <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN]}>
-            <Suspense fallback={<PageLoader />}>
-              <SystemMonitoringPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: ROUTES.ADMIN_BACKUPS,
-        element: (
-          <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN]}>
-            <Suspense fallback={<PageLoader />}>
-              <BackupManagementPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: ROUTES.ADMIN_ALERTS,
-        element: (
-          <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN]}>
-            <Suspense fallback={<PageLoader />}>
-              <AlertCenterPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: ROUTES.ADMIN_SYSTEM_LOGS,
-        element: (
-          <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN]}>
-            <Suspense fallback={<PageLoader />}>
-              <SystemLogsPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      // Hospital Admin Routes
-      {
-        path: ROUTES.ADMIN_HOSPITAL_LOGS,
-        element: (
-          <ProtectedRoute allowedRoles={[SYSTEM_ROLES.HOSPITAL_ADMIN]}>
-            <Suspense fallback={<PageLoader />}>
-              <SystemLogsPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: ROUTES.ADMIN_HOSPITAL_HEALTH,
-        element: (
-          <ProtectedRoute allowedRoles={[SYSTEM_ROLES.HOSPITAL_ADMIN]}>
-            <Suspense fallback={<PageLoader />}>
-              <SystemMonitoringPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: ROUTES.ADMIN_HOSPITAL_BACKUPS,
-        element: (
-          <ProtectedRoute allowedRoles={[SYSTEM_ROLES.HOSPITAL_ADMIN]}>
-            <Suspense fallback={<PageLoader />}>
-              <BackupManagementPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: ROUTES.ADMIN_MEMOS,
-        element: (
-          <ProtectedRoute allowedRoles={[SYSTEM_ROLES.HOSPITAL_ADMIN]}>
-            <Suspense fallback={<PageLoader />}>
-              <MemoListPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: ROUTES.ADMIN_SENSITIVE_DATA_REQUESTS,
-        element: (
-          <ProtectedRoute allowedRoles={[SYSTEM_ROLES.HOSPITAL_ADMIN]}>
-            <Suspense fallback={<PageLoader />}>
-              <SensitiveDataRequestListPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: `${ROUTES.ADMIN_SENSITIVE_DATA_REQUESTS}/:requestId`,
-        element: (
-          <ProtectedRoute allowedRoles={[SYSTEM_ROLES.HOSPITAL_ADMIN]}>
-            <Suspense fallback={<PageLoader />}>
-              <SensitiveDataRequestDetailPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'admin/*',
-        element: (
-          <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMIN]}>
-            <Suspense fallback={<PageLoader />}>
-              <div className="p-6">
-                <h1 className="text-2xl font-bold text-gray-900 mb-4">
-                  Administration
-                </h1>
-                <p className="text-gray-600">
-                  Other admin modules coming soon. This will include hospitals, departments, roles, and settings.
-                </p>
-              </div>
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      // Pharmacy Logistics routes
-      {
-        path: 'pharmacy',
-        element: <Navigate to={ROUTES.PHARMACY_DASHBOARD} replace />,
-      },
-      {
-        path: 'pharmacy/dashboard',
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <PharmacyLogisticsDashboard />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'pharmacy/inventory',
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <InventoryOverviewPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'pharmacy/oxygen',
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <OxygenDashboardPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      // Inventory sub-pages
-      {
-        path: 'pharmacy/inventory/drugs',
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <DrugInventoryPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'pharmacy/inventory/non-drugs',
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <NonDrugInventoryPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'pharmacy/inventory/near-expiry',
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <NearExpiryPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'pharmacy/inventory/slow-moving',
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <SlowMovingPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      // Procurement routes
-      {
-        path: 'pharmacy/procurement/orders',
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <PurchaseOrderListPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'pharmacy/procurement/orders/create',
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <PurchaseOrderCreatePage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: ROUTES.PHARMACY_PO_DETAIL,
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <PurchaseOrderDetailPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'pharmacy/procurement/receiving',
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <ReceivingPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      // Distribution routes
-      {
-        path: 'pharmacy/distribution',
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <TransferRequestListPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      // Financial routes
-      {
-        path: 'pharmacy/financial/budget',
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <BudgetOverviewPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'pharmacy/financial/warrant',
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <WarrantPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: ROUTES.PHARMACY_APPL_ALLOCATION,
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <APPLAllocationPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: ROUTES.PHARMACY_CC_ALLOCATION,
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <CCAllocationPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      // Reports & Logs routes
-      {
-        path: 'pharmacy/reports',
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <ReportsPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'pharmacy/reports/inventory',
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <ReportsPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'pharmacy/reports/procurement',
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <ReportsPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'pharmacy/reports/financial',
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <ReportsPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'pharmacy/reports/distribution',
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <ReportsPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      // Maintenance routes
-      {
-        path: 'pharmacy/maintenance/locations',
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <StockLocationPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'pharmacy/maintenance/verification',
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <StockVerificationPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'pharmacy/maintenance/units',
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <UnitCatalogPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'pharmacy/catalog/drugs',
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <DrugCatalogPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'pharmacy/catalog/suppliers',
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <SupplierCatalogPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'pharmacy/catalog/contracts',
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <ContractCatalogPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'pharmacy/catalog/non-drugs',
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <NonDrugCatalogPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'pharmacy/*',
-        element: (
-          <ProtectedRoute allowedRoles={[
-            SYSTEM_ROLES.PHARMACY_DIRECTOR,
-            SYSTEM_ROLES.PHARMACY_MANAGER,
-            SYSTEM_ROLES.PHARMACIST,
-            SYSTEM_ROLES.PHARMACY_ASSISTANT,
-            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-            SYSTEM_ROLES.PHARMACY_STAFF,
-          ]}>
-            <Suspense fallback={<PageLoader />}>
-              <div className="p-6">
-                <h1 className="text-2xl font-bold text-gray-900 mb-4">
-                  Pharmacy Logistics
-                </h1>
-                <p className="text-gray-600">
-                  This page is under development. Please check back soon.
-                </p>
-              </div>
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-    ],
-  },
-  {
-    path: '*',
-    element: (
-      <Suspense fallback={<PageLoader />}>
-        <NotFoundPage />
-      </Suspense>
-    ),
-  },
+          ),
+        },
+        // Admin routes
+        {
+          path: ROUTES.ADMIN_USERS,
+          element: (
+            <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMIN]}>
+              <Suspense fallback={<PageLoader />}>
+                <UserListPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: `${ROUTES.ADMIN_USERS}/:userId`,
+          element: (
+            <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMIN]}>
+              <Suspense fallback={<PageLoader />}>
+                <UserDetailPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.ADMIN_ACCESS_REQUESTS,
+          element: (
+            <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMIN]}>
+              <Suspense fallback={<PageLoader />}>
+                <AccessRequestListPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: `${ROUTES.ADMIN_ACCESS_REQUESTS}/:requestId`,
+          element: (
+            <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMIN]}>
+              <Suspense fallback={<PageLoader />}>
+                <AccessRequestDetailPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.ADMIN_HOSPITALS,
+          element: (
+            <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN]}>
+              <Suspense fallback={<PageLoader />}>
+                <HospitalListPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: `${ROUTES.ADMIN_HOSPITALS}/:hospitalId`,
+          element: (
+            <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN]}>
+              <Suspense fallback={<PageLoader />}>
+                <HospitalDetailPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.ADMIN_CLINICS,
+          element: (
+            <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN]}>
+              <Suspense fallback={<PageLoader />}>
+                <ClinicListPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: `${ROUTES.ADMIN_CLINICS}/:clinicId`,
+          element: (
+            <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN]}>
+              <Suspense fallback={<PageLoader />}>
+                <ClinicDetailPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.ADMIN_DEPARTMENTS,
+          element: (
+            <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMIN]}>
+              <Suspense fallback={<PageLoader />}>
+                <DepartmentListPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: `${ROUTES.ADMIN_DEPARTMENTS}/:departmentId`,
+          element: (
+            <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMIN]}>
+              <Suspense fallback={<PageLoader />}>
+                <DepartmentDetailPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.ADMIN_ROLES,
+          element: (
+            <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMIN]}>
+              <Suspense fallback={<PageLoader />}>
+                <RoleListPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: `${ROUTES.ADMIN_ROLES}/:roleId`,
+          element: (
+            <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMIN]}>
+              <Suspense fallback={<PageLoader />}>
+                <RolePermissionPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.ADMIN_AUDIT_LOGS,
+          element: (
+            <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN]}>
+              <Suspense fallback={<PageLoader />}>
+                <AuditLogPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.ADMIN_SETTINGS,
+          element: (
+            <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN]}>
+              <Suspense fallback={<PageLoader />}>
+                <SystemSettingsPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.ADMIN_MODULES,
+          element: (
+            <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN]}>
+              <Suspense fallback={<PageLoader />}>
+                <ModuleAccessControlPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.ADMIN_MONITORING,
+          element: (
+            <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN]}>
+              <Suspense fallback={<PageLoader />}>
+                <SystemMonitoringPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.ADMIN_BACKUPS,
+          element: (
+            <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN]}>
+              <Suspense fallback={<PageLoader />}>
+                <BackupManagementPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.ADMIN_ALERTS,
+          element: (
+            <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN]}>
+              <Suspense fallback={<PageLoader />}>
+                <AlertCenterPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.ADMIN_SYSTEM_LOGS,
+          element: (
+            <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN]}>
+              <Suspense fallback={<PageLoader />}>
+                <SystemLogsPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        // Hospital Admin Routes
+        {
+          path: ROUTES.ADMIN_HOSPITAL_LOGS,
+          element: (
+            <ProtectedRoute allowedRoles={[SYSTEM_ROLES.HOSPITAL_ADMIN]}>
+              <Suspense fallback={<PageLoader />}>
+                <SystemLogsPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.ADMIN_HOSPITAL_HEALTH,
+          element: (
+            <ProtectedRoute allowedRoles={[SYSTEM_ROLES.HOSPITAL_ADMIN]}>
+              <Suspense fallback={<PageLoader />}>
+                <SystemMonitoringPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.ADMIN_HOSPITAL_BACKUPS,
+          element: (
+            <ProtectedRoute allowedRoles={[SYSTEM_ROLES.HOSPITAL_ADMIN]}>
+              <Suspense fallback={<PageLoader />}>
+                <BackupManagementPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.ADMIN_MEMOS,
+          element: (
+            <ProtectedRoute allowedRoles={[SYSTEM_ROLES.HOSPITAL_ADMIN]}>
+              <Suspense fallback={<PageLoader />}>
+                <MemoListPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.ADMIN_SENSITIVE_DATA_REQUESTS,
+          element: (
+            <ProtectedRoute allowedRoles={[SYSTEM_ROLES.HOSPITAL_ADMIN]}>
+              <Suspense fallback={<PageLoader />}>
+                <SensitiveDataRequestListPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: `${ROUTES.ADMIN_SENSITIVE_DATA_REQUESTS}/:requestId`,
+          element: (
+            <ProtectedRoute allowedRoles={[SYSTEM_ROLES.HOSPITAL_ADMIN]}>
+              <Suspense fallback={<PageLoader />}>
+                <SensitiveDataRequestDetailPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: 'admin/*',
+          element: (
+            <ProtectedRoute allowedRoles={[SYSTEM_ROLES.SYSTEM_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMIN]}>
+              <Suspense fallback={<PageLoader />}>
+                <div className="p-6">
+                  <h1 className="text-2xl font-bold text-gray-900 mb-4">
+                    Administration
+                  </h1>
+                  <p className="text-gray-600">
+                    Other admin modules coming soon. This will include hospitals, departments, roles, and settings.
+                  </p>
+                </div>
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        // Pharmacy Logistics routes
+        {
+          path: 'pharmacy',
+          element: <Navigate to={ROUTES.PHARMACY_DASHBOARD} replace />,
+        },
+        {
+          path: 'pharmacy/dashboard',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <PharmacyLogisticsDashboard />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: 'pharmacy/inventory',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <InventoryOverviewPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: 'pharmacy/oxygen',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <OxygenDashboardPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        // Inventory sub-pages
+        {
+          path: 'pharmacy/inventory/drugs',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <DrugInventoryPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: 'pharmacy/inventory/non-drugs',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <NonDrugInventoryPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: 'pharmacy/inventory/near-expiry',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <NearExpiryPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: 'pharmacy/inventory/slow-moving',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <SlowMovingPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        // Procurement routes
+        {
+          path: 'pharmacy/procurement/orders',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <PurchaseOrderListPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: 'pharmacy/procurement/orders/create',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <PurchaseOrderCreatePage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.PHARMACY_SQ_CREATE,
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <InvSqCreatePage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.PHARMACY_MANUAL_CREATE,
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <ManualPoCreatePage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.PHARMACY_PO_DETAIL,
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <PurchaseOrderDetailPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: 'pharmacy/procurement/receiving',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <ReceivingPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        // Distribution routes
+        {
+          path: 'pharmacy/distribution',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <TransferRequestListPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        // Financial routes
+        {
+          path: 'pharmacy/financial/budget',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <BudgetOverviewPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: 'pharmacy/financial/warrant',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <WarrantPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.PHARMACY_APPL_ALLOCATION,
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <APPLAllocationPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.PHARMACY_CC_ALLOCATION,
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <CCAllocationPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        // Reports & Logs routes
+        {
+          path: 'pharmacy/reports',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <ReportsPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: 'pharmacy/reports/inventory',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <ReportsPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: 'pharmacy/reports/procurement',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <ReportsPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: 'pharmacy/reports/financial',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <ReportsPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: 'pharmacy/reports/distribution',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <ReportsPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        // Maintenance routes
+        {
+          path: 'pharmacy/maintenance/locations',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <StockLocationPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: 'pharmacy/maintenance/verification',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <StockVerificationPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: 'pharmacy/maintenance/units',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <UnitCatalogPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: 'pharmacy/catalog/drugs',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <DrugCatalogPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: 'pharmacy/catalog/suppliers',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <SupplierCatalogPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: 'pharmacy/catalog/contracts',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <ContractCatalogPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: 'pharmacy/catalog/non-drugs',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <NonDrugCatalogPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: 'pharmacy/catalog/hospitals',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <HospitalFacilityCatalogPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: 'pharmacy/catalog/clinics',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <ClinicFacilityCatalogPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: 'pharmacy/*',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACY_DIRECTOR,
+              SYSTEM_ROLES.PHARMACY_MANAGER,
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.PHARMACY_ASSISTANT,
+              SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+              SYSTEM_ROLES.PHARMACY_STAFF,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <div className="p-6">
+                  <h1 className="text-2xl font-bold text-gray-900 mb-4">
+                    Pharmacy Logistics
+                  </h1>
+                  <p className="text-gray-600">
+                    This page is under development. Please check back soon.
+                  </p>
+                </div>
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+      ],
+    },
+    {
+      path: '*',
+      element: (
+        <Suspense fallback={<PageLoader />}>
+          <NotFoundPage />
+        </Suspense>
+      ),
+    },
   ],
   {
     future: {

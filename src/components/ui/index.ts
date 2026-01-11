@@ -1,5 +1,5 @@
-export { Button } from './Button'
-export type { ButtonProps } from './Button'
+export { Button, IconButton } from './Button'
+export type { ButtonProps, IconButtonProps } from './Button'
 
 export { Input } from './Input'
 export type { InputProps } from './Input'
@@ -42,3 +42,8 @@ export { Tabs, TabsList, TabsTrigger, TabsContent } from './Tabs'
 export { StatCard } from './StatCard'
 export type { StatCardProps } from './StatCard'
 
+export { ResponsiveImage, LogoImage } from './ResponsiveImage'
+export type { ResponsiveImageProps, LogoImageProps } from './ResponsiveImage'
+
+export { DynamicTable } from './DynamicTable'
+export type { DynamicTableProps, DynamicColumn } from './DynamicTable'

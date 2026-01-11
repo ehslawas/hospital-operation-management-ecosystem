@@ -114,48 +114,48 @@ const StatCard: React.FC<StatCardProps> = ({
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -2, transition: { duration: 0.2 } }}
       className={cn(
-        'relative overflow-hidden rounded-2xl p-5 transition-all duration-300',
+        'relative overflow-hidden rounded-xl xs:rounded-2xl p-3 xs:p-4 sm:p-5 transition-all duration-300 min-h-[120px] xs:min-h-[140px]',
         'bg-white border shadow-sm hover:shadow-md',
-        link && 'cursor-pointer',
+        link && 'cursor-pointer touch-target',
         colors.border
       )}
     >
-      {/* Background pattern */}
-      <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 opacity-10">
+      {/* Background pattern - Responsive */}
+      <div className="absolute top-0 right-0 -mt-2 -mr-2 xs:-mt-3 xs:-mr-3 sm:-mt-4 sm:-mr-4 w-16 h-16 xs:w-20 xs:h-20 sm:w-24 sm:h-24 opacity-10">
         <Icon className="w-full h-full" />
       </div>
 
-      <div className="flex items-start justify-between relative z-10">
-        <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center', colors.icon)}>
-          <Icon className="w-6 h-6" />
+      <div className="flex items-start justify-between relative z-10 gap-2">
+        <div className={cn('w-10 h-10 xs:w-11 xs:h-11 sm:w-12 sm:h-12 rounded-lg xs:rounded-xl flex items-center justify-center flex-shrink-0', colors.icon)}>
+          <Icon className="w-5 h-5 xs:w-5 xs:h-5 sm:w-6 sm:h-6" />
         </div>
         {change !== undefined && (
           <div
             className={cn(
-              'flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full',
+              'flex items-center gap-0.5 xs:gap-1 text-[10px] xs:text-xs font-semibold px-1.5 xs:px-2 py-0.5 xs:py-1 rounded-full flex-shrink-0',
               isPositive ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
             )}
           >
             {isPositive ? (
-              <ArrowUpRight className="w-3 h-3" />
+              <ArrowUpRight className="w-2.5 h-2.5 xs:w-3 xs:h-3" />
             ) : (
-              <ArrowDownRight className="w-3 h-3" />
+              <ArrowDownRight className="w-2.5 h-2.5 xs:w-3 xs:h-3" />
             )}
-            {Math.abs(change)}%
+            <span>{Math.abs(change)}%</span>
           </div>
         )}
       </div>
 
-      <div className="mt-4 relative z-10">
-        <h3 className="text-3xl font-bold text-gray-900">{value}</h3>
-        <p className="text-sm font-medium text-gray-600 mt-1">{title}</p>
-        {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
-        {changeLabel && <p className="text-xs text-gray-400 mt-1">{changeLabel}</p>}
+      <div className="mt-3 xs:mt-4 relative z-10 min-w-0">
+        <h3 className="text-2xl xs:text-3xl font-bold text-gray-900 truncate">{value}</h3>
+        <p className="text-xs xs:text-sm font-medium text-gray-600 mt-1 line-clamp-2">{title}</p>
+        {subtitle && <p className="text-[10px] xs:text-xs text-gray-400 mt-0.5 line-clamp-1">{subtitle}</p>}
+        {changeLabel && <p className="text-[10px] xs:text-xs text-gray-400 mt-1 line-clamp-1">{changeLabel}</p>}
       </div>
 
       {link && (
-        <div className="absolute bottom-4 right-4">
-          <ChevronRight className={cn('w-5 h-5', colors.text)} />
+        <div className="absolute bottom-3 xs:bottom-4 right-3 xs:right-4">
+          <ChevronRight className={cn('w-4 h-4 xs:w-5 xs:h-5', colors.text)} />
         </div>
       )}
     </motion.div>
@@ -179,9 +179,9 @@ interface AlertItemProps {
 
 const AlertItem: React.FC<AlertItemProps> = ({ alert, index }) => {
   const iconMap = {
-    critical: <AlertCircle className="w-4 h-4 text-rose-600" />,
-    warning: <AlertTriangle className="w-4 h-4 text-amber-600" />,
-    info: <Activity className="w-4 h-4 text-sky-600" />,
+    critical: <AlertCircle className="w-3.5 h-3.5 xs:w-4 xs:h-4 text-rose-600" />,
+    warning: <AlertTriangle className="w-3.5 h-3.5 xs:w-4 xs:h-4 text-amber-600" />,
+    info: <Activity className="w-3.5 h-3.5 xs:w-4 xs:h-4 text-sky-600" />,
   }
 
   const bgMap = {
@@ -199,20 +199,20 @@ const AlertItem: React.FC<AlertItemProps> = ({ alert, index }) => {
       <Link
         to={alert.link || '#'}
         className={cn(
-          'flex items-start gap-3 p-3 rounded-xl border transition-all hover:shadow-sm',
+          'flex items-start gap-2 xs:gap-3 p-2.5 xs:p-3 rounded-lg xs:rounded-xl border transition-all hover:shadow-sm touch-target min-h-[64px]',
           bgMap[alert.type]
         )}
       >
         <div className="flex-shrink-0 mt-0.5">{iconMap[alert.type]}</div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-900">{alert.title}</p>
-          <p className="text-xs text-gray-600 mt-0.5 line-clamp-1">{alert.message}</p>
-          <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
-            <Clock className="w-3 h-3" />
-            {formatDate(new Date(alert.timestamp), { hour: 'numeric', minute: 'numeric' })}
+          <p className="text-xs xs:text-sm font-medium text-gray-900 line-clamp-2">{alert.title}</p>
+          <p className="text-[10px] xs:text-xs text-gray-600 mt-0.5 line-clamp-1">{alert.message}</p>
+          <p className="text-[10px] xs:text-xs text-gray-400 mt-1 flex items-center gap-1">
+            <Clock className="w-2.5 h-2.5 xs:w-3 xs:h-3 flex-shrink-0" />
+            <span className="truncate">{formatDate(new Date(alert.timestamp), { hour: 'numeric', minute: 'numeric' })}</span>
           </p>
         </div>
-        <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+        <ChevronRight className="w-3.5 h-3.5 xs:w-4 xs:h-4 text-gray-400 flex-shrink-0 mt-0.5" />
       </Link>
     </motion.div>
   )
@@ -231,20 +231,20 @@ interface QuickActionProps {
 }
 
 const QuickAction: React.FC<QuickActionProps> = ({ icon: Icon, label, description, link, color }) => (
-  <Link to={link}>
+  <Link to={link} className="block touch-target min-h-[64px] xs:min-h-[72px]">
     <motion.div
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
-      className="flex items-center gap-4 p-4 rounded-xl bg-white border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all cursor-pointer"
+      className="flex items-center gap-3 xs:gap-4 p-3 xs:p-4 rounded-lg xs:rounded-xl bg-white border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all cursor-pointer h-full"
     >
-      <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center', color)}>
-        <Icon className="w-6 h-6 text-white" />
+      <div className={cn('w-10 h-10 xs:w-11 xs:h-11 sm:w-12 sm:h-12 rounded-lg xs:rounded-xl flex items-center justify-center flex-shrink-0', color)}>
+        <Icon className="w-5 h-5 xs:w-5 xs:h-5 sm:w-6 sm:h-6 text-white" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="font-semibold text-gray-900">{label}</p>
-        <p className="text-xs text-gray-500">{description}</p>
+        <p className="text-sm xs:text-base font-semibold text-gray-900 truncate">{label}</p>
+        <p className="text-[10px] xs:text-xs text-gray-500 line-clamp-1 mt-0.5">{description}</p>
       </div>
-      <ChevronRight className="w-5 h-5 text-gray-400" />
+      <ChevronRight className="w-4 h-4 xs:w-5 xs:h-5 text-gray-400 flex-shrink-0" />
     </motion.div>
   </Link>
 )
@@ -287,45 +287,28 @@ export const PharmacyLogisticsDashboard: React.FC = () => {
   }
 
   return (
-    <div className="space-y-8 p-6 pt-10">
-      {/* Welcome Header */}
+    <div className="space-y-4 xs:space-y-6 sm:space-y-8 p-3 xs:p-4 sm:p-6 pt-6 xs:pt-8 sm:pt-10 overflow-x-hidden">
+      {/* Welcome Message */}
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
+        initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden bg-gradient-to-br from-teal-600 via-teal-500 to-emerald-500 rounded-3xl px-8 py-5 text-white"
+        transition={{ delay: 0.1 }}
+        className="bg-white rounded-xl border border-gray-200 p-4 xs:p-5 shadow-sm"
       >
-        {/* Background pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white rounded-full -translate-y-1/2 translate-x-1/2" />
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white rounded-full translate-y-1/2 -translate-x-1/2" />
-        </div>
-
-        <div className="relative z-10 flex items-center justify-between">
+        <div className="flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-                <Package className="w-6 h-6" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold">Pharmacy Logistics</h1>
-                <p className="text-teal-100 text-sm">Central inventory & supply chain management</p>
-              </div>
-            </div>
-            <p className="text-teal-50 max-w-lg">
-              Welcome back, <span className="font-semibold">{user?.full_name?.split(' ')[0]}</span>! 
-              Manage inventory, procurement, and distribution for the Pharmacy department.
+            <p className="text-sm xs:text-base text-gray-700">
+              Welcome back, <span className="font-semibold text-gray-900">{user?.full_name?.split(' ')[0]}</span>!
+              <span className="hidden sm:inline"> Manage inventory, procurement, and distribution for the Pharmacy department.</span>
             </p>
           </div>
-          <div className="hidden lg:block text-right">
-            <p className="text-teal-200 text-sm">Today</p>
-            <p className="text-xl font-semibold">
-              {formatDate(new Date(), { weekday: 'long', month: 'long', day: 'numeric' })}
-            </p>
+          <div className="flex items-center gap-2">
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
-              className="mt-2 text-white/80 hover:text-white hover:bg-white/10"
+              className="border-gray-300 text-gray-700 hover:bg-gray-50 touch-target"
               onClick={loadDashboardData}
+              aria-label="Refresh dashboard"
             >
               <RefreshCw className="w-4 h-4 mr-2" />
               Refresh
@@ -336,11 +319,11 @@ export const PharmacyLogisticsDashboard: React.FC = () => {
 
       {/* Key Metrics - Primary Stats */}
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <BarChart3 className="w-5 h-5 text-teal-600" />
-          Key Metrics
+        <h2 className="text-base xs:text-lg font-semibold text-gray-900 mb-3 xs:mb-4 flex items-center gap-2">
+          <BarChart3 className="w-4 h-4 xs:w-5 xs:h-5 text-teal-600 flex-shrink-0" />
+          <span className="truncate">Key Metrics</span>
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-2 xs:gap-3 sm:gap-4">
           <StatCard
             title="Total Inventory Items"
             value={stats?.inventory.total_items.toLocaleString() || '0'}
@@ -378,11 +361,11 @@ export const PharmacyLogisticsDashboard: React.FC = () => {
 
       {/* Operations Overview */}
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <Activity className="w-5 h-5 text-teal-600" />
-          Operations Overview
+        <h2 className="text-base xs:text-lg font-semibold text-gray-900 mb-3 xs:mb-4 flex items-center gap-2">
+          <Activity className="w-4 h-4 xs:w-5 xs:h-5 text-teal-600 flex-shrink-0" />
+          <span className="truncate">Operations Overview</span>
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-2 xs:gap-3 sm:gap-4">
           <StatCard
             title="Budget Utilization"
             value={`${Math.round(stats?.budget.utilization_percentage || 0)}%`}
@@ -419,27 +402,27 @@ export const PharmacyLogisticsDashboard: React.FC = () => {
       </div>
 
       {/* Alerts & Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 xs:gap-5 sm:gap-6">
         {/* Alerts Panel */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="lg:col-span-1 bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm"
+          className="md:col-span-1 bg-white rounded-xl xs:rounded-2xl border border-gray-200 overflow-hidden shadow-sm flex flex-col"
         >
-          <div className="p-5 border-b border-gray-100 bg-gray-50">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-rose-500" />
-                Active Alerts
+          <div className="p-3 xs:p-4 sm:p-5 border-b border-gray-100 bg-gray-50 flex-shrink-0">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-base xs:text-lg font-semibold text-gray-900 flex items-center gap-2 min-w-0">
+                <AlertCircle className="w-4 h-4 xs:w-5 xs:h-5 text-rose-500 flex-shrink-0" />
+                <span className="truncate">Active Alerts</span>
               </h2>
-              <Badge variant="error" size="sm">
+              <Badge variant="error" size="sm" className="flex-shrink-0">
                 {stats?.alerts.length || 0}
               </Badge>
             </div>
           </div>
 
-          <div className="p-4 space-y-3 max-h-[400px] overflow-y-auto">
+          <div className="p-3 xs:p-4 space-y-2 xs:space-y-3 flex-1 overflow-y-auto min-h-0 max-h-[300px] xs:max-h-[350px] sm:max-h-[400px]">
             {stats?.alerts.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <CheckCircle className="w-12 h-12 mx-auto mb-3 text-emerald-400" />
@@ -459,16 +442,16 @@ export const PharmacyLogisticsDashboard: React.FC = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="lg:col-span-2 bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm"
+          className="md:col-span-2 bg-white rounded-xl xs:rounded-2xl border border-gray-200 overflow-hidden shadow-sm"
         >
-          <div className="p-5 border-b border-gray-100 bg-gray-50">
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Layers className="w-5 h-5 text-teal-600" />
-              Quick Actions
+          <div className="p-3 xs:p-4 sm:p-5 border-b border-gray-100 bg-gray-50">
+            <h2 className="text-base xs:text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <Layers className="w-4 h-4 xs:w-5 xs:h-5 text-teal-600 flex-shrink-0" />
+              <span className="truncate">Quick Actions</span>
             </h2>
           </div>
 
-          <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="p-3 xs:p-4 grid grid-cols-1 sm:grid-cols-2 gap-2 xs:gap-3">
             <QuickAction
               icon={Package}
               label="View Inventory"
@@ -517,43 +500,43 @@ export const PharmacyLogisticsDashboard: React.FC = () => {
 
       {/* Summary Cards */}
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <FileText className="w-5 h-5 text-teal-600" />
-          Summary Overview
+        <h2 className="text-base xs:text-lg font-semibold text-gray-900 mb-3 xs:mb-4 flex items-center gap-2">
+          <FileText className="w-4 h-4 xs:w-5 xs:h-5 text-teal-600 flex-shrink-0" />
+          <span className="truncate">Summary Overview</span>
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 gap-3 xs:gap-4">
           {/* Procurement Summary */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm"
+            className="bg-white rounded-xl xs:rounded-2xl border border-gray-200 p-3 xs:p-4 sm:p-5 shadow-sm"
           >
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
-              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                <ShoppingCart className="w-4 h-4 text-teal-600" />
-                Procurement
+            <div className="flex items-center justify-between mb-3 xs:mb-4 pb-2 xs:pb-3 border-b border-gray-100 gap-2">
+              <h3 className="text-sm xs:text-base font-semibold text-gray-900 flex items-center gap-1.5 xs:gap-2 min-w-0">
+                <ShoppingCart className="w-3.5 h-3.5 xs:w-4 xs:h-4 text-teal-600 flex-shrink-0" />
+                <span className="truncate">Procurement</span>
               </h3>
-              <Badge variant="primary" size="sm">This Month</Badge>
+              <Badge variant="primary" size="sm" className="flex-shrink-0 text-[10px] xs:text-xs">This Month</Badge>
             </div>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Orders This Month</span>
-                <span className="font-semibold">{stats?.procurement.orders_this_month || 0}</span>
+            <div className="space-y-2 xs:space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs xs:text-sm text-gray-600 truncate">Orders This Month</span>
+                <span className="text-sm xs:text-base font-semibold flex-shrink-0">{stats?.procurement.orders_this_month || 0}</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Total Value</span>
-                <span className="font-semibold text-emerald-600">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs xs:text-sm text-gray-600 truncate">Total Value</span>
+                <span className="text-sm xs:text-base font-semibold text-emerald-600 flex-shrink-0 text-right">
                   {formatCurrency(stats?.procurement.orders_value_this_month || 0)}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Pending Deliveries</span>
-                <span className="font-semibold text-amber-600">{stats?.procurement.pending_deliveries || 0}</span>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs xs:text-sm text-gray-600 truncate">Pending Deliveries</span>
+                <span className="text-sm xs:text-base font-semibold text-amber-600 flex-shrink-0">{stats?.procurement.pending_deliveries || 0}</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Active Suppliers</span>
-                <span className="font-semibold">{stats?.procurement.supplier_count || 0}</span>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs xs:text-sm text-gray-600 truncate">Active Suppliers</span>
+                <span className="text-sm xs:text-base font-semibold flex-shrink-0">{stats?.procurement.supplier_count || 0}</span>
               </div>
             </div>
           </motion.div>

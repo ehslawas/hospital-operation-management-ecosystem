@@ -198,6 +198,14 @@
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
   }
+
+  /* Touch Target - Minimum 44x44px for mobile accessibility */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
 }
 
 /* Print Styles */

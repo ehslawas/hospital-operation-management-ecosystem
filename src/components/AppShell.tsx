@@ -65,7 +65,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 			)}
 			
     		{/* Sidebar with slide animation */}
-			<aside className={`fixed left-0 top-0 h-screen border-r border-slate-200/60 bg-white/95 backdrop-blur-xl supports-[backdrop-filter]:bg-white/90 z-50 shadow-2xl shadow-slate-900/5 transition-all duration-300 ease-in-out ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 ${sidebarCollapsed ? 'w-20 lg:w-20' : 'w-72 lg:w-72'}`} suppressHydrationWarning>
+			<aside className={`fixed left-0 top-0 h-screen border-r border-slate-200/60 bg-white/95 backdrop-blur-xl supports-[backdrop-filter]:bg-white/90 z-50 shadow-2xl shadow-slate-900/5 transition-all duration-300 ease-in-out ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 ${sidebarCollapsed ? 'w-20 lg:w-20' : 'w-full xs:w-64 sm:w-72 lg:w-72'}`} suppressHydrationWarning>
 				<div className="h-full flex flex-col overflow-y-auto" suppressHydrationWarning>
 					{/* Modern Header with Gradient */}
 					<div className="px-4 py-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 shadow-lg">
@@ -95,8 +95,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 					<div className="hidden lg:flex items-center justify-end px-2 py-1">
 						<button 
 							onClick={() => setSidebarCollapsed(!sidebarCollapsed)} 
-							className="p-2 rounded-lg hover:bg-gray-100 transition-all duration-200 hover:scale-110 active:scale-95"
+							className="touch-target p-2 rounded-lg hover:bg-gray-100 transition-all duration-200 hover:scale-110 active:scale-95"
 							title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+							aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
 						>
 							<svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={sidebarCollapsed ? 'M4 12h16m-6-6l6 6-6 6' : 'M20 12H4m6-6l-6 6 6 6'} />
@@ -135,15 +136,16 @@ export function AppShell({ children }: { children: ReactNode }) {
 					</div>
 				</div>
 			</aside>
-			<div className={`h-screen overflow-y-auto transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-72'}`} suppressHydrationWarning>
-				{/* Modern Header with slide-in animation */}
-				<header className={`sticky top-0 right-0 left-0 h-16 border-b border-slate-200/60 bg-white/80 backdrop-blur-xl supports-[backdrop-filter]:bg-white/70 flex items-center px-4 md:px-6 z-40 shadow-sm transition-all duration-300 ${mounted ? 'animate-slide-in-top' : ''}`}>
+			<div className={`h-screen overflow-y-auto transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-72'} ${mobileMenuOpen ? 'ml-0' : 'ml-0 lg:ml-0'}`} suppressHydrationWarning>
+				{/* Modern Header with slide-in animation - Compact */}
+				<header className={`sticky top-0 right-0 left-0 h-14 xs:h-16 border-b border-slate-200/60 bg-white/80 backdrop-blur-xl supports-[backdrop-filter]:bg-white/70 flex items-center px-3 xs:px-4 sm:px-5 md:px-6 z-40 shadow-sm transition-all duration-300 ${mounted ? 'animate-slide-in-top' : ''}`}>
 					<div className="flex items-center justify-between w-full">
 						<div className="flex items-center gap-4">
 							{/* Mobile Menu Button */}
 							<button 
 								onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-								className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-all duration-200 hover:scale-110 active:scale-95"
+								className="lg:hidden touch-target p-2 rounded-lg hover:bg-gray-100 transition-all duration-200 hover:scale-110 active:scale-95"
+								aria-label="Toggle mobile menu"
 								suppressHydrationWarning
 							>
 								<svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -157,8 +159,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 							{/* Modern Search - Hidden on very small screens */}
 							<div className="relative hidden md:block">
 								<input 
-									className="w-40 lg:w-64 rounded-xl border border-slate-200/60 bg-white/80 backdrop-blur-sm px-4 py-2.5 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300 transition-all duration-200 shadow-sm hover:shadow-md" 
+									className="min-h-[44px] w-40 lg:w-64 rounded-xl border border-slate-200/60 bg-white/80 backdrop-blur-sm px-4 py-2.5 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300 transition-all duration-200 shadow-sm hover:shadow-md" 
 									placeholder="Search..." 
+									aria-label="Search"
 									suppressHydrationWarning 
 								/>
 								<svg className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { AlertTriangle, ShoppingCart, Search, Filter, ChevronLeft, ChevronRight, Plus, DollarSign, FileText, TrendingUp, Package } from 'lucide-react'
+import { AlertTriangle, ShoppingCart, Search, Filter, ChevronLeft, ChevronRight, Plus, DollarSign, FileText, TrendingUp, Package, Edit } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
-import { Table, Spinner, Input, Badge, Select, Button, StatCard } from '@/components/ui'
-import { getPurchaseOrders, getActiveSuppliers } from '@/services/pharmacy/procurementService'
-import type { PurchaseOrderWithRelations, Supplier, ProcurementFilter, POStatus } from '@/types/pharmacy'
+import { Table, Spinner, Input, Badge, Button, StatCard } from '@/components/ui'
+import { getPurchaseOrders, getActiveSuppliers, getProcurementStats } from '@/services/pharmacy/procurementService'
+import type { PurchaseOrderWithRelations, Supplier, ProcurementFilter, POStatus, ProcurementStats } from '@/types/pharmacy'
 import { ROUTES } from '@/lib/constants'
 
 export const PurchaseOrderListPage: React.FC = () => {
@@ -31,6 +31,8 @@ export const PurchaseOrderListPage: React.FC = () => {
   const [total, setTotal] = useState(0)
   const pageSize = 15
 
+  const [stats, setStats] = useState<ProcurementStats | null>(null)
+
   // Load suppliers once
   useEffect(() => {
     const loadSuppliers = async () => {
@@ -41,6 +43,37 @@ export const PurchaseOrderListPage: React.FC = () => {
     }
     void loadSuppliers()
   }, [])
+
+  // Load stats once (global KPIs)
+  useEffect(() => {
+    const loadStats = async () => {
+      if (!hospitalId) return
+      const res = await getProcurementStats(hospitalId)
+      if (res.data) {
+        setStats(res.data)
+      }
+    }
+    void loadStats()
+  }, [hospitalId])
+
+  // ... existing code ...
+
+
+
+  // Map backend stats to UI if needed, but the structure matches mostly
+  // Backend: total_orders, total_value, pending_orders, completed_orders
+  // Frontend previously used: totalOrders, totalValue...
+
+  const kpis = {
+    totalOrders: stats?.total_orders || 0,
+    totalValue: stats?.total_value || 0,
+    pendingOrders: stats?.pending_orders || 0,
+    completedOrders: stats?.completed_orders || 0,
+    statusBreakdown: stats?.by_status || {},
+    categoryBreakdown: stats?.by_category || {},
+    departmentBreakdown: stats?.by_department || {},
+    voteCodeBreakdown: stats?.by_vote_code || {}
+  }
 
   // Load orders with filters
   const loadOrders = useCallback(async () => {
@@ -53,37 +86,36 @@ export const PurchaseOrderListPage: React.FC = () => {
       search: search || undefined,
       status: statusFilter === 'all' ? undefined : statusFilter,
       supplier_id: supplierId || undefined,
+      vote_code: voteCodeFilter || undefined,
+      category: categoryFilter || undefined,
+      department: departmentFilter || undefined,
     }
 
-    // Apply client-side filters for vote_code, category, department
-    // Note: These should ideally be server-side filters, but for now we'll filter client-side
+    // Server-side sorting: By default sort by PO number ascending so users see 0001, 0002...
+    // Or descending if they prefer latest first?
+    // User complaint was "missing PO-0001 until 0004", creating pagination.
+    // Usually lists are newest first. But "missing" implies they looked for them and couldn't find them.
+    // If we paginate correctly, they can find them.
+    // Let's stick to standard practice: Newest First (Desc), but ensure pagination works.
+    // Actually, user screenshot shows sorting is by Date/Number.
+    // If I fix pagination, they can find older POs on next pages.
+    // Let's use 'po_number' descending so latest is top.
 
-    const res = await getPurchaseOrders(hospitalId, filter, page, pageSize)
+    // Changing page size to 15 as requested? No, code has 15.
+
+    const res = await getPurchaseOrders(hospitalId, filter, page, pageSize, 'po_number', 'desc')
 
     if (res.error) {
       setError(res.error)
       setOrders([])
     } else if (res.data) {
-      let filteredOrders = res.data.data
-
-      // Apply client-side filters
-      if (voteCodeFilter) {
-        filteredOrders = filteredOrders.filter((o) => o.vote_code === voteCodeFilter)
-      }
-      if (categoryFilter) {
-        filteredOrders = filteredOrders.filter((o) => o.category === categoryFilter)
-      }
-      if (departmentFilter) {
-        filteredOrders = filteredOrders.filter((o) => o.department === departmentFilter)
-      }
-
-      setOrders(filteredOrders)
-      setTotalPages(Math.ceil(filteredOrders.length / pageSize))
-      setTotal(filteredOrders.length)
+      setOrders(res.data.data)
+      setTotalPages(res.data.totalPages)
+      setTotal(res.data.total)
     }
 
     setIsLoading(false)
-  }, [hospitalId, search, statusFilter, supplierId, page])
+  }, [hospitalId, search, statusFilter, supplierId, voteCodeFilter, categoryFilter, departmentFilter, page])
 
   useEffect(() => {
     void loadOrders()
@@ -125,45 +157,8 @@ export const PurchaseOrderListPage: React.FC = () => {
     })
   }
 
-  // Calculate KPIs
-  const calculateKPIs = () => {
-    const totalOrders = orders.length
-    const totalValue = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0)
-    const pendingOrders = orders.filter((o) => o.status === 'pending_approval' || o.status === 'draft').length
-    const completedOrders = orders.filter((o) => o.status === 'completed').length
+  // Using global stats now instead of local calculation
 
-    // Orders by status
-    const statusBreakdown = orders.reduce((acc, o) => {
-      acc[o.status] = (acc[o.status] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
-
-    // Orders by category
-    const categoryBreakdown = orders.reduce((acc, o) => {
-      const cat = o.category || 'unknown'
-      acc[cat] = (acc[cat] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
-
-    // Orders by department
-    const departmentBreakdown = orders.reduce((acc, o) => {
-      const dept = o.department || 'unknown'
-      acc[dept] = (acc[dept] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
-
-    return {
-      totalOrders,
-      totalValue,
-      pendingOrders,
-      completedOrders,
-      statusBreakdown,
-      categoryBreakdown,
-      departmentBreakdown,
-    }
-  }
-
-  const kpis = calculateKPIs()
 
   return (
     <div className="p-6 space-y-6">
@@ -179,10 +174,20 @@ export const PurchaseOrderListPage: React.FC = () => {
           </p>
         </div>
 
-        <Button onClick={() => navigate(ROUTES.PHARMACY_PO_CREATE)} className="flex items-center gap-2">
-          <Plus className="w-4 h-4" />
-          New PO
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => navigate(ROUTES.PHARMACY_SQ_CREATE)} className="flex items-center gap-2 bg-white">
+            <FileText className="w-4 h-4" />
+            Create SQ
+          </Button>
+          <Button variant="outline" onClick={() => navigate(ROUTES.PHARMACY_MANUAL_CREATE)} className="flex items-center gap-2 bg-white">
+            <Edit className="w-4 h-4" />
+            Manual PO
+          </Button>
+          <Button onClick={() => navigate(ROUTES.PHARMACY_PO_CREATE)} className="flex items-center gap-2">
+            <Plus className="w-4 h-4" />
+            New PO
+          </Button>
+        </div>
       </div>
 
       {/* KPI Dashboard */}
@@ -214,14 +219,26 @@ export const PurchaseOrderListPage: React.FC = () => {
       </div>
 
       {/* Breakdown Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white border border-gray-200 rounded-xl p-4">
           <h3 className="text-sm font-semibold text-gray-700 mb-3">Orders by Status</h3>
           <div className="space-y-2">
             {Object.entries(kpis.statusBreakdown).map(([status, count]) => (
               <div key={status} className="flex items-center justify-between text-sm">
                 <span className="text-gray-600 capitalize">{status.replace('_', ' ')}</span>
-                <Badge variant="secondary">{count}</Badge>
+                <Badge variant="gray">{count}</Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Orders by Vote Code</h3>
+          <div className="space-y-2">
+            {Object.entries(kpis.voteCodeBreakdown).map(([code, count]) => (
+              <div key={code} className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">{code}</span>
+                <Badge variant="gray">{count}</Badge>
               </div>
             ))}
           </div>
@@ -233,7 +250,7 @@ export const PurchaseOrderListPage: React.FC = () => {
             {Object.entries(kpis.categoryBreakdown).map(([category, count]) => (
               <div key={category} className="flex items-center justify-between text-sm">
                 <span className="text-gray-600 capitalize">{category.replace('_', ' ')}</span>
-                <Badge variant="secondary">{count}</Badge>
+                <Badge variant="gray">{count}</Badge>
               </div>
             ))}
           </div>
@@ -245,7 +262,7 @@ export const PurchaseOrderListPage: React.FC = () => {
             {Object.entries(kpis.departmentBreakdown).map(([dept, count]) => (
               <div key={dept} className="flex items-center justify-between text-sm">
                 <span className="text-gray-600 capitalize">{dept.replace('_', ' ')}</span>
-                <Badge variant="secondary">{count}</Badge>
+                <Badge variant="gray">{count}</Badge>
               </div>
             ))}
           </div>
@@ -269,19 +286,27 @@ export const PurchaseOrderListPage: React.FC = () => {
 
         <div className="w-full md:w-48">
           <label className="block text-xs font-medium text-gray-600 mb-1">Supplier</label>
-          <Select value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
+          <select
+            value={supplierId}
+            onChange={(e) => setSupplierId(e.target.value)}
+            className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
             <option value="">All Suppliers</option>
             {suppliers.map((sup) => (
               <option key={sup.id} value={sup.id}>
                 {sup.company_name}
               </option>
             ))}
-          </Select>
+          </select>
         </div>
 
         <div className="w-full md:w-44">
           <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
-          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as POStatus | 'all')}>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as POStatus | 'all')}
+            className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
             <option value="all">All Status</option>
             <option value="draft">Draft</option>
             <option value="pending_approval">Pending Approval</option>
@@ -290,21 +315,29 @@ export const PurchaseOrderListPage: React.FC = () => {
             <option value="partial_received">Partial Received</option>
             <option value="completed">Completed</option>
             <option value="cancelled">Cancelled</option>
-          </Select>
+          </select>
         </div>
 
         <div className="w-full md:w-36">
           <label className="block text-xs font-medium text-gray-600 mb-1">Vote Code</label>
-          <Select value={voteCodeFilter} onChange={(e) => setVoteCodeFilter(e.target.value)}>
+          <select
+            value={voteCodeFilter}
+            onChange={(e) => setVoteCodeFilter(e.target.value)}
+            className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
             <option value="">All</option>
             <option value="080702">080702</option>
             <option value="990102">990102</option>
-          </Select>
+          </select>
         </div>
 
         <div className="w-full md:w-40">
           <label className="block text-xs font-medium text-gray-600 mb-1">Category</label>
-          <Select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
             <option value="">All</option>
             <option value="drug">Drug</option>
             <option value="non_drug">Non-Drug</option>
@@ -314,7 +347,29 @@ export const PurchaseOrderListPage: React.FC = () => {
             <option value="insulin">Insulin</option>
             <option value="hepc">HEPC</option>
             <option value="medical_oxygen">Medical Oxygen</option>
-          </Select>
+          </select>
+        </div>
+
+        <div className="w-full md:w-44">
+          <label className="block text-xs font-medium text-gray-600 mb-1">Department</label>
+          <select
+            value={departmentFilter}
+            onChange={(e) => setDepartmentFilter(e.target.value)}
+            className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">All Departments</option>
+            <option value="pharmacy">Pharmacy</option>
+            <option value="nephrology">Nephrology</option>
+            <option value="radiology_radiography">Radiology & Radiography</option>
+            <option value="emergency_trauma">Emergency Trauma</option>
+            <option value="cssu_cssd">CSSU & CSSD</option>
+            <option value="operation_theater">Operation Theater</option>
+            <option value="laboratory_pathology">Laboratory & Pathology</option>
+            <option value="general_ward">General Ward</option>
+            <option value="wound_care">Wound Care</option>
+            <option value="rehabilitation">Rehabilitation</option>
+            <option value="anaesthesiology">Anaesthesiology</option>
+          </select>
         </div>
 
         <div className="flex items-center gap-1 text-xs text-gray-500">
@@ -349,8 +404,8 @@ export const PurchaseOrderListPage: React.FC = () => {
               <Table.Head>
                 <Table.Row>
                   <Table.Cell as="th">Order Date</Table.Cell>
-                  <Table.Cell as="th" className="min-w-[140px]">PO Number</Table.Cell>
-                  <Table.Cell as="th" className="min-w-[200px]">Supplier</Table.Cell>
+                  <Table.Cell as="th" className="min-w-[min(140px,100%)] xs:min-w-[140px]">PO Number</Table.Cell>
+                  <Table.Cell as="th" className="min-w-[min(200px,100%)] xs:min-w-[200px]">Supplier</Table.Cell>
                   <Table.Cell as="th">Vote Code</Table.Cell>
                   <Table.Cell as="th">Category</Table.Cell>
                   <Table.Cell as="th">Department</Table.Cell>
@@ -368,7 +423,10 @@ export const PurchaseOrderListPage: React.FC = () => {
                 )}
 
                 {orders.map((order) => (
-                  <Table.Row key={order.id}>
+                  <Table.Row
+                    key={order.id}
+                    className={order.status === 'cancelled' ? 'bg-red-100 hover:bg-red-200 border-l-4 border-red-600 transition-colors' : ''}
+                  >
                     <Table.Cell className="text-sm text-gray-600">
                       {formatDate(order.order_date)}
                     </Table.Cell>

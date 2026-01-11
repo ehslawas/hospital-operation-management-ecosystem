@@ -461,7 +461,7 @@ export default function NoShowManagement() {
                     {selectedAppt.contacts.map(c => (
                       <div key={c.id} className="p-4 bg-white/50 rounded-xl border border-white/30">
                         <div className="flex items-start gap-3 text-sm">
-                          <div className="min-w-[120px] text-slate-600 font-medium">{new Date(c.dt).toLocaleString()}</div>
+                          <div className="min-w-[min(120px,100%)] xs:min-w-[120px] text-slate-600 font-medium">{new Date(c.dt).toLocaleString()}</div>
                           <div className="flex-1">
                             <div className="font-semibold text-slate-900">{c.method} · {c.outcome}</div>
                             {c.notes && <div className="text-slate-700 mt-1">{c.notes}</div>}

@@ -11,7 +11,7 @@ import type {
   CCExpenseWithRelations,
   CCAllocationSummary,
 } from '@/types/pharmacy'
-import { getWarrants } from './warrantService'
+import { getWarrants, WARRANT_DEPARTMENTS } from './warrantService'
 
 /**
  * Get CC expenses for a hospital
@@ -26,6 +26,7 @@ export async function getCCExpenses(
     poType?: string
     category?: string
     voteActivity?: string
+    department?: string
   }
 ): Promise<ApiResponse<CCExpenseWithRelations[]>> {
   try {
@@ -65,6 +66,10 @@ export async function getCCExpenses(
         query = query.eq('vote_activity', filters.voteActivity)
       }
 
+      if (filters?.department) {
+        query = query.eq('department', filters.department)
+      }
+
       const { data, error } = await query.order('expense_date', { ascending: false })
 
       if (error) throw error
@@ -98,7 +103,7 @@ export async function syncCCExpensesFromPOs(
     // Get all warrants with vote_code 080702 for the fiscal year
     const startDate = `${fiscalYear}-01-01`
     const endDate = `${fiscalYear}-12-31`
-    
+
     const warrantsResult = await getWarrants(hospitalId, {
       startDate,
       endDate,
@@ -112,14 +117,16 @@ export async function syncCCExpensesFromPOs(
       }
     }
 
-    // Get all purchase orders for the fiscal year
+    // Get all purchase orders for the fiscal year with vote_code 080702
+    // Include all non-cancelled statuses
     const { data: purchaseOrders, error: poError } = await supabase
       .from('pharmacy_purchase_orders')
       .select('*')
       .eq('hospital_id', hospitalId)
+      .eq('vote_code', '080702')
       .gte('order_date', startDate)
       .lte('order_date', endDate)
-      .in('status', ['approved', 'sent', 'partial_received', 'completed'])
+      .neq('status', 'cancelled')
 
     if (poError) throw poError
 
@@ -127,96 +134,131 @@ export async function syncCCExpensesFromPOs(
       return { data: { synced: 0, errors: [] }, error: null }
     }
 
-    // Get existing expenses to avoid duplicates
-    const { data: existingExpenses, error: existingError } = await supabase
-      .from('pharmacy_cc_expenses')
-      .select('po_id')
-      .eq('hospital_id', hospitalId)
-      .eq('fiscal_year', fiscalYear)
-
-    if (existingError) throw existingError
-
-    const existingPoIds = new Set((existingExpenses || []).map((e: any) => e.po_id))
-
-    // Filter POs that should be tracked (linked to 080702 warrants or have matching categories)
+    // Prepare expenses for upsert
     const expensesToCreate: any[] = []
     const errors: string[] = []
 
     for (const po of purchaseOrders) {
-      // Skip if already tracked
-      if (existingPoIds.has(po.id)) continue
-
-      // Find matching warrant (by date proximity, category, and vote activity)
+      // Find matching warrant
       const poDate = new Date(po.order_date)
-      // First try to match by vote activity and date proximity
-      let matchingWarrant = warrantsResult.data.find((w) => {
+      const matchingWarrant = warrantsResult.data.find((w) => {
         const warrantDate = new Date(w.warrant_date)
         const daysDiff = Math.abs((poDate.getTime() - warrantDate.getTime()) / (1000 * 60 * 60 * 24))
-        return daysDiff <= 90 // Within 90 days
+        if (po.vote_activity && w.vote_activity) {
+          return po.vote_activity === w.vote_activity && daysDiff <= 180
+        }
+        return daysDiff <= 90
       })
-      
-      // If no match found, try to find by category match
-      if (!matchingWarrant) {
-        matchingWarrant = warrantsResult.data.find((w) => {
-          const warrantDate = new Date(w.warrant_date)
-          const daysDiff = Math.abs((poDate.getTime() - warrantDate.getTime()) / (1000 * 60 * 60 * 24))
-          return daysDiff <= 180 // Within 180 days for category match
-        })
+
+      let category = po.category
+
+      if (!category) {
+        // Fallback: check items if category is missing on PO
+        const { data: poItems } = await supabase
+          .from('pharmacy_purchase_order_items')
+          .select('item_type')
+          .eq('po_id', po.id)
+          .limit(1)
+
+        category = poItems && poItems.length > 0
+          ? (poItems[0].item_type === 'drug' ? 'drug' : 'non_drug')
+          : matchingWarrant?.category || null
       }
 
-      // Determine category from PO items if available
-      const { data: poItems } = await supabase
-        .from('pharmacy_purchase_order_items')
-        .select('item_type')
-        .eq('po_id', po.id)
-        .limit(1)
-
-      const category = poItems && poItems.length > 0 
-        ? (poItems[0].item_type === 'drug' ? 'drug' : 'non_drug')
-        : undefined
-
-      if (po.total_amount && po.total_amount > 0) {
-        expensesToCreate.push({
-          hospital_id: hospitalId,
-          fiscal_year: fiscalYear,
-          warrant_id: matchingWarrant?.id || null,
-          po_id: po.id,
-          expense_date: po.order_date,
-          po_number: po.po_number,
-          lpo_number: po.po_type === 'lpo' ? po.po_number : null,
-          po_type: po.po_type,
-          amount: Number(po.total_amount),
-          status: po.status === 'completed' ? 'completed' : po.status === 'approved' || po.status === 'sent' ? 'approved' : 'pending',
-          category: category || matchingWarrant?.category || null,
-          vote_activity: matchingWarrant?.vote_activity || null,
-          created_by: po.created_by,
-        })
+      // Track even if total_amount is 0 or null (as RM 0 liability) 
+      // but user usually wants to see non-zero impacts.
+      // However, if it's a draft, it might have amount 0 until items are added.
+      // Let's include it if it has any amount or items.
+      // Normalize Department: Convert labels (e.g., 'Pharmacy') to codes (e.g., 'pharmacy')
+      let dept = po.department || matchingWarrant?.department || null
+      if (dept) {
+        dept = dept.trim()
+        // Check if it matches any Label in WARRANT_DEPARTMENTS, if so use the value
+        const found = WARRANT_DEPARTMENTS.find(d => d.value === dept || d.label === dept)
+        if (found) {
+          dept = found.value
+        }
       }
+
+      const amount = Number(po.total_amount || 0)
+      if (amount <= 0) continue
+
+      expensesToCreate.push({
+        hospital_id: hospitalId,
+        fiscal_year: fiscalYear,
+        warrant_id: matchingWarrant?.id || null,
+        po_id: po.id,
+        expense_date: po.order_date,
+        po_number: po.po_number,
+        lpo_number: po.po_type === 'lpo' ? po.po_number : null,
+        po_type: po.po_type,
+        amount: amount,
+        status: po.status === 'completed' ? 'completed' :
+          (po.status === 'approved' || po.status === 'sent' || po.status === 'partial_received') ? 'approved' : 'pending',
+        category: category,
+        vote_activity: po.vote_activity || matchingWarrant?.vote_activity || null,
+        department: dept,
+        created_by: po.created_by,
+      })
     }
 
     if (expensesToCreate.length > 0) {
-      const { error: insertError } = await supabase
+      const { error: upsertError } = await supabase
         .from('pharmacy_cc_expenses')
-        .insert(expensesToCreate)
+        .upsert(expensesToCreate, {
+          onConflict: 'hospital_id,fiscal_year,po_id'
+        })
 
-      if (insertError) {
-        errors.push(insertError.message)
+      if (upsertError) {
+        errors.push(upsertError.message)
       }
     }
 
-    return {
-      data: {
-        synced: expensesToCreate.length,
-        errors,
-      },
-      error: null,
-    }
+    return { data: { synced: expensesToCreate.length, errors }, error: null }
   } catch (error) {
     console.error('Error syncing CC expenses:', error)
     return {
       data: null,
       error: error instanceof Error ? error.message : 'Failed to sync CC expenses',
     }
+  }
+}
+
+/**
+ * Sync a single purchase order to CC expenses immediately
+ */
+export async function syncSinglePOToCCAllocation(hospitalId: string, poId: string): Promise<void> {
+  try {
+    if (!isSupabaseConfigured()) return
+
+    // Get the PO details
+    const { data: po, error: poError } = await supabase
+      .from('pharmacy_purchase_orders')
+      .select('id, vote_code, order_date, status')
+      .eq('id', poId)
+      .single()
+
+    if (poError || !po) return
+
+    // If PO is cancelled, delete the corresponding CC expense record
+    if (po.status === 'cancelled') {
+      await supabase
+        .from('pharmacy_cc_expenses')
+        .delete()
+        .eq('hospital_id', hospitalId)
+        .eq('po_id', poId)
+      return
+    }
+
+    // Only sync if vote_code is 080702
+    if (po.vote_code !== '080702') return
+
+    const fiscalYear = new Date(po.order_date).getFullYear()
+
+    // Trigger the full sync for this year to handle warrant matching and dependencies
+    await syncCCExpensesFromPOs(hospitalId, fiscalYear)
+  } catch (error) {
+    console.error('Error in single PO sync:', error)
   }
 }
 
@@ -243,7 +285,7 @@ export async function getCCAllocationSummary(
       endDate,
       voteCode: '080702',
     })
-    
+
     // Filter by vote activity, category, and department if specified
     let filteredWarrants = warrantsResult.data || []
     if (filters?.voteActivity) {
@@ -279,7 +321,10 @@ export async function getCCAllocationSummary(
       }
     }
 
-    const expenses = expensesResult.data || []
+    const expenses = (expensesResult.data || []).filter((e) => {
+      if (filters?.department && e.department !== filters.department) return false
+      return true
+    })
 
     // Calculate metrics
     const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0)
@@ -323,22 +368,22 @@ export async function getCCAllocationSummary(
     })
 
     // Breakdown by vote activity
-    const voteActivityMap = new Map<string, { 
+    const voteActivityMap = new Map<string, {
       allocation: number
       expenses: number
       liabilities: number
       netExpenses: number
       count: number
     }>()
-    
+
     warrants.forEach((w) => {
       const activity = w.vote_activity || 'other'
-      const current = voteActivityMap.get(activity) || { 
-        allocation: 0, 
-        expenses: 0, 
+      const current = voteActivityMap.get(activity) || {
+        allocation: 0,
+        expenses: 0,
         liabilities: 0,
         netExpenses: 0,
-        count: 0 
+        count: 0
       }
       current.allocation += Number(w.amount)
       voteActivityMap.set(activity, current)
@@ -346,25 +391,25 @@ export async function getCCAllocationSummary(
 
     expenses.forEach((e) => {
       const activity = e.vote_activity || 'other'
-      const current = voteActivityMap.get(activity) || { 
-        allocation: 0, 
-        expenses: 0, 
+      const current = voteActivityMap.get(activity) || {
+        allocation: 0,
+        expenses: 0,
         liabilities: 0,
         netExpenses: 0,
-        count: 0 
+        count: 0
       }
       current.expenses += Number(e.amount)
-      
+
       // Calculate liabilities (pending + approved)
       if (e.status === 'pending' || e.status === 'approved') {
         current.liabilities += Number(e.amount)
       }
-      
+
       // Calculate net expenses (completed only)
       if (e.status === 'completed') {
         current.netExpenses += Number(e.amount)
       }
-      
+
       current.count += 1
       voteActivityMap.set(activity, current)
     })
@@ -381,7 +426,7 @@ export async function getCCAllocationSummary(
 
     // Breakdown by category
     const categoryMap = new Map<string, { allocation: number; expenses: number; count: number }>()
-    
+
     warrants.forEach((w) => {
       const cat = w.category || 'other'
       const current = categoryMap.get(cat) || { allocation: 0, expenses: 0, count: 0 }

@@ -1,15 +1,16 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Printer, ShoppingCart, Edit2, Trash2, Send, CheckCircle, FileCheck, Settings } from 'lucide-react'
+import { ArrowLeft, Printer, ShoppingCart, Edit2, Trash2, Send, CheckCircle, FileCheck, Settings, XCircle, AlertTriangle } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
 import { Button, Spinner, Badge, ConfirmationDialog, Modal, Input } from '@/components/ui'
 import { getPurchaseOrderById, rejectPurchaseOrder, deletePurchaseOrder, submitPurchaseOrder, approvePurchaseOrder, sendPurchaseOrder } from '@/services/pharmacy/procurementService'
+import { findContractByNumber } from '@/services/pharmacy/contractCatalogService'
 import { supabase } from '@/services/supabase'
-import { getWarrants } from '@/services/pharmacy/warrantService'
+import { getWarrants, getWarrantSummary } from '@/services/pharmacy/warrantService'
 import { getPharmacyPOSignatures, updatePharmacyPOSignatures, type PharmacyPOSignatures } from '@/services/pharmacy/pharmacySettingsService'
 import { mergePOWithSupplierDocs, openPdfForPrint, cleanupPdfUrl } from '@/services/pharmacy/pdfMergeService'
-import type { PurchaseOrderWithRelations, PurchaseOrderItem } from '@/types/pharmacy'
+import type { PurchaseOrderWithRelations, PurchaseOrderItem, ContractWithRelations } from '@/types/pharmacy'
 import { ROUTES } from '@/lib/constants'
 
 export const PurchaseOrderDetailPage: React.FC = () => {
@@ -22,6 +23,7 @@ export const PurchaseOrderDetailPage: React.FC = () => {
   const [order, setOrder] = useState<PurchaseOrderWithRelations | null>(null)
   const [items, setItems] = useState<Array<PurchaseOrderItem & { item_name?: string; item_code?: string }>>([])
   const [balance, setBalance] = useState<number | null>(null)
+  const isPharmacyLogistic = user?.department?.department_name === 'Pharmacy Logistic' || user?.role?.role_name === 'Pharmacy Logistic'
   const [isLoading, setIsLoading] = useState(false)
   const [showCancelDialog, setShowCancelDialog] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
@@ -47,6 +49,8 @@ export const PurchaseOrderDetailPage: React.FC = () => {
   })
   const [tempSignatures, setTempSignatures] = useState<PharmacyPOSignatures>(signatures)
 
+  const [contract, setContract] = useState<ContractWithRelations | null>(null)
+
   // Load signature settings
   useEffect(() => {
     if (!hospitalId) return
@@ -61,6 +65,23 @@ export const PurchaseOrderDetailPage: React.FC = () => {
 
     void loadSignatures()
   }, [hospitalId])
+
+  // Load contract details if KKM contract
+  useEffect(() => {
+    if (!order || !hospitalId || order.vote_code !== '080702' || !order.kkm_contract_number) return
+
+    const loadContract = async () => {
+      console.log('Fetching contract for:', order.kkm_contract_number, 'Hospital:', hospitalId)
+      const res = await findContractByNumber(hospitalId, order.kkm_contract_number!)
+      console.log('Contract fetch result:', res)
+      if (res.data) {
+        setContract(res.data)
+      }
+    }
+    void loadContract()
+  }, [order?.id, order?.vote_code, order?.kkm_contract_number, hospitalId])
+
+  console.log('Current state - Order:', order?.po_number, 'KKM:', order?.kkm_contract_number, 'Contract:', contract)
 
   const handleOpenSettings = () => {
     setTempSignatures(signatures)
@@ -103,45 +124,54 @@ export const PurchaseOrderDetailPage: React.FC = () => {
 
         if (result.data) {
           setOrder(result.data)
-          
+
           // Load balance from warrants
-          if (result.data.vote_code && result.data.vote_activity) {
+          if (result.data.vote_code && result.data.vote_activity && result.data.department) {
             try {
               const currentYear = new Date().getFullYear()
-              const warrantsResult = await getWarrants(hospitalId, {
-                startDate: `${currentYear}-01-01`,
-                endDate: `${currentYear}-12-31`,
+              const summary = await getWarrantSummary(hospitalId, currentYear, {
                 voteCode: result.data.vote_code as any,
+                department: (result.data.department.toLowerCase().replace(/\s+/g, '_')) as any, // unexpected format handling
+                category: result.data.category as any
               })
-              
-              if (warrantsResult.data) {
-                const matchingWarrants = warrantsResult.data.filter(
-                  (w) => w.vote_activity === result.data!.vote_activity
-                )
-                const totalAllocation = matchingWarrants.reduce((sum, w) => sum + Number(w.amount), 0)
-                // Calculate balance: allocation minus this PO amount
-                const poAmount = result.data!.total_amount || 0
-                const calculatedBalance = totalAllocation - Number(poAmount)
-                setBalance(Math.max(0, calculatedBalance))
+
+              if (summary.data) {
+                // balance before this PO = remaining balance + current PO amount (since remaining already deducts it if synced, or if we assume pending deducts)
+                // Wait, if pending_approval does NOT deduct in backend yet? The user wants "Balance Before" (budget available) and "Balance After" (budget - PO).
+                // getWarrantSummary remaining_balance is (allocation - expenses).
+                // If this PO is pending, it might NOT be in expenses yet.
+                // So remaining_balance is "Balance Before".
+                // Balance After = remaining_balance - poAmount.
+
+                // However, we need to be careful.
+                // Let's assume remaining_balance is the ACTUAL available balance right now.
+                // If the PO is already submitted/sync'd, it affects the balance.
+
+                // User request: "baki sebelum, baki selepas"
+
+                setBalance(summary.data.total_balance)
               }
             } catch (error) {
               console.error('Error loading balance:', error)
             }
           }
-          
+
           // Load item details from Supabase
           const itemsWithDetails = await Promise.all(
             (result.data.items || []).map(async (item: PurchaseOrderItem) => {
               try {
+                if (item.item_type === 'manual') {
+                  return item
+                }
                 if (item.item_type === 'drug') {
                   const { data: drug, error } = await supabase
                     .from('drugs')
                     .select('drug_name, drug_code')
                     .eq('id', item.item_id)
                     .single()
-                  
+
                   if (error) throw error
-                  
+
                   return {
                     ...item,
                     item_name: drug?.drug_name || 'Unknown Drug',
@@ -153,9 +183,9 @@ export const PurchaseOrderDetailPage: React.FC = () => {
                     .select('item_name, item_code')
                     .eq('id', item.item_id)
                     .single()
-                  
+
                   if (error) throw error
-                  
+
                   return {
                     ...item,
                     item_name: nonDrug?.item_name || 'Unknown Item',
@@ -191,50 +221,174 @@ export const PurchaseOrderDetailPage: React.FC = () => {
       return
     }
 
-    // Check if supplier has documents to merge
-    const hasSupplierDocs = order.supplier?.account_document_url || order.supplier?.mof_certificate_url
-
-    if (!hasSupplierDocs) {
-      // No supplier documents, use simple print
-      window.print()
-      return
-    }
-
-    // Merge PO with supplier documents
+    // Always generate PDF for professional quality and to avoid layout issues
     setIsPrinting(true)
-    
+
     try {
       const printForm = printContentRef.current
-      
+
       if (!printForm) {
         throw new Error('Print form element not found')
       }
-      
-      // The pdfMergeService will handle rendering in a temporary container
-      // No need to modify the original element
-      const result = await mergePOWithSupplierDocs({
-        poElement: printForm,
-        accountDocumentUrl: order.supplier?.account_document_url,
-        mofCertificateUrl: order.supplier?.mof_certificate_url,
-        poNumber: order.po_number,
+
+      // Temporarily show the print form so pdfMergeService can access it
+      // Store original classes and styles to restore later
+      const originalClasses = printForm.className
+      const originalDisplay = (printForm as HTMLElement).style.display
+      const originalVisibility = (printForm as HTMLElement).style.visibility
+      const originalPosition = (printForm as HTMLElement).style.position
+
+      // Make element visible for PDF conversion - Force all styles
+      printForm.className = printForm.className.replace(/hidden/g, '').trim()
+      const printFormEl = printForm as HTMLElement
+
+      // Force visibility with !important-equivalent inline styles
+      // Position it off-screen but ensure it's still in the layout flow
+      printFormEl.style.setProperty('display', 'block', 'important')
+      printFormEl.style.setProperty('visibility', 'visible', 'important')
+      printFormEl.style.setProperty('position', 'fixed', 'important')
+      printFormEl.style.setProperty('left', '0', 'important')
+      printFormEl.style.setProperty('top', '0', 'important')
+      printFormEl.style.setProperty('width', '210mm', 'important')
+      printFormEl.style.setProperty('height', 'auto', 'important')
+      printFormEl.style.setProperty('opacity', '0.01', 'important') // Nearly invisible but still rendered
+      printFormEl.style.setProperty('z-index', '9999', 'important')
+      printFormEl.style.setProperty('pointer-events', 'none', 'important') // Don't block interactions
+
+      // Also ensure all child .page elements are visible
+      let allPages = printFormEl.querySelectorAll('.page')
+      allPages.forEach((page) => {
+        const pageEl = page as HTMLElement
+        pageEl.style.setProperty('display', 'block', 'important')
+        pageEl.style.setProperty('visibility', 'visible', 'important')
+        pageEl.style.setProperty('opacity', '1', 'important')
       })
 
-      if (result.success && result.pdfUrl) {
-        // Open merged PDF for printing
-        openPdfForPrint(result.pdfUrl)
-        
-        // Cleanup URL after a delay
-        setTimeout(() => {
-          if (result.pdfUrl) {
-            cleanupPdfUrl(result.pdfUrl)
-          }
-        }, 60000) // Cleanup after 1 minute
-        
-        showSuccess('PDF Generated', 'Merged PDF opened in new window. Use browser print to print.')
-      } else {
-        showError('Print Error', result.error || 'Failed to generate merged PDF')
-        // Fallback to simple print
-        window.print()
+      // Wait for element to render and verify .page elements exist
+      // Force a reflow to ensure React has rendered
+      void printFormEl.offsetHeight
+      await new Promise(resolve => setTimeout(resolve, 200))
+
+      // Double-check .page elements exist - re-query to ensure we have the latest
+      // Force multiple reflows to ensure React has fully rendered
+      void printFormEl.offsetHeight
+      void printFormEl.scrollHeight
+      await new Promise(resolve => requestAnimationFrame(resolve))
+      await new Promise(resolve => requestAnimationFrame(resolve))
+
+      allPages = printFormEl.querySelectorAll('.page')
+      console.log(`After rendering: Found ${allPages.length} .page element(s)`)
+      console.log('Print form computed display:', window.getComputedStyle(printFormEl).display)
+      console.log('Print form isConnected:', printFormEl.isConnected)
+      console.log('Print form has childNodes:', printFormEl.childNodes.length)
+
+      if (allPages.length === 0) {
+        // Try to find any elements with 'page' in className as fallback
+        const allDivs = printFormEl.querySelectorAll('div')
+        const potentialPages = Array.from(allDivs).filter(div =>
+          div.className && (div.className.includes('page') || div.className.includes('bg-white'))
+        )
+        console.error('Print form structure (first 1000 chars):', printFormEl.innerHTML.substring(0, 1000))
+        console.error('Print form classes:', printFormEl.className)
+        console.error('Found potential page elements:', potentialPages.length)
+        console.error('All div classes:', Array.from(allDivs).slice(0, 5).map(d => d.className))
+
+        throw new Error(`No .page elements found in print form. Found ${potentialPages.length} potential page elements. Element may not be rendered yet.`)
+      }
+
+      console.log(`✓ Successfully found ${allPages.length} .page element(s) for PDF conversion`)
+
+      try {
+        // Verify element is still visible before passing to pdfMergeService
+        const finalCheck = printFormEl.querySelectorAll('.page')
+        if (finalCheck.length === 0) {
+          throw new Error('Page elements disappeared before PDF conversion. This should not happen.')
+        }
+
+        // The pdfMergeService will handle rendering in a temporary container
+        const result = await mergePOWithSupplierDocs({
+          poElement: printForm,
+          accountDocumentUrl: order.supplier?.account_document_url,
+          mofCertificateUrl: order.supplier?.mof_certificate_url,
+          poNumber: order.po_number,
+        })
+
+        // Restore original classes and styles
+        printFormEl.className = originalClasses
+
+        // Clear all forced styles
+        printFormEl.style.removeProperty('display')
+        printFormEl.style.removeProperty('visibility')
+        printFormEl.style.removeProperty('position')
+        printFormEl.style.removeProperty('left')
+        printFormEl.style.removeProperty('top')
+        printFormEl.style.removeProperty('opacity')
+        printFormEl.style.removeProperty('z-index')
+        printFormEl.style.removeProperty('width')
+        printFormEl.style.removeProperty('height')
+        printFormEl.style.removeProperty('pointer-events')
+
+        // Restore original styles if they existed
+        if (originalDisplay) printFormEl.style.display = originalDisplay
+        if (originalVisibility) printFormEl.style.visibility = originalVisibility
+        if (originalPosition) printFormEl.style.position = originalPosition
+
+        // Clear forced styles from .page elements
+        allPages.forEach((page) => {
+          const pageEl = page as HTMLElement
+          pageEl.style.removeProperty('display')
+          pageEl.style.removeProperty('visibility')
+          pageEl.style.removeProperty('opacity')
+        })
+
+        if (result.success && result.pdfUrl) {
+          // Open merged PDF for printing
+          openPdfForPrint(result.pdfUrl)
+
+          // Cleanup URL after a delay
+          setTimeout(() => {
+            if (result.pdfUrl) {
+              cleanupPdfUrl(result.pdfUrl)
+            }
+          }, 60000) // Cleanup after 1 minute
+
+          showSuccess('PDF Generated', 'Merged PDF opened in new window. Use browser print to print.')
+        } else {
+          showError('Print Error', result.error || 'Failed to generate merged PDF')
+          // Fallback to simple print
+          window.print()
+        }
+      } catch (innerError) {
+        // Restore original classes and styles on error
+        printFormEl.className = originalClasses
+
+        // Clear all forced styles
+        printFormEl.style.removeProperty('display')
+        printFormEl.style.removeProperty('visibility')
+        printFormEl.style.removeProperty('position')
+        printFormEl.style.removeProperty('left')
+        printFormEl.style.removeProperty('top')
+        printFormEl.style.removeProperty('opacity')
+        printFormEl.style.removeProperty('z-index')
+        printFormEl.style.removeProperty('width')
+        printFormEl.style.removeProperty('height')
+        printFormEl.style.removeProperty('pointer-events')
+
+        // Restore original styles if they existed
+        if (originalDisplay) printFormEl.style.display = originalDisplay
+        if (originalVisibility) printFormEl.style.visibility = originalVisibility
+        if (originalPosition) printFormEl.style.position = originalPosition
+
+        // Clear forced styles from .page elements - re-query to get all pages
+        const allPagesInError = printFormEl.querySelectorAll('.page')
+        allPagesInError.forEach((page) => {
+          const pageEl = page as HTMLElement
+          pageEl.style.removeProperty('display')
+          pageEl.style.removeProperty('visibility')
+          pageEl.style.removeProperty('opacity')
+        })
+
+        throw innerError
       }
     } catch (error) {
       console.error('Error generating merged PDF:', error)
@@ -248,8 +402,15 @@ export const PurchaseOrderDetailPage: React.FC = () => {
 
   const handleEdit = () => {
     if (!order) return
-    // Navigate to the PO creation page; future enhancement can support true edit using this state
-    navigate(ROUTES.PHARMACY_PO_CREATE, {
+
+    let path: string = ROUTES.PHARMACY_PO_CREATE
+    if (order.po_type === 'sq') {
+      path = ROUTES.PHARMACY_SQ_CREATE
+    } else if (order.po_type === 'manual') {
+      path = ROUTES.PHARMACY_MANUAL_CREATE
+    }
+
+    navigate(path, {
       state: { mode: 'edit', poId: order.id },
     })
   }
@@ -275,9 +436,9 @@ export const PurchaseOrderDetailPage: React.FC = () => {
       setOrder((prev) =>
         prev
           ? ({
-              ...prev,
-              ...result.data,
-            } as PurchaseOrderWithRelations)
+            ...prev,
+            ...result.data,
+          } as PurchaseOrderWithRelations)
           : prev
       )
 
@@ -338,9 +499,9 @@ export const PurchaseOrderDetailPage: React.FC = () => {
       setOrder((prev) =>
         prev
           ? ({
-              ...prev,
-              ...result.data,
-            } as PurchaseOrderWithRelations)
+            ...prev,
+            ...result.data,
+          } as PurchaseOrderWithRelations)
           : prev
       )
 
@@ -371,9 +532,9 @@ export const PurchaseOrderDetailPage: React.FC = () => {
       setOrder((prev) =>
         prev
           ? ({
-              ...prev,
-              ...result.data,
-            } as PurchaseOrderWithRelations)
+            ...prev,
+            ...result.data,
+          } as PurchaseOrderWithRelations)
           : prev
       )
 
@@ -404,9 +565,9 @@ export const PurchaseOrderDetailPage: React.FC = () => {
       setOrder((prev) =>
         prev
           ? ({
-              ...prev,
-              ...result.data,
-            } as PurchaseOrderWithRelations)
+            ...prev,
+            ...result.data,
+          } as PurchaseOrderWithRelations)
           : prev
       )
 
@@ -449,6 +610,36 @@ export const PurchaseOrderDetailPage: React.FC = () => {
     return `RM ${amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`
   }
 
+  const formatPosition = (position: string) => {
+    if (!position) return ''
+
+    // Format position text to match Malaysian government document standards
+    let formatted = position.trim().toUpperCase()
+
+    // Step 1: Normalize all whitespace to single spaces
+    formatted = formatted.replace(/\s+/g, ' ')
+
+    // Step 2: Fix grade codes - remove spaces between grade letters and numbers
+    // "U 7" -> "U7", "UF 32" -> "UF32"
+    formatted = formatted.replace(/\b(U|UF)\s+(\d+)\b/g, '$1$2')
+
+    // Step 3: Fix TBK codes - remove spaces between TBK and number
+    // "TBK 2" -> "TBK2", but keep standalone "TBK" as is
+    formatted = formatted.replace(/\bTBK\s+(\d+)\b/g, 'TBK$1')
+
+    // Step 4: Standardize PEN abbreviation with proper spacing
+    // "PEN." or "PEN" -> "PEN."
+    formatted = formatted.replace(/\bPEN\s*\.?\s*/g, 'PEN. ')
+
+    // Step 5: Ensure consistent spacing after periods
+    formatted = formatted.replace(/\.\s*([A-Z])/g, '. $1')
+
+    // Step 6: Final cleanup - ensure single spaces between all words
+    formatted = formatted.replace(/\s+/g, ' ').trim()
+
+    return formatted
+  }
+
   const renderStatusBadge = (status: string) => {
     const statusMap: Record<string, { color: 'success' | 'warning' | 'error' | 'info' | 'gray' | 'primary'; label: string }> = {
       draft: { color: 'gray', label: 'Draft' },
@@ -487,6 +678,414 @@ export const PurchaseOrderDetailPage: React.FC = () => {
   const subtotal = items.reduce((sum, item) => sum + (item.quantity_ordered * item.unit_price), 0)
   const total = subtotal
 
+  const renderWatermark = () => (
+    <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none z-0 overflow-hidden print:opacity-[0.05]">
+      <img
+        src="/512px-Jata_MalaysiaV2.svg.png"
+        alt="Watermark"
+        style={{ width: '450px', height: '450px', objectFit: 'contain' }}
+        onError={(e) => {
+          const target = e.target as HTMLImageElement;
+          target.src = '/jata-logo.png';
+        }}
+      />
+    </div>
+  )
+
+  const renderPage1Content = () => (
+    <div className="page bg-white border-2 border-gray-800 shadow-lg relative" style={{ fontFamily: "'Times New Roman', serif", width: '210mm', height: '297mm', maxWidth: '100%', margin: '0 auto', boxSizing: 'border-box', overflow: 'hidden' }}>
+      {renderWatermark()}
+      {/* Government Document Header */}
+      <div className="border-b-2 border-gray-800 bg-white py-3 px-8">
+        <div className="flex items-center justify-center gap-4 mb-2">
+          <img
+            src="/512px-Jata_MalaysiaV2.svg.png"
+            alt="Jata Negara Malaysia"
+            style={{
+              width: '64px',
+              height: '64px',
+              objectFit: 'contain',
+              display: 'block'
+            }}
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.src = '/jata-logo.png';
+            }}
+          />
+          <div className="text-center border-l-2 border-r-2 border-gray-800 px-4" style={{
+            textShadow: 'none',
+            letterSpacing: 'normal',
+            lineHeight: '1.2'
+          }}>
+            <h1 className="text-lg font-bold text-gray-900 uppercase mb-0.5" style={{
+              textShadow: 'none',
+              letterSpacing: '0.05em',
+              fontWeight: 'bold',
+              lineHeight: '1.2'
+            }}>
+              KEMENTERIAN KESIHATAN
+            </h1>
+            <h2 className="text-base font-bold text-gray-800 uppercase" style={{
+              textShadow: 'none',
+              letterSpacing: '0.03em',
+              fontWeight: 'bold',
+              lineHeight: '1.2',
+              marginTop: '2px'
+            }}>
+              MINISTRY OF HEALTH MALAYSIA
+            </h2>
+            <p className="text-xs font-semibold text-gray-700 mt-0.5" style={{
+              textShadow: 'none',
+              letterSpacing: 'normal',
+              lineHeight: '1.3'
+            }}>
+              Hospital Daerah Lawas
+            </p>
+          </div>
+        </div>
+        <div className="text-center border-t-2 border-gray-800 pt-2">
+          <h3 className="text-base font-bold text-gray-900 uppercase tracking-wide">
+            Borang Permohonan Untuk Pengeluaran Pesanan Kerajaan
+          </h3>
+          <p className="text-xs font-semibold text-gray-700 mt-0.5 italic">
+            Application Form for Government Purchase Order
+          </p>
+        </div>
+      </div>
+
+      {/* Document Information Section */}
+      <div className="px-8 py-3 border-b-2 border-gray-800">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <div className="border-b border-gray-400 pb-1">
+              <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">No. Pesanan / PO Number</label>
+              <p className="text-sm font-bold text-gray-900">{order.po_number}</p>
+            </div>
+            <div className="border-b border-gray-400 pb-1">
+              <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">Kod Undi / Vote Code</label>
+              <p className="text-sm font-semibold text-gray-900">{order.vote_code || '—'}</p>
+            </div>
+            <div className="border-b border-gray-400 pb-1">
+              <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">Aktiviti Undi / Vote Activity</label>
+              <p className="text-sm font-semibold text-gray-900">{order.vote_activity || '—'}</p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div className="border-b border-gray-400 pb-1">
+              <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">Jabatan / Department</label>
+              <p className="text-sm font-semibold text-gray-900 uppercase">{order.department || '—'}</p>
+            </div>
+            <div className="border-b border-gray-400 pb-1">
+              <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">Tarikh Pesanan / Order Date</label>
+              <p className="text-sm font-semibold text-gray-900">{formatDate(order.order_date)}</p>
+            </div>
+            <div className="border-b border-gray-400 pb-1">
+              <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">Kategori / Category</label>
+              <p className="text-sm font-semibold text-gray-900 uppercase">{order.category?.replace('_', ' ') || '—'}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-8 py-3 border-b-2 border-gray-800 bg-gray-50">
+        <h4 className="text-xs font-bold text-gray-900 uppercase mb-2">Maklumat Pembekal / Supplier Information</h4>
+        <div className="grid grid-cols-1 gap-2">
+          <div className="border border-gray-600 p-2 bg-white">
+            <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">Nama Syarikat / Company Name</label>
+            {order.po_type === 'sq' && order.sq_suppliers && order.sq_suppliers.length > 0 ? (
+              <div className="space-y-1">
+                {order.sq_suppliers.map((supplierName, idx) => (
+                  <p key={idx} className="text-sm font-semibold text-gray-900 uppercase">{idx + 1}. {supplierName}</p>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm font-semibold text-gray-900 uppercase">{order.supplier?.company_name || '—'}</p>
+            )}
+          </div>
+          {order.po_type !== 'sq' && order.supplier?.address && (
+            <div className="border border-gray-600 p-2 bg-white">
+              <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">Alamat / Address</label>
+              <p className="text-xs text-gray-900">{order.supplier.address}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Items Table - Government Document Style */}
+      <div className="px-8 py-4 border-b-2 border-gray-800">
+        <h4 className="text-xs font-bold text-gray-900 uppercase mb-3">Butir-butir Barang / Items Purchased</h4>
+
+        {items.length === 0 ? (
+          <div className="border-2 border-gray-600 p-8 text-center bg-gray-50">
+            <p className="text-sm font-semibold text-gray-600">Tiada item dijumpai / No items found</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse border-2 border-gray-800" style={{ fontFamily: "'Times New Roman', serif" }}>
+              <thead>
+                <tr className="bg-gray-200">
+                  <th className="border border-gray-800 px-2 py-1.5 text-xs font-bold text-gray-900 uppercase text-center" style={{ width: '5%' }}>Bil</th>
+                  <th className="border border-gray-800 px-2 py-1.5 text-xs font-bold text-gray-900 uppercase text-center" style={{ width: '43%' }}>Nama Item / Item Name</th>
+                  <th className="border border-gray-800 px-2 py-1.5 text-xs font-bold text-gray-900 uppercase text-center" style={{ width: '12%' }}>Kod Item / Item Code</th>
+                  <th className="border border-gray-800 px-2 py-1.5 text-xs font-bold text-gray-900 uppercase text-center" style={{ width: '10%' }}>Kuantiti / Quantity</th>
+                  <th className="border border-gray-800 px-2 py-1.5 text-xs font-bold text-gray-900 uppercase text-center" style={{ width: '12%' }}>Harga Unit / Unit Price</th>
+                  <th className="border border-gray-800 px-2 py-1.5 text-xs font-bold text-gray-900 uppercase text-center" style={{ width: '12%' }}>Jumlah / Total</th>
+                  <th className="border border-gray-800 px-2 py-1.5 text-xs font-bold text-gray-900 uppercase text-center" style={{ width: '6%' }}>Pembungkusan / Packaging</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item, index) => (
+                  <tr key={item.id} className="hover:bg-gray-50">
+                    <td className="border border-gray-600 px-2 py-1.5 text-xs text-gray-900 text-center font-semibold">{index + 1}</td>
+                    <td className="border border-gray-600 px-2 py-1.5 text-xs text-gray-900">
+                      <span className="font-bold">{item.item_name || '—'}</span>
+                      {/* SQ Details */}
+                      {order.po_type === 'sq' && (
+                        <div className="mt-1 text-[10px] font-normal leading-tight text-gray-700">
+                          <div className="font-semibold text-blue-700">INV SQ no : </div>
+                        </div>
+                      )}
+                    </td>
+                    <td className="border border-gray-600 px-2 py-1.5 text-xs text-gray-700 font-mono">{item.item_code || '—'}</td>
+                    <td className="border border-gray-600 px-2 py-1.5 text-xs text-gray-900 text-center font-semibold">{item.quantity_ordered}</td>
+                    <td className="border border-gray-600 px-2 py-1.5 text-xs text-gray-900 text-right font-semibold">{formatCurrency(item.unit_price)}</td>
+                    <td className="border border-gray-600 px-2 py-1.5 text-xs text-gray-900 text-right font-bold">
+                      {formatCurrency(item.quantity_ordered * item.unit_price)}
+                    </td>
+                    <td className="border border-gray-600 px-2 py-1.5 text-xs text-gray-700">{item.packaging_description || '—'}</td>
+                  </tr>
+                ))}
+                <tr className="bg-gray-200 font-bold border-t-2 border-gray-800">
+                  <td colSpan={5} className="border border-gray-800 px-2 py-2 text-xs text-gray-900 uppercase text-right">
+                    JUMLAH KESELURUHAN / TOTAL AMOUNT:
+                  </td>
+                  <td className="border border-gray-800 px-2 py-2 text-xs text-black text-right">
+                    {formatCurrency(total)}
+                  </td>
+                  <td className="border border-gray-800"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Financial Summary and Signature */}
+      <div className="px-8 py-3 bg-gray-50 border-b-2 border-gray-800">
+        <div className="flex gap-4">
+          {/* Left - Signature (no box) */}
+          <div className="w-full md:w-96 flex items-end">
+            <div className="text-center w-full pb-2">
+              <span className="sig-line min-w-[300px] mb-1"></span>
+              <p className="text-[10pt] font-bold text-gray-900 mb-0.5">(Tandatangan)</p>
+              <p className="text-[10pt] font-bold text-gray-900 mb-0.5">Pegawai Yang Mengesahkan Peruntukan</p>
+              <p className="text-[10pt] font-bold text-gray-900">Pengarah Hospital Lawas</p>
+            </div>
+          </div>
+          {/* Right Box - Financial Summary */}
+          <div className="w-full md:w-96 space-y-0.5 border-2 border-black p-0 bg-white ml-auto overflow-hidden">
+            <div className="flex justify-between items-center border-b border-black px-2 py-1">
+              <span className="text-[9pt] font-bold uppercase">BAKI SEBELUM / BALANCE BEFORE:</span>
+              <span className="text-[10pt] font-bold">
+
+                {balance !== null ? formatCurrencyMalay(balance) : '—'}
+              </span>
+            </div>
+            <div className="flex justify-between items-center border-b border-black px-2 py-1 bg-gray-50">
+              <span className="text-[10pt] font-bold uppercase">JUMLAH KESELURUHAN / TOTAL AMOUNT:</span>
+              <span className="text-[11pt] font-black">{formatCurrencyMalay(total)}</span>
+            </div>
+            <div className="flex justify-between items-center px-2 py-1">
+              <span className="text-[10pt] font-bold uppercase">BAKI SELEPAS / BALANCE AFTER:</span>
+              <span className="text-[11pt] font-black">
+                {balance !== null ? formatCurrencyMalay(balance - total) : '—'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Document Footer */}
+      <div className="px-8 py-4 bg-gray-100 border-t-2 border-gray-800">
+        <div className="text-center">
+          <p className="text-xs font-semibold text-gray-700">
+            Dokumen Rasmi Kerajaan Malaysia / Official Government Document of Malaysia
+          </p>
+          <p className="text-xs text-gray-600 mt-1">
+            Dikeluarkan oleh Sistem Pengurusan Operasi Hospital / Issued by Hospital Operation Management System
+          </p>
+        </div>
+      </div>
+    </div >
+  );
+
+  const renderPage2Content = () => (
+    <div className="page bg-white border-2 border-gray-800 shadow-lg relative" style={{ fontFamily: "'Times New Roman', serif", width: '210mm', minHeight: '297mm', maxWidth: '100%', margin: '0 auto', boxSizing: 'border-box', overflow: 'hidden' }}>
+      {renderWatermark()}
+      {/* Section 3: Supplier Details */}
+      <div className="px-8 py-1 border-b-2 border-gray-800">
+        <div className="flex justify-center">
+          <table className="w-full max-w-4xl border-collapse border-2 border-gray-800">
+            <tbody>
+              <tr>
+                <td className="border border-gray-800 px-3 py-1.5 font-bold bg-gray-200 text-sm" style={{ width: '30%', verticalAlign: 'top' }}>Nama Pembekal :</td>
+                <td className="border border-gray-800 px-3 py-1.5 font-bold text-sm uppercase" style={{ lineHeight: '1.3' }}>
+                  {order.po_type === 'sq' && order.sq_suppliers && order.sq_suppliers.length > 0 ? (
+                    order.sq_suppliers.join(', ')
+                  ) : (
+                    <>
+                      {order.supplier?.company_name || '—'}
+                      <br />
+                      <span className="font-normal text-xs normal-case">{order.supplier?.address || ''}</span>
+                    </>
+                  )}
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-gray-800 px-3 py-1.5 font-bold bg-gray-200 text-sm">No. Telefon :</td>
+                <td className="border border-gray-800 px-3 py-1.5 font-bold text-sm">{order.supplier?.phone || '—'}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Federal Treasury Registration */}
+      <div className="px-8 py-1 border-b-2 border-gray-800">
+        <p className="text-sm mb-1" style={{ lineHeight: '1.3' }}>Berdaftar dengan Pejabat Kewangan Persekutuan Sarawak ( Ya / Tidak )</p>
+        <div className="sig-line min-w-[350px] mb-1"></div>
+        <p className="text-sm mb-1" style={{ lineHeight: '1.3' }}>No. Rujukan Pendaftaran :</p>
+        <div className="sig-line min-w-[350px]"></div>
+      </div>
+
+      {/* Section 4: Purchase Order Details */}
+      <div className="px-8 py-1 border-b-2 border-gray-800">
+        <p className="text-sm font-bold text-gray-900 mb-1" style={{ lineHeight: '1.3' }}>Bersama-sama ini dinyatakan (Penuhkan mana yang sesuai).</p>
+        <div className="ml-4 space-y-1">
+          <p className="text-sm" style={{ lineHeight: '1.4' }}>
+            (i) No. rujukan surat mampu :
+            <span className="sig-line min-w-[350px] ml-2"></span>
+          </p>
+          <p className="text-sm" style={{ lineHeight: '1.4' }}>
+            (ii) No. rujukan kontrak :
+            <span className="sig-line min-w-[350px] ml-2 font-bold pl-2"></span>
+          </p>
+          <p className="text-sm" style={{ lineHeight: '1.4' }}>
+            (iii) Salinan surat kelulusan Pejabat Kewangan Persekutuan Bil.:
+            <span className="sig-line min-w-[200px] ml-2"></span>
+          </p>
+        </div>
+      </div>
+
+      {/* Section 4 Signature */}
+      <div className="px-8 py-1 border-b-2 border-gray-800 bg-gray-50">
+        <div className="flex justify-between items-start">
+          <div className="pt-8">
+            <div className="flex gap-2">
+              <span className="text-sm font-bold">Tarikh :</span>
+              <span className="text-sm font-bold">{formatDateMalay(order.order_date)}</span>
+            </div>
+          </div>
+          <div className="text-right">
+            <span className="sig-line min-w-[250px] mb-1"></span>
+            <p className="text-sm font-bold mb-1" style={{ lineHeight: '1.2' }}>(Tandatangan Pegawai yang Memohon.)</p>
+            <div className="text-left inline-block">
+              <table className="border-collapse">
+                <tbody>
+                  <tr>
+                    <td className="pr-2 text-right" style={{ whiteSpace: 'nowrap' }}>
+                      <span className="text-sm font-bold">Nama :</span>
+                    </td>
+                    <td>
+                      <span className="text-sm font-bold">{signatures.applicantName}</span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="pr-2 text-right pt-1" style={{ whiteSpace: 'nowrap' }}>
+                      <span className="text-sm font-bold">Jawatan :</span>
+                    </td>
+                    <td className="pt-1">
+                      <span className="text-sm font-bold">{formatPosition(signatures.applicantPosition)}</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Section 5: Head of Department Account */}
+      <div className="px-8 py-1 border-b-2 border-gray-800">
+        <p className="text-sm font-bold text-gray-900 mb-1" style={{ lineHeight: '1.3' }}>Akaun Ketua Bahagian.</p>
+        <div className="ml-8 mb-2 space-y-1">
+          <p className="text-sm" style={{ lineHeight: '1.3' }}>(i) Adalah disahkan pembelian ini telah dimasukan dalam cadangan anggaran Belanjawan tahunan.</p>
+          <p className="text-sm" style={{ lineHeight: '1.3' }}>(ii) Pembelian ini adalah diperlukan.</p>
+        </div>
+        <div className="flex justify-between items-start gap-10">
+          <div className="pt-8">
+            <div className="flex gap-2">
+              <span className="text-sm font-bold">Tarikh :</span>
+              <span className="text-sm font-bold">{formatDateMalay(order.order_date)}</span>
+            </div>
+          </div>
+          <div className="text-right flex-1">
+            <span className="sig-line min-w-[200px] mb-1"></span>
+            <p className="text-sm font-bold mb-1" style={{ lineHeight: '1.2' }}>(Tandatangan Ketua Bahagian)</p>
+            <div className="text-left inline-block">
+              <table className="border-collapse">
+                <tbody>
+                  <tr>
+                    <td className="pr-2 text-right" style={{ whiteSpace: 'nowrap' }}>
+                      <span className="text-sm font-bold">Nama :</span>
+                    </td>
+                    <td>
+                      <span className="text-sm font-bold">{signatures.headName}</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Approval Section */}
+      <div className="px-8 py-2 border-b-2 border-gray-800">
+        <div className="flex justify-between items-start">
+          <div style={{ width: '45%' }}>
+            <div className="pt-8">
+              <p className="text-sm font-bold italic mb-4" style={{ lineHeight: '1.3' }}>Permohonan diluluskan/ tidak diluluskan.</p>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold">Tarikh :</span>
+                <span className="sig-line flex-1"></span>
+              </div>
+            </div>
+          </div>
+          <div className="text-right" style={{ width: '50%' }}>
+            <div className="pt-8">
+              <div className="mb-2">
+                <span className="text-sm font-bold">Nama :</span>
+                <span className="sig-line min-w-[250px] ml-2"></span>
+              </div>
+              <p className="text-sm font-bold mb-1" style={{ lineHeight: '1.3' }}>(Tandatangan Pegawai Yang Meluluskan)</p>
+              <p className="text-sm font-bold" style={{ lineHeight: '1.3' }}>Pengarah Hospital Daerah, Lawas.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="px-8 py-4 bg-gray-100 border-t-2 border-gray-800">
+        <div className="text-center">
+          <p className="text-xs font-semibold text-gray-700">
+            Dokumen Rasmi Kerajaan Malaysia / Official Government Document of Malaysia
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <>
       {/* Professional Print Styles - Includes PO Form and Supplier Documents */}
@@ -503,122 +1102,72 @@ export const PurchaseOrderDetailPage: React.FC = () => {
         @media print {
           @page {
             size: A4;
-            margin: 0;
+            margin: 0mm !important;
           }
           * {
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
-          html, body {
-            margin: 0 !important;
-            padding: 0 !important;
-            width: 210mm;
-            height: auto;
-            background: white;
-            overflow: visible;
+          
+          /* Only hide the main content area, letting the print-form take over */
+          .print-content > *:not(.print-form) {
+            display: none !important;
           }
-          body * {
-            visibility: hidden;
+
+          .print-form {
+            display: block !important;
+            visibility: visible !important;
+            width: 210mm !important;
+            margin: 0 auto !important;
           }
-          .print-content, .print-content * {
-            visibility: visible;
-          }
-          .print-content {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 210mm;
-            margin: 0 !important;
-            padding: 0 !important;
-            font-family: 'Times New Roman', 'Arial', sans-serif;
-            font-size: 11pt;
-            line-height: 1.3;
-            color: #000;
-          }
-          .print-content > * {
-            margin: 0 !important;
-            padding: 0 !important;
-          }
+
           .no-print {
             display: none !important;
           }
-          .print-form.hidden {
-            display: block !important;
-          }
-          .print-form {
-            display: block !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            position: relative;
-            width: 210mm;
-            background: white;
-            box-sizing: border-box;
-          }
-          .print-form > * {
-            margin: 0 !important;
-          }
+
           .page {
-            width: 210mm;
-            height: 297mm;
-            min-height: 297mm;
-            padding: 20mm;
+            width: 210mm !important;
+            height: 297mm !important;
+            padding: 10mm !important;
             margin: 0 !important;
-            margin-bottom: 0 !important;
             position: relative;
-            page-break-after: always;
-            page-break-before: auto;
-            page-break-inside: avoid;
-            overflow: hidden;
             box-sizing: border-box;
-            display: block;
-            background: white;
-            break-after: page;
-            break-inside: avoid;
-          }
-          .page::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 400px;
-            height: 400px;
-            background-image: url('/512px-Jata_MalaysiaV2.svg.png');
-            background-repeat: no-repeat;
-            background-position: center;
-            background-size: contain;
-            opacity: 0.08;
-            z-index: 0;
-            pointer-events: none;
-          }
-          .page > * {
-            position: relative;
-            z-index: 1;
+            background: white !important;
+            page-break-after: always !important;
+            break-after: page !important;
+            display: flex;
+            flex-direction: column;
+            border: 2px solid #000 !important;
           }
           .page:last-child {
             page-break-after: auto !important;
             break-after: auto !important;
           }
-          .print-table {
-            border-collapse: collapse;
-            width: 100%;
-            margin: 0;
-            font-size: 11pt;
-            border: 2px solid #000;
+          /* Professional Typography */
+          .print-form, .print-form * {
+             font-family: 'Times New Roman', serif !important;
+             color: #000 !important;
           }
-          .print-table th,
-          .print-table td {
-            border: 1px solid #000;
-            padding: 6px 4px;
-            text-align: left;
-            font-size: 11pt;
-            line-height: 1.4;
-            vertical-align: top;
+          /* Precise Table Styling */
+          .print-form table {
+            border-collapse: collapse !important;
+            width: 100% !important;
+            border: 1px solid #000 !important;
           }
-          .print-table th {
-            font-weight: bold;
-            text-align: center;
-            background-color: #f0f0f0;
+          .print-form th, .print-form td {
+            border: 1px solid #000 !important;
+            padding: 4px 6px !important;
+            font-size: 10pt !important;
+          }
+          .print-form th {
+            background-color: #f3f4f6 !important;
+            font-weight: bold !important;
+          }
+          /* Signature lines */
+          .sig-line {
+            border-bottom: 1px solid #000 !important;
+            display: inline-block;
+            min-width: 200px;
           }
         }
         @media screen {
@@ -631,827 +1180,175 @@ export const PurchaseOrderDetailPage: React.FC = () => {
         }
       `}</style>
       <div className="p-4 space-y-4 max-w-7xl mx-auto print-content bg-gray-100 min-h-screen">
-      {/* Header - Action Bar */}
-      <div className="flex items-center justify-between no-print mb-4">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(ROUTES.PHARMACY_PO)}
-            className="flex items-center gap-2 border-gray-600 hover:bg-gray-100"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Kembali / Back
-          </Button>
-          <div className="h-8 w-px bg-gray-400"></div>
-          <h1 className="text-lg font-bold text-gray-900 flex items-center gap-2 uppercase tracking-wide" style={{ fontFamily: "'Times New Roman', serif" }}>
-            <ShoppingCart className="w-5 h-5 text-blue-700" />
-            Butiran Pesanan Kerajaan / Purchase Order Details
-          </h1>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Submit for Approval - Only for draft status */}
-          {order.status === 'draft' && (
+        {/* Header - Action Bar */}
+        <div className="flex items-center justify-between no-print mb-4">
+          <div className="flex items-center gap-3">
             <Button
-              onClick={() => setShowSubmitDialog(true)}
               variant="outline"
               size="sm"
-              className="flex items-center gap-2 border-blue-500 text-blue-600 hover:bg-blue-50 hover:border-blue-600"
-              disabled={isSubmitting}
+              onClick={() => navigate(ROUTES.PHARMACY_PO)}
+              className="flex items-center gap-2 border-gray-600 hover:bg-gray-100"
             >
-              {isSubmitting ? <Spinner size="sm" /> : <FileCheck className="w-4 h-4" />}
-              {isSubmitting ? 'Submitting...' : 'Submit for Approval'}
+              <ArrowLeft className="w-4 h-4" />
+              Kembali / Back
             </Button>
-          )}
-
-          {/* Approve - Only for pending_approval status */}
-          {order.status === 'pending_approval' && (
-            <Button
-              onClick={() => setShowApproveDialog(true)}
-              size="sm"
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
-              disabled={isApproving}
-            >
-              {isApproving ? <Spinner size="sm" /> : <CheckCircle className="w-4 h-4" />}
-              {isApproving ? 'Approving...' : 'Approve'}
-            </Button>
-          )}
-
-          {/* Send to Supplier - Only for approved status */}
-          {order.status === 'approved' && (
-            <Button
-              onClick={() => setShowSendDialog(true)}
-              size="sm"
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
-              disabled={isSending}
-            >
-              {isSending ? <Spinner size="sm" /> : <Send className="w-4 h-4" />}
-              {isSending ? 'Sending...' : 'Send to Supplier'}
-            </Button>
-          )}
-
-          <Button
-            onClick={handleEdit}
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-2"
-            disabled={order.status === 'cancelled' || order.status === 'completed' || order.status === 'sent' || order.status === 'partial_received'}
-          >
-            <Edit2 className="w-4 h-4" />
-            Edit / Cancel
-          </Button>
-          <Button
-            onClick={() => setShowDeleteDialog(true)}
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-2 border-red-500 text-red-600 hover:bg-red-50 hover:border-red-600"
-            disabled={order.status !== 'draft'}
-          >
-            <Trash2 className="w-4 h-4" />
-            Delete
-          </Button>
-          {/* Print - Only for approved and sent status */}
-          {(order.status === 'approved' || order.status === 'sent') && (
-            <Button 
-              onClick={handlePrint} 
-              variant="outline" 
-              size="sm" 
-              className="flex items-center gap-2"
-              disabled={isPrinting}
-            >
-              {isPrinting ? (
-                <>
-                  <Spinner className="w-4 h-4" />
-                  Generating PDF...
-                </>
-              ) : (
-                <>
-                  <Printer className="w-4 h-4" />
-                  Print
-                </>
-              )}
-            </Button>
-          )}
-          <Button
-            onClick={handleOpenSettings}
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-2"
-            title="Configure PO Signatures"
-          >
-            <Settings className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Professional Government Document View - Screen */}
-      <div className="bg-white border-2 border-gray-800 shadow-lg no-print" style={{ fontFamily: "'Times New Roman', serif", width: '210mm', height: '297mm', maxWidth: '100%', margin: '0 auto', boxSizing: 'border-box', overflow: 'hidden' }}>
-        {/* Government Document Header */}
-        <div className="border-b-2 border-gray-800 bg-gradient-to-r from-blue-50 to-white py-3 px-8">
-          <div className="flex items-center justify-center gap-4 mb-2">
-            <img
-              src="/512px-Jata_MalaysiaV2.svg.png"
-              alt="Jata Negara Malaysia"
-              className="w-16 h-16 object-contain"
-            />
-            <div className="text-center border-l-2 border-r-2 border-gray-800 px-4">
-              <h1 className="text-lg font-bold text-gray-900 tracking-wide uppercase mb-0.5">
-                Kementerian Kesihatan Malaysia
-              </h1>
-              <h2 className="text-base font-bold text-gray-800 uppercase">
-                Ministry of Health Malaysia
-              </h2>
-              <p className="text-xs font-semibold text-gray-700 mt-0.5">
-                Hospital Daerah Lawas
-              </p>
-            </div>
+            <div className="h-8 w-px bg-gray-400"></div>
+            <h1 className="text-lg font-bold text-gray-900 flex items-center gap-2 uppercase tracking-wide" style={{ fontFamily: "'Times New Roman', serif" }}>
+              <ShoppingCart className="w-5 h-5 text-blue-700" />
+              Butiran Pesanan Kerajaan / Purchase Order Details
+              <div className="ml-2">
+                {renderStatusBadge(order.status)}
+              </div>
+            </h1>
           </div>
-          <div className="text-center border-t-2 border-gray-800 pt-2">
-            <h3 className="text-base font-bold text-gray-900 uppercase tracking-wide">
-              Borang Permohonan Untuk Pengeluaran Pesanan Kerajaan
-            </h3>
-            <p className="text-xs font-semibold text-gray-700 mt-0.5 italic">
-              Application Form for Government Purchase Order
-            </p>
-          </div>
-        </div>
-
-        {/* Document Information Section */}
-        <div className="px-8 py-3 border-b-2 border-gray-800">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <div className="border-b border-gray-400 pb-1">
-                <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">No. Pesanan / PO Number</label>
-                <p className="text-sm font-bold text-gray-900">{order.po_number}</p>
-              </div>
-              <div className="border-b border-gray-400 pb-1">
-                <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">Kod Undi / Vote Code</label>
-                <p className="text-sm font-semibold text-gray-900">{order.vote_code || '—'}</p>
-              </div>
-              <div className="border-b border-gray-400 pb-1">
-                <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">Aktiviti Undi / Vote Activity</label>
-                <p className="text-sm font-semibold text-gray-900">{order.vote_activity || '—'}</p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="border-b border-gray-400 pb-1">
-                <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">Jabatan / Department</label>
-                <p className="text-sm font-semibold text-gray-900 uppercase">{order.department || '—'}</p>
-              </div>
-              <div className="border-b border-gray-400 pb-1">
-                <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">Tarikh Pesanan / Order Date</label>
-                <p className="text-sm font-semibold text-gray-900">{formatDate(order.order_date)}</p>
-              </div>
-              <div className="border-b border-gray-400 pb-1">
-                <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">Kategori / Category</label>
-                <p className="text-sm font-semibold text-gray-900 uppercase">{order.category?.replace('_', ' ') || '—'}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Supplier Information */}
-        <div className="px-8 py-3 border-b-2 border-gray-800 bg-gray-50">
-          <h4 className="text-xs font-bold text-gray-900 uppercase mb-2">Maklumat Pembekal / Supplier Information</h4>
-          <div className="grid grid-cols-1 gap-2">
-            <div className="border border-gray-600 p-2 bg-white">
-              <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">Nama Syarikat / Company Name</label>
-              <p className="text-sm font-semibold text-gray-900 uppercase">{order.supplier?.company_name || '—'}</p>
-            </div>
-            {order.supplier?.address && (
-              <div className="border border-gray-600 p-2 bg-white">
-                <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">Alamat / Address</label>
-                <p className="text-xs text-gray-900">{order.supplier.address}</p>
-              </div>
+          <div className="flex items-center gap-2">
+            {/* Submit for Approval - Only for draft status */}
+            {order.status === 'draft' && (
+              <Button
+                onClick={() => setShowSubmitDialog(true)}
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2 border-blue-500 text-blue-600 hover:bg-blue-50 hover:border-blue-600"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? <Spinner size="sm" /> : <FileCheck className="w-4 h-4" />}
+                {isSubmitting ? 'Submitting...' : 'Submit for Approval'}
+              </Button>
             )}
+
+            {/* Approve - Only for pending_approval status and Pharmacy Logistic role */}
+            {order.status === 'pending_approval' && isPharmacyLogistic && (
+              <Button
+                onClick={() => setShowApproveDialog(true)}
+                size="sm"
+                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white shadow-md"
+                disabled={isApproving}
+              >
+                {isApproving ? <Spinner size="sm" /> : <CheckCircle className="w-4 h-4" />}
+                {isApproving ? 'Approving...' : 'Approve PO'}
+              </Button>
+            )}
+
+            {/* Send to Supplier - Only for approved status */}
+            {order.status === 'approved' && (
+              <Button
+                onClick={() => setShowSendDialog(true)}
+                size="sm"
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                disabled={isSending}
+              >
+                {isSending ? <Spinner size="sm" /> : <Send className="w-4 h-4" />}
+                {isSending ? 'Sending...' : 'Send to Supplier'}
+              </Button>
+            )}
+
+            {/* Edit Button - Draft only (lock once submitted) */}
+            {order.status === 'draft' && (
+              <Button
+                onClick={handleEdit}
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <Edit2 className="w-4 h-4" />
+                Edit
+              </Button>
+            )}
+
+            {/* Cancel/Reject Button - Draft, Pending & Approved */}
+            {['draft', 'pending_approval', 'approved'].includes(order.status) && (
+              <Button
+                onClick={() => setShowCancelDialog(true)}
+                variant="outline"
+                size="sm"
+                className={`flex items-center gap-2 ${order.status === 'pending_approval' && isPharmacyLogistic
+                  ? 'border-red-500 text-red-600 hover:bg-red-50'
+                  : 'border-red-200 text-red-600 hover:bg-red-50'
+                  }`}
+              >
+                <XCircle className="w-4 h-4" />
+                {order.status === 'pending_approval' && isPharmacyLogistic ? 'Reject PO' : 'Cancel'}
+              </Button>
+            )}
+            <Button
+              onClick={() => setShowDeleteDialog(true)}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2 border-red-500 text-red-600 hover:bg-red-50 hover:border-red-600"
+              disabled={order.status !== 'draft'}
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete
+            </Button>
+
+            {/* Print Button - restricted for non-logistics unless approved */}
+            {(order.status === 'approved' || order.status === 'sent' || isPharmacyLogistic) && (
+              <Button
+                onClick={handlePrint}
+                variant="primary"
+                size="sm"
+                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 shadow-sm"
+                disabled={isPrinting}
+              >
+                {isPrinting ? (
+                  <>
+                    <Spinner className="w-4 h-4" />
+                    Generating PDF...
+                  </>
+                ) : (
+                  <>
+                    <Printer className="w-4 h-4" />
+                    Cetak / Print
+                  </>
+                )}
+              </Button>
+            )}
+            <Button
+              onClick={handleOpenSettings}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+              title="Configure PO Signatures"
+            >
+              <Settings className="w-4 h-4" />
+            </Button>
           </div>
         </div>
 
-        {/* Items Table - Government Document Style */}
-        <div className="px-8 py-4 border-b-2 border-gray-800">
-          <h4 className="text-xs font-bold text-gray-900 uppercase mb-3">Butir-butir Barang / Items Purchased</h4>
-          
-          {items.length === 0 ? (
-            <div className="border-2 border-gray-600 p-8 text-center bg-gray-50">
-              <p className="text-sm font-semibold text-gray-600">Tiada item dijumpai / No items found</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse border-2 border-gray-800" style={{ fontFamily: "'Times New Roman', serif" }}>
-                <thead>
-                  <tr className="bg-gray-200">
-                    <th className="border border-gray-800 px-2 py-1.5 text-xs font-bold text-gray-900 uppercase text-center" style={{ width: '5%' }}>Bil</th>
-                    <th className="border border-gray-800 px-2 py-1.5 text-xs font-bold text-gray-900 uppercase text-center" style={{ width: '43%' }}>Nama Item / Item Name</th>
-                    <th className="border border-gray-800 px-2 py-1.5 text-xs font-bold text-gray-900 uppercase text-center" style={{ width: '12%' }}>Kod Item / Item Code</th>
-                    <th className="border border-gray-800 px-2 py-1.5 text-xs font-bold text-gray-900 uppercase text-center" style={{ width: '10%' }}>Kuantiti / Quantity</th>
-                    <th className="border border-gray-800 px-2 py-1.5 text-xs font-bold text-gray-900 uppercase text-center" style={{ width: '12%' }}>Harga Unit / Unit Price</th>
-                    <th className="border border-gray-800 px-2 py-1.5 text-xs font-bold text-gray-900 uppercase text-center" style={{ width: '12%' }}>Jumlah / Total</th>
-                    <th className="border border-gray-800 px-2 py-1.5 text-xs font-bold text-gray-900 uppercase text-center" style={{ width: '6%' }}>Pembungkusan / Packaging</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item, index) => (
-                    <tr key={item.id} className="hover:bg-gray-50">
-                      <td className="border border-gray-600 px-2 py-1.5 text-xs text-gray-900 text-center font-semibold">{index + 1}</td>
-                      <td className="border border-gray-600 px-2 py-1.5 text-xs text-gray-900">{item.item_name || '—'}</td>
-                      <td className="border border-gray-600 px-2 py-1.5 text-xs text-gray-700 font-mono">{item.item_code || '—'}</td>
-                      <td className="border border-gray-600 px-2 py-1.5 text-xs text-gray-900 text-center font-semibold">{item.quantity_ordered}</td>
-                      <td className="border border-gray-600 px-2 py-1.5 text-xs text-gray-900 text-right font-semibold">{formatCurrency(item.unit_price)}</td>
-                      <td className="border border-gray-600 px-2 py-1.5 text-xs text-gray-900 text-right font-bold">
-                        {formatCurrency(item.quantity_ordered * item.unit_price)}
-                      </td>
-                      <td className="border border-gray-600 px-2 py-1.5 text-xs text-gray-700">{item.packaging_description || '—'}</td>
-                    </tr>
-                  ))}
-                  <tr className="bg-gray-200 font-bold">
-                    <td colSpan={5} className="border border-gray-800 px-2 py-2 text-xs text-gray-900 uppercase text-right">
-                      Jumlah Keseluruhan / Total Amount:
-                    </td>
-                    <td className="border border-gray-800 px-2 py-2 text-xs text-gray-900 text-right">
-                      {formatCurrency(total)}
-                    </td>
-                    <td className="border border-gray-800"></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* Financial Summary and Signature */}
-        <div className="px-8 py-3 bg-gray-50 border-b-2 border-gray-800">
-          <div className="flex gap-4">
-            {/* Left - Signature (no box) */}
-            <div className="w-full md:w-96 flex items-end">
-              <div className="text-center w-full pb-2">
-                <p className="text-xs mb-1" style={{ fontFamily: "'Times New Roman', serif" }}>...........................................................................</p>
-                <p className="text-xs font-bold text-gray-900 mb-0.5" style={{ fontFamily: "'Times New Roman', serif" }}>(Tandatangan)</p>
-                <p className="text-xs font-bold text-gray-900 mb-0.5" style={{ fontFamily: "'Times New Roman', serif" }}>Pegawai Yang Mengesahkan Peruntukan</p>
-                <p className="text-xs font-bold text-gray-900" style={{ fontFamily: "'Times New Roman', serif" }}>Pengarah Hospital Lawas</p>
+        {/* Cancellation Notice - Only for cancelled status */}
+        {order.status === 'cancelled' && (
+          <div className="bg-red-50 border-2 border-red-600 rounded-lg p-5 no-print mb-4 animate-in fade-in slide-in-from-top-4 duration-500 shadow-lg">
+            <div className="flex items-start gap-4">
+              <div className="bg-red-100 p-2 rounded-full ring-2 ring-red-200">
+                <AlertTriangle className="w-6 h-6 text-red-600" />
               </div>
-            </div>
-            {/* Right Box - Financial Summary */}
-            <div className="w-full md:w-96 space-y-1.5 border-2 border-gray-600 p-2.5 bg-white ml-auto">
-              <div className="flex justify-between items-center border-b border-gray-400 pb-1">
-                <span className="text-xs font-bold text-gray-700 uppercase">Baki Sebelum / Balance Before:</span>
-                <span className="text-sm font-bold text-gray-900">
-                  {balance !== null ? formatCurrency(balance + total) : '—'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center border-b border-gray-400 pb-1 pt-1">
-                <span className="text-sm font-bold text-gray-900 uppercase">Jumlah Keseluruhan / Total Amount:</span>
-                <span className="text-base font-bold text-gray-900">{formatCurrency(total)}</span>
-              </div>
-              <div className="flex justify-between items-center pt-1">
-                <span className="text-sm font-bold text-gray-900 uppercase">Baki Selepas / Balance After:</span>
-                <span className="text-base font-bold text-gray-900">
-                  {balance !== null ? formatCurrency(balance) : '—'}
-                </span>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-red-800">PESANAN INI TELAH DIBATALKAN / THIS ORDER HAS BEEN CANCELLED</h3>
+                <div className="mt-2 p-3 bg-white border border-red-200 rounded-md">
+                  <p className="text-sm font-semibold text-gray-700 mb-1 uppercase tracking-wider">Sebab Pembatalan / Cancellation Reason:</p>
+                  <p className="text-red-700 font-medium text-base">
+                    {order.notes?.replace('Cancelled: ', '') || 'No reason provided'}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Document Footer */}
-        <div className="px-8 py-4 bg-gray-100 border-t-2 border-gray-800">
-          <div className="text-center">
-            <p className="text-xs font-semibold text-gray-700">
-              Dokumen Rasmi Kerajaan Malaysia / Official Government Document of Malaysia
-            </p>
-            <p className="text-xs text-gray-600 mt-1">
-              Dikeluarkan oleh Sistem Pengurusan Operasi Hospital / Issued by Hospital Operation Management System
-            </p>
-          </div>
+        {/* Professional Government Document View - Screen */}
+        <div className="space-y-8 no-print">
+          {renderPage1Content()}
+          {renderPage2Content()}
         </div>
       </div>
 
-      {/* PAGE 2 - Screen View - Approval Sections - Professional Government Document */}
-      <div className="bg-white border-2 border-gray-800 shadow-lg no-print mt-6" style={{ fontFamily: "'Times New Roman', serif", width: '210mm', height: '297mm', maxWidth: '100%', margin: '0 auto', boxSizing: 'border-box', overflow: 'hidden' }}>
-        {/* Section 3: Supplier Details */}
-        <div className="px-8 py-1 border-b-2 border-gray-800">
-          <div className="flex justify-center">
-            <table className="w-full max-w-4xl border-collapse border-2 border-gray-800">
-              <tbody>
-                <tr>
-                  <td className="border border-gray-800 px-3 py-1.5 font-bold bg-gray-200 text-sm" style={{ width: '30%', verticalAlign: 'top' }}>Nama Pembekal :</td>
-                  <td className="border border-gray-800 px-3 py-1.5 font-bold text-sm uppercase" style={{ lineHeight: '1.3' }}>
-                    {order.supplier?.company_name || '—'}
-                    <br />
-                    <span className="font-normal text-xs normal-case">{order.supplier?.address || ''}</span>
-                  </td>
-                </tr>
-                <tr>
-                  <td className="border border-gray-800 px-3 py-1.5 font-bold bg-gray-200 text-sm">No. Telefon :</td>
-                  <td className="border border-gray-800 px-3 py-1.5 font-bold text-sm">{order.supplier?.phone || '—'}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+      {/* Government Form Print Layout - HIDDEN ON SCREEN */}
+      <div ref={printContentRef} className="print-form hidden print:block">
+        <div className="space-y-0 text-black">
+          {renderPage1Content()}
+          <div className="page-break" style={{ height: '1px', pageBreakAfter: 'always' }}></div>
+          {renderPage2Content()}
         </div>
-
-        {/* Federal Treasury Registration */}
-        <div className="px-8 py-1 border-b-2 border-gray-800 bg-gray-50">
-          <p className="text-sm mb-1" style={{ lineHeight: '1.3' }}>Berdaftar dengan Pejabat Kewangan Persekutuan Sarawak ( Ya / Tidak )</p>
-          <div className="border-b-2 border-dotted border-gray-800 inline-block min-w-[350px] mb-1"></div>
-          <p className="text-sm mb-1" style={{ lineHeight: '1.3' }}>No. Rujukan Pendaftaran :</p>
-          <div className="border-b-2 border-dotted border-gray-800 inline-block min-w-[350px]"></div>
-        </div>
-
-        {/* Section 4: Purchase Order Details */}
-        <div className="px-8 py-1 border-b-2 border-gray-800">
-          <p className="text-sm font-bold text-gray-900 mb-1" style={{ lineHeight: '1.3' }}>Bersama-sama ini dinyatakan (Penuhkan mana yang sesuai).</p>
-          <div className="ml-4 space-y-1">
-            <p className="text-sm" style={{ lineHeight: '1.4' }}>
-              (i) No. rujukan surat mampu : 
-              <span className="border-b-2 border-dotted border-gray-800 inline-block min-w-[350px] ml-2"></span>
-            </p>
-            <p className="text-sm" style={{ lineHeight: '1.4' }}>
-              (ii) No. rujukan kontrak : 
-              <span className="border-b-2 border-dotted border-gray-800 inline-block min-w-[350px] ml-2"></span>
-            </p>
-            <p className="text-sm" style={{ lineHeight: '1.4' }}>
-              (iii) Salinan surat kelulusan Pejabat Kewangan Persekutuan Bil.:
-              <span className="border-b-2 border-dotted border-gray-800 inline-block min-w-[200px] ml-2"></span>
-            </p>
-          </div>
-        </div>
-
-        {/* Section 4 Signature */}
-        <div className="px-8 py-1 border-b-2 border-gray-800 bg-gray-50">
-          <div className="flex justify-between items-start">
-            <div className="pt-8">
-              <div className="flex gap-2">
-                <span className="text-sm font-bold">Tarikh :</span>
-                <span className="text-sm font-bold">{formatDateMalay(order.order_date)}</span>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-sm mb-0.5" style={{ lineHeight: '1.3' }}>...........................................................................</p>
-              <p className="text-sm font-bold mb-1" style={{ lineHeight: '1.2' }}>(Tandatangan Pegawai yang Memohon.)</p>
-              <div className="text-left inline-block">
-                <table className="border-collapse">
-                  <tbody>
-                    <tr>
-                      <td className="pr-2 text-right" style={{ whiteSpace: 'nowrap' }}>
-                        <span className="text-sm font-bold">Nama :</span>
-                      </td>
-                      <td>
-                        <span className="text-sm font-bold">{signatures.applicantName}</span>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="pr-2 text-right pt-1" style={{ whiteSpace: 'nowrap' }}>
-                        <span className="text-sm font-bold">Jawatan :</span>
-                      </td>
-                      <td className="pt-1">
-                        <span className="text-sm font-bold">{signatures.applicantPosition}</span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Section 5: Head of Department Account */}
-        <div className="px-8 py-1 border-b-2 border-gray-800">
-          <p className="text-sm font-bold text-gray-900 mb-1" style={{ lineHeight: '1.3' }}>Akaun Ketua Bahagian.</p>
-          <div className="ml-8 mb-2 space-y-1">
-            <p className="text-sm" style={{ lineHeight: '1.3' }}>(i) Adalah disahkan pembelian ini telah dimasukan dalam cadangan anggaran Belanjawan tahunan.</p>
-            <p className="text-sm" style={{ lineHeight: '1.3' }}>(ii) Pembelian ini adalah diperlukan.</p>
-          </div>
-          <div className="flex justify-between items-start gap-10">
-            <div className="pt-8">
-              <div className="flex gap-2">
-                <span className="text-sm font-bold">Tarikh :</span>
-                <span className="text-sm font-bold">{formatDateMalay(order.order_date)}</span>
-              </div>
-            </div>
-            <div className="text-right flex-1">
-              <p className="text-sm mb-0.5" style={{ lineHeight: '1.3' }}>....................................................</p>
-              <p className="text-sm font-bold mb-1" style={{ lineHeight: '1.2' }}>(Tandatangan Ketua Bahagian)</p>
-              <div className="text-left inline-block">
-                <table className="border-collapse">
-                  <tbody>
-                    <tr>
-                      <td className="pr-2 text-right" style={{ whiteSpace: 'nowrap' }}>
-                        <span className="text-sm font-bold">Nama :</span>
-                      </td>
-                      <td>
-                        <span className="text-sm font-bold">{signatures.headName}</span>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="pr-2 text-right pt-1" style={{ whiteSpace: 'nowrap' }}>
-                        <span className="text-sm font-bold">Jawatan :</span>
-                      </td>
-                      <td className="pt-1">
-                        <span className="text-sm font-bold">{signatures.headPosition}</span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Approval Section */}
-        <div className="px-8 py-2 border-b-2 border-gray-800 bg-gray-50">
-          <div className="flex justify-between items-start">
-            <div style={{ width: '45%' }}>
-              <div className="pt-8">
-                <p className="text-sm font-bold italic mb-4" style={{ lineHeight: '1.3' }}>Permohonan diluluskan/ tidak diluluskan.</p>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold">Tarikh :</span>
-                  <span className="border-b-2 border-dotted border-gray-800 flex-1"></span>
-                </div>
-              </div>
-            </div>
-            <div className="text-right" style={{ width: '50%' }}>
-              <div className="pt-8">
-                <div className="mb-2">
-                  <span className="text-sm font-bold">Nama :</span>
-                  <span className="border-b-2 border-dotted border-gray-800 inline-block min-w-[250px] ml-2"></span>
-                </div>
-                <p className="text-sm mb-1.5" style={{ lineHeight: '1.3' }}>...........................................................................</p>
-                <p className="text-sm font-bold mb-1" style={{ lineHeight: '1.3' }}>(Tandatangan Pegawai Yang Meluluskan)</p>
-                <p className="text-sm font-bold" style={{ lineHeight: '1.3' }}>Pengarah Hospital Daerah, Lawas.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Section 6: Financial Department Use */}
-        <div className="px-8 py-1 border-t-2 border-dotted border-gray-800">
-          <p className="text-sm font-bold text-center mb-2" style={{ lineHeight: '1.3' }}>UNTUK KEGUNAAN BAHAGIAN KEWANGAN</p>
-          <div className="mb-2">
-            <p className="text-sm font-bold mb-1" style={{ lineHeight: '1.3' }}>Kerani Kewangan</p>
-            <div className="flex justify-between items-start">
-              <div className="ml-8 space-y-1">
-                <p className="text-sm" style={{ lineHeight: '1.3' }}>(iii) Sila Keluarkan Pesanan Kerajaan</p>
-                <p className="text-sm" style={{ lineHeight: '1.3' }}>(iv) Sila dapatkan Sebut harga.</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm mb-1" style={{ lineHeight: '1.2' }}>---------------------------------------------------</p>
-                <p className="text-sm font-bold mb-0.5" style={{ lineHeight: '1.2' }}>(Bahagian Kewangan)</p>
-                <p className="text-sm font-bold mb-0.5" style={{ lineHeight: '1.2' }}>B.P. Pengarah Hospital Daerah,</p>
-                <p className="text-sm font-bold" style={{ lineHeight: '1.2' }}>Lawas.</p>
-              </div>
-            </div>
-          </div>
-          <div>
-            <p className="text-sm font-bold mb-1" style={{ lineHeight: '1.3' }}>Catatan :</p>
-            <p className="text-sm font-bold mb-1" style={{ lineHeight: '1.3' }}>No. Rujukan Pesanan Kerajaan:</p>
-            <div className="border-b-2 border-dotted border-gray-800 w-1/2 mb-1"></div>
-            <div className="border-b-2 border-dotted border-gray-800 w-1/2 mb-1"></div>
-            <p className="text-sm font-bold mb-1" style={{ lineHeight: '1.3' }}>Tarikh :</p>
-            <div className="border-b-2 border-dotted border-gray-800 w-1/2"></div>
-          </div>
-        </div>
-
-        {/* Document Footer */}
-        <div className="px-8 py-4 bg-gray-100 border-t-2 border-gray-800">
-          <div className="text-center">
-            <p className="text-xs font-semibold text-gray-700">
-              Dokumen Rasmi Kerajaan Malaysia / Official Government Document of Malaysia
-            </p>
-            <p className="text-xs text-gray-600 mt-1">
-              Dikeluarkan oleh Sistem Pengurusan Operasi Hospital / Issued by Hospital Operation Management System
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Government Form Print Layout - Professional 2-Page Design */}
-      <div ref={printContentRef} className="print-form hidden print:block bg-white" style={{ width: '210mm' }}>
-        {/* PAGE 1 - Professional Government Document Layout */}
-        <div className="page" style={{ fontFamily: "'Times New Roman', serif", fontSize: '11pt', padding: '20mm', width: '210mm', height: '297mm' }}>
-          <div className="text-center" style={{ marginBottom: '10px' }}>
-            <h1 style={{ fontSize: '13pt', fontWeight: 'bold', letterSpacing: '0.5px', marginBottom: '3px', lineHeight: '1.2' }}>BORANG PERMOHONAN UNTUK PENGELUARAN</h1>
-            <h1 style={{ fontSize: '13pt', fontWeight: 'bold', letterSpacing: '0.5px', lineHeight: '1.2' }}>PESANAN KERAJAAN</h1>
-          </div>
-
-          <div style={{ marginBottom: '8px', fontSize: '11pt' }}>
-            <p style={{ fontWeight: 'bold', marginBottom: '2px', lineHeight: '1.3' }}>Pengarah Hospital Daerah Lawas,</p>
-            <p style={{ fontWeight: 'bold', marginBottom: '2px', lineHeight: '1.3' }}>Lawas.</p>
-            <p style={{ fontWeight: 'bold', lineHeight: '1.3' }}>(U/P : Bahagian Kewangan)</p>
-          </div>
-
-          <div style={{ marginBottom: '8px', fontSize: '11pt' }}>
-            <p style={{ fontWeight: 'bold', marginBottom: '3px', lineHeight: '1.3' }}>Tuan,</p>
-            <p style={{ lineHeight: '1.4', marginBottom: '0' }}>
-              Sukacita sekiranya tuan dapat mengeluarkan Pesanan kerajaan untuk <strong>No Pesanan: {order.po_number}</strong>
-              <br />
-              Pembelian/Perkhidmatan/Percetakan/Penyewaan perkara-perkara seperti berikut : -
-            </p>
-          </div>
-
-          <table className="print-table" style={{ marginBottom: '8px', border: '2px solid #000', borderCollapse: 'collapse', width: '100%', marginTop: '6px' }}>
-            <thead>
-              <tr>
-                <th style={{ border: '1px solid #000', width: '5%', textAlign: 'center', fontSize: '11pt', padding: '5px 4px', fontWeight: 'bold' }}>Bil</th>
-                <th style={{ border: '1px solid #000', width: '45%', textAlign: 'center', fontSize: '11pt', padding: '5px 4px', fontWeight: 'bold' }}>Butir-butir Barang/Perkhidmatan yang diperlukan</th>
-                <th style={{ border: '1px solid #000', width: '10%', textAlign: 'center', fontSize: '11pt', padding: '5px 4px', fontWeight: 'bold' }}>Jumlah<br/>(Unit)</th>
-                <th style={{ border: '1px solid #000', width: '12.5%', textAlign: 'center', fontSize: '11pt', padding: '5px 4px', fontWeight: 'bold' }}>Satu Unit (RM)</th>
-                <th style={{ border: '1px solid #000', width: '12.5%', textAlign: 'center', fontSize: '11pt', padding: '5px 4px', fontWeight: 'bold' }}>Jumlah (RM)</th>
-                <th style={{ border: '1px solid #000', width: '15%', textAlign: 'center', fontSize: '11pt', padding: '5px 4px', fontWeight: 'bold' }}>Justifikasi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item, index) => (
-                <tr key={item.id} style={{ verticalAlign: 'top' }}>
-                  <td style={{ border: '1px solid #000', textAlign: 'center', padding: '6px 4px', fontSize: '11pt', verticalAlign: 'top' }}>{index + 1}</td>
-                  <td style={{ border: '1px solid #000', padding: '6px 4px', fontSize: '11pt', verticalAlign: 'top', lineHeight: '1.4' }}>
-                    {index === 0 && (
-                      <p style={{ marginBottom: '4px', lineHeight: '1.4' }}>Sila bekalkan butiran berikut :</p>
-                    )}
-                    <div style={{ marginTop: index === 0 ? '4px' : '0' }}>
-                      <div style={{ fontSize: '11pt', lineHeight: '1.4' }}>
-                        - {item.item_name} {item.packaging_description ? `(${item.packaging_description})` : ''}
-                      </div>
-                    </div>
-                  </td>
-                  <td style={{ border: '1px solid #000', textAlign: 'center', padding: '6px 4px', fontSize: '11pt', verticalAlign: 'middle' }}>
-                    {item.quantity_ordered || '-'}
-                  </td>
-                  <td style={{ border: '1px solid #000', padding: '6px 4px', textAlign: 'center', fontSize: '11pt', verticalAlign: 'middle' }}>
-                    {item.unit_price ? formatCurrencyMalay(item.unit_price) : '-'}
-                  </td>
-                  <td style={{ border: '1px solid #000', padding: '6px 4px', textAlign: 'center', fontSize: '11pt', verticalAlign: 'middle' }}>
-                    {item.quantity_ordered && item.unit_price ? formatCurrencyMalay(item.quantity_ordered * item.unit_price) : '-'}
-                  </td>
-                  {index === 0 && (
-                    <td rowSpan={items.length} style={{ border: '1px solid #000', padding: '6px 4px', textAlign: 'center', verticalAlign: 'middle', fontSize: '11pt', lineHeight: '1.4' }}>
-                      <p style={{ marginBottom: '3px' }}>Bekalan</p>
-                      <p style={{ fontWeight: 'bold', marginBottom: '3px' }}>{order.category === 'drug' ? 'UBAT' : 'BUKAN UBAT'}</p>
-                      <p style={{ marginBottom: '3px' }}>Hospital</p>
-                      <p>Lawas.</p>
-                    </td>
-                  )}
-                </tr>
-              ))}
-              <tr style={{ backgroundColor: '#f0f0f0' }}>
-                <td colSpan={4} style={{ border: '1px solid #000', textAlign: 'left', fontWeight: 'bold', padding: '6px 4px', fontSize: '11pt' }}>Jumlah Keseluruhan</td>
-                <td style={{ border: '1px solid #000', padding: '6px 4px', textAlign: 'center', fontWeight: 'bold', fontSize: '11pt' }}>
-                  {formatCurrencyMalay(total)}
-                </td>
-                <td style={{ border: '1px solid #000', backgroundColor: '#f0f0f0', padding: '6px 4px' }}></td>
-              </tr>
-            </tbody>
-          </table>
-
-          {/* Section 2 - Financial Allocation */}
-          <div style={{ marginBottom: '8px', fontSize: '11pt', marginTop: '6px' }}>
-            <p style={{ marginBottom: '4px', lineHeight: '1.4' }}>2. Sila tuan tanggungkan pembelian ini kepada :</p>
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <table style={{ width: '70%', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '11pt' }}>
-                <tbody>
-                  <tr>
-                    <td style={{ border: '1px solid #000', padding: '4px 6px', width: '8%', textAlign: 'center', fontSize: '11pt' }}>(i)</td>
-                    <td style={{ border: '1px solid #000', padding: '4px 6px', width: '42%', fontSize: '11pt' }}>Aktiviti No. :</td>
-                    <td style={{ border: '1px solid #000', padding: '4px 6px', width: '50%', textAlign: 'center', fontSize: '11pt' }}>{order.vote_code || '990102'}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'center', fontSize: '11pt' }}>(ii)</td>
-                    <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '11pt', lineHeight: '1.4' }}>
-                      Pecahan kepala :
-                    </td>
-                    <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'center', fontSize: '11pt' }}>
-                      {order.vote_activity || '27401'}<br/>
-                      <span style={{ fontWeight: 'bold' }}>{order.department ? order.department.toUpperCase() : (order.category === 'drug' ? 'PHARMACY' : 'BUKAN UBAT')}</span>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'center', fontSize: '11pt' }}>(iii)</td>
-                    <td style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '11pt' }}>Baki peruntukan :</td>
-                    <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'center', fontWeight: 'bold', fontSize: '11pt' }}>
-                      {balance !== null ? formatCurrencyMalay(balance) : 'RM 404,709.99'}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Bottom Section - Signature and Balance Summary */}
-          <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', fontSize: '11pt' }}>
-            {/* Left - Signature */}
-            <div style={{ width: '45%', textAlign: 'left' }}>
-              <p style={{ marginBottom: '4px', lineHeight: '1.4' }}>...........................................................................</p>
-              <p style={{ fontWeight: 'bold', marginBottom: '3px', lineHeight: '1.4' }}>(Tandatangan)</p>
-              <p style={{ fontWeight: 'bold', marginBottom: '3px', lineHeight: '1.4' }}>Pegawai Yang Mengesahkan Peruntukan</p>
-              <p style={{ fontWeight: 'bold', lineHeight: '1.4' }}>Pengarah Hospital Lawas</p>
-            </div>
-            {/* Right - Balance Summary */}
-            <div style={{ width: '45%', textAlign: 'right' }}>
-              <div style={{ marginBottom: '4px', lineHeight: '1.4' }}>
-                <span style={{ fontWeight: 'bold', fontSize: '11pt' }}>Baki Sebelum / Balance Before: </span>
-                <span style={{ fontWeight: 'bold', fontSize: '11pt' }}>
-                  {balance !== null ? formatCurrencyMalay(balance + total) : 'RM 0.00'}
-                </span>
-              </div>
-              <div style={{ marginBottom: '4px', lineHeight: '1.4' }}>
-                <span style={{ fontWeight: 'bold', fontSize: '11pt' }}>Jumlah Keseluruhan / Total Amount: </span>
-                <span style={{ fontWeight: 'bold', fontSize: '12pt' }}>{formatCurrencyMalay(total)}</span>
-              </div>
-              <div style={{ lineHeight: '1.4' }}>
-                <span style={{ fontWeight: 'bold', fontSize: '12pt' }}>Baki Selepas / Balance After: </span>
-                <span style={{ fontWeight: 'bold', fontSize: '12pt' }}>
-                  {balance !== null ? formatCurrencyMalay(balance) : 'RM 0.00'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-        </div>
-
-        {/* PAGE 2 - Professional Government Document Layout */}
-        <div className="page" style={{ fontFamily: "'Times New Roman', serif", fontSize: '11pt', padding: '20mm', width: '210mm', height: '297mm' }}>
-          <div style={{ marginBottom: '10px', fontSize: '11pt' }}>
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <table style={{ width: '80%', borderCollapse: 'collapse', border: '2px solid #000', fontSize: '11pt' }}>
-                <tbody>
-                  <tr style={{ height: '55px' }}>
-                    <td style={{ border: '1px solid #000', padding: '5px', width: '30%', fontWeight: 'bold', verticalAlign: 'top', fontSize: '11pt' }}>Nama Pembekal :</td>
-                    <td style={{ border: '1px solid #000', padding: '5px', width: '70%', fontWeight: 'bold', verticalAlign: 'top', textTransform: 'uppercase', fontSize: '11pt', lineHeight: '1.3' }}>
-                      {order.supplier?.company_name || 'PHARMANIAGA LOGISTICS SDN BHD'}
-                      <br />
-                      <span style={{ fontWeight: 'normal', fontSize: '10pt', textTransform: 'none' }}>{order.supplier?.address || 'NO 7, LORONG KELULI 1B, KAWASAN PERINDUSTRIAN BUKIT RAJA SELATAN, SEKSYEN 7, 40000 SHAH ALAM SELANGOR'}</span>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ border: '1px solid #000', padding: '5px', fontWeight: 'bold', fontSize: '11pt' }}>No. Telefon :</td>
-                    <td style={{ border: '1px solid #000', padding: '5px', fontWeight: 'bold', fontSize: '11pt' }}>{order.supplier?.phone || '03-33429999'}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div style={{ marginBottom: '10px', fontSize: '11pt' }}>
-            <p style={{ marginBottom: '4px', lineHeight: '1.3' }}>Berdaftar dengan Pejabat Kewangan Persekutuan Sarawak ( Ya / Tidak )</p>
-            <div style={{ borderBottom: '1px dotted #000', width: '200px', display: 'inline-block', marginBottom: '4px' }}></div>
-            <p style={{ marginTop: '6px', lineHeight: '1.3' }}>No. Rujukan Pendaftaran :</p>
-            <div style={{ borderBottom: '1px dotted #000', width: '200px', display: 'inline-block' }}></div>
-          </div>
-
-          <div style={{ marginBottom: '12px', fontSize: '11pt' }}>
-            <p style={{ fontWeight: 'bold', marginBottom: '4px', lineHeight: '1.3' }}>Bersama-sama ini dinyatakan (Penuhkan mana yang sesuai).</p>
-            <div style={{ marginLeft: '16px' }}>
-              <p style={{ marginBottom: '4px', fontSize: '11pt', lineHeight: '1.3' }}>
-                (i) No. rujukan surat mampu : 
-                <span style={{ borderBottom: '1px dotted #000', display: 'inline-block', minWidth: '250px', marginLeft: '8px' }}></span>
-              </p>
-              <p style={{ marginBottom: '4px', fontSize: '11pt', lineHeight: '1.3' }}>
-                (ii) No. rujukan kontrak : 
-                <span style={{ borderBottom: '1px dotted #000', display: 'inline-block', minWidth: '250px', marginLeft: '8px' }}></span>
-              </p>
-              <p style={{ fontSize: '11pt', lineHeight: '1.3' }}>
-                (iii) Salinan surat kelulusan Pejabat Kewangan Persekutuan Bil.:
-                <span style={{ borderBottom: '1px dotted #000', display: 'inline-block', minWidth: '150px', marginLeft: '8px' }}></span>
-              </p>
-            </div>
-          </div>
-
-          <div style={{ marginBottom: '12px', fontSize: '11pt' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div style={{ flex: '1' }}>
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '8px' }}>
-                  <span style={{ fontWeight: 'bold' }}>Tarikh :</span>
-                  <span style={{ fontWeight: 'bold' }}>{formatDateMalay(order.order_date)}</span>
-                </div>
-              </div>
-              <div style={{ flex: '1', textAlign: 'right' }}>
-                <p style={{ marginBottom: '4px', lineHeight: '1.4' }}>...........................................................................</p>
-                <p style={{ fontWeight: 'bold', marginBottom: '8px', lineHeight: '1.3' }}>(Tandatangan Pegawai yang Memohon.)</p>
-                <div style={{ textAlign: 'left', display: 'inline-block' }}>
-                  <table style={{ borderCollapse: 'collapse', borderSpacing: 0 }}>
-                    <colgroup>
-                      <col style={{ width: '70px' }} />
-                      <col />
-                    </colgroup>
-                    <tbody>
-                      <tr>
-                        <td style={{ padding: 0, paddingRight: '8px', textAlign: 'right', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
-                          <span style={{ fontWeight: 'bold' }}>Nama :</span>
-                        </td>
-                        <td style={{ padding: 0, textAlign: 'left', verticalAlign: 'top' }}>
-                          <span style={{ fontWeight: 'bold' }}>{signatures.applicantName}</span>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: 0, paddingRight: '8px', paddingTop: '4px', textAlign: 'right', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
-                          <span style={{ fontWeight: 'bold' }}>Jawatan :</span>
-                        </td>
-                        <td style={{ padding: 0, paddingTop: '4px', textAlign: 'left', verticalAlign: 'top' }}>
-                          <span style={{ fontWeight: 'bold' }}>{signatures.applicantPosition}</span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div style={{ marginBottom: '12px', fontSize: '11pt' }}>
-            <p style={{ fontWeight: 'bold', marginBottom: '4px', lineHeight: '1.3' }}>Akaun Ketua Bahagian.</p>
-            <div style={{ marginLeft: '32px', marginBottom: '8px' }}>
-              <p style={{ marginBottom: '4px', fontSize: '11pt', lineHeight: '1.3' }}>(i) Adalah disahkan pembelian ini telah dimasukan dalam cadangan anggaran Belanjawan tahunan.</p>
-              <p style={{ fontSize: '11pt', lineHeight: '1.3' }}>(ii) Pembelian ini adalah diperlukan.</p>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '40px' }}>
-              <div>
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '4px' }}>
-                  <span style={{ fontWeight: 'bold' }}>Tarikh :</span>
-                  <span style={{ fontWeight: 'bold' }}>{formatDateMalay(order.order_date)}</span>
-                </div>
-              </div>
-              <div style={{ textAlign: 'right', flex: '1' }}>
-                <p style={{ marginBottom: '3px', lineHeight: '1.3' }}>....................................................</p>
-                <p style={{ fontWeight: 'bold', marginBottom: '4px', lineHeight: '1.3' }}>(Tandatangan Ketua Bahagian)</p>
-                <div style={{ display: 'inline-block', textAlign: 'left' }}>
-                  <table style={{ borderCollapse: 'collapse', borderSpacing: 0, margin: '0 auto' }}>
-                    <colgroup>
-                      <col style={{ width: '70px' }} />
-                      <col />
-                    </colgroup>
-                    <tbody>
-                      <tr>
-                        <td style={{ padding: 0, paddingRight: '8px', textAlign: 'right', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
-                          <span style={{ fontWeight: 'bold' }}>Nama :</span>
-                        </td>
-                        <td style={{ padding: 0, textAlign: 'left', verticalAlign: 'top' }}>
-                          <span style={{ fontWeight: 'bold' }}>{signatures.headName}</span>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: 0, paddingRight: '8px', paddingTop: '4px', textAlign: 'right', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
-                          <span style={{ fontWeight: 'bold' }}>Jawatan :</span>
-                        </td>
-                        <td style={{ padding: 0, paddingTop: '4px', textAlign: 'left', verticalAlign: 'top' }}>
-                          <span style={{ fontWeight: 'bold' }}>{signatures.headPosition}</span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div style={{ marginBottom: '12px', fontSize: '11pt' }}>
-            <p style={{ fontWeight: 'bold', fontStyle: 'italic', marginBottom: '8px', lineHeight: '1.3', textAlign: 'center' }}>Permohonan diluluskan/ tidak diluluskan.</p>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '40px' }}>
-              <div>
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '4px' }}>
-                  <span style={{ fontWeight: 'bold' }}>Tarikh :</span>
-                  <span style={{ borderBottom: '1px dotted #000', display: 'inline-block', minWidth: '200px' }}></span>
-                </div>
-              </div>
-              <div style={{ textAlign: 'right', flex: '1' }}>
-                <div style={{ marginBottom: '3px' }}>
-                  <span style={{ fontWeight: 'bold' }}>Nama :</span>
-                  <span style={{ borderBottom: '1px dotted #000', display: 'inline-block', minWidth: '200px', marginLeft: '8px' }}></span>
-                </div>
-                <p style={{ marginBottom: '3px', lineHeight: '1.3' }}>...........................................................................</p>
-                <p style={{ fontWeight: 'bold', marginBottom: '3px', lineHeight: '1.3' }}>(Tandatangan Pegawai Yang Meluluskan)</p>
-                <p style={{ fontWeight: 'bold', lineHeight: '1.3' }}>Pengarah Hospital Daerah, Lawas.</p>
-              </div>
-            </div>
-          </div>
-
-          <div style={{ borderTop: '2px dotted #000', paddingTop: '6px', fontSize: '11pt', marginTop: '12px' }}>
-            <p style={{ textAlign: 'center', fontWeight: 'bold', marginBottom: '6px', lineHeight: '1.3' }}>UNTUK KEGUNAAN BAHAGIAN KEWANGAN</p>
-            <div style={{ marginBottom: '8px' }}>
-              <p style={{ fontWeight: 'bold', marginBottom: '4px', lineHeight: '1.3' }}>Kerani Kewangan</p>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ marginLeft: '32px' }}>
-                  <p style={{ marginBottom: '4px', fontSize: '11pt', lineHeight: '1.3' }}>(iii) Sila Keluarkan Pesanan Kerajaan</p>
-                  <p style={{ fontSize: '11pt', lineHeight: '1.3' }}>(iv) Sila dapatkan Sebut harga.</p>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <p style={{ marginBottom: '4px', lineHeight: '1.3' }}>---------------------------------------------------</p>
-                  <p style={{ fontWeight: 'bold', marginBottom: '2px', lineHeight: '1.3' }}>(Bahagian Kewangan)</p>
-                  <p style={{ fontWeight: 'bold', marginBottom: '2px', lineHeight: '1.3' }}>B.P. Pengarah Hospital Daerah,</p>
-                  <p style={{ fontWeight: 'bold', lineHeight: '1.3' }}>Lawas.</p>
-                </div>
-              </div>
-            </div>
-            <div style={{ fontSize: '11pt' }}>
-              <p style={{ fontWeight: 'bold', marginBottom: '4px', lineHeight: '1.3' }}>Catatan :</p>
-              <p style={{ fontWeight: 'bold', marginBottom: '4px', lineHeight: '1.3' }}>No. Rujukan Pesanan Kerajaan:</p>
-              <div style={{ borderBottom: '1px dotted #000', width: '50%', marginBottom: '4px' }}></div>
-              <div style={{ borderBottom: '1px dotted #000', width: '50%', marginBottom: '4px' }}></div>
-              <p style={{ fontWeight: 'bold', marginBottom: '4px', lineHeight: '1.3' }}>Tarikh :</p>
-              <div style={{ borderBottom: '1px dotted #000', width: '50%' }}></div>
-            </div>
-          </div>
-        </div>
-
-        {/* Supplier Account Document and MOF Certificate are merged programmatically via pdfMergeService */}
       </div>
 
       {/* Cancel PO dialog */}
@@ -1463,10 +1360,14 @@ export const PurchaseOrderDetailPage: React.FC = () => {
           setCancelReason('')
         }}
         onConfirm={handleConfirmCancel}
-        title="Cancel Purchase Order"
-        message={`Are you sure you want to cancel purchase order ${order.po_number}? This action cannot be undone.`}
+        title={order.status === 'pending_approval' && isPharmacyLogistic ? 'Reject Purchase Order' : 'Cancel Purchase Order'}
+        message={
+          order.status === 'pending_approval' && isPharmacyLogistic
+            ? `Are you sure you want to reject purchase order ${order.po_number}? You must provide a reason for the rejection.`
+            : `Are you sure you want to cancel purchase order ${order.po_number}? This action cannot be undone.`
+        }
         variant="danger"
-        confirmText="Cancel PO"
+        confirmText={order.status === 'pending_approval' && isPharmacyLogistic ? 'Reject PO' : 'Cancel PO'}
         cancelText="Close"
         isLoading={isCancelling}
       >
@@ -1475,15 +1376,13 @@ export const PurchaseOrderDetailPage: React.FC = () => {
             Cancellation Reason <span className="text-red-500">*</span>
           </label>
           <textarea
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-            rows={4}
             value={cancelReason}
             onChange={(e) => setCancelReason(e.target.value)}
-            placeholder="Explain why this purchase order is being cancelled"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            rows={4}
+            placeholder="Please provide a reason for cancellation..."
+            required
           />
-          <p className="text-xs text-gray-500">
-            The reason will be recorded together with this purchase order.
-          </p>
         </div>
       </ConfirmationDialog>
 
@@ -1619,10 +1518,8 @@ export const PurchaseOrderDetailPage: React.FC = () => {
           </div>
         </div>
       </Modal>
-      </div>
     </>
   )
 }
 
 export default PurchaseOrderDetailPage
-

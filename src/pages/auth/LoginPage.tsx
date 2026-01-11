@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Mail, FileText, Shield, Activity, Users, Zap } from 'lucide-react'
-import { Button, Modal } from '@/components/ui'
+import { Button, Modal, LogoImage } from '@/components/ui'
 import { LoginForm, ResetPasswordForm, AccessRequestForm } from '@/components/forms'
 import { ContactModal } from '@/components/shared'
 import { useAuthStore } from '@/stores/authStore'
@@ -80,10 +80,12 @@ export const LoginPage: React.FC = () => {
             className="flex items-center gap-5"
           >
             {/* Jata Negara */}
-            <img
+            <LogoImage
               src="/512px-Jata_MalaysiaV2.svg.png"
               alt="Jata Negara Malaysia"
-              className="w-32 h-32 xl:w-40 xl:h-40 object-contain drop-shadow-2xl"
+              size="w-32 h-32 xl:w-40 xl:h-40"
+              className="drop-shadow-2xl"
+              priority
             />
             <div className="border-l-2 border-white/20 pl-5">
               <h1 className="text-3xl xl:text-4xl font-bold text-white tracking-wide">

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import {
   DollarSign,
   TrendingUp,
@@ -10,13 +10,12 @@ import {
   FileText,
   RefreshCw,
   Search,
-  Filter,
   Download,
   FileDown,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
-import { Spinner, Button, Input, Select, Badge, Table } from '@/components/ui'
+import { Spinner, Button, Badge, Table } from '@/components/ui'
 import {
   getCCAllocationSummary,
   getCCExpenses,
@@ -37,6 +36,8 @@ export const CCAllocationPage: React.FC = () => {
   const [summary, setSummary] = useState<CCAllocationSummary | null>(null)
   const [expenses, setExpenses] = useState<CCExpenseWithRelations[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [filterDepartment, setFilterDepartment] = useState<string>('all')
+  const [isExporting, setIsExporting] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
@@ -44,9 +45,6 @@ export const CCAllocationPage: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterVoteActivity, setFilterVoteActivity] = useState<string>('all')
   const [filterCategory, setFilterCategory] = useState<string>('all')
-  const [filterDepartment, setFilterDepartment] = useState<string>('all')
-  const [isExporting, setIsExporting] = useState(false)
-  const [showFilters, setShowFilters] = useState(false)
 
   // Years for dropdown
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
@@ -56,6 +54,11 @@ export const CCAllocationPage: React.FC = () => {
     if (!hospitalId) return
 
     const fetchData = async () => {
+      // Trigger background sync first to ensure data is fresh
+      if (hospitalId) {
+        syncCCExpensesFromPOs(hospitalId, selectedYear).catch(console.error)
+      }
+
       setIsLoading(true)
       setError(null)
 
@@ -70,6 +73,7 @@ export const CCAllocationPage: React.FC = () => {
             status: filterStatus !== 'all' ? filterStatus : undefined,
             voteActivity: filterVoteActivity !== 'all' ? filterVoteActivity : undefined,
             category: filterCategory !== 'all' ? filterCategory : undefined,
+            department: filterDepartment !== 'all' ? filterDepartment : undefined,
           }),
         ])
 
@@ -136,7 +140,13 @@ export const CCAllocationPage: React.FC = () => {
       )
     }
 
-    return filtered
+    // Sort by date (newest first) and then by PO number (highest first)
+    return [...filtered].sort((a, b) => {
+      const dateA = new Date(a.expense_date).getTime()
+      const dateB = new Date(b.expense_date).getTime()
+      if (dateB !== dateA) return dateB - dateA
+      return b.po_number.localeCompare(a.po_number)
+    })
   }, [expenses, searchQuery, filterDepartment])
 
   // Get hospital name
@@ -241,24 +251,24 @@ export const CCAllocationPage: React.FC = () => {
 
   // Get status badge
   const getStatusBadge = (status: string) => {
-    const map: Record<string, { color: 'success' | 'warning' | 'error' | 'info' | 'secondary'; label: string }> = {
+    const map: Record<string, { color: 'success' | 'warning' | 'error' | 'info' | 'gray'; label: string }> = {
       pending: { color: 'warning', label: 'Pending' },
       approved: { color: 'info', label: 'Approved' },
       completed: { color: 'success', label: 'Completed' },
       cancelled: { color: 'error', label: 'Cancelled' },
     }
-    const cfg = map[status] || { color: 'secondary', label: status }
+    const cfg = map[status] || { color: 'gray' as const, label: status }
     return <Badge variant={cfg.color}>{cfg.label}</Badge>
   }
 
   // Get PO type badge
   const getPoTypeBadge = (poType: string) => {
-    const map: Record<string, { color: 'success' | 'warning' | 'error' | 'info' | 'secondary'; label: string }> = {
+    const map: Record<string, { color: 'success' | 'warning' | 'error' | 'info' | 'gray'; label: string }> = {
       regular: { color: 'info', label: 'PO' },
       lpo: { color: 'success', label: 'LPO' },
       emergency: { color: 'error', label: 'Emergency' },
     }
-    const cfg = map[poType] || { color: 'secondary', label: poType }
+    const cfg = map[poType] || { color: 'gray' as const, label: poType }
     return <Badge variant={cfg.color}>{cfg.label}</Badge>
   }
 
@@ -266,22 +276,22 @@ export const CCAllocationPage: React.FC = () => {
   const columns = [
     {
       key: 'expense_date',
-      header: 'Date',
-      render: (e: CCExpenseWithRelations) => (
+      label: 'Date',
+      render: (_: any, e: CCExpenseWithRelations) => (
         <span className="font-medium text-slate-900">{formatDate(e.expense_date)}</span>
       ),
     },
     {
       key: 'po_number',
-      header: 'PO Number',
-      render: (e: CCExpenseWithRelations) => (
+      label: 'PO Number',
+      render: (_: any, e: CCExpenseWithRelations) => (
         <span className="font-mono text-sm text-slate-700">{e.po_number}</span>
       ),
     },
     {
       key: 'lpo_number',
-      header: 'LPO Number',
-      render: (e: CCExpenseWithRelations) => (
+      label: 'LPO Number',
+      render: (_: any, e: CCExpenseWithRelations) => (
         e.lpo_number ? (
           <span className="font-mono text-sm text-slate-700">{e.lpo_number}</span>
         ) : (
@@ -291,20 +301,20 @@ export const CCAllocationPage: React.FC = () => {
     },
     {
       key: 'po_type',
-      header: 'Type',
-      render: (e: CCExpenseWithRelations) => getPoTypeBadge(e.po_type),
+      label: 'Type',
+      render: (_: any, e: CCExpenseWithRelations) => getPoTypeBadge(e.po_type),
     },
     {
       key: 'amount',
-      header: 'Amount',
-      render: (e: CCExpenseWithRelations) => (
+      label: 'Amount',
+      render: (_: any, e: CCExpenseWithRelations) => (
         <span className="font-semibold text-slate-900">{formatCurrency(Number(e.amount))}</span>
       ),
     },
     {
       key: 'status',
-      header: 'Status',
-      render: (e: CCExpenseWithRelations) => getStatusBadge(e.status),
+      label: 'Status',
+      render: (_: any, e: CCExpenseWithRelations) => getStatusBadge(e.status),
     },
   ]
 
@@ -647,9 +657,8 @@ export const CCAllocationPage: React.FC = () => {
                       <div>
                         <p className="text-xs text-slate-500">Balance</p>
                         <p
-                          className={`text-sm font-semibold ${
-                            quarter.balance >= 0 ? 'text-emerald-600' : 'text-rose-600'
-                          }`}
+                          className={`text-sm font-semibold ${quarter.balance >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                            }`}
                         >
                           {formatCurrency(quarter.balance)}
                         </p>
@@ -802,32 +811,12 @@ export const CCAllocationPage: React.FC = () => {
             {/* Table Content */}
             <div className="overflow-x-auto">
               {filteredExpenses.length > 0 ? (
-                <Table>
-                  <Table.Head>
-                    {columns.map((col) => (
-                      <Table.Cell key={col.key} as="th">
-                        {col.header}
-                      </Table.Cell>
-                    ))}
-                  </Table.Head>
-                  <Table.Body>
-                    {filteredExpenses.map((expense, idx) => (
-                      <motion.tr
-                        key={expense.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: idx * 0.03 }}
-                        className="hover:bg-slate-50 transition-colors"
-                      >
-                        {columns.map((col) => (
-                          <Table.Cell key={col.key}>
-                            {col.render(expense)}
-                          </Table.Cell>
-                        ))}
-                      </motion.tr>
-                    ))}
-                  </Table.Body>
-                </Table>
+                <Table
+                  data={filteredExpenses}
+                  columns={columns}
+                  className="border-none"
+                  hoverable
+                />
               ) : (
                 <div className="flex flex-col items-center justify-center py-16 text-slate-400">
                   <FileText className="w-12 h-12 mb-3 opacity-50" />

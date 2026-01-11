@@ -307,7 +307,7 @@ export default function IssuingPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search requests, items, departments…"
-            className="flex-1 min-w-[220px] px-3 py-2 rounded-xl border border-slate-200/70 bg-white focus:ring-4 focus:ring-cyan-100 focus:border-cyan-300"
+            className="flex-1 min-w-[min(220px,100%)] px-3 py-2 rounded-xl border border-slate-200/70 bg-white focus:ring-4 focus:ring-cyan-100 focus:border-cyan-300"
           />
           <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)} className="px-3 py-2 rounded-xl border border-slate-200/70 bg-white">
             <option value="ALL">All Status</option>

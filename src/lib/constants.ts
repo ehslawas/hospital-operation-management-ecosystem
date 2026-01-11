@@ -61,7 +61,7 @@ export const INQUIRY_TYPES = {
 export const SYSTEM_ROLES = {
   SYSTEM_ADMIN: 'system_admin',
   HOSPITAL_ADMIN: 'hospital_admin',
-  
+
   // Pharmacy Roles
   PHARMACY_DIRECTOR: 'pharmacy_director',
   PHARMACY_MANAGER: 'pharmacy_manager',
@@ -69,11 +69,11 @@ export const SYSTEM_ROLES = {
   PHARMACY_ASSISTANT: 'pharmacy_assistant',
   PHARMACY_STOREKEEPER: 'pharmacy_storekeeper',
   PHARMACY_STAFF: 'pharmacy_staff',
-  
+
   // Clinical Roles
   NURSE: 'nurse',
   DOCTOR: 'doctor',
-  
+
   // General
   STAFF: 'staff',
 } as const
@@ -241,7 +241,7 @@ export const ROUTES = {
   DASHBOARD: '/dashboard',
   RESET_PASSWORD: '/reset-password',
   PROFILE: '/profile',
-  
+
   // Admin Routes (Shared by System Admin & Hospital Admin)
   ADMIN: '/admin',
   ADMIN_USERS: '/admin/users',
@@ -255,14 +255,14 @@ export const ROUTES = {
   ADMIN_PERMISSIONS: '/admin/permissions',
   ADMIN_SETTINGS: '/admin/settings',
   ADMIN_AUDIT_LOGS: '/admin/audit-logs',
-  
+
   // System Admin Routes
   ADMIN_MODULES: '/admin/modules',
   ADMIN_MONITORING: '/admin/monitoring',
   ADMIN_BACKUPS: '/admin/backups',
   ADMIN_ALERTS: '/admin/alerts',
   ADMIN_SYSTEM_LOGS: '/admin/system-logs',
-  
+
   // Hospital Admin Routes
   ADMIN_MEMOS: '/admin/memos',
   ADMIN_MEMO_CREATE: '/admin/memos/create',
@@ -278,11 +278,11 @@ export const ROUTES = {
   ADMIN_HOSPITAL_HEALTH: '/admin/hospital-health',
   ADMIN_HOSPITAL_LOGS: '/admin/hospital-logs',
   ADMIN_HOSPITAL_BACKUPS: '/admin/hospital-backups',
-  
+
   // Pharmacy Logistics Routes
   PHARMACY: '/pharmacy',
   PHARMACY_DASHBOARD: '/pharmacy/dashboard',
-  
+
   // Inventory Management
   PHARMACY_INVENTORY: '/pharmacy/inventory',
   PHARMACY_DRUGS: '/pharmacy/inventory/drugs',
@@ -292,12 +292,12 @@ export const ROUTES = {
   PHARMACY_SLOW_MOVING: '/pharmacy/inventory/slow-moving',
   PHARMACY_NEAR_EXPIRY: '/pharmacy/inventory/near-expiry',
   PHARMACY_BAD_STOCK: '/pharmacy/inventory/bad-stock',
-  
+
   // Medical Oxygen
   PHARMACY_OXYGEN: '/pharmacy/oxygen',
   PHARMACY_OXYGEN_CYLINDERS: '/pharmacy/oxygen/cylinders',
   PHARMACY_OXYGEN_CONSUMPTION: '/pharmacy/oxygen/consumption',
-  
+
   // Financial
   PHARMACY_FINANCIAL: '/pharmacy/financial',
   PHARMACY_BUDGET: '/pharmacy/financial/budget',
@@ -309,11 +309,13 @@ export const ROUTES = {
   PHARMACY_FORECAST: '/pharmacy/financial/forecast',
   PHARMACY_APPL: '/pharmacy/financial/appl',
   PHARMACY_CCDP: '/pharmacy/financial/ccdp',
-  
+
   // Procurement
   PHARMACY_PROCUREMENT: '/pharmacy/procurement',
   PHARMACY_PO: '/pharmacy/procurement/orders',
   PHARMACY_PO_CREATE: '/pharmacy/procurement/orders/create',
+  PHARMACY_SQ_CREATE: '/pharmacy/procurement/sq/create',
+  PHARMACY_MANUAL_CREATE: '/pharmacy/procurement/manual/create',
   PHARMACY_PO_DETAIL: '/pharmacy/procurement/orders/:id',
   PHARMACY_LPO: '/pharmacy/procurement/lpo',
   PHARMACY_LPO_CREATE: '/pharmacy/procurement/lpo/create',
@@ -323,13 +325,13 @@ export const ROUTES = {
   PHARMACY_ORDER_TRACKING: '/pharmacy/procurement/tracking',
   PHARMACY_PENALTY: '/pharmacy/procurement/penalty',
   PHARMACY_LOU: '/pharmacy/procurement/lou',
-  
+
   // Distribution
   PHARMACY_DISTRIBUTION: '/pharmacy/distribution',
   PHARMACY_INTER_FACILITY: '/pharmacy/distribution/inter-facility',
   PHARMACY_INTRA_FACILITY: '/pharmacy/distribution/intra-facility',
   PHARMACY_TRANSFER_REQUEST: '/pharmacy/distribution/transfer-request',
-  
+
   // Catalog
   PHARMACY_CATALOG: '/pharmacy/catalog',
   PHARMACY_DRUG_CATALOG: '/pharmacy/catalog/drugs',
@@ -338,13 +340,13 @@ export const ROUTES = {
   PHARMACY_CONTRACT_CATALOG: '/pharmacy/catalog/contracts',
   PHARMACY_HOSPITAL_FACILITY: '/pharmacy/catalog/hospitals',
   PHARMACY_CLINIC_FACILITY: '/pharmacy/catalog/clinics',
-  
+
   // Maintenance
   PHARMACY_MAINTENANCE: '/pharmacy/maintenance',
   PHARMACY_UNIT_CATALOG: '/pharmacy/maintenance/units',
   PHARMACY_STOCK_LOCATION: '/pharmacy/maintenance/locations',
   PHARMACY_STOCK_VERIFICATION: '/pharmacy/maintenance/verification',
-  
+
   // Reports & Logs
   PHARMACY_REPORTS: '/pharmacy/reports',
   PHARMACY_REPORTS_INVENTORY: '/pharmacy/reports/inventory',
@@ -352,14 +354,14 @@ export const ROUTES = {
   PHARMACY_REPORTS_FINANCIAL: '/pharmacy/reports/financial',
   PHARMACY_REPORTS_DISTRIBUTION: '/pharmacy/reports/distribution',
   PHARMACY_LOGS: '/pharmacy/logs',
-  
+
   // Legacy routes (for backward compatibility)
   PHARMACY_PRODUCTS: '/pharmacy/products',
   PHARMACY_CATEGORIES: '/pharmacy/categories',
   PHARMACY_SUPPLIERS: '/pharmacy/suppliers',
   PHARMACY_PR: '/pharmacy/requisitions',
   PHARMACY_GR: '/pharmacy/receipts',
-  
+
   // Legal Pages
   PRIVACY_POLICY: '/privacy-policy',
   TERMS_OF_SERVICE: '/terms-of-service',
@@ -398,12 +400,12 @@ export const SYSTEM_MODULES = {
   PHARMACY_EMERGENCY: 'pharmacy_emergency',
   PHARMACY_INPATIENT: 'pharmacy_inpatient',
   PHARMACY_GALENICAL: 'pharmacy_galenical',
-  
+
   // Ward Modules
   GENERAL_WARD: 'general_ward',
   PAEDIATRIC_WARD: 'paediatric_ward',
   MATERNITY_WARD: 'maternity_ward',
-  
+
   // Clinical Modules
   EMERGENCY_TRAUMA: 'emergency_trauma',
   LABORATORY: 'laboratory',
@@ -412,12 +414,12 @@ export const SYSTEM_MODULES = {
   RADIOLOGY: 'radiology',
   KLINIK_PAKAR: 'klinik_pakar',
   HAEMODIALYSIS: 'haemodialysis',
-  
+
   // Support Modules
   DRIVER_ROOM: 'driver_room',
   HOSPITAL_OFFICE: 'hospital_office',
   FRONT_DESK: 'front_desk',
-  
+
   // Legacy (to be deprecated)
   PHARMACY: 'pharmacy',
   WARD: 'ward',
@@ -471,7 +473,7 @@ export const MODULE_DEFINITIONS = [
     icon: 'Beaker',
     category: 'pharmacy',
   },
-  
+
   // Ward Modules
   {
     code: SYSTEM_MODULES.GENERAL_WARD,
@@ -494,7 +496,7 @@ export const MODULE_DEFINITIONS = [
     icon: 'Heart',
     category: 'ward',
   },
-  
+
   // Clinical Modules
   {
     code: SYSTEM_MODULES.EMERGENCY_TRAUMA,
@@ -545,7 +547,7 @@ export const MODULE_DEFINITIONS = [
     icon: 'Activity',
     category: 'clinical',
   },
-  
+
   // Support Modules
   {
     code: SYSTEM_MODULES.DRIVER_ROOM,
@@ -568,7 +570,7 @@ export const MODULE_DEFINITIONS = [
     icon: 'UserCheck',
     category: 'support',
   },
-  
+
   // Legacy Modules
   {
     code: SYSTEM_MODULES.BILLING,

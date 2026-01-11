@@ -98,7 +98,7 @@ export default function OfficeAdminDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/40 to-indigo-50/40">
-      <div className="max-w-7xl mx-auto p-6 space-y-8">
+      <div className="max-w-7xl 4k:max-w-[1800px] mx-auto p-6 space-y-8">
         {/* Header */}
         <div className="bg-white/80 backdrop-blur-md rounded-3xl shadow-xl ring-1 ring-slate-200 p-6">
           <div className="flex items-center justify-between">

@@ -14,6 +14,12 @@ export default defineConfig({
     port: 3000,
     open: true,
   },
+  preview: {
+    port: 3000,
+    // Configure preview server to handle SPA routing
+    // This ensures index.html is served for all routes during preview
+    strictPort: true,
+  },
   optimizeDeps: {
     esbuildOptions: {
       target: 'esnext',

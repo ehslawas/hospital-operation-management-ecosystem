@@ -110,6 +110,8 @@ function LoginPageContent() {
               <img
                 src="https://upload.wikimedia.org/wikipedia/commons/9/94/Jata_MalaysiaV2.svg"
                 alt="Jata Negara Malaysia"
+                loading="eager"
+                decoding="async"
                 className="w-full h-full object-contain drop-shadow-xl hover:scale-110 transition-transform duration-300"
               />
             </div>

@@ -44,10 +44,10 @@ interface NavItem {
 const hasAccess = (item: NavItem, userRole?: string): boolean => {
   // If no roles specified, everyone can access
   if (!item.roles || item.roles.length === 0) return true
-  
+
   // If user has no role, deny access
   if (!userRole) return false
-  
+
   // Check if user role matches
   return item.roles.includes(userRole)
 }
@@ -230,7 +230,7 @@ export const Sidebar: React.FC = () => {
   const { sidebarCollapsed, setSidebarCollapsed } = useSidebar()
 
   const userRole = user?.role?.role_code
-  
+
   // Memoize filtered navigation to prevent unnecessary recalculations
   const filteredNavigation = useMemo(() => {
     return filterNavigation(navigation, userRole)
@@ -243,7 +243,7 @@ export const Sidebar: React.FC = () => {
 
   // Memoize current pathname to prevent unnecessary recalculations
   const currentPath = useMemo(() => location.pathname, [location.pathname])
-  
+
   // State to track expanded menu items
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
 
@@ -259,7 +259,7 @@ export const Sidebar: React.FC = () => {
   // Auto-expand items with active children on mount and path change
   useEffect(() => {
     const newExpanded = new Set<string>()
-    
+
     const checkAndExpand = (items: NavItem[]) => {
       items.forEach((item) => {
         if (item.children && item.children.length > 0) {
@@ -273,7 +273,7 @@ export const Sidebar: React.FC = () => {
         }
       })
     }
-    
+
     checkAndExpand(filteredNavigation)
     setExpandedItems(newExpanded)
   }, [currentPath, filteredNavigation, hasActiveChild])
@@ -291,7 +291,7 @@ export const Sidebar: React.FC = () => {
   }, [])
 
   const isExpanded = React.useCallback((href: string) => expandedItems.has(href), [expandedItems])
-  
+
   const isActiveLink = (href: string) => {
     return currentPath === href || currentPath.startsWith(href + '/')
   }
@@ -302,7 +302,7 @@ export const Sidebar: React.FC = () => {
     const hasChildren = item.children && item.children.length > 0
     const expanded = hasChildren && isExpanded(item.href)
     const hasActive = hasActiveChild(item)
-    
+
     // Pharmacy Logistics should always be expanded (not collapsible)
     const isPharmacyLogistics = item.href === ROUTES.PHARMACY && depth === 0
     const alwaysExpanded = isPharmacyLogistics
@@ -352,7 +352,7 @@ export const Sidebar: React.FC = () => {
               )}
             </button>
           )}
-          
+
           {!sidebarCollapsed && (
             <AnimatePresence initial={false}>
               {(alwaysExpanded || expanded) && (
@@ -400,7 +400,7 @@ export const Sidebar: React.FC = () => {
       animate={{ width: sidebarCollapsed ? 80 : 280 }}
       transition={{ duration: 0.2, ease: 'easeInOut' }}
       className={cn(
-        'fixed left-0 bg-white border-r border-gray-200',
+        'fixed left-0 bg-white border-r border-gray-200 no-print',
         'flex flex-col z-30'
       )}
       style={{ top: '112px', height: 'calc(100vh - 112px)' }}
@@ -428,7 +428,7 @@ export const Sidebar: React.FC = () => {
             name={user?.full_name}
             size="sm"
           />
-          
+
           {!sidebarCollapsed && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 truncate">

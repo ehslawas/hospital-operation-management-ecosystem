@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { IconButton } from './Button'
 
 export interface ModalProps {
   isOpen: boolean
@@ -101,12 +102,15 @@ export const Modal: React.FC<ModalProps> = ({
                   )}
                 </div>
                 {showCloseButton && (
-                  <button
+                  <IconButton
                     onClick={onClose}
-                    className="p-2 -m-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                    variant="ghost"
+                    size="md"
+                    aria-label="Close modal"
+                    className="-m-2 text-gray-400 hover:text-gray-600"
                   >
-                    <X className="w-5 h-5" />
-                  </button>
+                    <X />
+                  </IconButton>
                 )}
               </div>
             )}

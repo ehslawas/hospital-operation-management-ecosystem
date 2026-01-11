@@ -9,7 +9,7 @@ import { BaseEntity, User, Department, Hospital, HospitalModule } from '@/types'
 // ENUMS AND CONSTANTS
 // =====================================================
 
-export type DrugDosageForm = 
+export type DrugDosageForm =
   | 'tablet'
   | 'capsule'
   | 'injection'
@@ -30,7 +30,7 @@ export type BatchStatus = 'available' | 'quarantine' | 'expired' | 'depleted'
 export type LocationType = 'warehouse' | 'pharmacy' | 'ward' | 'cold_room' | 'controlled'
 export type TemperatureRequirement = 'ambient' | '2-8C' | '-20C' | '-80C'
 
-export type StockTransactionType = 
+export type StockTransactionType =
   | 'receipt'
   | 'issue'
   | 'transfer_in'
@@ -40,7 +40,7 @@ export type StockTransactionType =
   | 'return'
   | 'dispose'
 
-export type POStatus = 
+export type POStatus =
   | 'draft'
   | 'pending_approval'
   | 'approved'
@@ -49,11 +49,11 @@ export type POStatus =
   | 'completed'
   | 'cancelled'
 
-export type POType = 'regular' | 'lpo' | 'emergency'
+export type POType = 'regular' | 'lpo' | 'emergency' | 'sq' | 'manual'
 
 export type GRStatus = 'pending' | 'inspecting' | 'accepted' | 'partial' | 'rejected'
 
-export type TransferStatus = 
+export type TransferStatus =
   | 'pending'
   | 'approved'
   | 'preparing'
@@ -478,7 +478,7 @@ export type WarrantVoteCode = '080702' | '990102'
 
 export type WarrantVoteActivity = '27401' | '27499' | '27404' | '27403' | '27402' | '27501'
 
-export type WarrantCategory = 
+export type WarrantCategory =
   | 'drug'
   | 'non_drug'
   | 'non_standard'
@@ -537,7 +537,7 @@ export interface WarrantSummary {
   net_expenses: number
   usage_percentage: number
   total_count: number
-  
+
   // Breakdowns
   by_category: {
     category: WarrantCategory
@@ -580,12 +580,13 @@ export interface APPLExpense extends BaseEntity {
   status: 'pending' | 'approved' | 'completed' | 'cancelled'
   category?: string
   vote_activity?: string // Vote activity code (27401, 27499, 27404, 27403, 27402, 27501)
+  department?: string
   created_by?: string
 }
 
 export interface APPLExpenseWithRelations extends APPLExpense {
   warrant?: Warrant
-  purchase_order?: PurchaseOrder
+  purchase_order?: PurchaseOrderWithRelations
   created_by_user?: User
 }
 
@@ -598,7 +599,7 @@ export interface APPLAllocationSummary {
   net_expenses: number // Completed expenses only
   usage_percentage: number // (expenses / allocation) * 100
   total_count: number // Total number of expenses
-  
+
   // Quarterly breakdown
   quarterly: {
     quarter: 1 | 2 | 3 | 4
@@ -607,7 +608,7 @@ export interface APPLAllocationSummary {
     balance: number
     usage_percentage: number
   }[]
-  
+
   // Breakdown by vote activity
   by_vote_activity: {
     vote_activity: string
@@ -618,7 +619,7 @@ export interface APPLAllocationSummary {
     net_expenses: number
     count: number
   }[]
-  
+
   // Breakdown by category
   by_category: {
     category: string
@@ -627,7 +628,7 @@ export interface APPLAllocationSummary {
     balance: number
     count: number
   }[]
-  
+
   // Breakdown by PO type
   by_po_type: {
     po_type: POType
@@ -653,12 +654,13 @@ export interface CCExpense extends BaseEntity {
   status: 'pending' | 'approved' | 'completed' | 'cancelled'
   category?: string
   vote_activity?: string // Vote activity code (27401, 27499, 27404, 27403, 27402, 27501)
+  department?: string
   created_by?: string
 }
 
 export interface CCExpenseWithRelations extends CCExpense {
   warrant?: Warrant
-  purchase_order?: PurchaseOrder
+  purchase_order?: PurchaseOrderWithRelations
   created_by_user?: User
 }
 
@@ -671,7 +673,7 @@ export interface CCAllocationSummary {
   net_expenses: number // Completed expenses only
   usage_percentage: number // (expenses / allocation) * 100
   total_count: number // Total number of expenses
-  
+
   // Quarterly breakdown
   quarterly: {
     quarter: 1 | 2 | 3 | 4
@@ -680,7 +682,7 @@ export interface CCAllocationSummary {
     balance: number
     usage_percentage: number
   }[]
-  
+
   // Breakdown by vote activity
   by_vote_activity: {
     vote_activity: string
@@ -691,7 +693,7 @@ export interface CCAllocationSummary {
     net_expenses: number
     count: number
   }[]
-  
+
   // Breakdown by category
   by_category: {
     category: string
@@ -700,7 +702,7 @@ export interface CCAllocationSummary {
     balance: number
     count: number
   }[]
-  
+
   // Breakdown by PO type
   by_po_type: {
     po_type: POType
@@ -736,6 +738,9 @@ export interface PurchaseOrder extends BaseEntity {
   approved_by?: string
   approved_at?: string
   notes?: string
+  kkm_contract_number?: string
+  manual_supplier_name?: string
+  sq_suppliers?: string[]
 }
 
 export interface PurchaseOrderWithRelations extends PurchaseOrder {
@@ -751,8 +756,10 @@ export interface PurchaseOrderWithRelations extends PurchaseOrder {
 
 export interface PurchaseOrderItem extends BaseEntity {
   po_id: string
-  item_type: 'drug' | 'non_drug'
-  item_id: string
+  item_type: 'drug' | 'non_drug' | 'manual'
+  item_id?: string
+  item_name?: string
+  item_code?: string
   quantity_ordered: number
   quantity_received: number
   unit_price: number
@@ -881,6 +888,17 @@ export interface ProcurementSummary {
   }[]
 }
 
+export interface ProcurementStats {
+  total_orders: number
+  total_value: number
+  pending_orders: number
+  completed_orders: number
+  by_status: Record<string, number>
+  by_category: Record<string, number>
+  by_department: Record<string, number>
+  by_vote_code: Record<string, number>
+}
+
 // =====================================================
 // DISTRIBUTION TYPES
 // =====================================================
@@ -951,23 +969,37 @@ export interface DistributionSummary {
 // CATALOG TYPES
 // =====================================================
 
+// Contract Catalog - Excel Upload Approach
+export type ContractCatalogStatus = 'active' | 'inactive' | 'expired' | 'expiring' | 'pending'
+
 export interface Contract extends BaseEntity {
-  contract_number: string
-  contract_name: string
-  contract_type: ContractType
-  supplier_id?: string
-  start_date: string
-  end_date: string
-  total_value?: number
-  status: ContractStatus
-  document_url?: string
+  hospital_id: string
+  item_name: string // Item/Product name
+  item_code?: string // Optional item identification code
+  contract_number: string // No Kontrak - Unique contract identifier
+  contract_type?: ContractType // Type of contract (mof, kkm, hospital)
+  supplier_id?: string // Link to suppliers table
+  supplier_name?: string // Pembekal - Denormalized supplier name
+  start_date?: string // Kontrak Mula - Contract start date
+  end_date?: string // Kontrak Tamat - Contract end date
+  unit?: string // Unit of measure (Box, Pack, Each)
+  unit_price?: number // Harga (RM) - Price per unit in Ringgit Malaysia
+  currency?: string // Currency (default: MYR)
+  delivery_period?: string // Tempoh Serahan - Expected delivery timeframe
+  sst_rate?: string // SST - Sales and Service Tax rate/amount
+  status: ContractCatalogStatus
+  metadata?: Record<string, unknown> // Additional fields (notes, custom fields)
+  uploaded_file_id?: string // Link to uploaded_files table
+  document_url?: string // Optional contract document URL
 }
 
 export interface ContractWithRelations extends Contract {
+  hospital?: Hospital
   supplier?: Supplier
-  items?: ContractItem[]
+  uploaded_file?: UploadedFile
 }
 
+// For backward compatibility - legacy contract items
 export interface ContractItem extends BaseEntity {
   contract_id: string
   item_type: 'drug' | 'non_drug'
@@ -981,6 +1013,47 @@ export interface ContractItem extends BaseEntity {
 export interface ContractItemWithRelations extends ContractItem {
   drug?: Drug
   non_drug?: NonDrug
+}
+
+// Contract Catalog KPIs
+export interface ContractCatalogKPIs {
+  total: number
+  active: number
+  expired: number
+  expiring_soon: number // Expiring within 30 days
+  pending: number
+  total_value: number // Sum of all contract values
+  contracts_by_supplier: { supplier_name: string; count: number }[]
+}
+
+// Contract Catalog Filters
+export interface ContractCatalogFilter {
+  search?: string
+  supplier_id?: string
+  supplier_name?: string
+  status?: ContractCatalogStatus | 'all'
+  contract_type?: ContractType | 'all'
+  date_from?: string
+  date_to?: string
+  min_price?: number
+  max_price?: number
+}
+
+// Uploaded Files Type (for contract tracking)
+export interface UploadedFile extends BaseEntity {
+  id: string
+  hospital_id: string
+  file_name: string
+  file_hash: string
+  file_size: number
+  file_type: 'excel' | 'pdf' | 'image'
+  catalog_type: 'drug' | 'non_drug' | 'contract'
+  upload_status: 'pending' | 'processing' | 'completed' | 'failed'
+  items_imported: number
+  errors_count: number
+  error_details?: Record<string, unknown>
+  uploaded_by?: string
+  uploaded_at: string
 }
 
 export interface MOFCatalogItem extends BaseEntity {
@@ -1006,6 +1079,80 @@ export interface KKMFacility extends BaseEntity {
   phone?: string
   email?: string
   is_active: boolean
+}
+
+// =====================================================
+// HOSPITAL FACILITY CATALOG TYPES
+// =====================================================
+
+export type HospitalFacilityStatus = 'active' | 'inactive'
+
+export interface HospitalFacility extends BaseEntity {
+  hospital_id: string
+  name: string // Hospital name
+  address?: string // Alamat 1
+  city?: string // Bandar
+  state?: string // Negeri
+  phone?: string // Phone number
+  email?: string // Email address
+  facility_code?: string // Optional facility code
+  status: HospitalFacilityStatus
+  moh_id?: string // ID from MOH website if fetched from there
+  metadata?: Record<string, unknown> // Additional fields
+}
+
+export interface HospitalFacilityWithRelations extends HospitalFacility {
+  hospital?: Hospital
+}
+
+export interface HospitalFacilityCatalogKPIs {
+  total: number
+  by_state: { state: string; count: number }[]
+  by_city: { city: string; count: number }[]
+}
+
+export interface HospitalFacilityCatalogFilter {
+  search?: string
+  state?: string | 'all'
+  city?: string | 'all'
+  status?: HospitalFacilityStatus | 'all'
+}
+
+// =====================================================
+// CLINIC FACILITY CATALOG TYPES
+// =====================================================
+
+export type ClinicFacilityStatus = 'active' | 'inactive'
+
+export interface ClinicFacility extends BaseEntity {
+  hospital_id: string
+  name: string // Clinic name
+  address?: string // Alamat 1
+  city?: string // Bandar
+  state?: string // Negeri
+  phone?: string // Phone number
+  email?: string // Email address
+  facility_code?: string // Optional facility code
+  status: ClinicFacilityStatus
+  moh_id?: string // ID from MOH website if fetched from there
+  metadata?: Record<string, unknown> // Additional fields
+}
+
+export interface ClinicFacilityWithRelations extends ClinicFacility {
+  hospital?: Hospital
+}
+
+export interface ClinicFacilityCatalogKPIs {
+  total: number
+  by_state: { state: string; count: number }[]
+  by_city: { city: string; count: number }[]
+}
+
+export interface ClinicFacilityCatalogFilter {
+  search?: string
+  state?: string | 'all'
+  city?: string | 'all'
+  status?: ClinicFacilityStatus | 'all'
 }
 
 // =====================================================
@@ -1074,30 +1221,30 @@ export interface UnitCatalog extends BaseEntity {
   hospital_id: string
   department_id: string
   module_code: string
-  
+
   // Indent Permissions
   can_indent_drugs: boolean
   can_indent_non_drugs: boolean
-  
+
   // Capacity Limits
   max_drug_items?: number | null
   max_non_drug_items?: number | null
-  
+
   // Current Counts
   current_drug_count: number
   current_non_drug_count: number
-  
+
   // Status
   status: UnitCatalogStatus
-  
+
   // Responsibility
   responsible_user_id?: string | null
-  
+
   // Last Update Tracking
   last_updated_at?: string | null
   last_updated_by?: string | null
   last_update_reason?: string | null
-  
+
   // Metadata
   notes?: string | null
 }
@@ -1277,6 +1424,9 @@ export interface ProcurementFilter {
   status?: POStatus | 'all'
   supplier_id?: string
   po_type?: POType | 'all'
+  vote_code?: string
+  category?: string
+  department?: string
   date_from?: string
   date_to?: string
 }
@@ -1314,7 +1464,9 @@ export interface DrugFormData {
 
 export interface PurchaseOrderFormData {
   po_type?: POType
-  supplier_id: string
+  supplier_id?: string // Made optional for Manual PO
+  manual_supplier_name?: string
+  sq_suppliers?: string[]
   budget_id?: string
   vote_code: string // Required: 080702 or 990102
   vote_activity: string // Required: 27401, 27499, 27404, 27403, 27402, 27501
@@ -1324,13 +1476,19 @@ export interface PurchaseOrderFormData {
   payment_terms?: string
   delivery_address?: string
   notes?: string
-  items: {
-    item_type: 'drug' | 'non_drug'
-    item_id: string
-    quantity: number
-    unit_price: number
-    packaging_description?: string
-  }[]
+  status?: POStatus
+  kkm_contract_number?: string
+  items: POItem[]
+}
+
+export interface POItem {
+  item_type: 'drug' | 'non_drug' | 'manual'
+  item_id?: string
+  quantity: number
+  unit_price: number
+  packaging_description?: string
+  item_name?: string
+  item_code?: string
 }
 
 export interface GoodsReceiptFormData {
@@ -1349,6 +1507,7 @@ export interface GoodsReceiptFormData {
     expiry_date?: string
     storage_location_id?: string
     rejection_reason?: string
+    notes?: string
   }[]
 }
 

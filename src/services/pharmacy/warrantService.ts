@@ -153,7 +153,7 @@ export async function createWarrant(
     return { data: newWarrant, error: null }
   } catch (error: any) {
     console.error('Error creating warrant:', error)
-    
+
     // Handle unique constraint violation
     if (error?.code === '23505') {
       if (error?.constraint === 'unique_warrant_document_vote_dept') {
@@ -167,7 +167,7 @@ export async function createWarrant(
         error: 'A warrant with this combination already exists. Please use a different document number or change the vote code/activity/department.',
       }
     }
-    
+
     return {
       data: null,
       error: error instanceof Error ? error.message : 'Failed to create warrant',
@@ -202,7 +202,7 @@ export async function updateWarrant(
     return { data: null, error: 'Supabase not configured' }
   } catch (error: any) {
     console.error('Error updating warrant:', error)
-    
+
     // Handle unique constraint violation
     if (error?.code === '23505') {
       if (error?.constraint === 'unique_warrant_document_vote_dept') {
@@ -216,7 +216,7 @@ export async function updateWarrant(
         error: 'A warrant with this combination already exists. Please use a different document number or change the vote code/activity/department.',
       }
     }
-    
+
     return {
       data: null,
       error: error instanceof Error ? error.message : 'Failed to update warrant',
@@ -293,36 +293,47 @@ export async function getWarrantSummary(
 
       const warrantsList = (warrants || []) as Warrant[]
 
-      // Fetch purchase orders for the same fiscal year to calculate expenses
-      let poQuery = supabase
-        .from('pharmacy_purchase_orders')
-        .select('vote_code, vote_activity, category, department, total_amount, status')
-        .eq('hospital_id', hospitalId)
-        .gte('order_date', startDate)
-        .lte('order_date', endDate)
-        .in('status', ['approved', 'sent', 'partial_received', 'completed'])
+      // Fetch expenses from pharmacy_cc_expenses and pharmacy_appl_expenses
+      // This ensures we match the data shown in the allocation dashboards
+      const expensePromises = []
 
-      if (filters?.category) {
-        poQuery = poQuery.eq('category', filters.category)
+      // If no voteCode filter or voteCode is 080702, fetch CC expenses
+      if (!filters?.voteCode || filters.voteCode === '080702') {
+        let ccQuery = supabase
+          .from('pharmacy_cc_expenses')
+          .select('*')
+          .eq('hospital_id', hospitalId)
+          .eq('fiscal_year', currentYear)
+
+        if (filters?.category) ccQuery = ccQuery.eq('category', filters.category)
+        if (filters?.department) ccQuery = ccQuery.eq('department', filters.department)
+
+        expensePromises.push(ccQuery.then(res =>
+          (res.data || []).map(e => ({ ...e, vote_code: '080702' }))
+        ))
       }
 
-      if (filters?.department) {
-        poQuery = poQuery.eq('department', filters.department)
+      // If no voteCode filter or voteCode is 990102, fetch APPL expenses
+      if (!filters?.voteCode || filters.voteCode === '990102') {
+        let applQuery = supabase
+          .from('pharmacy_appl_expenses')
+          .select('*')
+          .eq('hospital_id', hospitalId)
+          .eq('fiscal_year', currentYear)
+
+        if (filters?.category) applQuery = applQuery.eq('category', filters.category)
+        if (filters?.department) applQuery = applQuery.eq('department', filters.department)
+
+        expensePromises.push(applQuery.then(res =>
+          (res.data || []).map(e => ({ ...e, vote_code: '990102' }))
+        ))
       }
 
-      if (filters?.voteCode) {
-        poQuery = poQuery.eq('vote_code', filters.voteCode)
-      }
+      const expenseResults = await Promise.all(expensePromises)
+      const combinedExpenses = expenseResults.flat()
 
-      const { data: purchaseOrders, error: poError } = await poQuery
-
-      if (poError) {
-        console.error('Error fetching purchase orders for warrant summary:', poError)
-        // Continue with expenses = 0 if PO query fails
-      }
-
-      // Calculate summary with actual purchase order data
-      const summary = calculateWarrantSummary(warrantsList, purchaseOrders || [])
+      // Calculate summary with combined expense data
+      const summary = calculateWarrantSummary(warrantsList, combinedExpenses)
 
       return { data: summary, error: null }
     }
@@ -354,32 +365,39 @@ export async function getWarrantSummary(
 
 /**
  * Helper function to calculate warrant summary from list
- * Now includes purchase orders to calculate actual expenses and liabilities
+ * Uses combined expenses from both CC and APPL modules
  */
 function calculateWarrantSummary(
   warrants: Warrant[],
-  purchaseOrders: Array<{
+  expenses: Array<{
     vote_code?: string | null
     vote_activity?: string | null
     category?: string | null
     department?: string | null
-    total_amount?: number | null
+    amount?: number | null
+    total_amount?: number | null // Support both field names for backward compatibility
     status?: string | null
   }> = []
 ): WarrantSummary {
   const total_allocation = warrants.reduce((sum, w) => sum + Number(w.amount), 0)
   const total_count = warrants.length
-  
-  // Calculate expenses from purchase orders
-  // Expenses: approved, sent, partial_received, completed (all committed/actual expenses)
-  const total_expenses = purchaseOrders
-    .filter((po) => po.total_amount && ['approved', 'sent', 'partial_received', 'completed'].includes(po.status || ''))
-    .reduce((sum, po) => sum + Number(po.total_amount || 0), 0)
 
-  // Liabilities: approved, sent, partial_received (committed but not yet fully paid/completed)
-  const total_liabilities = purchaseOrders
-    .filter((po) => po.total_amount && ['approved', 'sent', 'partial_received'].includes(po.status || ''))
-    .reduce((sum, po) => sum + Number(po.total_amount || 0), 0)
+  // Normalize expenses: use 'amount' primarily, then fallback to 'total_amount'
+  const normalizedExpenses = expenses.map(e => ({
+    ...e,
+    finalAmount: Number(e.amount ?? e.total_amount ?? 0)
+  }))
+
+  // Total Expenses: All synchronized expenses including drafts (pending)
+  // We exclude only 'cancelled' if we had that status, but expense tables only store semi-valid ones.
+  // Both sync functions filter out 'cancelled' POs.
+  const total_expenses = normalizedExpenses
+    .reduce((sum, e) => sum + e.finalAmount, 0)
+
+  // Liabilities: pending, approved, sent, partial_received (anything not completed)
+  const total_liabilities = normalizedExpenses
+    .filter((e) => e.status !== 'completed')
+    .reduce((sum, e) => sum + e.finalAmount, 0)
 
   const total_balance = total_allocation - total_expenses
   const net_expenses = total_expenses - total_liabilities
@@ -390,20 +408,16 @@ function calculateWarrantSummary(
   warrants.forEach((w) => {
     const existing = categoryMap.get(w.category) || { allocation: 0, expenses: 0, balance: 0, count: 0 }
     const allocation = existing.allocation + Number(w.amount)
-    
-    // Calculate expenses for this category from matching purchase orders
-    const categoryExpenses = purchaseOrders
-      .filter((po) => 
-        po.category === w.category &&
-        po.total_amount &&
-        ['approved', 'sent', 'partial_received', 'completed'].includes(po.status || '')
-      )
-      .reduce((sum, po) => sum + Number(po.total_amount || 0), 0)
-    
+
+    // Calculate expenses for this category
+    const catExpenses = normalizedExpenses
+      .filter((e) => e.category === w.category)
+      .reduce((sum, e) => sum + e.finalAmount, 0)
+
     categoryMap.set(w.category, {
       allocation,
-      expenses: categoryExpenses,
-      balance: allocation - categoryExpenses,
+      expenses: catExpenses,
+      balance: allocation - catExpenses,
       count: existing.count + 1,
     })
   })
@@ -419,16 +433,12 @@ function calculateWarrantSummary(
   warrants.forEach((w) => {
     const existing = deptMap.get(w.department) || { allocation: 0, expenses: 0, balance: 0, count: 0 }
     const allocation = existing.allocation + Number(w.amount)
-    
-    // Calculate expenses for this department from matching purchase orders
-    const deptExpenses = purchaseOrders
-      .filter((po) => 
-        po.department === w.department &&
-        po.total_amount &&
-        ['approved', 'sent', 'partial_received', 'completed'].includes(po.status || '')
-      )
-      .reduce((sum, po) => sum + Number(po.total_amount || 0), 0)
-    
+
+    // Calculate expenses for this department
+    const deptExpenses = normalizedExpenses
+      .filter((e) => e.department === w.department)
+      .reduce((sum, e) => sum + e.finalAmount, 0)
+
     deptMap.set(w.department, {
       allocation,
       expenses: deptExpenses,
@@ -448,18 +458,12 @@ function calculateWarrantSummary(
   warrants.forEach((w) => {
     const existing = voteCodeMap.get(w.vote_code) || { allocation: 0, expenses: 0, balance: 0, count: 0 }
     const allocation = existing.allocation + Number(w.amount)
-    
-    // Calculate expenses for this vote code from matching purchase orders
-    // Match by vote_code and vote_activity
-    const voteExpenses = purchaseOrders
-      .filter((po) => 
-        po.vote_code === w.vote_code &&
-        po.vote_activity === w.vote_activity &&
-        po.total_amount &&
-        ['approved', 'sent', 'partial_received', 'completed'].includes(po.status || '')
-      )
-      .reduce((sum, po) => sum + Number(po.total_amount || 0), 0)
-    
+
+    // Calculate expenses for this vote code
+    const voteExpenses = normalizedExpenses
+      .filter((e) => e.vote_code === w.vote_code && e.vote_activity === w.vote_activity)
+      .reduce((sum, e) => sum + e.finalAmount, 0)
+
     voteCodeMap.set(w.vote_code, {
       allocation,
       expenses: voteExpenses,

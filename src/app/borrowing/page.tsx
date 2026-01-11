@@ -856,7 +856,7 @@ function InterFacilityTransferPageContent() {
                       placeholder="Search facilities, requesters..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 min-w-[250px]"
+                      className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 min-w-[min(250px,100%)]"
                     />
                   </div>
                   <select
@@ -1018,7 +1018,7 @@ function InterFacilityTransferPageContent() {
                       placeholder="Search facilities, requesters..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 min-w-[250px]"
+                      className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 min-w-[min(250px,100%)]"
                     />
                   </div>
                   <select
@@ -1181,7 +1181,7 @@ function InterFacilityTransferPageContent() {
                       placeholder="Search transfers..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 min-w-[250px]"
+                      className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 min-w-[min(250px,100%)]"
                     />
                   </div>
                   <select
@@ -1321,7 +1321,7 @@ function InterFacilityTransferPageContent() {
                       placeholder="Search transfers..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 min-w-[250px]"
+                      className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 min-w-[min(250px,100%)]"
                     />
                   </div>
                   <select

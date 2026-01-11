@@ -26,12 +26,69 @@ export interface MergePDFResult {
  * Uses high-resolution rendering for government-standard documents
  */
 async function htmlToPdf(element: HTMLElement): Promise<Uint8Array> {
+  // Ensure element is visible for querySelector to work properly
+  const originalDisplay = element.style.display
+  const originalVisibility = element.style.visibility
+  const originalPosition = element.style.position
+  
+  // Temporarily make element visible if it's hidden
+  if (window.getComputedStyle(element).display === 'none' || element.classList.contains('hidden')) {
+    element.style.setProperty('display', 'block', 'important')
+    element.style.setProperty('visibility', 'visible', 'important')
+    element.style.setProperty('position', 'fixed', 'important')
+    element.style.setProperty('opacity', '0.01', 'important')
+    element.style.setProperty('left', '0', 'important')
+    element.style.setProperty('top', '0', 'important')
+    element.style.setProperty('width', '210mm', 'important')
+    element.style.setProperty('pointer-events', 'none', 'important')
+    
+    // Force a reflow
+    void element.offsetHeight
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+  
   // Get all pages in the element
   const pages = element.querySelectorAll('.page')
   
+  // Debug logging
+  console.log('htmlToPdf - Element:', {
+    tagName: element.tagName,
+    className: element.className,
+    display: window.getComputedStyle(element).display,
+    visibility: window.getComputedStyle(element).visibility,
+    hasChildren: element.children.length,
+    innerHTMLLength: element.innerHTML.length,
+    pagesFound: pages.length
+  })
+  
   if (pages.length === 0) {
-    throw new Error('No pages found in the element')
+    // Try to find elements without .page class as fallback
+    const allDivs = element.querySelectorAll('div')
+    console.error('No .page elements found. Available divs:', allDivs.length)
+    console.error('First few div classes:', Array.from(allDivs).slice(0, 5).map(d => d.className))
+    console.error('Element HTML (first 1000 chars):', element.innerHTML.substring(0, 1000))
+    
+    // Restore styles before throwing
+    element.style.display = originalDisplay || ''
+    element.style.visibility = originalVisibility || ''
+    element.style.position = originalPosition || ''
+    element.style.removeProperty('opacity')
+    element.style.removeProperty('left')
+    element.style.removeProperty('top')
+    element.style.removeProperty('width')
+    element.style.removeProperty('pointer-events')
+    
+    throw new Error('No pages found in the element. Make sure the print section has elements with class "page".')
   }
+  
+  // Restore original styles if we changed them
+  if (originalDisplay === '' && element.style.display === 'block') {
+    element.style.removeProperty('display')
+  } else if (originalDisplay) {
+    element.style.display = originalDisplay
+  }
+  element.style.visibility = originalVisibility || ''
+  element.style.position = originalPosition || ''
 
   // Professional PDF settings - A4 dimensions (Government Standard)
   const pdfWidth = 210 // A4 width in mm

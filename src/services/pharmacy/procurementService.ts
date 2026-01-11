@@ -4,21 +4,20 @@
  */
 
 import { supabase, isSupabaseConfigured } from '../supabase'
+import { syncSinglePOToCCAllocation } from './ccAllocationService'
+import { syncSinglePOToAPPLAllocation } from './applAllocationService'
 import type { ApiResponse, PaginatedResponse } from '@/types'
 import type {
   PurchaseOrder,
   PurchaseOrderWithRelations,
-  PurchaseOrderItem,
   GoodsReceipt,
-  GoodsReceiptWithRelations,
   Supplier,
   SupplierWithRelations,
   ProcurementFilter,
   PurchaseOrderFormData,
   GoodsReceiptFormData,
   OrderTracking,
-  SupplierPenalty,
-  LOU,
+  ProcurementStats,
 } from '@/types/pharmacy'
 import {
   mockPurchaseOrders,
@@ -32,11 +31,94 @@ import {
 /**
  * Get all purchase orders with optional filtering
  */
+
+
+/**
+ * Get procurement statistics
+ */
+export async function getProcurementStats(hospitalId: string): Promise<ApiResponse<ProcurementStats>> {
+  try {
+    if (isSupabaseConfigured()) {
+      // Fetch all POs (lightweight query) to calculate stats
+      // We only need specific fields for aggregation
+      const { data, error } = await supabase
+        .from('pharmacy_purchase_orders')
+        .select('status, total_amount, category, department, vote_code')
+        .eq('hospital_id', hospitalId)
+
+      if (error) throw error
+
+      const orders = data || []
+
+      const stats: ProcurementStats = {
+        total_orders: orders.length,
+        total_value: orders.reduce((sum, order) => sum + (order.total_amount || 0), 0),
+        pending_orders: orders.filter(o => ['draft', 'pending_approval', 'approved'].includes(o.status)).length,
+        completed_orders: orders.filter(o => ['completed', 'received'].includes(o.status)).length,
+        by_status: {},
+        by_category: {},
+        by_department: {},
+        by_vote_code: {}
+      }
+
+      // Calculate breakdowns
+      orders.forEach(order => {
+        // Status
+        stats.by_status[order.status] = (stats.by_status[order.status] || 0) + 1
+
+        // Category
+        if (order.category) {
+          stats.by_category[order.category] = (stats.by_category[order.category] || 0) + 1
+        }
+
+        // Department
+        if (order.department) {
+          stats.by_department[order.department] = (stats.by_department[order.department] || 0) + 1
+        }
+
+        // Vote Code
+        if (order.vote_code) {
+          stats.by_vote_code[order.vote_code] = (stats.by_vote_code[order.vote_code] || 0) + 1
+        }
+      })
+
+      return { data: stats, error: null }
+    }
+
+    // Mock stats
+    return {
+      data: {
+        total_orders: 15,
+        total_value: 101794.08,
+        pending_orders: 15,
+        completed_orders: 0,
+        by_status: { draft: 15 },
+        by_category: { drug: 15 },
+        by_department: { pharmacy: 15 },
+        by_vote_code: { '080702': 15 }
+      },
+      error: null
+    }
+
+  } catch (error) {
+    console.error('Error fetching procurement stats:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch stats'
+    }
+  }
+}
+
+/**
+ * Get purchase orders (paginated)
+ */
 export async function getPurchaseOrders(
   hospitalId: string,
   filter?: ProcurementFilter,
   page: number = 1,
-  pageSize: number = 10
+  pageSize: number = 10,
+  sortBy: string = 'po_number',
+  sortOrder: 'asc' | 'desc' = 'desc'
 ): Promise<ApiResponse<PaginatedResponse<PurchaseOrderWithRelations>>> {
   try {
     if (isSupabaseConfigured()) {
@@ -79,12 +161,47 @@ export async function getPurchaseOrders(
       if (filter?.search) {
         const search = filter.search.trim()
         if (search) {
-          query = query.or(
-            [
-              `po_number.ilike.%${search}%`,
-              `delivery_address.ilike.%${search}%`,
-            ].join(',')
-          )
+          // Search for matching drug and non-drug items to include them in PO search
+          const [{ data: drugMatches }, { data: nonDrugMatches }, { data: supplierMatches }] = await Promise.all([
+            supabase.from('drugs').select('id').eq('hospital_id', hospitalId).ilike('drug_name', `%${search}%`),
+            supabase.from('non_drugs').select('id').eq('hospital_id', hospitalId).ilike('item_name', `%${search}%`),
+            supabase.from('suppliers').select('id').ilike('company_name', `%${search}%`)
+          ])
+
+          const itemIds = [
+            ...(drugMatches?.map(d => d.id) || []),
+            ...(nonDrugMatches?.map(nd => nd.id) || [])
+          ]
+
+          const supplierIds = supplierMatches?.map(s => s.id) || []
+
+          let poIdsFromItems: string[] = []
+          if (itemIds.length > 0) {
+            const { data: itemPos } = await supabase
+              .from('pharmacy_purchase_order_items')
+              .select('po_id')
+              .in('item_id', itemIds)
+
+            if (itemPos) {
+              poIdsFromItems = Array.from(new Set(itemPos.map(ip => ip.po_id)))
+            }
+          }
+
+          const orConditions = [
+            `po_number.ilike.%${search}%`,
+            `delivery_address.ilike.%${search}%`,
+            `notes.ilike.%${search}%`
+          ]
+
+          if (poIdsFromItems.length > 0) {
+            orConditions.push(`id.in.(${poIdsFromItems.join(',')})`)
+          }
+
+          if (supplierIds.length > 0) {
+            orConditions.push(`supplier_id.in.(${supplierIds.join(',')})`)
+          }
+
+          query = query.or(orConditions.join(','))
         }
       }
 
@@ -100,6 +217,18 @@ export async function getPurchaseOrders(
         query = query.eq('po_type', filter.po_type)
       }
 
+      if (filter?.vote_code) {
+        query = query.eq('vote_code', filter.vote_code)
+      }
+
+      if (filter?.category) {
+        query = query.eq('category', filter.category)
+      }
+
+      if (filter?.department) {
+        query = query.eq('department', filter.department)
+      }
+
       if (filter?.date_from) {
         query = query.gte('order_date', filter.date_from)
       }
@@ -111,13 +240,21 @@ export async function getPurchaseOrders(
       const from = (page - 1) * pageSize
       const to = from + pageSize - 1
 
+      // Dynamic sorting
+      // Default to po_number desc if not specified, but function defaults to po_number desc
+
+      // Handle special sort cases if needed, but for now simple column sort
       const { data, error, count } = await query
-        .order('order_date', { ascending: false })
+        .order(sortBy, { ascending: sortOrder === 'asc' })
         .range(from, to)
 
       if (error) throw error
 
-      const rows = (data || []) as PurchaseOrderWithRelations[]
+      const rows = (data || []).map(row => ({
+        ...row,
+        supplier: Array.isArray(row.supplier) ? row.supplier[0] : row.supplier,
+        budget: Array.isArray(row.budget) ? row.budget[0] : row.budget
+      })) as unknown as PurchaseOrderWithRelations[]
 
       return {
         data: {
@@ -138,7 +275,15 @@ export async function getPurchaseOrders(
       const search = filter.search.toLowerCase()
       orders = orders.filter(o =>
         o.po_number.toLowerCase().includes(search) ||
-        o.supplier?.company_name.toLowerCase().includes(search)
+        o.supplier?.company_name.toLowerCase().includes(search) ||
+        o.delivery_address?.toLowerCase().includes(search) ||
+        o.notes?.toLowerCase().includes(search) ||
+        // Check items if they exist in the mock relation
+        (o as any).items?.some((item: any) =>
+          item.drug?.drug_name.toLowerCase().includes(search) ||
+          item.non_drug?.item_name.toLowerCase().includes(search) ||
+          item.item_name?.toLowerCase().includes(search)
+        )
       )
     }
 
@@ -221,7 +366,7 @@ export async function getPurchaseOrderById(
     }
 
     const order = mockPurchaseOrders.find(o => o.id === poId)
-    
+
     if (!order) {
       return { data: null, error: 'Purchase order not found' }
     }
@@ -249,55 +394,68 @@ export async function createPurchaseOrder(
     const subtotal = data.items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
     const tax_amount = 0 // No tax
     const total_amount = subtotal
+    const poType = data.po_type || 'regular'
 
     if (isSupabaseConfigured()) {
       const today = new Date()
       const orderDate = today.toISOString().split('T')[0]
       const year = today.getFullYear()
-      
-      // Get the highest PO number for the current year and this hospital
-      const { data: existingPOs, error: poError } = await supabase
+
+      // Determine Prefix based on PO Type
+      // SQ-2026-xxxx for 'sq'
+      // PO-2026-xxxx for others
+      const prefix = poType === 'sq' ? 'SQ' : 'PO'
+      const searchPattern = `${prefix}-${year}-%`
+
+      // Get the highest number for the current year and type
+      const { data: existingRecords, error: poError } = await supabase
         .from('pharmacy_purchase_orders')
         .select('po_number')
         .eq('hospital_id', hospitalId)
-        .like('po_number', `PO-${year}-%`)
+        .like('po_number', searchPattern)
         .order('po_number', { ascending: false })
         .limit(1)
-      
+
       let nextNumber = 1
-      if (!poError && existingPOs && existingPOs.length > 0) {
-        const lastPONumber = existingPOs[0].po_number
-        const match = lastPONumber.match(/PO-\d{4}-(\d{4})/)
+      if (!poError && existingRecords && existingRecords.length > 0) {
+        const lastNumber = existingRecords[0].po_number
+        // Match suffix digits
+        const match = lastNumber.match(new RegExp(`${prefix}-${year}-(\\d{4})`))
         if (match) {
           nextNumber = parseInt(match[1], 10) + 1
         }
       }
-      
-      const poNumber = `PO-${year}-${String(nextNumber).padStart(4, '0')}`
+
+      const documentNumber = `${prefix}-${year}-${String(nextNumber).padStart(4, '0')}`
+
+      const insertPayload: any = {
+        hospital_id: hospitalId,
+        po_number: documentNumber,
+        po_type: poType,
+        supplier_id: data.supplier_id || null, // Allow null for Manual PO
+        manual_supplier_name: data.manual_supplier_name,
+        sq_suppliers: data.sq_suppliers,
+        budget_id: data.budget_id,
+        vote_code: data.vote_code,
+        vote_activity: data.vote_activity,
+        category: data.category,
+        department: data.department,
+        order_date: orderDate,
+        expected_delivery_date: data.expected_delivery_date,
+        subtotal,
+        tax_amount,
+        total_amount,
+        payment_terms: data.payment_terms,
+        delivery_address: data.delivery_address,
+        status: 'draft',
+        created_by: userId,
+        notes: data.notes,
+        kkm_contract_number: data.kkm_contract_number,
+      }
 
       const { data: inserted, error } = await supabase
         .from('pharmacy_purchase_orders')
-        .insert({
-          hospital_id: hospitalId,
-          po_number: poNumber,
-          po_type: data.po_type || 'regular',
-          supplier_id: data.supplier_id,
-          budget_id: data.budget_id,
-          vote_code: data.vote_code,
-          vote_activity: data.vote_activity,
-          category: data.category,
-          department: data.department,
-          order_date: orderDate,
-          expected_delivery_date: data.expected_delivery_date,
-          subtotal,
-          tax_amount,
-          total_amount,
-          payment_terms: data.payment_terms,
-          delivery_address: data.delivery_address,
-          status: 'draft',
-          created_by: userId,
-          notes: data.notes,
-        })
+        .insert(insertPayload)
         .select('*')
         .single()
 
@@ -307,7 +465,9 @@ export async function createPurchaseOrder(
         const poItems = data.items.map((item) => ({
           po_id: inserted.id,
           item_type: item.item_type,
-          item_id: item.item_id,
+          item_id: item.item_id || null, // Allow null for manual
+          item_name: item.item_name, // Store manual name
+          item_code: item.item_code, // Store manual code
           quantity_ordered: item.quantity,
           unit_price: item.unit_price,
           total_price: item.quantity * item.unit_price,
@@ -321,6 +481,12 @@ export async function createPurchaseOrder(
         if (itemsError) throw itemsError
       }
 
+      // Background sync to CC/APPL Allocation if relevant
+      if (poType === 'regular' || poType === 'manual') {
+        syncSinglePOToCCAllocation(hospitalId, inserted.id).catch(console.error)
+        syncSinglePOToAPPLAllocation(hospitalId, inserted.id).catch(console.error)
+      }
+
       return { data: inserted as PurchaseOrder, error: null }
     }
 
@@ -328,15 +494,18 @@ export async function createPurchaseOrder(
     await new Promise(resolve => setTimeout(resolve, 500))
 
     const year = new Date().getFullYear()
-    const mockNextNumber = 1 // In mock mode, always start from 0001
-    const poNumber = `PO-${year}-${String(mockNextNumber).padStart(4, '0')}`
+    const prefix = poType === 'sq' ? 'SQ' : 'PO'
+    const mockNextNumber = 1
+    const poNumber = `${prefix}-${year}-${String(mockNextNumber).padStart(4, '0')}`
 
     const newOrder: PurchaseOrder = {
       id: `po-${Date.now()}`,
       hospital_id: hospitalId,
       po_number: poNumber,
-      po_type: data.po_type,
-      supplier_id: data.supplier_id,
+      po_type: poType,
+      supplier_id: data.supplier_id || '',
+      manual_supplier_name: data.manual_supplier_name,
+      sq_suppliers: data.sq_suppliers,
       budget_id: data.budget_id,
       vote_code: data.vote_code,
       vote_activity: data.vote_activity,
@@ -352,6 +521,7 @@ export async function createPurchaseOrder(
       status: 'draft',
       created_by: userId,
       notes: data.notes,
+      kkm_contract_number: data.kkm_contract_number,
       created_at: new Date().toISOString(),
     }
 
@@ -370,12 +540,12 @@ export async function createPurchaseOrder(
  */
 export async function updatePurchaseOrder(
   poId: string,
-  userId: string,
-  data: PurchaseOrderFormData
+  _userId: string,
+  data: Partial<PurchaseOrderFormData>
 ): Promise<ApiResponse<PurchaseOrder>> {
   try {
     // Calculate totals
-    const subtotal = data.items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
+    const subtotal = data.items?.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0) || 0
     const tax_amount = 0 // No tax
     const total_amount = subtotal
 
@@ -401,8 +571,10 @@ export async function updatePurchaseOrder(
       const { data: updated, error } = await supabase
         .from('pharmacy_purchase_orders')
         .update({
-          supplier_id: data.supplier_id,
-          budget_id: data.budget_id,
+          supplier_id: data.supplier_id || null,
+          manual_supplier_name: data.manual_supplier_name,
+          sq_suppliers: data.sq_suppliers,
+          budget_id: data.budget_id || null,
           vote_code: data.vote_code,
           vote_activity: data.vote_activity,
           category: data.category,
@@ -414,6 +586,7 @@ export async function updatePurchaseOrder(
           payment_terms: data.payment_terms,
           delivery_address: data.delivery_address,
           notes: data.notes,
+          kkm_contract_number: data.kkm_contract_number,
           updated_at: new Date().toISOString(),
         })
         .eq('id', poId)
@@ -430,11 +603,13 @@ export async function updatePurchaseOrder(
 
       if (deleteItemsError) throw deleteItemsError
 
-      if (data.items.length > 0) {
+      if (data.items && data.items.length > 0) {
         const poItems = data.items.map((item) => ({
           po_id: poId,
           item_type: item.item_type,
-          item_id: item.item_id,
+          item_id: item.item_id || null,
+          item_name: item.item_name,
+          item_code: item.item_code,
           quantity_ordered: item.quantity,
           unit_price: item.unit_price,
           total_price: item.quantity * item.unit_price,
@@ -447,6 +622,10 @@ export async function updatePurchaseOrder(
 
         if (itemsError) throw itemsError
       }
+
+      // Background sync to CC/APPL Allocation if relevant
+      syncSinglePOToCCAllocation(existingPO.hospital_id, poId).catch(console.error)
+      syncSinglePOToAPPLAllocation(existingPO.hospital_id, poId).catch(console.error)
 
       return { data: updated as PurchaseOrder, error: null }
     }
@@ -465,12 +644,12 @@ export async function updatePurchaseOrder(
 
     const updated: PurchaseOrder = {
       ...existingOrder,
-      supplier_id: data.supplier_id,
+      supplier_id: data.supplier_id || '',
       budget_id: data.budget_id,
       vote_code: data.vote_code,
       vote_activity: data.vote_activity,
-      category: data.category,
-      department: data.department,
+      category: data.category || 'drug',
+      department: data.department || '',
       expected_delivery_date: data.expected_delivery_date,
       subtotal,
       tax_amount,
@@ -478,6 +657,7 @@ export async function updatePurchaseOrder(
       payment_terms: data.payment_terms,
       delivery_address: data.delivery_address,
       notes: data.notes,
+      kkm_contract_number: data.kkm_contract_number,
       updated_at: new Date().toISOString(),
     }
 
@@ -514,6 +694,13 @@ export async function submitPurchaseOrder(poId: string): Promise<ApiResponse<Pur
         .single()
 
       if (error) throw error
+
+      // Background sync to CC/APPL Allocation if relevant
+      if (updated.hospital_id) {
+        syncSinglePOToCCAllocation(updated.hospital_id, updated.id).catch(console.error)
+        syncSinglePOToAPPLAllocation(updated.hospital_id, updated.id).catch(console.error)
+      }
+
       return { data: updated as PurchaseOrder, error: null }
     }
 
@@ -564,6 +751,13 @@ export async function approvePurchaseOrder(
         .single()
 
       if (error) throw error
+
+      // Background sync to CC/APPL Allocation if relevant
+      if (updated.hospital_id) {
+        syncSinglePOToCCAllocation(updated.hospital_id, updated.id).catch(console.error)
+        syncSinglePOToAPPLAllocation(updated.hospital_id, updated.id).catch(console.error)
+      }
+
       return { data: updated as PurchaseOrder, error: null }
     }
 
@@ -598,10 +792,38 @@ export async function approvePurchaseOrder(
  */
 export async function rejectPurchaseOrder(
   poId: string,
-  rejectorId: string,
+  _rejectorId: string,
   reason: string
 ): Promise<ApiResponse<PurchaseOrder>> {
   try {
+    if (isSupabaseConfigured()) {
+      // Update status to cancelled and set notes
+      const { data: updated, error } = await supabase
+        .from('pharmacy_purchase_orders')
+        .update({
+          status: 'cancelled',
+          notes: `Cancelled: ${reason}`,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', poId)
+        .select()
+        .single()
+
+      if (error) {
+        if ((error as any).code === 'PGRST116') {
+          return { data: null, error: 'Purchase order not found' }
+        }
+        throw error
+      }
+
+      // Background sync to CC/APPL Allocation if relevant
+      syncSinglePOToCCAllocation(updated.hospital_id, poId).catch(console.error)
+      syncSinglePOToAPPLAllocation(updated.hospital_id, poId).catch(console.error)
+
+      return { data: updated as PurchaseOrder, error: null }
+    }
+
+    // Fallback mock implementation
     await new Promise(resolve => setTimeout(resolve, 500))
 
     const order = mockPurchaseOrders.find(o => o.id === poId)
@@ -631,7 +853,7 @@ export async function rejectPurchaseOrder(
  */
 export async function deletePurchaseOrder(
   poId: string,
-  userId: string
+  _userId: string
 ): Promise<ApiResponse<boolean>> {
   try {
     if (isSupabaseConfigured()) {
@@ -715,6 +937,13 @@ export async function sendPurchaseOrder(poId: string): Promise<ApiResponse<Purch
         .single()
 
       if (error) throw error
+
+      // Background sync to CC/APPL Allocation if relevant
+      if (updated.hospital_id) {
+        syncSinglePOToCCAllocation(updated.hospital_id, updated.id).catch(console.error)
+        syncSinglePOToAPPLAllocation(updated.hospital_id, updated.id).catch(console.error)
+      }
+
       return { data: updated as PurchaseOrder, error: null }
     }
 
@@ -846,7 +1075,7 @@ export interface SupplierFilter {
  * Get suppliers with optional filtering (used by catalogs and supplier page)
  */
 export async function getSuppliers(
-  hospitalId?: string,
+  _hospitalId?: string,
   page: number = 1,
   pageSize: number = 10,
   filter?: SupplierFilter
@@ -973,7 +1202,7 @@ export async function getSupplierById(supplierId: string): Promise<ApiResponse<S
     }
 
     const supplier = mockSuppliers.find(s => s.id === supplierId)
-    
+
     if (!supplier) {
       return { data: null, error: 'Supplier not found' }
     }
