@@ -7,7 +7,8 @@ interface AuthState {
   isAuthenticated: boolean
   isLoading: boolean
   sessionExpiresAt: number | null
-  
+  activeRoleCode: string | null
+
   // Actions
   setUser: (user: UserWithRelations | null) => void
   setLoading: (isLoading: boolean) => void
@@ -16,6 +17,7 @@ interface AuthState {
   updateUser: (updates: Partial<User>) => void
   checkSession: () => boolean
   extendSession: () => void
+  setActiveRoleCode: (roleCode: string | null) => void
 }
 
 // Session duration in milliseconds (Phase 9: Security - 30 minute timeout)
@@ -28,6 +30,7 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: true,
       sessionExpiresAt: null,
+      activeRoleCode: null,
 
       setUser: (user) => {
         set({
@@ -49,6 +52,27 @@ export const useAuthStore = create<AuthState>()(
           isLoading: false,
           sessionExpiresAt: expiresAt,
         })
+
+        // Load menus for the user with proper context
+        import('@/stores/menuStore').then(({ useMenuStore }) => {
+          // Determine department context based on user's role
+          const roleCode = user.role?.role_code
+          let deptContext: string | undefined = undefined
+
+          // Pharmacy roles get pharmacy context
+          if (roleCode && [
+            'pharmacy_director', 'pharmacy_manager', 'pharmacist',
+            'pharmacy_assistant', 'pharmacy_storekeeper', 'pharmacy_staff'
+          ].includes(roleCode)) {
+            deptContext = 'pharmacy_logistics'
+          }
+          // Admin roles get admin context
+          else if (roleCode === 'hospital_admin' || roleCode === 'system_admin') {
+            deptContext = 'hospital_admin'
+          }
+
+          useMenuStore.getState().fetchMenus(user.id, { departmentCode: deptContext })
+        })
       },
 
       logout: () => {
@@ -57,6 +81,12 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: false,
           isLoading: false,
           sessionExpiresAt: null,
+          activeRoleCode: null, // Clear view mode on logout
+        })
+
+        // Clear menus on logout
+        import('@/stores/menuStore').then(({ useMenuStore }) => {
+          useMenuStore.getState().clearMenus()
         })
       },
 
@@ -72,12 +102,12 @@ export const useAuthStore = create<AuthState>()(
       checkSession: () => {
         const { sessionExpiresAt, isAuthenticated } = get()
         if (!isAuthenticated || !sessionExpiresAt) return false
-        
+
         if (Date.now() > sessionExpiresAt) {
           get().logout()
           return false
         }
-        
+
         return true
       },
 
@@ -89,6 +119,40 @@ export const useAuthStore = create<AuthState>()(
           })
         }
       },
+
+      setActiveRoleCode: (activeRoleCode) => {
+        set({ activeRoleCode })
+
+        // Trigger menu re-fetch with simulated context
+        const user = get().user
+        if (user) {
+          import('@/stores/menuStore').then(({ useMenuStore }) => {
+            // Infer department based on role for better simulation
+            let simulatedDept = undefined
+
+            if (activeRoleCode && [
+              'pharmacy_director',
+              'pharmacy_manager',
+              'pharmacist',
+              'pharmacy_assistant',
+              'pharmacy_storekeeper',
+              'pharmacy_staff'
+            ].includes(activeRoleCode)) {
+              simulatedDept = 'pharmacy_logistics'
+            }
+
+            // If switching back to Admin, we want to ensure we see Hospital Admin menus
+            if (activeRoleCode === 'hospital_admin' || activeRoleCode === 'system_admin' || !activeRoleCode) {
+              simulatedDept = 'hospital_admin'
+            }
+
+            useMenuStore.getState().fetchMenus(user.id, {
+              roleCode: activeRoleCode || undefined,
+              departmentCode: simulatedDept
+            })
+          })
+        }
+      },
     }),
     {
       name: 'home-auth-storage',
@@ -97,6 +161,7 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         isAuthenticated: state.isAuthenticated,
         sessionExpiresAt: state.sessionExpiresAt,
+        activeRoleCode: state.activeRoleCode,
       }),
     }
   )
