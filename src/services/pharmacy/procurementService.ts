@@ -3,7 +3,7 @@
  * Handles purchase orders, goods receipts, and supplier management
  */
 
-import { supabase, isSupabaseConfigured } from '../supabase'
+import { supabase } from '../supabase'
 import { syncSinglePOToCCAllocation } from './ccAllocationService'
 import { syncSinglePOToAPPLAllocation } from './applAllocationService'
 import type { ApiResponse, PaginatedResponse } from '@/types'
@@ -19,10 +19,6 @@ import type {
   OrderTracking,
   ProcurementStats,
 } from '@/types/pharmacy'
-import {
-  mockPurchaseOrders,
-  mockSuppliers,
-} from './mockData'
 
 // =====================================================
 // PURCHASE ORDER MANAGEMENT
@@ -38,67 +34,160 @@ import {
  */
 export async function getProcurementStats(hospitalId: string): Promise<ApiResponse<ProcurementStats>> {
   try {
-    if (isSupabaseConfigured()) {
-      // Fetch all POs (lightweight query) to calculate stats
-      // We only need specific fields for aggregation
-      const { data, error } = await supabase
-        .from('pharmacy_purchase_orders')
-        .select('status, total_amount, category, department, vote_code')
-        .eq('hospital_id', hospitalId)
+    const currentYear = new Date().getFullYear()
+    const startDate = `${currentYear}-01-01`
+    const endDate = `${currentYear}-12-31`
 
-      if (error) throw error
+    // Fetch all POs (lightweight query) to calculate stats
+    // We only need specific fields for aggregation
+    // Filter by current year and relevant vote codes to match Warrant/Allocation logic
+    const { data, error } = await supabase
+      .from('pharmacy_purchase_orders')
+      .select('id, status, total_amount, category, department, vote_code, vote_activity')
+      .eq('hospital_id', hospitalId)
+      .gte('order_date', startDate)
+      .lte('order_date', endDate)
+      .in('vote_code', ['080702', '990102'])
+      .neq('status', 'cancelled')
 
-      const orders = data || []
+    if (error) throw error
 
-      const stats: ProcurementStats = {
-        total_orders: orders.length,
-        total_value: orders.reduce((sum, order) => sum + (order.total_amount || 0), 0),
-        pending_orders: orders.filter(o => ['draft', 'pending_approval', 'approved'].includes(o.status)).length,
-        completed_orders: orders.filter(o => ['completed', 'received'].includes(o.status)).length,
-        by_status: {},
-        by_category: {},
-        by_department: {},
-        by_vote_code: {}
+    const orders = data || []
+    const poIds = orders.map(o => o.id)
+
+    let totalItems = 0
+    const itemsBreakdown: Record<string, number> = {}
+
+    let itemsData: { id: string, item_type: string, po_id: string }[] = []
+
+    if (poIds.length > 0) {
+      // Fetch items for these POs
+      const { data, error: itemsError } = await supabase
+        .from('pharmacy_purchase_order_items')
+        .select('id, item_type, po_id')
+        .in('po_id', poIds)
+
+      if (!itemsError && data) {
+        itemsData = data
+        // Count distinct line items instead of summing quantities
+        totalItems = itemsData.length
+
+        // Calculate breakdown
+        itemsData.forEach(item => {
+          const type = item.item_type === 'drug' ? 'Drugs' :
+            item.item_type === 'non_drug' ? 'Non-Drugs' : 'Others'
+          itemsBreakdown[type] = (itemsBreakdown[type] || 0) + 1
+        })
+      }
+    }
+
+    // CRITICAL: Calculate Total Purchase Value from Expense Tables
+    // This ensures 100% alignment with Warrant Dashboard
+    const { data: ccExpenses } = await supabase
+      .from('pharmacy_cc_expenses')
+      .select('amount')
+      .eq('hospital_id', hospitalId)
+      .eq('fiscal_year', currentYear)
+      .neq('status', 'cancelled')
+
+    const { data: applExpenses } = await supabase
+      .from('pharmacy_appl_expenses')
+      .select('amount')
+      .eq('hospital_id', hospitalId)
+      .eq('fiscal_year', currentYear)
+      .neq('status', 'cancelled')
+
+    const totalValue = (ccExpenses?.reduce((sum, e) => sum + (e.amount || 0), 0) || 0) +
+      (applExpenses?.reduce((sum, e) => sum + (e.amount || 0), 0) || 0)
+
+    const stats: ProcurementStats = {
+      total_orders: orders.length,
+      total_value: totalValue,
+      pending_orders: orders.filter(o => ['draft', 'pending_approval', 'approved', 'sent'].includes(o.status)).length,
+      completed_orders: orders.filter(o => ['completed', 'received'].includes(o.status)).length,
+      total_items: totalItems,
+      items_breakdown: itemsBreakdown,
+      by_status: {},
+      by_category: {},
+      by_department: {},
+      by_vote_code: {}
+    }
+
+    // Calculate breakdowns
+    orders.forEach(order => {
+      // Status
+      stats.by_status[order.status] = (stats.by_status[order.status] || 0) + 1
+
+      // Category
+      if (order.category) {
+        stats.by_category[order.category] = (stats.by_category[order.category] || 0) + 1
       }
 
-      // Calculate breakdowns
-      orders.forEach(order => {
-        // Status
-        stats.by_status[order.status] = (stats.by_status[order.status] || 0) + 1
+      // Department
+      if (order.department) {
+        stats.by_department[order.department] = (stats.by_department[order.department] || 0) + 1
+      }
 
-        // Category
-        if (order.category) {
-          stats.by_category[order.category] = (stats.by_category[order.category] || 0) + 1
-        }
+      // Vote Code
+      if (order.vote_code) {
+        stats.by_vote_code[order.vote_code] = (stats.by_vote_code[order.vote_code] || 0) + 1
+      }
+    })
 
-        // Department
-        if (order.department) {
-          stats.by_department[order.department] = (stats.by_department[order.department] || 0) + 1
-        }
+    // Calculate detailed department breakdown
+    const deptMap = new Map<string, Map<string, { orders: number, items: number, activities: Map<string, { orders: number, items: number }> }>>()
 
-        // Vote Code
-        if (order.vote_code) {
-          stats.by_vote_code[order.vote_code] = (stats.by_vote_code[order.vote_code] || 0) + 1
-        }
-      })
+    orders.forEach(order => {
+      const dept = order.department || 'Unassigned'
+      const vc = order.vote_code || 'Unassigned'
 
-      return { data: stats, error: null }
-    }
+      if (!deptMap.has(dept)) {
+        deptMap.set(dept, new Map())
+      }
+      const vcMap = deptMap.get(dept)!
 
-    // Mock stats
-    return {
-      data: {
-        total_orders: 15,
-        total_value: 101794.08,
-        pending_orders: 15,
-        completed_orders: 0,
-        by_status: { draft: 15 },
-        by_category: { drug: 15 },
-        by_department: { pharmacy: 15 },
-        by_vote_code: { '080702': 15 }
-      },
-      error: null
-    }
+      if (!vcMap.has(vc)) {
+        vcMap.set(vc, { orders: 0, items: 0, activities: new Map() })
+      }
+
+      const entry = vcMap.get(vc)!
+      entry.orders += 1
+
+      // Count items for this order
+      let orderItemsCount = 0
+      if (itemsData) {
+        orderItemsCount = itemsData.filter(i => i.po_id === order.id).length
+        entry.items += orderItemsCount
+      }
+
+      // Group by activity
+      const act = order.vote_activity || 'Unassigned'
+      const actMap = entry.activities
+      if (!actMap.has(act)) {
+        actMap.set(act, { orders: 0, items: 0 })
+      }
+      const actEntry = actMap.get(act)!
+      actEntry.orders += 1
+      actEntry.items += orderItemsCount
+    })
+
+    const department_breakdown = Array.from(deptMap.entries()).map(([dept, vcMap]) => ({
+      department: dept,
+      vote_codes: Array.from(vcMap.entries()).map(([code, data]) => ({
+        code,
+        total_orders: data.orders,
+        total_items: data.items,
+        activities: Array.from(data.activities.entries()).map(([actCode, actData]) => ({
+          code: actCode,
+          total_orders: actData.orders,
+          total_items: actData.items
+        }))
+      }))
+    }))
+
+    stats.department_breakdown = department_breakdown
+
+    return { data: stats, error: null }
 
   } catch (error) {
     console.error('Error fetching procurement stats:', error)
@@ -121,206 +210,174 @@ export async function getPurchaseOrders(
   sortOrder: 'asc' | 'desc' = 'desc'
 ): Promise<ApiResponse<PaginatedResponse<PurchaseOrderWithRelations>>> {
   try {
-    if (isSupabaseConfigured()) {
-      let query = supabase
-        .from('pharmacy_purchase_orders')
-        .select(
-          `
-          id,
-          hospital_id,
-          po_number,
-          po_type,
-          supplier_id,
-          budget_id,
-          vote_code,
-          vote_activity,
-          category,
-          department,
-          order_date,
-          expected_delivery_date,
-          actual_delivery_date,
-          subtotal,
-          tax_amount,
-          total_amount,
-          payment_terms,
-          delivery_address,
-          status,
-          created_by,
-          approved_by,
-          approved_at,
-          notes,
-          created_at,
-          updated_at,
-          supplier:suppliers(*),
-          budget:pharmacy_budgets(*)
-        `,
-          { count: 'exact' }
-        )
-        .eq('hospital_id', hospitalId)
-
-      if (filter?.search) {
-        const search = filter.search.trim()
-        if (search) {
-          // Search for matching drug and non-drug items to include them in PO search
-          const [{ data: drugMatches }, { data: nonDrugMatches }, { data: supplierMatches }] = await Promise.all([
-            supabase.from('drugs').select('id').eq('hospital_id', hospitalId).ilike('drug_name', `%${search}%`),
-            supabase.from('non_drugs').select('id').eq('hospital_id', hospitalId).ilike('item_name', `%${search}%`),
-            supabase.from('suppliers').select('id').ilike('company_name', `%${search}%`)
-          ])
-
-          const itemIds = [
-            ...(drugMatches?.map(d => d.id) || []),
-            ...(nonDrugMatches?.map(nd => nd.id) || [])
-          ]
-
-          const supplierIds = supplierMatches?.map(s => s.id) || []
-
-          let poIdsFromItems: string[] = []
-          if (itemIds.length > 0) {
-            const { data: itemPos } = await supabase
-              .from('pharmacy_purchase_order_items')
-              .select('po_id')
-              .in('item_id', itemIds)
-
-            if (itemPos) {
-              poIdsFromItems = Array.from(new Set(itemPos.map(ip => ip.po_id)))
-            }
-          }
-
-          const orConditions = [
-            `po_number.ilike.%${search}%`,
-            `delivery_address.ilike.%${search}%`,
-            `notes.ilike.%${search}%`
-          ]
-
-          if (poIdsFromItems.length > 0) {
-            orConditions.push(`id.in.(${poIdsFromItems.join(',')})`)
-          }
-
-          if (supplierIds.length > 0) {
-            orConditions.push(`supplier_id.in.(${supplierIds.join(',')})`)
-          }
-
-          query = query.or(orConditions.join(','))
-        }
-      }
-
-      if (filter?.status && filter.status !== 'all') {
-        query = query.eq('status', filter.status)
-      }
-
-      if (filter?.supplier_id) {
-        query = query.eq('supplier_id', filter.supplier_id)
-      }
-
-      if (filter?.po_type && filter.po_type !== 'all') {
-        query = query.eq('po_type', filter.po_type)
-      }
-
-      if (filter?.vote_code) {
-        query = query.eq('vote_code', filter.vote_code)
-      }
-
-      if (filter?.category) {
-        query = query.eq('category', filter.category)
-      }
-
-      if (filter?.department) {
-        query = query.eq('department', filter.department)
-      }
-
-      if (filter?.date_from) {
-        query = query.gte('order_date', filter.date_from)
-      }
-
-      if (filter?.date_to) {
-        query = query.lte('order_date', filter.date_to)
-      }
-
-      const from = (page - 1) * pageSize
-      const to = from + pageSize - 1
-
-      // Dynamic sorting
-      // Default to po_number desc if not specified, but function defaults to po_number desc
-
-      // Handle special sort cases if needed, but for now simple column sort
-      const { data, error, count } = await query
-        .order(sortBy, { ascending: sortOrder === 'asc' })
-        .range(from, to)
-
-      if (error) throw error
-
-      const rows = (data || []).map(row => ({
-        ...row,
-        supplier: Array.isArray(row.supplier) ? row.supplier[0] : row.supplier,
-        budget: Array.isArray(row.budget) ? row.budget[0] : row.budget
-      })) as unknown as PurchaseOrderWithRelations[]
-
-      return {
-        data: {
-          data: rows,
-          total: count || 0,
-          page,
-          pageSize,
-          totalPages: Math.ceil((count || 0) / pageSize),
-        },
-        error: null,
-      }
-    }
-
-    // Fallback to mock data when Supabase is not configured
-    let orders = [...mockPurchaseOrders]
+    let query = supabase
+      .from('pharmacy_purchase_orders')
+      .select(
+        `
+        id,
+        hospital_id,
+        po_number,
+        po_type,
+        supplier_id,
+        budget_id,
+        vote_code,
+        vote_activity,
+        category,
+        department,
+        order_date,
+        expected_delivery_date,
+        actual_delivery_date,
+        subtotal,
+        tax_amount,
+        total_amount,
+        payment_terms,
+        delivery_address,
+        status,
+        created_by,
+        approved_by,
+        approved_at,
+        notes,
+        created_at,
+        updated_at,
+        supplier:suppliers(*),
+        budget:pharmacy_budgets(*)
+      `,
+        { count: 'exact' }
+      )
+      .eq('hospital_id', hospitalId)
 
     if (filter?.search) {
-      const search = filter.search.toLowerCase()
-      orders = orders.filter(o =>
-        o.po_number.toLowerCase().includes(search) ||
-        o.supplier?.company_name.toLowerCase().includes(search) ||
-        o.delivery_address?.toLowerCase().includes(search) ||
-        o.notes?.toLowerCase().includes(search) ||
-        // Check items if they exist in the mock relation
-        (o as any).items?.some((item: any) =>
-          item.drug?.drug_name.toLowerCase().includes(search) ||
-          item.non_drug?.item_name.toLowerCase().includes(search) ||
-          item.item_name?.toLowerCase().includes(search)
-        )
-      )
+      const search = filter.search.trim()
+      if (search) {
+        // Search for matching drug and non-drug items (including APPL) to include them in PO search
+        const [
+          { data: drugMatches },
+          { data: nonDrugMatches },
+          { data: applDrugMatches },
+          { data: applNonDrugMatches },
+          { data: supplierMatches },
+          { data: poItemMatches }
+        ] = await Promise.all([
+          supabase.from('drugs').select('id').eq('hospital_id', hospitalId).or(`drug_name.ilike.%${search}%,drug_code.ilike.%${search}%`),
+          supabase.from('non_drugs').select('id').eq('hospital_id', hospitalId).or(`item_name.ilike.%${search}%,item_code.ilike.%${search}%`),
+          supabase.from('appl_drugs').select('id').eq('hospital_id', hospitalId).or(`item_name.ilike.%${search}%,item_code.ilike.%${search}%`),
+          supabase.from('appl_non_drugs').select('id').eq('hospital_id', hospitalId).or(`item_name.ilike.%${search}%,item_code.ilike.%${search}%`),
+          supabase.from('suppliers').select('id').ilike('company_name', `%${search}%`),
+          supabase.from('pharmacy_purchase_order_items').select('po_id').or(`item_name.ilike.%${search}%,item_code.ilike.%${search}%`)
+        ])
+
+        const itemIds = [
+          ...(drugMatches?.map(d => d.id) || []),
+          ...(nonDrugMatches?.map(nd => nd.id) || []),
+          ...(applDrugMatches?.map(ad => ad.id) || []),
+          ...(applNonDrugMatches?.map(and => and.id) || [])
+        ]
+
+        const supplierIds = supplierMatches?.map(s => s.id) || []
+        const directPoIds = poItemMatches?.map(p => p.po_id) || []
+
+        let poIdsFromItems: string[] = [...directPoIds]
+        if (itemIds.length > 0) {
+          // Batch the itemIds to avoid URL length limits
+          const BATCH_SIZE = 50
+          const batches = []
+          for (let i = 0; i < itemIds.length; i += BATCH_SIZE) {
+            batches.push(itemIds.slice(i, i + BATCH_SIZE))
+          }
+
+          const itemPosResults = await Promise.all(
+            batches.map(batch =>
+              supabase
+                .from('pharmacy_purchase_order_items')
+                .select('po_id')
+                .in('item_id', batch)
+            )
+          )
+
+          const allItemPos = itemPosResults.flatMap(result => result.data || [])
+          poIdsFromItems = Array.from(new Set([...poIdsFromItems, ...allItemPos.map(ip => ip.po_id)]))
+        }
+
+        const orConditions = [
+          `po_number.ilike.%${search}%`,
+          `delivery_address.ilike.%${search}%`,
+          `notes.ilike.%${search}%`
+        ]
+
+        if (poIdsFromItems.length > 0) {
+          orConditions.push(`id.in.(${poIdsFromItems.join(',')})`)
+        }
+
+        if (supplierIds.length > 0) {
+          orConditions.push(`supplier_id.in.(${supplierIds.join(',')})`)
+        }
+
+        query = query.or(orConditions.join(','))
+      }
     }
 
     if (filter?.status && filter.status !== 'all') {
-      orders = orders.filter(o => o.status === filter.status)
+      query = query.eq('status', filter.status)
     }
 
     if (filter?.supplier_id) {
-      orders = orders.filter(o => o.supplier_id === filter.supplier_id)
+      query = query.eq('supplier_id', filter.supplier_id)
     }
 
     if (filter?.po_type && filter.po_type !== 'all') {
-      orders = orders.filter(o => o.po_type === filter.po_type)
+      if (filter.po_type === 'po_only') {
+        query = query.neq('po_type', 'sq')
+      } else {
+        query = query.eq('po_type', filter.po_type)
+      }
+    }
+
+    if (filter?.vote_code) {
+      query = query.eq('vote_code', filter.vote_code)
+    }
+
+    if (filter?.vote_activity) {
+      query = query.eq('vote_activity', filter.vote_activity)
+    }
+
+    if (filter?.category) {
+      query = query.eq('category', filter.category)
+    }
+
+    if (filter?.department) {
+      query = query.eq('department', filter.department)
     }
 
     if (filter?.date_from) {
-      orders = orders.filter(o => o.order_date >= filter.date_from!)
+      query = query.gte('order_date', filter.date_from)
     }
 
     if (filter?.date_to) {
-      orders = orders.filter(o => o.order_date <= filter.date_to!)
+      query = query.lte('order_date', filter.date_to)
     }
 
-    orders.sort((a, b) => new Date(b.order_date).getTime() - new Date(a.order_date).getTime())
+    const from = (page - 1) * pageSize
+    const to = from + pageSize - 1
 
-    const total = orders.length
-    const totalPages = Math.ceil(total / pageSize)
-    const start = (page - 1) * pageSize
-    const data = orders.slice(start, start + pageSize)
+    const { data, error, count } = await query
+      .order(sortBy, { ascending: sortOrder === 'asc' })
+      .range(from, to)
+
+    if (error) throw error
+
+    const rows = (data || []).map(row => ({
+      ...row,
+      supplier: Array.isArray(row.supplier) ? row.supplier[0] : row.supplier,
+      budget: Array.isArray(row.budget) ? row.budget[0] : row.budget
+    })) as unknown as PurchaseOrderWithRelations[]
 
     return {
       data: {
-        data,
-        total,
+        data: rows,
+        total: count || 0,
         page,
         pageSize,
-        totalPages,
+        totalPages: Math.ceil((count || 0) / pageSize),
       },
       error: null,
     }
@@ -340,38 +397,28 @@ export async function getPurchaseOrderById(
   poId: string
 ): Promise<ApiResponse<PurchaseOrderWithRelations>> {
   try {
-    if (isSupabaseConfigured()) {
-      const { data, error } = await supabase
-        .from('pharmacy_purchase_orders')
-        .select(
-          `
-          *,
-          supplier:suppliers(id, supplier_code, company_name, contact_person, email, phone, address, registration_number, bank_account, bank_name, account_number, account_document_url, mof_certificate_url, supplier_type, status, performance_rating, notes, hospital_id, created_at, updated_at),
-          budget:pharmacy_budgets(*),
-          items:pharmacy_purchase_order_items(*),
-          goods_receipts:pharmacy_goods_receipts(*)
+    const { data, error } = await supabase
+      .from('pharmacy_purchase_orders')
+      .select(
         `
-        )
-        .eq('id', poId)
-        .single()
+        *,
+        supplier:suppliers(id, supplier_code, company_name, contact_person, email, phone, address, registration_number, bank_account, bank_name, account_number, account_document_url, mof_certificate_url, bumiputera_registration_certificate_url, supplier_type, status, performance_rating, notes, hospital_id, created_at, updated_at),
+        budget:pharmacy_budgets(*),
+        items:pharmacy_purchase_order_items(*),
+        goods_receipts:pharmacy_goods_receipts(*)
+      `
+      )
+      .eq('id', poId)
+      .single()
 
-      if (error) {
-        if ((error as any).code === 'PGRST116') {
-          return { data: null, error: 'Purchase order not found' }
-        }
-        throw error
+    if (error) {
+      if ((error as any).code === 'PGRST116') {
+        return { data: null, error: 'Purchase order not found' }
       }
-
-      return { data: data as unknown as PurchaseOrderWithRelations, error: null }
+      throw error
     }
 
-    const order = mockPurchaseOrders.find(o => o.id === poId)
-
-    if (!order) {
-      return { data: null, error: 'Purchase order not found' }
-    }
-
-    return { data: order, error: null }
+    return { data: data as unknown as PurchaseOrderWithRelations, error: null }
   } catch (error) {
     console.error('Error fetching purchase order:', error)
     return {
@@ -396,122 +443,51 @@ export async function createPurchaseOrder(
     const total_amount = subtotal
     const poType = data.po_type || 'regular'
 
-    if (isSupabaseConfigured()) {
-      const today = new Date()
-      const orderDate = today.toISOString().split('T')[0]
-      const year = today.getFullYear()
+    const today = new Date()
+    const orderDate = today.toISOString().split('T')[0]
+    const year = today.getFullYear()
 
-      // Determine Prefix based on PO Type
-      // SQ-2026-xxxx for 'sq'
-      // PO-2026-xxxx for others
-      const prefix = poType === 'sq' ? 'SQ' : 'PO'
-      const searchPattern = `${prefix}-${year}-%`
+    // Determine Prefix based on PO Type
+    // SQ-2026-xxxx for 'sq'
+    // PO-2026-xxxx for others
+    const prefix = poType === 'sq' ? 'SQ' : 'PO'
+    const searchPattern = `${prefix}-${year}-%`
 
-      // Get the highest number for the current year and type
-      const { data: existingRecords, error: poError } = await supabase
-        .from('pharmacy_purchase_orders')
-        .select('po_number')
-        .eq('hospital_id', hospitalId)
-        .like('po_number', searchPattern)
-        .order('po_number', { ascending: false })
-        .limit(1)
+    // Get the highest number for the current year and type
+    const { data: existingRecords, error: poError } = await supabase
+      .from('pharmacy_purchase_orders')
+      .select('po_number')
+      .eq('hospital_id', hospitalId)
+      .like('po_number', searchPattern)
+      .order('po_number', { ascending: false })
+      .limit(1)
 
-      let nextNumber = 1
-      if (!poError && existingRecords && existingRecords.length > 0) {
-        const lastNumber = existingRecords[0].po_number
-        // Match suffix digits
-        const match = lastNumber.match(new RegExp(`${prefix}-${year}-(\\d{4})`))
-        if (match) {
-          nextNumber = parseInt(match[1], 10) + 1
-        }
+    let nextNumber = 1
+    if (!poError && existingRecords && existingRecords.length > 0) {
+      const lastNumber = existingRecords[0].po_number
+      // Match suffix digits
+      const match = lastNumber.match(new RegExp(`${prefix}-${year}-(\\d{4})`))
+      if (match) {
+        nextNumber = parseInt(match[1], 10) + 1
       }
-
-      const documentNumber = `${prefix}-${year}-${String(nextNumber).padStart(4, '0')}`
-
-      const insertPayload: any = {
-        hospital_id: hospitalId,
-        po_number: documentNumber,
-        po_type: poType,
-        supplier_id: data.supplier_id || null, // Allow null for Manual PO
-        manual_supplier_name: data.manual_supplier_name,
-        sq_suppliers: data.sq_suppliers,
-        budget_id: data.budget_id,
-        vote_code: data.vote_code,
-        vote_activity: data.vote_activity,
-        category: data.category,
-        department: data.department,
-        order_date: orderDate,
-        expected_delivery_date: data.expected_delivery_date,
-        subtotal,
-        tax_amount,
-        total_amount,
-        payment_terms: data.payment_terms,
-        delivery_address: data.delivery_address,
-        status: 'draft',
-        created_by: userId,
-        notes: data.notes,
-        kkm_contract_number: data.kkm_contract_number,
-      }
-
-      const { data: inserted, error } = await supabase
-        .from('pharmacy_purchase_orders')
-        .insert(insertPayload)
-        .select('*')
-        .single()
-
-      if (error) throw error
-
-      if (data.items.length > 0) {
-        const poItems = data.items.map((item) => ({
-          po_id: inserted.id,
-          item_type: item.item_type,
-          item_id: item.item_id || null, // Allow null for manual
-          item_name: item.item_name, // Store manual name
-          item_code: item.item_code, // Store manual code
-          quantity_ordered: item.quantity,
-          unit_price: item.unit_price,
-          total_price: item.quantity * item.unit_price,
-          packaging_description: item.packaging_description,
-        }))
-
-        const { error: itemsError } = await supabase
-          .from('pharmacy_purchase_order_items')
-          .insert(poItems)
-
-        if (itemsError) throw itemsError
-      }
-
-      // Background sync to CC/APPL Allocation if relevant
-      if (poType === 'regular' || poType === 'manual') {
-        syncSinglePOToCCAllocation(hospitalId, inserted.id).catch(console.error)
-        syncSinglePOToAPPLAllocation(hospitalId, inserted.id).catch(console.error)
-      }
-
-      return { data: inserted as PurchaseOrder, error: null }
     }
 
-    // Fallback mock implementation when Supabase is not configured
-    await new Promise(resolve => setTimeout(resolve, 500))
+    const documentNumber = `${prefix}-${year}-${String(nextNumber).padStart(4, '0')}`
 
-    const year = new Date().getFullYear()
-    const prefix = poType === 'sq' ? 'SQ' : 'PO'
-    const mockNextNumber = 1
-    const poNumber = `${prefix}-${year}-${String(mockNextNumber).padStart(4, '0')}`
-
-    const newOrder: PurchaseOrder = {
-      id: `po-${Date.now()}`,
+    const insertPayload: any = {
       hospital_id: hospitalId,
-      po_number: poNumber,
+      po_number: documentNumber,
       po_type: poType,
-      supplier_id: data.supplier_id || '',
+      supplier_id: data.supplier_id || null, // Allow null for Manual PO
       manual_supplier_name: data.manual_supplier_name,
+      manual_supplier_address: data.manual_supplier_address,
       sq_suppliers: data.sq_suppliers,
-      budget_id: data.budget_id,
-      vote_code: data.vote_code,
-      vote_activity: data.vote_activity,
-      category: data.category,
-      department: data.department,
-      order_date: new Date().toISOString().split('T')[0],
+      budget_id: data.budget_id || null,
+      vote_code: data.vote_code || null,
+      vote_activity: data.vote_activity || null,
+      category: data.category || null,
+      department: data.department || null,
+      order_date: orderDate,
       expected_delivery_date: data.expected_delivery_date,
       subtotal,
       tax_amount,
@@ -522,10 +498,50 @@ export async function createPurchaseOrder(
       created_by: userId,
       notes: data.notes,
       kkm_contract_number: data.kkm_contract_number,
-      created_at: new Date().toISOString(),
+      program_name: data.program_name,
     }
 
-    return { data: newOrder, error: null }
+    const { data: inserted, error } = await supabase
+      .from('pharmacy_purchase_orders')
+      .insert(insertPayload)
+      .select('*')
+      .single()
+
+    if (error) throw error
+
+    if (data.items.length > 0) {
+      const poItems = data.items.map((item) => ({
+        po_id: inserted.id,
+        item_type: item.item_type,
+        item_id: item.item_id || null, // Allow null for manual
+        item_name: item.item_name, // Store manual name
+        item_code: item.item_code, // Store manual code
+        quantity_ordered: item.quantity,
+        unit_price: item.unit_price,
+        total_price: item.quantity * item.unit_price,
+        packaging_description: item.packaging_description,
+      }))
+
+      const { error: itemsError } = await supabase
+        .from('pharmacy_purchase_order_items')
+        .insert(poItems)
+
+      if (itemsError) throw itemsError
+    }
+
+    // Background sync to CC/APPL Allocation if relevant
+    if (poType === 'regular' || poType === 'manual') {
+      const [ccSync, applSync] = await Promise.all([
+        syncSinglePOToCCAllocation(hospitalId, inserted.id),
+        syncSinglePOToAPPLAllocation(hospitalId, inserted.id)
+      ])
+
+      if (!ccSync.success || !applSync.success) {
+        console.error('Budget sync error during PO creation:', ccSync.error || applSync.error)
+      }
+    }
+
+    return { data: inserted as PurchaseOrder, error: null }
   } catch (error) {
     console.error('Error creating purchase order:', error)
     return {
@@ -549,124 +565,94 @@ export async function updatePurchaseOrder(
     const tax_amount = 0 // No tax
     const total_amount = subtotal
 
-    if (isSupabaseConfigured()) {
-      // First, get the existing PO to preserve po_number
-      const { data: existingPO, error: fetchError } = await supabase
-        .from('pharmacy_purchase_orders')
-        .select('*')
-        .eq('id', poId)
-        .single()
+    // First, get the existing PO to preserve po_number
+    const { data: existingPO, error: fetchError } = await supabase
+      .from('pharmacy_purchase_orders')
+      .select('*')
+      .eq('id', poId)
+      .single()
 
-      if (fetchError) throw fetchError
-      if (!existingPO) {
-        return { data: null, error: 'Purchase order not found' }
-      }
-
-      // Only allow editing if status is draft
-      if (existingPO.status !== 'draft') {
-        return { data: null, error: 'Only draft purchase orders can be edited' }
-      }
-
-      // Update the purchase order
-      const { data: updated, error } = await supabase
-        .from('pharmacy_purchase_orders')
-        .update({
-          supplier_id: data.supplier_id || null,
-          manual_supplier_name: data.manual_supplier_name,
-          sq_suppliers: data.sq_suppliers,
-          budget_id: data.budget_id || null,
-          vote_code: data.vote_code,
-          vote_activity: data.vote_activity,
-          category: data.category,
-          department: data.department,
-          expected_delivery_date: data.expected_delivery_date,
-          subtotal,
-          tax_amount,
-          total_amount,
-          payment_terms: data.payment_terms,
-          delivery_address: data.delivery_address,
-          notes: data.notes,
-          kkm_contract_number: data.kkm_contract_number,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', poId)
-        .select('*')
-        .single()
-
-      if (error) throw error
-
-      // Delete existing items and insert new ones
-      const { error: deleteItemsError } = await supabase
-        .from('pharmacy_purchase_order_items')
-        .delete()
-        .eq('po_id', poId)
-
-      if (deleteItemsError) throw deleteItemsError
-
-      if (data.items && data.items.length > 0) {
-        const poItems = data.items.map((item) => ({
-          po_id: poId,
-          item_type: item.item_type,
-          item_id: item.item_id || null,
-          item_name: item.item_name,
-          item_code: item.item_code,
-          quantity_ordered: item.quantity,
-          unit_price: item.unit_price,
-          total_price: item.quantity * item.unit_price,
-          packaging_description: item.packaging_description,
-        }))
-
-        const { error: itemsError } = await supabase
-          .from('pharmacy_purchase_order_items')
-          .insert(poItems)
-
-        if (itemsError) throw itemsError
-      }
-
-      // Background sync to CC/APPL Allocation if relevant
-      syncSinglePOToCCAllocation(existingPO.hospital_id, poId).catch(console.error)
-      syncSinglePOToAPPLAllocation(existingPO.hospital_id, poId).catch(console.error)
-
-      return { data: updated as PurchaseOrder, error: null }
-    }
-
-    // Fallback mock implementation when Supabase is not configured
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    const existingOrder = mockPurchaseOrders.find(o => o.id === poId)
-    if (!existingOrder) {
+    if (fetchError) throw fetchError
+    if (!existingPO) {
       return { data: null, error: 'Purchase order not found' }
     }
 
-    if (existingOrder.status !== 'draft') {
-      return { data: null, error: 'Only draft purchase orders can be edited' }
+    // Only allow editing if status is draft or pending_approval
+    if (existingPO.status !== 'draft' && existingPO.status !== 'pending_approval') {
+      return { data: null, error: 'Only draft or pending purchase orders can be edited' }
     }
 
-    const updated: PurchaseOrder = {
-      ...existingOrder,
-      supplier_id: data.supplier_id || '',
-      budget_id: data.budget_id,
-      vote_code: data.vote_code,
-      vote_activity: data.vote_activity,
-      category: data.category || 'drug',
-      department: data.department || '',
-      expected_delivery_date: data.expected_delivery_date,
-      subtotal,
-      tax_amount,
-      total_amount,
-      payment_terms: data.payment_terms,
-      delivery_address: data.delivery_address,
-      notes: data.notes,
-      kkm_contract_number: data.kkm_contract_number,
-      updated_at: new Date().toISOString(),
+    // Update the purchase order
+    const { data: updated, error } = await supabase
+      .from('pharmacy_purchase_orders')
+      .update({
+        status: 'draft', // Reset to draft on edit so it can be submitted again
+        supplier_id: data.supplier_id || null,
+        manual_supplier_name: data.manual_supplier_name,
+        manual_supplier_address: data.manual_supplier_address,
+        sq_suppliers: data.sq_suppliers,
+        budget_id: data.budget_id || null,
+        vote_code: data.vote_code || null,
+        vote_activity: data.vote_activity || null,
+        category: data.category || null,
+        department: data.department || null,
+        expected_delivery_date: data.expected_delivery_date,
+        subtotal,
+        tax_amount,
+        total_amount,
+        payment_terms: data.payment_terms,
+        delivery_address: data.delivery_address,
+        notes: data.notes,
+        kkm_contract_number: data.kkm_contract_number,
+        program_name: data.program_name,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', poId)
+      .select('*')
+      .single()
+
+    if (error) throw error
+
+    // Delete existing items and insert new ones
+    const { error: deleteItemsError } = await supabase
+      .from('pharmacy_purchase_order_items')
+      .delete()
+      .eq('po_id', poId)
+
+    if (deleteItemsError) throw deleteItemsError
+
+    if (data.items && data.items.length > 0) {
+      const poItems = data.items.map((item) => ({
+        po_id: poId,
+        item_type: item.item_type,
+        item_id: item.item_id || null,
+        item_name: item.item_name,
+        item_code: item.item_code,
+        quantity_ordered: item.quantity,
+        unit_price: item.unit_price,
+        total_price: item.quantity * item.unit_price,
+        packaging_description: item.packaging_description,
+      }))
+
+      const { error: itemsError } = await supabase
+        .from('pharmacy_purchase_order_items')
+        .insert(poItems)
+
+      if (itemsError) throw itemsError
     }
 
-    const idx = mockPurchaseOrders.findIndex(o => o.id === poId)
-    if (idx !== -1) {
-      mockPurchaseOrders[idx] = updated
+    // Background sync to CC/APPL Allocation if relevant
+    const [ccSync, applSync] = await Promise.all([
+      syncSinglePOToCCAllocation(existingPO.hospital_id, poId),
+      syncSinglePOToAPPLAllocation(existingPO.hospital_id, poId)
+    ])
+
+    // If sync fails, we still return the updated PO but we should log the sync error
+    if (!ccSync.success || !applSync.success) {
+      console.error('Budget sync error during PO update:', ccSync.error || applSync.error)
     }
 
-    return { data: updated, error: null }
+    return { data: updated as PurchaseOrder, error: null }
   } catch (error) {
     console.error('Error updating purchase order:', error)
     return {
@@ -679,46 +665,70 @@ export async function updatePurchaseOrder(
 /**
  * Submit purchase order for approval
  */
-export async function submitPurchaseOrder(poId: string): Promise<ApiResponse<PurchaseOrder>> {
+/**
+ * Submit purchase order for approval
+ */
+export async function submitPurchaseOrder(poId: string, userId: string): Promise<ApiResponse<PurchaseOrder>> {
   try {
-    if (isSupabaseConfigured()) {
-      // Update status to pending_approval
-      const { data: updated, error } = await supabase
-        .from('pharmacy_purchase_orders')
-        .update({
-          status: 'pending_approval',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', poId)
-        .select()
-        .single()
+    // 1. Get current PO details including department
+    const { data: po, error: fetchError } = await supabase
+      .from('pharmacy_purchase_orders')
+      .select('*, hospital_id')
+      .eq('id', poId)
+      .single()
 
-      if (error) throw error
+    if (fetchError || !po) throw new Error('Purchase Order not found')
 
-      // Background sync to CC/APPL Allocation if relevant
-      if (updated.hospital_id) {
-        syncSinglePOToCCAllocation(updated.hospital_id, updated.id).catch(console.error)
-        syncSinglePOToAPPLAllocation(updated.hospital_id, updated.id).catch(console.error)
-      }
+    // 2. Determine Workflow (Standard vs Exempt)
+    // For now, default to 'Standard PO Approval' unless department is exempt
+    // We ideally check department.approval_type here, but let's assume standard for now
 
-      return { data: updated as PurchaseOrder, error: null }
+    const { data: workflow, error: wfError } = await supabase
+      .from('approval_workflows')
+      .select('id')
+      .eq('workflow_name', 'Standard PO Approval')
+      .single()
+
+    if (wfError || !workflow) throw new Error('Approval workflow configuration missing')
+
+    // 3. Update PO status and Workflow state
+    const { data: updated, error } = await supabase
+      .from('pharmacy_purchase_orders')
+      .update({
+        status: 'pending_approval',
+        workflow_id: workflow.id,
+        current_step: 1, // Start at step 1
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', poId)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    // 4. Create Audit Log for Submission
+    const { error: logError } = await supabase
+      .from('approval_logs')
+      .insert({
+        entity_type: 'purchase_order',
+        entity_id: poId,
+        workflow_id: workflow.id,
+        step_order: 0, // 0 = Submission
+        action: 'submitted',
+        approved_by: userId,
+        notes: 'Submitted for approval',
+        created_at: new Date().toISOString()
+      })
+
+    if (logError) console.error('Failed to log approval submission:', logError)
+
+    // Background sync to CC/APPL Allocation if relevant
+    if (updated.hospital_id) {
+      syncSinglePOToCCAllocation(updated.hospital_id, updated.id).catch(console.error)
+      syncSinglePOToAPPLAllocation(updated.hospital_id, updated.id).catch(console.error)
     }
 
-    // Fallback mock implementation
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    const order = mockPurchaseOrders.find(o => o.id === poId)
-    if (!order) {
-      return { data: null, error: 'Purchase order not found' }
-    }
-
-    const updated = {
-      ...order,
-      status: 'pending_approval' as const,
-      updated_at: new Date().toISOString(),
-    }
-
-    return { data: updated, error: null }
+    return { data: updated as PurchaseOrder, error: null }
   } catch (error) {
     console.error('Error submitting purchase order:', error)
     return {
@@ -731,53 +741,91 @@ export async function submitPurchaseOrder(poId: string): Promise<ApiResponse<Pur
 /**
  * Approve purchase order
  */
+/**
+ * Approve purchase order
+ */
 export async function approvePurchaseOrder(
   poId: string,
   approverId: string
 ): Promise<ApiResponse<PurchaseOrder>> {
   try {
-    if (isSupabaseConfigured()) {
-      // Update status to approved and set approver info
-      const { data: updated, error } = await supabase
-        .from('pharmacy_purchase_orders')
-        .update({
-          status: 'approved',
-          approved_by: approverId,
-          approved_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', poId)
-        .select()
-        .single()
+    // 1. Get current PO details including workflow info
+    const { data: po, error: fetchError } = await supabase
+      .from('pharmacy_purchase_orders')
+      .select('*, hospital_id')
+      .eq('id', poId)
+      .single()
 
-      if (error) throw error
+    if (fetchError || !po) throw new Error('Purchase Order not found')
 
-      // Background sync to CC/APPL Allocation if relevant
-      if (updated.hospital_id) {
-        syncSinglePOToCCAllocation(updated.hospital_id, updated.id).catch(console.error)
-        syncSinglePOToAPPLAllocation(updated.hospital_id, updated.id).catch(console.error)
+    let nextStep = po.current_step
+    let isFinalStep = true
+
+    // 2. Check Workflow Progress if workflow_id exists
+    if (po.workflow_id) {
+      // Check if there is next step greater than current
+      const { data: nextSteps, error: stepError } = await supabase
+        .from('approval_workflow_steps')
+        .select('step_order')
+        .eq('workflow_id', po.workflow_id)
+        .gt('step_order', po.current_step || 0)
+        .order('step_order', { ascending: true })
+        .limit(1)
+
+      if (!stepError && nextSteps && nextSteps.length > 0) {
+        isFinalStep = false
+        nextStep = nextSteps[0].step_order
       }
-
-      return { data: updated as PurchaseOrder, error: null }
     }
 
-    // Fallback mock implementation
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    const order = mockPurchaseOrders.find(o => o.id === poId)
-    if (!order) {
-      return { data: null, error: 'Purchase order not found' }
+    // 3. Update PO Status
+    const updatePayload: any = {
+      updated_at: new Date().toISOString()
     }
 
-    const updated = {
-      ...order,
-      status: 'approved' as const,
-      approved_by: approverId,
-      approved_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+    if (isFinalStep) {
+      updatePayload.status = 'approved'
+      updatePayload.approved_by = approverId
+      updatePayload.approved_at = new Date().toISOString()
+      // If workflow exists, ensure we sit at the last step number or just let it stay
+    } else {
+      updatePayload.status = 'pending_approval'
+      updatePayload.current_step = nextStep
     }
 
-    return { data: updated, error: null }
+    const { data: updated, error } = await supabase
+      .from('pharmacy_purchase_orders')
+      .update(updatePayload)
+      .eq('id', poId)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    // 4. Log Approval Action
+    if (po.workflow_id) {
+      const { error: logError } = await supabase
+        .from('approval_logs')
+        .insert({
+          entity_type: 'purchase_order',
+          entity_id: poId,
+          workflow_id: po.workflow_id,
+          step_order: po.current_step || 1,
+          action: 'approved',
+          approved_by: approverId,
+          notes: isFinalStep ? 'Final Approval' : `Approved Step ${po.current_step}`,
+          created_at: new Date().toISOString()
+        })
+      if (logError) console.error('Failed to log approval:', logError)
+    }
+
+    // Background sync to CC/APPL Allocation if relevant
+    if (isFinalStep && updated.hospital_id) {
+      syncSinglePOToCCAllocation(updated.hospital_id, updated.id).catch(console.error)
+      syncSinglePOToAPPLAllocation(updated.hospital_id, updated.id).catch(console.error)
+    }
+
+    return { data: updated as PurchaseOrder, error: null }
   } catch (error) {
     console.error('Error approving purchase order:', error)
     return {
@@ -796,49 +844,30 @@ export async function rejectPurchaseOrder(
   reason: string
 ): Promise<ApiResponse<PurchaseOrder>> {
   try {
-    if (isSupabaseConfigured()) {
-      // Update status to cancelled and set notes
-      const { data: updated, error } = await supabase
-        .from('pharmacy_purchase_orders')
-        .update({
-          status: 'cancelled',
-          notes: `Cancelled: ${reason}`,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', poId)
-        .select()
-        .single()
+    // Update status to cancelled and set notes
+    const { data: updated, error } = await supabase
+      .from('pharmacy_purchase_orders')
+      .update({
+        status: 'cancelled',
+        notes: `Cancelled: ${reason}`,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', poId)
+      .select()
+      .single()
 
-      if (error) {
-        if ((error as any).code === 'PGRST116') {
-          return { data: null, error: 'Purchase order not found' }
-        }
-        throw error
+    if (error) {
+      if ((error as any).code === 'PGRST116') {
+        return { data: null, error: 'Purchase order not found' }
       }
-
-      // Background sync to CC/APPL Allocation if relevant
-      syncSinglePOToCCAllocation(updated.hospital_id, poId).catch(console.error)
-      syncSinglePOToAPPLAllocation(updated.hospital_id, poId).catch(console.error)
-
-      return { data: updated as PurchaseOrder, error: null }
+      throw error
     }
 
-    // Fallback mock implementation
-    await new Promise(resolve => setTimeout(resolve, 500))
+    // Background sync to CC/APPL Allocation if relevant
+    syncSinglePOToCCAllocation(updated.hospital_id, poId).catch(console.error)
+    syncSinglePOToAPPLAllocation(updated.hospital_id, poId).catch(console.error)
 
-    const order = mockPurchaseOrders.find(o => o.id === poId)
-    if (!order) {
-      return { data: null, error: 'Purchase order not found' }
-    }
-
-    const updated = {
-      ...order,
-      status: 'cancelled' as const,
-      notes: `Rejected: ${reason}`,
-      updated_at: new Date().toISOString(),
-    }
-
-    return { data: updated, error: null }
+    return { data: updated as PurchaseOrder, error: null }
   } catch (error) {
     console.error('Error rejecting purchase order:', error)
     return {
@@ -856,59 +885,41 @@ export async function deletePurchaseOrder(
   _userId: string
 ): Promise<ApiResponse<boolean>> {
   try {
-    if (isSupabaseConfigured()) {
-      // First check if PO exists and is in draft status
-      const { data: existingPO, error: fetchError } = await supabase
-        .from('pharmacy_purchase_orders')
-        .select('id, status')
-        .eq('id', poId)
-        .single()
+    // First check if PO exists and is in draft status
+    const { data: existingPO, error: fetchError } = await supabase
+      .from('pharmacy_purchase_orders')
+      .select('id, status')
+      .eq('id', poId)
+      .single()
 
-      if (fetchError || !existingPO) {
-        return { data: null, error: 'Purchase order not found' }
-      }
-
-      if (existingPO.status !== 'draft') {
-        return { data: null, error: 'Only draft purchase orders can be deleted' }
-      }
-
-      // Delete PO items first (cascade should handle this, but being explicit)
-      const { error: itemsError } = await supabase
-        .from('pharmacy_purchase_order_items')
-        .delete()
-        .eq('po_id', poId)
-
-      if (itemsError) {
-        console.error('Error deleting PO items:', itemsError)
-      }
-
-      // Delete the purchase order
-      const { error: deleteError } = await supabase
-        .from('pharmacy_purchase_orders')
-        .delete()
-        .eq('id', poId)
-
-      if (deleteError) {
-        throw deleteError
-      }
-
-      return { data: true, error: null }
-    }
-
-    // Fallback mock implementation
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    const orderIndex = mockPurchaseOrders.findIndex(o => o.id === poId)
-    if (orderIndex === -1) {
+    if (fetchError || !existingPO) {
       return { data: null, error: 'Purchase order not found' }
     }
 
-    const order = mockPurchaseOrders[orderIndex]
-    if (order.status !== 'draft') {
+    if (existingPO.status !== 'draft') {
       return { data: null, error: 'Only draft purchase orders can be deleted' }
     }
 
-    mockPurchaseOrders.splice(orderIndex, 1)
+    // Delete PO items first (cascade should handle this, but being explicit)
+    const { error: itemsError } = await supabase
+      .from('pharmacy_purchase_order_items')
+      .delete()
+      .eq('po_id', poId)
+
+    if (itemsError) {
+      console.error('Error deleting PO items:', itemsError)
+    }
+
+    // Delete the purchase order
+    const { error: deleteError } = await supabase
+      .from('pharmacy_purchase_orders')
+      .delete()
+      .eq('id', poId)
+
+    if (deleteError) {
+      throw deleteError
+    }
+
     return { data: true, error: null }
   } catch (error) {
     console.error('Error deleting purchase order:', error)
@@ -924,44 +935,26 @@ export async function deletePurchaseOrder(
  */
 export async function sendPurchaseOrder(poId: string): Promise<ApiResponse<PurchaseOrder>> {
   try {
-    if (isSupabaseConfigured()) {
-      // Update status to sent
-      const { data: updated, error } = await supabase
-        .from('pharmacy_purchase_orders')
-        .update({
-          status: 'sent',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', poId)
-        .select()
-        .single()
+    // Update status to sent
+    const { data: updated, error } = await supabase
+      .from('pharmacy_purchase_orders')
+      .update({
+        status: 'sent',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', poId)
+      .select()
+      .single()
 
-      if (error) throw error
+    if (error) throw error
 
-      // Background sync to CC/APPL Allocation if relevant
-      if (updated.hospital_id) {
-        syncSinglePOToCCAllocation(updated.hospital_id, updated.id).catch(console.error)
-        syncSinglePOToAPPLAllocation(updated.hospital_id, updated.id).catch(console.error)
-      }
-
-      return { data: updated as PurchaseOrder, error: null }
+    // Background sync to CC/APPL Allocation if relevant
+    if (updated.hospital_id) {
+      syncSinglePOToCCAllocation(updated.hospital_id, updated.id).catch(console.error)
+      syncSinglePOToAPPLAllocation(updated.hospital_id, updated.id).catch(console.error)
     }
 
-    // Fallback mock implementation
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    const order = mockPurchaseOrders.find(o => o.id === poId)
-    if (!order) {
-      return { data: null, error: 'Purchase order not found' }
-    }
-
-    const updated = {
-      ...order,
-      status: 'sent' as const,
-      updated_at: new Date().toISOString(),
-    }
-
-    return { data: updated, error: null }
+    return { data: updated as PurchaseOrder, error: null }
   } catch (error) {
     console.error('Error sending purchase order:', error)
     return {
@@ -984,74 +977,52 @@ export async function createGoodsReceipt(
   data: GoodsReceiptFormData
 ): Promise<ApiResponse<GoodsReceipt>> {
   try {
-    if (isSupabaseConfigured()) {
-      const today = new Date()
-      const receiptDate = today.toISOString().split('T')[0]
-      const grNumber = `GR-${today.getFullYear()}-${String(Date.now()).slice(-4)}`
+    const today = new Date()
+    const receiptDate = today.toISOString().split('T')[0]
+    const grNumber = `GR-${today.getFullYear()}-${String(Date.now()).slice(-4)}`
 
-      const { data: inserted, error } = await supabase
-        .from('pharmacy_goods_receipts')
-        .insert({
-          hospital_id: hospitalId,
-          gr_number: grNumber,
-          po_id: data.po_id,
-          receipt_date: receiptDate,
-          delivery_note_number: data.delivery_note_number,
-          invoice_number: data.invoice_number,
-          invoice_amount: data.invoice_amount,
-          status: 'pending',
-          received_by: userId,
-          notes: data.notes,
-        })
-        .select('*')
-        .single()
+    const { data: inserted, error } = await supabase
+      .from('pharmacy_goods_receipts')
+      .insert({
+        hospital_id: hospitalId,
+        gr_number: grNumber,
+        po_id: data.po_id,
+        receipt_date: receiptDate,
+        delivery_note_number: data.delivery_note_number,
+        invoice_number: data.invoice_number,
+        invoice_amount: data.invoice_amount,
+        status: 'pending',
+        received_by: userId,
+        notes: data.notes,
+      })
+      .select('*')
+      .single()
 
-      if (error) throw error
+    if (error) throw error
 
-      if (data.items && data.items.length > 0) {
-        const items = data.items.map((item) => ({
-          gr_id: inserted.id,
-          po_item_id: item.po_item_id,
-          quantity_received: item.quantity_received,
-          quantity_accepted: item.quantity_accepted,
-          quantity_rejected: item.quantity_rejected ?? 0,
-          batch_number: item.batch_number,
-          manufacturing_date: item.manufacturing_date,
-          expiry_date: item.expiry_date,
-          storage_location_id: item.storage_location_id,
-          rejection_reason: item.rejection_reason,
-          notes: item.notes,
-        }))
+    if (data.items && data.items.length > 0) {
+      const items = data.items.map((item) => ({
+        gr_id: inserted.id,
+        po_item_id: item.po_item_id,
+        quantity_received: item.quantity_received,
+        quantity_accepted: item.quantity_accepted,
+        quantity_rejected: item.quantity_rejected ?? 0,
+        batch_number: item.batch_number,
+        manufacturing_date: item.manufacturing_date,
+        expiry_date: item.expiry_date,
+        storage_location_id: item.storage_location_id,
+        rejection_reason: item.rejection_reason,
+        notes: item.notes,
+      }))
 
-        const { error: itemsError } = await supabase
-          .from('pharmacy_goods_receipt_items')
-          .insert(items)
+      const { error: itemsError } = await supabase
+        .from('pharmacy_goods_receipt_items')
+        .insert(items)
 
-        if (itemsError) throw itemsError
-      }
-
-      return { data: inserted as GoodsReceipt, error: null }
+      if (itemsError) throw itemsError
     }
 
-    // Fallback mock implementation
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    const newReceipt: GoodsReceipt = {
-      id: `gr-${Date.now()}`,
-      hospital_id: hospitalId,
-      gr_number: `GR-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`,
-      po_id: data.po_id,
-      receipt_date: new Date().toISOString().split('T')[0],
-      delivery_note_number: data.delivery_note_number,
-      invoice_number: data.invoice_number,
-      invoice_amount: data.invoice_amount,
-      status: 'pending',
-      received_by: userId,
-      notes: data.notes,
-      created_at: new Date().toISOString(),
-    }
-
-    return { data: newReceipt, error: null }
+    return { data: inserted as GoodsReceipt, error: null }
   } catch (error) {
     console.error('Error creating goods receipt:', error)
     return {
@@ -1081,92 +1052,54 @@ export async function getSuppliers(
   filter?: SupplierFilter
 ): Promise<ApiResponse<PaginatedResponse<Supplier>>> {
   try {
-    if (isSupabaseConfigured()) {
-      let query = supabase
-        .from('suppliers')
-        .select('*', { count: 'exact' })
+    let query = supabase
+      .from('suppliers')
+      .select('*', { count: 'exact' })
 
-      // Always show global suppliers (hospital_id IS NULL)
-      // If hospitalId is provided, also show hospital-specific suppliers
-      // Note: For now, showing all suppliers regardless of hospital_id to ensure global suppliers are visible
-      // TODO: Refine this to properly filter by hospital_id when needed
-      // if (hospitalId) {
-      //   query = query.or(`hospital_id.eq.${hospitalId},hospital_id.is.null`)
-      // } else {
-      //   query = query.is('hospital_id', null)
-      // }
-
-      if (filter?.status && filter.status !== 'all') {
-        query = query.eq('status', filter.status)
-      }
-
-      if (filter?.supplier_type && filter.supplier_type !== 'all') {
-        query = query.eq('supplier_type', filter.supplier_type)
-      }
-
-      if (filter?.search) {
-        const search = filter.search.trim()
-        if (search) {
-          query = query.or(
-            [
-              `company_name.ilike.%${search}%`,
-              `supplier_code.ilike.%${search}%`,
-              `contact_person.ilike.%${search}%`,
-            ].join(',')
-          )
-        }
-      }
-
-      const { data, error, count } = await query
-        .order('company_name', { ascending: true })
-        .range((page - 1) * pageSize, page * pageSize - 1)
-
-      if (error) throw error
-
-      return {
-        data: {
-          data: (data || []) as Supplier[],
-          total: count || 0,
-          page,
-          pageSize,
-          totalPages: Math.ceil((count || 0) / pageSize),
-        },
-        error: null,
-      }
-    }
-
-    // Fallback to mock data
-    let suppliers = [...mockSuppliers]
+    // Always show global suppliers (hospital_id IS NULL)
+    // If hospitalId is provided, also show hospital-specific suppliers
+    // Note: For now, showing all suppliers regardless of hospital_id to ensure global suppliers are visible
+    // TODO: Refine this to properly filter by hospital_id when needed
+    // if (hospitalId) {
+    //   query = query.or(`hospital_id.eq.${hospitalId},hospital_id.is.null`)
+    // } else {
+    //   query = query.is('hospital_id', null)
+    // }
 
     if (filter?.status && filter.status !== 'all') {
-      suppliers = suppliers.filter(s => s.status === filter.status)
+      query = query.eq('status', filter.status)
     }
 
     if (filter?.supplier_type && filter.supplier_type !== 'all') {
-      suppliers = suppliers.filter(s => s.supplier_type === filter.supplier_type)
+      query = query.eq('supplier_type', filter.supplier_type)
     }
 
     if (filter?.search) {
-      const search = filter.search.toLowerCase()
-      suppliers = suppliers.filter(s =>
-        s.company_name.toLowerCase().includes(search) ||
-        s.supplier_code.toLowerCase().includes(search) ||
-        (s.contact_person || '').toLowerCase().includes(search)
-      )
+      const search = filter.search.trim()
+      if (search) {
+        query = query.or(
+          [
+            `company_name.ilike.%${search}%`,
+            `supplier_code.ilike.%${search}%`,
+            `contact_person.ilike.%${search}%`,
+          ].join(',')
+        )
+      }
     }
 
-    const total = suppliers.length
-    const totalPages = Math.ceil(total / pageSize)
-    const start = (page - 1) * pageSize
-    const data = suppliers.slice(start, start + pageSize)
+    const { data, error, count } = await query
+      .order('company_name', { ascending: true })
+      .range((page - 1) * pageSize, page * pageSize - 1)
+
+    if (error) throw error
 
     return {
       data: {
-        data,
-        total,
+        data: (data || []) as Supplier[],
+        total: count || 0,
         page,
         pageSize,
-        totalPages,
+        totalPages: Math.ceil((count || 0) / pageSize),
       },
       error: null,
     }
@@ -1184,30 +1117,20 @@ export async function getSuppliers(
  */
 export async function getSupplierById(supplierId: string): Promise<ApiResponse<SupplierWithRelations>> {
   try {
-    if (isSupabaseConfigured()) {
-      const { data, error } = await supabase
-        .from('suppliers')
-        .select('*')
-        .eq('id', supplierId)
-        .single()
+    const { data, error } = await supabase
+      .from('suppliers')
+      .select('*')
+      .eq('id', supplierId)
+      .single()
 
-      if (error) {
-        if ((error as any).code === 'PGRST116') {
-          return { data: null, error: 'Supplier not found' }
-        }
-        throw error
+    if (error) {
+      if ((error as any).code === 'PGRST116') {
+        return { data: null, error: 'Supplier not found' }
       }
-
-      return { data: data as SupplierWithRelations, error: null }
+      throw error
     }
 
-    const supplier = mockSuppliers.find(s => s.id === supplierId)
-
-    if (!supplier) {
-      return { data: null, error: 'Supplier not found' }
-    }
-
-    return { data: supplier as SupplierWithRelations, error: null }
+    return { data: data as SupplierWithRelations, error: null }
   } catch (error) {
     console.error('Error fetching supplier:', error)
     return {
@@ -1222,29 +1145,24 @@ export async function getSupplierById(supplierId: string): Promise<ApiResponse<S
  */
 export async function getActiveSuppliers(hospitalId?: string): Promise<ApiResponse<Supplier[]>> {
   try {
-    if (isSupabaseConfigured()) {
-      let query = supabase
-        .from('suppliers')
-        .select('*')
-        .eq('status', 'active')
+    let query = supabase
+      .from('suppliers')
+      .select('*')
+      .eq('status', 'active')
 
-      if (hospitalId) {
-        // Include both hospital-specific suppliers AND global suppliers (hospital_id IS NULL)
-        query = query.or(`hospital_id.eq.${hospitalId},hospital_id.is.null`)
-      } else {
-        // If no hospitalId provided, show only global suppliers
-        query = query.is('hospital_id', null)
-      }
-
-      const { data, error } = await query.order('company_name', { ascending: true })
-
-      if (error) throw error
-
-      return { data: (data || []) as Supplier[], error: null }
+    if (hospitalId) {
+      // Include both hospital-specific suppliers AND global suppliers (hospital_id IS NULL)
+      query = query.or(`hospital_id.eq.${hospitalId},hospital_id.is.null`)
+    } else {
+      // If no hospitalId provided, show only global suppliers
+      query = query.is('hospital_id', null)
     }
 
-    const suppliers = mockSuppliers.filter(s => s.status === 'active')
-    return { data: suppliers, error: null }
+    const { data, error } = await query.order('company_name', { ascending: true })
+
+    if (error) throw error
+
+    return { data: (data || []) as Supplier[], error: null }
   } catch (error) {
     console.error('Error fetching active suppliers:', error)
     return {
@@ -1274,17 +1192,7 @@ export async function getSupplierStatistics(
   hospitalId?: string
 ): Promise<ApiResponse<SupplierStatistics>> {
   try {
-    if (!isSupabaseConfigured()) {
-      return {
-        data: {
-          totalOrders: 0,
-          totalValue: 0,
-          averageOrderValue: 0,
-          ordersByYear: [],
-        },
-        error: null,
-      }
-    }
+    // Supabase check removed, using direct calls
 
     let query = supabase
       .from('pharmacy_purchase_orders')
@@ -1395,36 +1303,21 @@ export async function createSupplier(
       hospital_id: hospitalId || undefined,
     } as any
 
-    if (isSupabaseConfigured()) {
-      const { data: created, error } = await supabase
-        .from('suppliers')
-        .insert(insertData)
-        .select('*')
-        .single()
+    const { data: created, error } = await supabase
+      .from('suppliers')
+      .insert(insertData)
+      .select('*')
+      .single()
 
-      if (error) {
-        console.error('Error creating supplier in Supabase:', error)
-        return {
-          data: null,
-          error: error.message || 'Failed to create supplier',
-        }
+    if (error) {
+      console.error('Error creating supplier in Supabase:', error)
+      return {
+        data: null,
+        error: error.message || 'Failed to create supplier',
       }
-
-      return { data: created as Supplier, error: null }
     }
 
-    // Fallback to mock data
-    const newSupplier: Supplier = {
-      id: `sup-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
-      ...insertData,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    } as Supplier
-
-    mockSuppliers.push(newSupplier)
-    console.warn('[createSupplier] Created supplier in MOCK data only:', newSupplier.company_name)
-
-    return { data: newSupplier, error: null }
+    return { data: created as Supplier, error: null }
   } catch (error) {
     console.error('Error creating supplier:', error)
     return {
@@ -1446,42 +1339,22 @@ export async function updateSupplier(
       ...data,
     }
 
-    if (isSupabaseConfigured()) {
-      const { data: updated, error } = await supabase
-        .from('suppliers')
-        .update(updateData)
-        .eq('id', supplierId)
-        .select('*')
-        .single()
+    const { data: updated, error } = await supabase
+      .from('suppliers')
+      .update(updateData)
+      .eq('id', supplierId)
+      .select('*')
+      .single()
 
-      if (error) {
-        console.error('Error updating supplier in Supabase:', error)
-        return {
-          data: null,
-          error: error.message || 'Failed to update supplier',
-        }
+    if (error) {
+      console.error('Error updating supplier in Supabase:', error)
+      return {
+        data: null,
+        error: error.message || 'Failed to update supplier',
       }
-
-      return { data: updated as Supplier, error: null }
     }
 
-    const existing = mockSuppliers.find(s => s.id === supplierId)
-    if (!existing) {
-      return { data: null, error: 'Supplier not found' }
-    }
-
-    const merged: Supplier = {
-      ...existing,
-      ...data,
-      updated_at: new Date().toISOString(),
-    }
-
-    const idx = mockSuppliers.findIndex(s => s.id === supplierId)
-    if (idx !== -1) {
-      mockSuppliers[idx] = merged
-    }
-
-    return { data: merged, error: null }
+    return { data: updated as Supplier, error: null }
   } catch (error) {
     console.error('Error updating supplier:', error)
     return {
@@ -1500,32 +1373,15 @@ export async function updateSupplier(
  */
 export async function getOrderTracking(poId: string): Promise<ApiResponse<OrderTracking[]>> {
   try {
-    if (isSupabaseConfigured()) {
-      const { data, error } = await supabase
-        .from('pharmacy_order_tracking')
-        .select('*')
-        .eq('po_id', poId)
-        .order('status_date', { ascending: true })
+    const { data, error } = await supabase
+      .from('pharmacy_order_tracking')
+      .select('*')
+      .eq('po_id', poId)
+      .order('status_date', { ascending: true })
 
-      if (error) throw error
+    if (error) throw error
 
-      return { data: (data || []) as OrderTracking[], error: null }
-    }
-
-    // Minimal synthetic history when Supabase is not configured
-    const tracking: OrderTracking[] = [
-      {
-        id: `track-${poId}-1`,
-        po_id: poId,
-        status: 'Order Created',
-        status_date: new Date().toISOString(),
-        notes: 'Purchase order created',
-        updated_by: 'system',
-        created_at: new Date().toISOString(),
-      },
-    ]
-
-    return { data: tracking, error: null }
+    return { data: (data || []) as OrderTracking[], error: null }
   } catch (error) {
     console.error('Error fetching order tracking:', error)
     return {
@@ -1545,39 +1401,23 @@ export async function addTrackingUpdate(
   userId: string
 ): Promise<ApiResponse<OrderTracking>> {
   try {
-    if (isSupabaseConfigured()) {
-      const now = new Date().toISOString()
+    const now = new Date().toISOString()
 
-      const { data, error } = await supabase
-        .from('pharmacy_order_tracking')
-        .insert({
-          po_id: poId,
-          status,
-          status_date: now,
-          notes,
-          updated_by: userId,
-        })
-        .select('*')
-        .single()
+    const { data, error } = await supabase
+      .from('pharmacy_order_tracking')
+      .insert({
+        po_id: poId,
+        status,
+        status_date: now,
+        notes,
+        updated_by: userId,
+      })
+      .select('*')
+      .single()
 
-      if (error) throw error
+    if (error) throw error
 
-      return { data: data as OrderTracking, error: null }
-    }
-
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    const newTracking: OrderTracking = {
-      id: `track-${Date.now()}`,
-      po_id: poId,
-      status,
-      status_date: new Date().toISOString(),
-      notes,
-      updated_by: userId,
-      created_at: new Date().toISOString(),
-    }
-
-    return { data: newTracking, error: null }
+    return { data: data as OrderTracking, error: null }
   } catch (error) {
     console.error('Error adding tracking update:', error)
     return {

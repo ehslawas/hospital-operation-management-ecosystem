@@ -14,7 +14,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   allowedRoles,
 }) => {
   const location = useLocation()
-  const { isAuthenticated, isLoading, user } = useAuthStore()
+  const { isAuthenticated, isLoading, user, activeRoleCode } = useAuthStore()
 
   // Show loading while checking auth
   if (isLoading) {
@@ -28,7 +28,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   // Check role-based access
   if (allowedRoles && allowedRoles.length > 0) {
-    const userRole = user?.role?.role_code
+    const userRole = activeRoleCode || user?.role?.role_code
     if (!userRole || !allowedRoles.includes(userRole)) {
       // User doesn't have required role, redirect to dashboard
       return <Navigate to={ROUTES.DASHBOARD} replace />
@@ -39,4 +39,3 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 }
 
 export default ProtectedRoute
-

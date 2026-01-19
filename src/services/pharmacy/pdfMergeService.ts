@@ -11,6 +11,7 @@ export interface MergePDFOptions {
   poElement: HTMLElement
   accountDocumentUrl?: string | null
   mofCertificateUrl?: string | null
+  bumiputeraRegistrationCertificateUrl?: string | null
   poNumber: string
 }
 
@@ -30,7 +31,7 @@ async function htmlToPdf(element: HTMLElement): Promise<Uint8Array> {
   const originalDisplay = element.style.display
   const originalVisibility = element.style.visibility
   const originalPosition = element.style.position
-  
+
   // Temporarily make element visible if it's hidden
   if (window.getComputedStyle(element).display === 'none' || element.classList.contains('hidden')) {
     element.style.setProperty('display', 'block', 'important')
@@ -41,15 +42,15 @@ async function htmlToPdf(element: HTMLElement): Promise<Uint8Array> {
     element.style.setProperty('top', '0', 'important')
     element.style.setProperty('width', '210mm', 'important')
     element.style.setProperty('pointer-events', 'none', 'important')
-    
+
     // Force a reflow
     void element.offsetHeight
     await new Promise(resolve => setTimeout(resolve, 100))
   }
-  
+
   // Get all pages in the element
   const pages = element.querySelectorAll('.page')
-  
+
   // Debug logging
   console.log('htmlToPdf - Element:', {
     tagName: element.tagName,
@@ -60,14 +61,14 @@ async function htmlToPdf(element: HTMLElement): Promise<Uint8Array> {
     innerHTMLLength: element.innerHTML.length,
     pagesFound: pages.length
   })
-  
+
   if (pages.length === 0) {
     // Try to find elements without .page class as fallback
     const allDivs = element.querySelectorAll('div')
     console.error('No .page elements found. Available divs:', allDivs.length)
     console.error('First few div classes:', Array.from(allDivs).slice(0, 5).map(d => d.className))
     console.error('Element HTML (first 1000 chars):', element.innerHTML.substring(0, 1000))
-    
+
     // Restore styles before throwing
     element.style.display = originalDisplay || ''
     element.style.visibility = originalVisibility || ''
@@ -77,10 +78,10 @@ async function htmlToPdf(element: HTMLElement): Promise<Uint8Array> {
     element.style.removeProperty('top')
     element.style.removeProperty('width')
     element.style.removeProperty('pointer-events')
-    
+
     throw new Error('No pages found in the element. Make sure the print section has elements with class "page".')
   }
-  
+
   // Restore original styles if we changed them
   if (originalDisplay === '' && element.style.display === 'block') {
     element.style.removeProperty('display')
@@ -93,7 +94,7 @@ async function htmlToPdf(element: HTMLElement): Promise<Uint8Array> {
   // Professional PDF settings - A4 dimensions (Government Standard)
   const pdfWidth = 210 // A4 width in mm
   const pdfHeight = 297 // A4 height in mm
-  
+
   // A4 dimensions in pixels at 96 DPI (standard screen DPI)
   // 210mm = 8.27 inches = 794 pixels
   // 297mm = 11.69 inches = 1123 pixels
@@ -126,13 +127,13 @@ async function htmlToPdf(element: HTMLElement): Promise<Uint8Array> {
 
     for (let i = 0; i < pages.length; i++) {
       const originalPage = pages[i] as HTMLElement
-      
+
       // Clone the page for rendering
       const clonedPage = originalPage.cloneNode(true) as HTMLElement
-      
+
       // Get computed styles to preserve original styling
       const computedStyle = window.getComputedStyle(originalPage)
-      
+
       // Set up cloned page for rendering with exact A4 dimensions
       clonedPage.style.position = 'relative'
       clonedPage.style.display = 'block'
@@ -146,10 +147,10 @@ async function htmlToPdf(element: HTMLElement): Promise<Uint8Array> {
       clonedPage.style.overflow = 'visible' // Allow content to render properly
       clonedPage.style.fontFamily = computedStyle.fontFamily || "'Times New Roman', serif"
       clonedPage.style.fontSize = computedStyle.fontSize || '11pt'
-      
+
       // Append to temp container
       tempContainer.appendChild(clonedPage)
-      
+
       // Force reflow and wait for fonts/images to load
       void clonedPage.offsetHeight
       await new Promise(resolve => setTimeout(resolve, 200))
@@ -173,7 +174,6 @@ async function htmlToPdf(element: HTMLElement): Promise<Uint8Array> {
         windowHeight: actualHeight,
         removeContainer: false,
         imageTimeout: 15000,
-        letterRendering: true, // Better text rendering
         foreignObjectRendering: true, // Better rendering of complex elements
       })
 
@@ -190,8 +190,8 @@ async function htmlToPdf(element: HTMLElement): Promise<Uint8Array> {
 
       // Calculate dimensions - canvas is 4x scale
       // Convert pixels to mm: 1px at 96 DPI = 0.264583mm
-      const imgWidthMM = (canvas.width / 4) * 0.264583
-      const imgHeightMM = (canvas.height / 4) * 0.264583
+      // const imgWidthMM = (canvas.width / 4) * 0.264583
+      // const imgHeightMM = (canvas.height / 4) * 0.264583
 
       // Add image to PDF with exact A4 dimensions (fills entire page)
       // This ensures proper margins are preserved from the original HTML
@@ -228,7 +228,7 @@ async function htmlToPdf(element: HTMLElement): Promise<Uint8Array> {
 async function fetchPdfBytes(url: string): Promise<Uint8Array> {
   try {
     const response = await fetch(url)
-    
+
     if (!response.ok) {
       throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`)
     }
@@ -251,7 +251,7 @@ async function mergePdfs(pdfBytesArray: Uint8Array[]): Promise<Uint8Array> {
     try {
       const pdf = await PDFDocument.load(pdfBytes)
       const pages = await mergedPdf.copyPages(pdf, pdf.getPageIndices())
-      
+
       for (const page of pages) {
         mergedPdf.addPage(page)
       }
@@ -268,12 +268,13 @@ async function mergePdfs(pdfBytesArray: Uint8Array[]): Promise<Uint8Array> {
  * Main function to merge PO with supplier documents
  */
 export async function mergePOWithSupplierDocs(options: MergePDFOptions): Promise<MergePDFResult> {
-  const { poElement, accountDocumentUrl, mofCertificateUrl, poNumber } = options
+  const { poElement, accountDocumentUrl, mofCertificateUrl, bumiputeraRegistrationCertificateUrl } = options
 
   try {
     console.log('Starting PDF merge process...')
     console.log('Account Document URL:', accountDocumentUrl)
     console.log('MOF Certificate URL:', mofCertificateUrl)
+    console.log('Bumiputera Certificate URL:', bumiputeraRegistrationCertificateUrl)
 
     const pdfBytesArray: Uint8Array[] = []
 
@@ -309,13 +310,26 @@ export async function mergePOWithSupplierDocs(options: MergePDFOptions): Promise
       }
     }
 
-    // Step 4: Merge all PDFs
+    // Step 4: Fetch Bumiputera Certificate PDF if available
+    if (bumiputeraRegistrationCertificateUrl) {
+      console.log('Fetching Bumiputera Certificate...')
+      try {
+        const bumiputeraPdfBytes = await fetchPdfBytes(bumiputeraRegistrationCertificateUrl)
+        pdfBytesArray.push(bumiputeraPdfBytes)
+        console.log('Bumiputera Certificate fetched successfully')
+      } catch (error) {
+        console.warn('Failed to fetch Bumiputera Certificate:', error)
+        // Continue without this document
+      }
+    }
+
+    // Step 5: Merge all PDFs
     console.log('Merging PDFs...')
     const mergedPdfBytes = await mergePdfs(pdfBytesArray)
     console.log('PDFs merged successfully')
 
-    // Step 5: Create blob and URL
-    const pdfBlob = new Blob([mergedPdfBytes], { type: 'application/pdf' })
+    // Step 6: Create blob and URL
+    const pdfBlob = new Blob([mergedPdfBytes as any], { type: 'application/pdf' })
     const pdfUrl = URL.createObjectURL(pdfBlob)
 
     console.log('PDF merge complete')
@@ -339,7 +353,7 @@ export async function mergePOWithSupplierDocs(options: MergePDFOptions): Promise
  */
 export function openPdfForPrint(pdfUrl: string): void {
   const printWindow = window.open(pdfUrl, '_blank')
-  
+
   if (printWindow) {
     printWindow.onload = () => {
       // Wait a bit for PDF to render, then trigger print

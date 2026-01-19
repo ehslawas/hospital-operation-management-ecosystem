@@ -1,6 +1,10 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { User, UserWithRelations } from '@/types'
+import { User } from '@/types'
+import { SESSION_TIMEOUT_MINUTES } from '@/lib/constants'
+import type { UserWithRelations } from '@/types'
+
+const SESSION_DURATION = SESSION_TIMEOUT_MINUTES * 60 * 1000
 
 interface AuthState {
   user: UserWithRelations | null
@@ -8,6 +12,7 @@ interface AuthState {
   isLoading: boolean
   sessionExpiresAt: number | null
   activeRoleCode: string | null
+  supabaseSessionReady: boolean // NEW: Tracks if Supabase session has been verified
 
   // Actions
   setUser: (user: UserWithRelations | null) => void
@@ -18,10 +23,10 @@ interface AuthState {
   checkSession: () => boolean
   extendSession: () => void
   setActiveRoleCode: (roleCode: string | null) => void
+  setSupabaseSessionReady: (ready: boolean) => void // NEW
 }
 
-// Session duration in milliseconds (Phase 9: Security - 30 minute timeout)
-const SESSION_DURATION = 30 * 60 * 1000
+
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -31,6 +36,7 @@ export const useAuthStore = create<AuthState>()(
       isLoading: true,
       sessionExpiresAt: null,
       activeRoleCode: null,
+      supabaseSessionReady: false, // NEW: Starts as false, set to true after session verified
 
       setUser: (user) => {
         set({
@@ -53,26 +59,9 @@ export const useAuthStore = create<AuthState>()(
           sessionExpiresAt: expiresAt,
         })
 
-        // Load menus for the user with proper context
-        import('@/stores/menuStore').then(({ useMenuStore }) => {
-          // Determine department context based on user's role
-          const roleCode = user.role?.role_code
-          let deptContext: string | undefined = undefined
-
-          // Pharmacy roles get pharmacy context
-          if (roleCode && [
-            'pharmacy_director', 'pharmacy_manager', 'pharmacist',
-            'pharmacy_assistant', 'pharmacy_storekeeper', 'pharmacy_staff'
-          ].includes(roleCode)) {
-            deptContext = 'pharmacy_logistics'
-          }
-          // Admin roles get admin context
-          else if (roleCode === 'hospital_admin' || roleCode === 'system_admin') {
-            deptContext = 'hospital_admin'
-          }
-
-          useMenuStore.getState().fetchMenus(user.id, { departmentCode: deptContext })
-        })
+        // Menu loading is now handled by Sidebar component to prevent race conditions
+        // and ensure consistent behavior across page reloads vs fresh logins
+        console.log('[AuthStore] Login successful, session established')
       },
 
       logout: () => {
@@ -81,7 +70,8 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: false,
           isLoading: false,
           sessionExpiresAt: null,
-          activeRoleCode: null, // Clear view mode on logout
+          activeRoleCode: null,
+          supabaseSessionReady: false, // Reset on logout
         })
 
         // Clear menus on logout
@@ -131,12 +121,8 @@ export const useAuthStore = create<AuthState>()(
             let simulatedDept = undefined
 
             if (activeRoleCode && [
-              'pharmacy_director',
-              'pharmacy_manager',
               'pharmacist',
-              'pharmacy_assistant',
-              'pharmacy_storekeeper',
-              'pharmacy_staff'
+              'assistant_pharmacist'
             ].includes(activeRoleCode)) {
               simulatedDept = 'pharmacy_logistics'
             }
@@ -148,10 +134,16 @@ export const useAuthStore = create<AuthState>()(
 
             useMenuStore.getState().fetchMenus(user.id, {
               roleCode: activeRoleCode || undefined,
-              departmentCode: simulatedDept
+              departmentCode: simulatedDept,
+              user: user
             })
           })
         }
+      },
+
+      setSupabaseSessionReady: (ready) => {
+        set({ supabaseSessionReady: ready })
+        console.log('[AuthStore] Supabase session ready:', ready)
       },
     }),
     {

@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { MetricsCard } from '@/features/emergency/components/MetricsCard';
 import { TestOrdersQueue } from '../components/TestOrdersQueue';
 import { ResultsEntryModal } from '../components/ResultsEntryModal';
+import { PharmacyLogisticsWidget } from '@/features/pharmacy-logistics/components/PharmacyLogisticsWidget';
 import type { TestOrder, TestResult } from '../types/Lab';
 import { mockTestOrders, mockLabEquipment, calculateLabStats } from '../services/mockLabData';
 
@@ -12,7 +13,7 @@ export default function LaboratoryDashboard() {
   const [selectedOrder, setSelectedOrder] = useState<TestOrder | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [view, setView] = useState<'active' | 'completed'>('active');
-  
+
   // Update current time every minute
   useEffect(() => {
     const timer = setInterval(() => {
@@ -20,29 +21,29 @@ export default function LaboratoryDashboard() {
     }, 60000);
     return () => clearInterval(timer);
   }, []);
-  
+
   const stats = calculateLabStats(orders);
   const equipment = mockLabEquipment;
-  
+
   const activeOrders = orders.filter(o => o.status !== 'completed' && o.status !== 'rejected');
   const completedOrders = orders.filter(o => o.status === 'completed');
   const operationalEquipment = equipment.filter(e => e.status === 'operational').length;
-  
+
   const handleOrderClick = (order: TestOrder) => {
     setSelectedOrder(order);
   };
-  
+
   const handleSaveResult = (orderId: string, result: TestResult) => {
     setOrders(prev =>
-      prev.map(o => 
-        o.id === orderId 
+      prev.map(o =>
+        o.id === orderId
           ? { ...o, result, status: 'validating', analyzedAt: new Date(), analyzedBy: result.enteredBy }
           : o
       )
     );
     setSelectedOrder(null);
   };
-  
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -63,7 +64,7 @@ export default function LaboratoryDashboard() {
           </div>
         </div>
       </div>
-      
+
       {/* Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <MetricsCard
@@ -77,7 +78,7 @@ export default function LaboratoryDashboard() {
             </svg>
           }
         />
-        
+
         <MetricsCard
           title="Pending Tests"
           value={stats.pending}
@@ -89,7 +90,7 @@ export default function LaboratoryDashboard() {
             </svg>
           }
         />
-        
+
         <MetricsCard
           title="Completed Today"
           value={stats.todayCompleted}
@@ -101,7 +102,7 @@ export default function LaboratoryDashboard() {
             </svg>
           }
         />
-        
+
         <MetricsCard
           title="Critical Results"
           value={stats.critical}
@@ -114,7 +115,7 @@ export default function LaboratoryDashboard() {
           }
         />
       </div>
-      
+
       {/* Performance Metrics */}
       <div className="grid md:grid-cols-2 gap-6">
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200/60 p-6">
@@ -130,7 +131,7 @@ export default function LaboratoryDashboard() {
             </div>
           </div>
           <div className="mt-4 h-2 bg-slate-200 rounded-full overflow-hidden">
-            <div 
+            <div
               className="h-full bg-gradient-to-r from-blue-500 to-cyan-500"
               style={{ width: `${Math.min((stats.avgTurnaroundTime / 120) * 100, 100)}%` }}
             />
@@ -141,19 +142,18 @@ export default function LaboratoryDashboard() {
             <span>120m</span>
           </div>
         </div>
-        
+
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200/60 p-6">
           <h3 className="text-lg font-bold text-slate-900 mb-4">Equipment Status</h3>
           <div className="space-y-3">
             {equipment.slice(0, 3).map(eq => (
               <div key={eq.id} className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full ${
-                    eq.status === 'operational' ? 'bg-green-500' :
+                  <div className={`w-3 h-3 rounded-full ${eq.status === 'operational' ? 'bg-green-500' :
                     eq.status === 'maintenance' ? 'bg-yellow-500' :
-                    eq.status === 'calibration' ? 'bg-blue-500' :
-                    'bg-red-500'
-                  }`} />
+                      eq.status === 'calibration' ? 'bg-blue-500' :
+                        'bg-red-500'
+                    }`} />
                   <div>
                     <div className="text-sm font-semibold text-slate-900">{eq.name}</div>
                     <div className="text-xs text-slate-500">{eq.model}</div>
@@ -173,7 +173,12 @@ export default function LaboratoryDashboard() {
           </div>
         </div>
       </div>
-      
+
+      {/* Shared Logistics Widget (Permission-aware) */}
+      <div className="mt-6">
+        <PharmacyLogisticsWidget />
+      </div>
+
       {/* Category Breakdown */}
       <div className="bg-white rounded-2xl shadow-lg border border-slate-200/60 p-6">
         <h2 className="text-xl font-bold text-slate-900 mb-4">Tests by Category</h2>
@@ -195,16 +200,15 @@ export default function LaboratoryDashboard() {
           ))}
         </div>
       </div>
-      
+
       {/* View Toggle */}
       <div className="flex gap-3">
         <button
           onClick={() => setView('active')}
-          className={`px-6 py-3 rounded-xl font-semibold transition-all ${
-            view === 'active'
-              ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
+          className={`px-6 py-3 rounded-xl font-semibold transition-all ${view === 'active'
+            ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg'
+            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
         >
           <span className="flex items-center gap-2">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -215,11 +219,10 @@ export default function LaboratoryDashboard() {
         </button>
         <button
           onClick={() => setView('completed')}
-          className={`px-6 py-3 rounded-xl font-semibold transition-all ${
-            view === 'completed'
-              ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
+          className={`px-6 py-3 rounded-xl font-semibold transition-all ${view === 'completed'
+            ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg'
+            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
         >
           <span className="flex items-center gap-2">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -229,13 +232,13 @@ export default function LaboratoryDashboard() {
           </span>
         </button>
       </div>
-      
+
       {/* Test Orders Queue */}
-      <TestOrdersQueue 
+      <TestOrdersQueue
         orders={view === 'active' ? activeOrders : completedOrders}
         onOrderClick={handleOrderClick}
       />
-      
+
       {/* Results Entry Modal */}
       {selectedOrder && (
         <ResultsEntryModal

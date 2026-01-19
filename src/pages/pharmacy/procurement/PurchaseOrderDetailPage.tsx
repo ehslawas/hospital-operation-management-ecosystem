@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Printer, ShoppingCart, Edit2, Trash2, Send, CheckCircle, FileCheck, Settings, XCircle, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Printer, ShoppingCart, Edit2, Trash2, CheckCircle, FileCheck, Settings, XCircle, AlertTriangle, Plus } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
+import { JATA_LOGO_BASE64 } from '@/constants/logo';
 import { Button, Spinner, Badge, ConfirmationDialog, Modal, Input } from '@/components/ui'
 import { getPurchaseOrderById, rejectPurchaseOrder, deletePurchaseOrder, submitPurchaseOrder, approvePurchaseOrder, sendPurchaseOrder } from '@/services/pharmacy/procurementService'
 import { findContractByNumber } from '@/services/pharmacy/contractCatalogService'
@@ -11,19 +12,27 @@ import { getWarrants, getWarrantSummary } from '@/services/pharmacy/warrantServi
 import { getPharmacyPOSignatures, updatePharmacyPOSignatures, type PharmacyPOSignatures } from '@/services/pharmacy/pharmacySettingsService'
 import { mergePOWithSupplierDocs, openPdfForPrint, cleanupPdfUrl } from '@/services/pharmacy/pdfMergeService'
 import type { PurchaseOrderWithRelations, PurchaseOrderItem, ContractWithRelations } from '@/types/pharmacy'
-import { ROUTES } from '@/lib/constants'
+import { BudgetDebug } from '@/components/shared/BudgetDebug'
+import { ROUTES, SYSTEM_ROLES } from '@/lib/constants'
 
 export const PurchaseOrderDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { user } = useAuthStore()
+  const { user, activeRoleCode } = useAuthStore()
   const { success: showSuccess, error: showError } = useToastStore()
   const hospitalId = user?.hospital_id
+  const userRole = activeRoleCode || user?.role?.role_code
 
   const [order, setOrder] = useState<PurchaseOrderWithRelations | null>(null)
   const [items, setItems] = useState<Array<PurchaseOrderItem & { item_name?: string; item_code?: string }>>([])
   const [balance, setBalance] = useState<number | null>(null)
-  const isPharmacyLogistic = user?.department?.department_name === 'Pharmacy Logistic' || user?.role?.role_name === 'Pharmacy Logistic'
+  const isPharmacyLogistic =
+    user?.department?.department_name === 'Pharmacy Logistic' ||
+    user?.department?.department_code === 'pharmacy_logistics' ||
+    (userRole && [
+      SYSTEM_ROLES.PHARMACIST,
+      SYSTEM_ROLES.ASSISTANT_PHARMACIST
+    ].includes(userRole as any))
   const [isLoading, setIsLoading] = useState(false)
   const [showCancelDialog, setShowCancelDialog] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
@@ -33,10 +42,12 @@ export const PurchaseOrderDetailPage: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isApproving, setIsApproving] = useState(false)
-  const [isSending, setIsSending] = useState(false)
+
   const [showSubmitDialog, setShowSubmitDialog] = useState(false)
   const [showApproveDialog, setShowApproveDialog] = useState(false)
   const [showSendDialog, setShowSendDialog] = useState(false)
+  const [isSending, setIsSending] = useState(false)
+
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [isSavingSettings, setIsSavingSettings] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
@@ -126,33 +137,64 @@ export const PurchaseOrderDetailPage: React.FC = () => {
           setOrder(result.data)
 
           // Load balance from warrants
+
+          // Load balance from warrants with running balance logic
           if (result.data.vote_code && result.data.vote_activity && result.data.department) {
             try {
-              const currentYear = new Date().getFullYear()
-              const summary = await getWarrantSummary(hospitalId, currentYear, {
-                voteCode: result.data.vote_code as any,
-                department: (result.data.department.toLowerCase().replace(/\s+/g, '_')) as any, // unexpected format handling
-                category: result.data.category as any
-              })
+              // 1. Get Warrants (Allocations)
+              const { data: wData } = await supabase
+                .from('pharmacy_warrants')
+                .select('*')
+                .eq('hospital_id', hospitalId)
+                .eq('vote_code', result.data.vote_code)
+                .eq('vote_activity', result.data.vote_activity)
+                .eq('department', result.data.department)
 
-              if (summary.data) {
-                // balance before this PO = remaining balance + current PO amount (since remaining already deducts it if synced, or if we assume pending deducts)
-                // Wait, if pending_approval does NOT deduct in backend yet? The user wants "Balance Before" (budget available) and "Balance After" (budget - PO).
-                // getWarrantSummary remaining_balance is (allocation - expenses).
-                // If this PO is pending, it might NOT be in expenses yet.
-                // So remaining_balance is "Balance Before".
-                // Balance After = remaining_balance - poAmount.
+              const totalAlloc = (wData || []).reduce((sum, w) => sum + Number(w.amount), 0)
 
-                // However, we need to be careful.
-                // Let's assume remaining_balance is the ACTUAL available balance right now.
-                // If the PO is already submitted/sync'd, it affects the balance.
+              // 2. Fetch all previous POs for the same vote/activity AND department
+              // Use direct PO query instead of sync-dependent expense tables for immediate accuracy
+              const currentYear = new Date(result.data.order_date).getFullYear()
+              const { data: relatedPOs, error: poError } = await supabase
+                .from('pharmacy_purchase_orders')
+                .select('id, total_amount, po_number, created_at')
+                .eq('hospital_id', hospitalId)
+                .eq('vote_code', result.data.vote_code)
+                .eq('vote_activity', result.data.vote_activity)
+                .eq('department', result.data.department)
+                .gte('order_date', `${currentYear}-01-01`)
+                .lte('order_date', `${currentYear}-12-31`)
+                .neq('status', 'cancelled')
 
-                // User request: "baki sebelum, baki selepas"
+              let previousSpending = 0
+              if (!poError && relatedPOs) {
+                const currentPONumber = result.data.po_number
+                const currentCreatedAt = result.data.created_at
 
-                setBalance(summary.data.total_balance)
+                relatedPOs.forEach(p => {
+                  // Exclude self
+                  if (p.id === result.data.id) return
+
+                  // Determine if this PO happened before current one
+                  let isBefore = false
+                  if (p.po_number && currentPONumber) {
+                    isBefore = p.po_number < currentPONumber
+                  } else if (p.created_at && currentCreatedAt) {
+                    isBefore = new Date(p.created_at) < new Date(currentCreatedAt)
+                  }
+
+                  if (isBefore) {
+                    previousSpending += Number(p.total_amount || 0)
+                  }
+                })
               }
+
+              // 3. Calculate Balance Before
+              const balanceBefore = totalAlloc - previousSpending
+              setBalance(balanceBefore)
+
             } catch (error) {
-              console.error('Error loading balance:', error)
+              console.error('Error loading running balance:', error)
             }
           }
 
@@ -163,33 +205,94 @@ export const PurchaseOrderDetailPage: React.FC = () => {
                 if (item.item_type === 'manual') {
                   return item
                 }
-                if (item.item_type === 'drug') {
-                  const { data: drug, error } = await supabase
-                    .from('drugs')
-                    .select('drug_name, drug_code')
-                    .eq('id', item.item_id)
-                    .single()
 
-                  if (error) throw error
+                // Check if this is an APPL PO
+                const isAppl = result.data.vote_code === '990102' &&
+                  ['27401', '27499'].includes(result.data.vote_activity)
+
+                if (item.item_type === 'drug') {
+                  let resolvedItem = null;
+
+                  // Strategy: Try the expected catalog first, then fallback to users regular catalog
+                  // This handles legacy POs that might have used standard items before strict mapping
+
+                  if (isAppl) {
+                    // Try APPL first
+                    const { data: applDrug } = await supabase
+                      .from('appl_drugs')
+                      .select('item_name, item_code')
+                      .eq('id', item.item_id)
+                      .single()
+
+                    if (applDrug) {
+                      resolvedItem = {
+                        item_name: applDrug.item_name,
+                        item_code: applDrug.item_code
+                      }
+                    }
+                  }
+
+                  // If not APPL or APPL lookup failed (legacy item), try standard drug catalog
+                  if (!resolvedItem) {
+                    const { data: drug } = await supabase
+                      .from('drugs')
+                      .select('drug_name, drug_code')
+                      .eq('id', item.item_id)
+                      .single()
+
+                    if (drug) {
+                      resolvedItem = {
+                        item_name: drug.drug_name,
+                        item_code: drug.drug_code
+                      }
+                    }
+                  }
 
                   return {
                     ...item,
-                    item_name: drug?.drug_name || 'Unknown Drug',
-                    item_code: drug?.drug_code || item.item_id,
+                    item_name: resolvedItem?.item_name || 'Unknown Drug',
+                    item_code: resolvedItem?.item_code || item.item_id,
                   }
                 } else {
-                  const { data: nonDrug, error } = await supabase
-                    .from('non_drugs')
-                    .select('item_name, item_code')
-                    .eq('id', item.item_id)
-                    .single()
+                  // Non-Drug Lookup Logic
+                  let resolvedItem = null;
 
-                  if (error) throw error
+                  if (isAppl) {
+                    // Try APPL Non-Drug first
+                    const { data: applNonDrug } = await supabase
+                      .from('appl_non_drugs')
+                      .select('item_name, item_code')
+                      .eq('id', item.item_id)
+                      .single()
+
+                    if (applNonDrug) {
+                      resolvedItem = {
+                        item_name: applNonDrug.item_name,
+                        item_code: applNonDrug.item_code
+                      }
+                    }
+                  }
+
+                  // Fallback to standard non-drugs
+                  if (!resolvedItem) {
+                    const { data: nonDrug } = await supabase
+                      .from('non_drugs')
+                      .select('item_name, item_code')
+                      .eq('id', item.item_id)
+                      .single()
+
+                    if (nonDrug) {
+                      resolvedItem = {
+                        item_name: nonDrug.item_name,
+                        item_code: nonDrug.item_code
+                      }
+                    }
+                  }
 
                   return {
                     ...item,
-                    item_name: nonDrug?.item_name || 'Unknown Item',
-                    item_code: nonDrug?.item_code || item.item_id,
+                    item_name: resolvedItem?.item_name || 'Unknown Item',
+                    item_code: resolvedItem?.item_code || item.item_id,
                   }
                 }
               } catch (error) {
@@ -293,7 +396,7 @@ export const PurchaseOrderDetailPage: React.FC = () => {
         console.error('Found potential page elements:', potentialPages.length)
         console.error('All div classes:', Array.from(allDivs).slice(0, 5).map(d => d.className))
 
-        throw new Error(`No .page elements found in print form. Found ${potentialPages.length} potential page elements. Element may not be rendered yet.`)
+        throw new Error(`No.page elements found in print form.Found ${potentialPages.length} potential page elements.Element may not be rendered yet.`)
       }
 
       console.log(`✓ Successfully found ${allPages.length} .page element(s) for PDF conversion`)
@@ -310,6 +413,7 @@ export const PurchaseOrderDetailPage: React.FC = () => {
           poElement: printForm,
           accountDocumentUrl: order.supplier?.account_document_url,
           mofCertificateUrl: order.supplier?.mof_certificate_url,
+          bumiputeraRegistrationCertificateUrl: order.supplier?.bumiputera_registration_certificate_url,
           poNumber: order.po_number,
         })
 
@@ -557,7 +661,7 @@ export const PurchaseOrderDetailPage: React.FC = () => {
       const result = await sendPurchaseOrder(order.id)
 
       if (result.error || !result.data) {
-        showError('Error', result.error || 'Failed to send purchase order to supplier')
+        showError('Error', result.error || 'Failed to send purchase order')
         return
       }
 
@@ -571,15 +675,17 @@ export const PurchaseOrderDetailPage: React.FC = () => {
           : prev
       )
 
-      showSuccess('Purchase Order Sent', 'The purchase order has been sent to the supplier.')
+      showSuccess('Purchase Order Sent', 'The purchase order has been marked as sent to supplier.')
       setShowSendDialog(false)
     } catch (error) {
       console.error('Error sending purchase order:', error)
-      showError('Error', 'Failed to send purchase order to supplier')
+      showError('Error', 'Failed to send purchase order')
     } finally {
       setIsSending(false)
     }
   }
+
+
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-MY', {
@@ -603,11 +709,11 @@ export const PurchaseOrderDetailPage: React.FC = () => {
     const day = String(date.getDate()).padStart(2, '0')
     const month = months[date.getMonth()]
     const year = date.getFullYear()
-    return `${day} ${month} ${year}`
+    return `${day} ${month} ${year} `
   }
 
   const formatCurrencyMalay = (amount: number) => {
-    return `RM ${amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`
+    return `RM ${amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')} `
   }
 
   const formatPosition = (position: string) => {
@@ -629,7 +735,7 @@ export const PurchaseOrderDetailPage: React.FC = () => {
 
     // Step 4: Standardize PEN abbreviation with proper spacing
     // "PEN." or "PEN" -> "PEN."
-    formatted = formatted.replace(/\bPEN\s*\.?\s*/g, 'PEN. ')
+    formatted = formatted.replace(/\bPEN\b\s*\.?\s*/g, 'PEN. ')
 
     // Step 5: Ensure consistent spacing after periods
     formatted = formatted.replace(/\.\s*([A-Z])/g, '. $1')
@@ -640,12 +746,18 @@ export const PurchaseOrderDetailPage: React.FC = () => {
     return formatted
   }
 
-  const renderStatusBadge = (status: string) => {
+  const renderStatusBadge = (po: PurchaseOrderWithRelations) => {
+    const status = po.status
     const statusMap: Record<string, { color: 'success' | 'warning' | 'error' | 'info' | 'gray' | 'primary'; label: string }> = {
       draft: { color: 'gray', label: 'Draft' },
-      pending_approval: { color: 'warning', label: 'Pending Approval' },
+      pending_approval: {
+        color: 'warning',
+        label: po.current_step && po.current_step > 0
+          ? `Pending Approval (Step ${po.current_step})`
+          : 'Pending Approval'
+      },
       approved: { color: 'success', label: 'Approved' },
-      sent: { color: 'info', label: 'Sent' },
+      sent: { color: 'success', label: 'Approved' }, // Remap legacy 'sent'
       partial_received: { color: 'warning', label: 'Partial Received' },
       completed: { color: 'success', label: 'Completed' },
       cancelled: { color: 'error', label: 'Cancelled' },
@@ -681,67 +793,62 @@ export const PurchaseOrderDetailPage: React.FC = () => {
   const renderWatermark = () => (
     <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none z-0 overflow-hidden print:opacity-[0.05]">
       <img
-        src="/512px-Jata_MalaysiaV2.svg.png"
+        src={JATA_LOGO_BASE64}
         alt="Watermark"
         style={{ width: '450px', height: '450px', objectFit: 'contain' }}
-        onError={(e) => {
-          const target = e.target as HTMLImageElement;
-          target.src = '/jata-logo.png';
-        }}
       />
     </div>
-  )
+  );
 
   const renderPage1Content = () => (
-    <div className="page bg-white border-2 border-gray-800 shadow-lg relative" style={{ fontFamily: "'Times New Roman', serif", width: '210mm', height: '297mm', maxWidth: '100%', margin: '0 auto', boxSizing: 'border-box', overflow: 'hidden' }}>
+    <div className="page bg-white border-2 border-gray-800 shadow-lg relative" style={{ fontFamily: "'Times New Roman', serif", width: '210mm', minHeight: '297mm', height: '297mm', maxWidth: '100%', margin: '0 auto', boxSizing: 'border-box', overflow: 'hidden', padding: '0 0 240px 0' }}>
       {renderWatermark()}
       {/* Government Document Header */}
-      <div className="border-b-2 border-gray-800 bg-white py-3 px-8">
-        <div className="flex items-center justify-center gap-4 mb-2">
-          <img
-            src="/512px-Jata_MalaysiaV2.svg.png"
-            alt="Jata Negara Malaysia"
-            style={{
-              width: '64px',
-              height: '64px',
-              objectFit: 'contain',
-              display: 'block'
-            }}
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.src = '/jata-logo.png';
-            }}
-          />
-          <div className="text-center border-l-2 border-r-2 border-gray-800 px-4" style={{
+      <div className="border-b-2 border-gray-800 bg-white py-2 px-8">
+        <div className="flex items-center justify-between gap-6 mb-2">
+          <div className="flex-shrink-0">
+            <img
+              src={JATA_LOGO_BASE64}
+              alt="Jata Negara"
+              style={{
+                width: '100px',
+                height: '100px',
+                display: 'block',
+                objectFit: 'contain'
+              }}
+            />
+          </div>
+
+          <div className="w-1 h-24 bg-gray-800 flex-shrink-0"></div>
+
+          <div className="flex-1 text-center flex flex-col justify-center py-1" style={{
             textShadow: 'none',
             letterSpacing: 'normal',
-            lineHeight: '1.2'
           }}>
-            <h1 className="text-lg font-bold text-gray-900 uppercase mb-0.5" style={{
+            <h1 className="text-xl font-bold text-gray-900 uppercase m-0 p-0 leading-normal" style={{
               textShadow: 'none',
               letterSpacing: '0.05em',
-              fontWeight: 'bold',
-              lineHeight: '1.2'
             }}>
               KEMENTERIAN KESIHATAN
             </h1>
-            <h2 className="text-base font-bold text-gray-800 uppercase" style={{
+            <h2 className="text-lg font-bold text-gray-800 uppercase m-0 p-0 leading-normal" style={{
               textShadow: 'none',
               letterSpacing: '0.03em',
-              fontWeight: 'bold',
-              lineHeight: '1.2',
-              marginTop: '2px'
             }}>
-              MINISTRY OF HEALTH MALAYSIA
+              MINISTRY OF HEALTH
             </h2>
-            <p className="text-xs font-semibold text-gray-700 mt-0.5" style={{
+            <h2 className="text-lg font-bold text-gray-800 uppercase m-0 p-0 leading-normal" style={{
               textShadow: 'none',
-              letterSpacing: 'normal',
-              lineHeight: '1.3'
+              letterSpacing: '0.03em',
             }}>
+              MALAYSIA
+            </h2>
+            <p className="text-sm font-semibold text-gray-700 m-0 p-0 leading-normal mt-3">
               Hospital Daerah Lawas
             </p>
           </div>
+
+          <div className="w-1 h-24 bg-gray-800 flex-shrink-0"></div>
         </div>
         <div className="text-center border-t-2 border-gray-800 pt-2">
           <h3 className="text-base font-bold text-gray-900 uppercase tracking-wide">
@@ -754,40 +861,57 @@ export const PurchaseOrderDetailPage: React.FC = () => {
       </div>
 
       {/* Document Information Section */}
-      <div className="px-8 py-3 border-b-2 border-gray-800">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <div className="border-b border-gray-400 pb-1">
-              <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">No. Pesanan / PO Number</label>
-              <p className="text-sm font-bold text-gray-900">{order.po_number}</p>
-            </div>
-            <div className="border-b border-gray-400 pb-1">
-              <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">Kod Undi / Vote Code</label>
-              <p className="text-sm font-semibold text-gray-900">{order.vote_code || '—'}</p>
-            </div>
-            <div className="border-b border-gray-400 pb-1">
-              <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">Aktiviti Undi / Vote Activity</label>
-              <p className="text-sm font-semibold text-gray-900">{order.vote_activity || '—'}</p>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <div className="border-b border-gray-400 pb-1">
-              <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">Jabatan / Department</label>
-              <p className="text-sm font-semibold text-gray-900 uppercase">{order.department || '—'}</p>
-            </div>
-            <div className="border-b border-gray-400 pb-1">
-              <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">Tarikh Pesanan / Order Date</label>
-              <p className="text-sm font-semibold text-gray-900">{formatDate(order.order_date)}</p>
-            </div>
-            <div className="border-b border-gray-400 pb-1">
-              <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">Kategori / Category</label>
-              <p className="text-sm font-semibold text-gray-900 uppercase">{order.category?.replace('_', ' ') || '—'}</p>
-            </div>
-          </div>
-        </div>
+
+      <div className="px-8 py-2 border-b-2 border-gray-800">
+        <table className="w-full text-left border-collapse" style={{ width: '100%' }}>
+          <tbody>
+            <tr>
+              <td className="w-1/2 align-top pr-4" style={{ width: '50%', verticalAlign: 'top', paddingRight: '1rem' }}>
+                <div className="space-y-2">
+                  <div className="border-b border-gray-400 pb-1">
+                    <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">No. Pesanan / PO Number</label>
+                    <p className="text-sm font-bold text-gray-900">{order.po_number}</p>
+                  </div>
+                  <div className="border-b border-gray-400 pb-1">
+                    <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">Kod Undi / Vote Code</label>
+                    <p className="text-sm font-semibold text-gray-900">{order.vote_code || '—'}</p>
+                  </div>
+                  <div className="border-b border-gray-400 pb-1">
+                    <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">Aktiviti Undi / Vote Activity</label>
+                    <p className="text-sm font-semibold text-gray-900">{order.vote_activity || '—'}</p>
+                  </div>
+                  {/* Contract Number if available */}
+                  {order.kkm_contract_number && (
+                    <div className="border-b border-gray-400 pb-1">
+                      <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">No. Kontrak / Contract No.</label>
+                      <p className="text-sm font-bold text-gray-900">{order.kkm_contract_number}</p>
+                    </div>
+                  )}
+                </div>
+              </td>
+              <td className="w-1/2 align-top pl-4" style={{ width: '50%', verticalAlign: 'top', paddingLeft: '1rem' }}>
+                <div className="space-y-2">
+                  <div className="border-b border-gray-400 pb-1">
+                    <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">Jabatan / Department</label>
+                    <p className="text-sm font-semibold text-gray-900 uppercase">{order.department || '—'}</p>
+                  </div>
+                  <div className="border-b border-gray-400 pb-1">
+                    <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">Tarikh Pesanan / Order Date</label>
+                    <p className="text-sm font-semibold text-gray-900">{formatDateMalay(order.order_date)}</p>
+                  </div>
+                  <div className="border-b border-gray-400 pb-1">
+                    <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">Kategori / Category</label>
+                    <p className="text-sm font-semibold text-gray-900 uppercase">{order.category?.replace('_', ' ') || '—'}</p>
+                  </div>
+                  {/* Contract Details Removed from Header - Moved to Items Table */}
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
-      <div className="px-8 py-3 border-b-2 border-gray-800 bg-gray-50">
+      <div className="px-8 py-1 border-b-2 border-gray-800 bg-gray-50">
         <h4 className="text-xs font-bold text-gray-900 uppercase mb-2">Maklumat Pembekal / Supplier Information</h4>
         <div className="grid grid-cols-1 gap-2">
           <div className="border border-gray-600 p-2 bg-white">
@@ -799,20 +923,20 @@ export const PurchaseOrderDetailPage: React.FC = () => {
                 ))}
               </div>
             ) : (
-              <p className="text-sm font-semibold text-gray-900 uppercase">{order.supplier?.company_name || '—'}</p>
+              <p className="text-sm font-semibold text-gray-900 uppercase">{order.supplier?.company_name || order.manual_supplier_name || '—'}</p>
             )}
           </div>
-          {order.po_type !== 'sq' && order.supplier?.address && (
+          {order.po_type !== 'sq' && (order.supplier?.address || order.manual_supplier_address) && (
             <div className="border border-gray-600 p-2 bg-white">
               <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">Alamat / Address</label>
-              <p className="text-xs text-gray-900">{order.supplier.address}</p>
+              <p className="text-xs text-gray-900 whitespace-pre-line">{order.supplier?.address || order.manual_supplier_address}</p>
             </div>
           )}
         </div>
       </div>
 
       {/* Items Table - Government Document Style */}
-      <div className="px-8 py-4 border-b-2 border-gray-800">
+      <div className="px-8 py-1 border-b-2 border-gray-800">
         <h4 className="text-xs font-bold text-gray-900 uppercase mb-3">Butir-butir Barang / Items Purchased</h4>
 
         {items.length === 0 ? (
@@ -824,20 +948,20 @@ export const PurchaseOrderDetailPage: React.FC = () => {
             <table className="w-full border-collapse border-2 border-gray-800" style={{ fontFamily: "'Times New Roman', serif" }}>
               <thead>
                 <tr className="bg-gray-200">
-                  <th className="border border-gray-800 px-2 py-1.5 text-xs font-bold text-gray-900 uppercase text-center" style={{ width: '5%' }}>Bil</th>
-                  <th className="border border-gray-800 px-2 py-1.5 text-xs font-bold text-gray-900 uppercase text-center" style={{ width: '43%' }}>Nama Item / Item Name</th>
-                  <th className="border border-gray-800 px-2 py-1.5 text-xs font-bold text-gray-900 uppercase text-center" style={{ width: '12%' }}>Kod Item / Item Code</th>
-                  <th className="border border-gray-800 px-2 py-1.5 text-xs font-bold text-gray-900 uppercase text-center" style={{ width: '10%' }}>Kuantiti / Quantity</th>
-                  <th className="border border-gray-800 px-2 py-1.5 text-xs font-bold text-gray-900 uppercase text-center" style={{ width: '12%' }}>Harga Unit / Unit Price</th>
-                  <th className="border border-gray-800 px-2 py-1.5 text-xs font-bold text-gray-900 uppercase text-center" style={{ width: '12%' }}>Jumlah / Total</th>
-                  <th className="border border-gray-800 px-2 py-1.5 text-xs font-bold text-gray-900 uppercase text-center" style={{ width: '6%' }}>Pembungkusan / Packaging</th>
+                  <th className="border border-gray-800 px-2 py-1 text-xs font-bold text-gray-900 uppercase text-center" style={{ width: '4%' }}>Bil</th>
+                  <th className="border border-gray-800 px-2 py-1 text-xs font-bold text-gray-900 uppercase text-center" style={{ width: '37%' }}>Nama Item / Item Name</th>
+                  <th className="border border-gray-800 px-2 py-1 text-xs font-bold text-gray-900 uppercase text-center" style={{ width: '12%' }}>Kod Item / Item Code</th>
+                  <th className="border border-gray-800 px-2 py-1 text-xs font-bold text-gray-900 uppercase text-center" style={{ width: '9%' }}>Kuantiti / Quantity</th>
+                  <th className="border border-gray-800 px-2 py-1 text-xs font-bold text-gray-900 uppercase text-center" style={{ width: '11%' }}>Harga Unit / Unit Price</th>
+                  <th className="border border-gray-800 px-2 py-1 text-xs font-bold text-gray-900 uppercase text-center" style={{ width: '11%' }}>Jumlah / Total</th>
+                  <th className="border border-gray-800 px-2 py-1 text-xs font-bold text-gray-900 uppercase text-center" style={{ width: '14%' }}>Pembungkusan / Packaging</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((item, index) => (
                   <tr key={item.id} className="hover:bg-gray-50">
-                    <td className="border border-gray-600 px-2 py-1.5 text-xs text-gray-900 text-center font-semibold">{index + 1}</td>
-                    <td className="border border-gray-600 px-2 py-1.5 text-xs text-gray-900">
+                    <td className="border border-gray-600 px-2 py-1 text-xs text-gray-900 text-center font-semibold">{index + 1}</td>
+                    <td className="border border-gray-600 px-2 py-0.5 text-xs text-gray-900">
                       <span className="font-bold">{item.item_name || '—'}</span>
                       {/* SQ Details */}
                       {order.po_type === 'sq' && (
@@ -846,15 +970,37 @@ export const PurchaseOrderDetailPage: React.FC = () => {
                         </div>
                       )}
                     </td>
-                    <td className="border border-gray-600 px-2 py-1.5 text-xs text-gray-700 font-mono">{item.item_code || '—'}</td>
-                    <td className="border border-gray-600 px-2 py-1.5 text-xs text-gray-900 text-center font-semibold">{item.quantity_ordered}</td>
-                    <td className="border border-gray-600 px-2 py-1.5 text-xs text-gray-900 text-right font-semibold">{formatCurrency(item.unit_price)}</td>
-                    <td className="border border-gray-600 px-2 py-1.5 text-xs text-gray-900 text-right font-bold">
+                    <td className="border border-gray-600 px-2 py-1 text-xs text-gray-700 font-mono">{item.item_code || '—'}</td>
+                    <td className="border border-gray-600 px-2 py-1 text-xs text-gray-900 text-center font-semibold">{item.quantity_ordered}</td>
+                    <td className="border border-gray-600 px-2 py-1 text-xs text-gray-900 text-right font-semibold">{formatCurrency(item.unit_price)}</td>
+                    <td className="border border-gray-600 px-2 py-1 text-xs text-gray-900 text-right font-bold">
                       {formatCurrency(item.quantity_ordered * item.unit_price)}
                     </td>
-                    <td className="border border-gray-600 px-2 py-1.5 text-xs text-gray-700">{item.packaging_description || '—'}</td>
+                    <td className="border border-gray-600 px-2 py-1 text-xs text-gray-700">{item.packaging_description || '—'}</td>
                   </tr>
                 ))}
+                {/* Consolidated Contract Details Row */}
+                {(order.kkm_contract_number || contract?.delivery_period || contract?.end_date) && (
+                  <tr className="bg-white">
+                    <td className="border border-gray-600 px-2 py-1"></td>
+                    <td className="border border-gray-600 px-2 py-1 text-[9px] leading-none text-gray-800 font-serif">
+                      {order.kkm_contract_number && (
+                        <div className="mb-0.5"><span className="font-bold">No. Kontrak:</span> {order.kkm_contract_number}</div>
+                      )}
+                      {contract?.delivery_period && (
+                        <div className="mb-0.5 text-justify"><span className="font-bold">Tempoh Serahan:</span> {contract.delivery_period}</div>
+                      )}
+                      {contract?.end_date && (
+                        <div><span className="font-bold">Tamat Kontrak:</span> {formatDateMalay(contract.end_date)}</div>
+                      )}
+                    </td>
+                    <td className="border border-gray-600 px-2 py-1"></td>
+                    <td className="border border-gray-600 px-2 py-1"></td>
+                    <td className="border border-gray-600 px-2 py-1"></td>
+                    <td className="border border-gray-600 px-2 py-1"></td>
+                    <td className="border border-gray-600 px-2 py-1"></td>
+                  </tr>
+                )}
                 <tr className="bg-gray-200 font-bold border-t-2 border-gray-800">
                   <td colSpan={5} className="border border-gray-800 px-2 py-2 text-xs text-gray-900 uppercase text-right">
                     JUMLAH KESELURUHAN / TOTAL AMOUNT:
@@ -871,42 +1017,57 @@ export const PurchaseOrderDetailPage: React.FC = () => {
       </div>
 
       {/* Financial Summary and Signature */}
-      <div className="px-8 py-3 bg-gray-50 border-b-2 border-gray-800">
-        <div className="flex gap-4">
+      <div className="px-8 py-4 bg-white border-t-2 border-gray-800" style={{ position: 'absolute', bottom: '65px', left: 0, width: '100%', height: '175px' }}>
+        <div className="flex gap-6 h-full items-end">
           {/* Left - Signature (no box) */}
-          <div className="w-full md:w-96 flex items-end">
-            <div className="text-center w-full pb-2">
-              <span className="sig-line min-w-[300px] mb-1"></span>
-              <p className="text-[10pt] font-bold text-gray-900 mb-0.5">(Tandatangan)</p>
-              <p className="text-[10pt] font-bold text-gray-900 mb-0.5">Pegawai Yang Mengesahkan Peruntukan</p>
-              <p className="text-[10pt] font-bold text-gray-900">Pengarah Hospital Lawas</p>
+          <div className="w-[55%] flex flex-col justify-end items-center pb-2">
+            <div className="text-center w-full">
+              <div className="border-b-2 border-gray-800 w-[80%] mx-auto mb-2"></div>
+              <p className="text-[11pt] font-bold text-gray-900 mb-1 leading-tight">(Tandatangan)</p>
+              <p className="text-[10pt] font-bold text-gray-800 mb-1 leading-tight">Pegawai Yang Mengesahkan Peruntukan</p>
+              <p className="text-[10pt] font-bold text-gray-800 leading-tight">Pengarah Hospital Lawas</p>
             </div>
           </div>
           {/* Right Box - Financial Summary */}
-          <div className="w-full md:w-96 space-y-0.5 border-2 border-black p-0 bg-white ml-auto overflow-hidden">
-            <div className="flex justify-between items-center border-b border-black px-2 py-1">
-              <span className="text-[9pt] font-bold uppercase">BAKI SEBELUM / BALANCE BEFORE:</span>
-              <span className="text-[10pt] font-bold">
-
-                {balance !== null ? formatCurrencyMalay(balance) : '—'}
-              </span>
-            </div>
-            <div className="flex justify-between items-center border-b border-black px-2 py-1 bg-gray-50">
-              <span className="text-[10pt] font-bold uppercase">JUMLAH KESELURUHAN / TOTAL AMOUNT:</span>
-              <span className="text-[11pt] font-black">{formatCurrencyMalay(total)}</span>
-            </div>
-            <div className="flex justify-between items-center px-2 py-1">
-              <span className="text-[10pt] font-bold uppercase">BAKI SELEPAS / BALANCE AFTER:</span>
-              <span className="text-[11pt] font-black">
-                {balance !== null ? formatCurrencyMalay(balance - total) : '—'}
-              </span>
-            </div>
+          <div className="w-[45%] flex flex-col justify-end">
+            <table className="w-full border-collapse border-2 border-gray-800 bg-white" style={{ fontFamily: "'Times New Roman', serif", tableLayout: 'fixed' }}>
+              <colgroup>
+                <col style={{ width: '60%' }} />
+                <col style={{ width: '40%' }} />
+              </colgroup>
+              <tbody>
+                <tr className="border-b border-gray-800">
+                  <td className="px-2 py-1.5 text-[9.5pt] font-bold uppercase border-r border-gray-800 leading-tight" style={{ whiteSpace: 'normal', wordWrap: 'break-word' }}>
+                    BAKI SEBELUM /<br />BALANCE BEFORE:
+                  </td>
+                  <td className="px-2 py-1.5 text-[10.5pt] font-bold text-right" style={{ whiteSpace: 'nowrap' }}>
+                    {balance !== null ? formatCurrencyMalay(balance) : '—'}
+                  </td>
+                </tr>
+                <tr className="border-b border-gray-800 bg-gray-50">
+                  <td className="px-2 py-1.5 text-[9.5pt] font-bold uppercase border-r border-gray-800 leading-tight" style={{ whiteSpace: 'normal', wordWrap: 'break-word' }}>
+                    JUMLAH KESELURUHAN /<br />TOTAL AMOUNT:
+                  </td>
+                  <td className="px-2 py-1.5 text-[11.5pt] font-black text-right" style={{ whiteSpace: 'nowrap' }}>
+                    {formatCurrencyMalay(total)}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="px-2 py-1.5 text-[9.5pt] font-bold uppercase border-r border-gray-800 leading-tight" style={{ whiteSpace: 'normal', wordWrap: 'break-word' }}>
+                    BAKI SELEPAS /<br />BALANCE AFTER:
+                  </td>
+                  <td className="px-2 py-1.5 text-[11.5pt] font-black text-right" style={{ whiteSpace: 'nowrap' }}>
+                    {(!order.vote_code || order.vote_code === '-') && (!order.vote_activity || order.vote_activity === '-') ? formatCurrencyMalay(0) : (balance !== null ? formatCurrencyMalay(balance - total) : '—')}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
 
       {/* Document Footer */}
-      <div className="px-8 py-4 bg-gray-100 border-t-2 border-gray-800">
+      <div className="px-8 py-3 bg-gray-100 border-t-2 border-gray-800" style={{ position: 'absolute', bottom: 0, left: 0, width: '100%' }}>
         <div className="text-center">
           <p className="text-xs font-semibold text-gray-700">
             Dokumen Rasmi Kerajaan Malaysia / Official Government Document of Malaysia
@@ -920,7 +1081,7 @@ export const PurchaseOrderDetailPage: React.FC = () => {
   );
 
   const renderPage2Content = () => (
-    <div className="page bg-white border-2 border-gray-800 shadow-lg relative" style={{ fontFamily: "'Times New Roman', serif", width: '210mm', minHeight: '297mm', maxWidth: '100%', margin: '0 auto', boxSizing: 'border-box', overflow: 'hidden' }}>
+    <div className="page bg-white border-2 border-gray-800 shadow-lg relative" style={{ fontFamily: "'Times New Roman', serif", width: '210mm', minHeight: '297mm', height: '297mm', maxWidth: '100%', margin: '0 auto', boxSizing: 'border-box', overflow: 'hidden', padding: '0 0 65px 0' }}>
       {renderWatermark()}
       {/* Section 3: Supplier Details */}
       <div className="px-8 py-1 border-b-2 border-gray-800">
@@ -934,9 +1095,9 @@ export const PurchaseOrderDetailPage: React.FC = () => {
                     order.sq_suppliers.join(', ')
                   ) : (
                     <>
-                      {order.supplier?.company_name || '—'}
+                      {order.supplier?.company_name || order.manual_supplier_name || '—'}
                       <br />
-                      <span className="font-normal text-xs normal-case">{order.supplier?.address || ''}</span>
+                      <span className="font-normal text-xs normal-case">{order.supplier?.address || order.manual_supplier_address || ''}</span>
                     </>
                   )}
                 </td>
@@ -962,18 +1123,27 @@ export const PurchaseOrderDetailPage: React.FC = () => {
       <div className="px-8 py-1 border-b-2 border-gray-800">
         <p className="text-sm font-bold text-gray-900 mb-1" style={{ lineHeight: '1.3' }}>Bersama-sama ini dinyatakan (Penuhkan mana yang sesuai).</p>
         <div className="ml-4 space-y-1">
-          <p className="text-sm" style={{ lineHeight: '1.4' }}>
-            (i) No. rujukan surat mampu :
-            <span className="sig-line min-w-[350px] ml-2"></span>
-          </p>
-          <p className="text-sm" style={{ lineHeight: '1.4' }}>
-            (ii) No. rujukan kontrak :
-            <span className="sig-line min-w-[350px] ml-2 font-bold pl-2"></span>
-          </p>
-          <p className="text-sm" style={{ lineHeight: '1.4' }}>
-            (iii) Salinan surat kelulusan Pejabat Kewangan Persekutuan Bil.:
-            <span className="sig-line min-w-[200px] ml-2"></span>
-          </p>
+          <div className="flex items-baseline">
+            <span className="text-sm w-6">(i)</span>
+            <div className="flex-1 text-sm leading-[1.4]">
+              No. rujukan surat mampu :
+              <span className="sig-line min-w-[350px] ml-2"></span>
+            </div>
+          </div>
+          <div className="flex items-baseline">
+            <span className="text-sm w-6">(ii)</span>
+            <div className="flex-1 text-sm leading-[1.4]">
+              No. rujukan kontrak :
+              <span className="font-bold underline ml-2 decoration-dotted underline-offset-4">{order.kkm_contract_number || '...................................................'}</span>
+            </div>
+          </div>
+          <div className="flex items-baseline">
+            <span className="text-sm w-6">(iii)</span>
+            <div className="flex-1 text-sm leading-[1.4]">
+              Salinan surat kelulusan Pejabat Kewangan Persekutuan Bil.:
+              <span className="sig-line min-w-[200px] ml-2"></span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -981,31 +1151,33 @@ export const PurchaseOrderDetailPage: React.FC = () => {
       <div className="px-8 py-1 border-b-2 border-gray-800 bg-gray-50">
         <div className="flex justify-between items-start">
           <div className="pt-8">
-            <div className="flex gap-2">
+            <div className="flex gap-2 pl-4">
               <span className="text-sm font-bold">Tarikh :</span>
-              <span className="text-sm font-bold">{formatDateMalay(order.order_date)}</span>
+              <span className="text-sm font-bold font-serif">{formatDateMalay(order.order_date)}</span>
             </div>
           </div>
           <div className="text-right">
-            <span className="sig-line min-w-[250px] mb-1"></span>
+            <div className="inline-block min-w-[250px] border-b border-dotted border-black mb-1"></div>
             <p className="text-sm font-bold mb-1" style={{ lineHeight: '1.2' }}>(Tandatangan Pegawai yang Memohon.)</p>
             <div className="text-left inline-block">
               <table className="border-collapse">
                 <tbody>
                   <tr>
-                    <td className="pr-2 text-right" style={{ whiteSpace: 'nowrap' }}>
+                    <td className="pr-3 text-right pb-2" style={{ whiteSpace: 'nowrap', verticalAlign: 'top' }}>
                       <span className="text-sm font-bold">Nama :</span>
                     </td>
-                    <td>
-                      <span className="text-sm font-bold">{signatures.applicantName}</span>
+                    <td className="pb-2">
+                      <span className="text-sm font-bold block leading-relaxed">{signatures.applicantName}</span>
                     </td>
                   </tr>
                   <tr>
-                    <td className="pr-2 text-right pt-1" style={{ whiteSpace: 'nowrap' }}>
+                    <td className="pr-3 text-right" style={{ whiteSpace: 'nowrap', verticalAlign: 'top' }}>
                       <span className="text-sm font-bold">Jawatan :</span>
                     </td>
-                    <td className="pt-1">
-                      <span className="text-sm font-bold">{formatPosition(signatures.applicantPosition)}</span>
+                    <td>
+                      <span className="text-sm font-bold block leading-relaxed" style={{ maxWidth: '300px' }}>
+                        {formatPosition(signatures.applicantPosition)}
+                      </span>
                     </td>
                   </tr>
                 </tbody>
@@ -1015,71 +1187,103 @@ export const PurchaseOrderDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Section 5: Head of Department Account */}
+      {/* Section 5: Head of Department Account & Approval */}
       <div className="px-8 py-1 border-b-2 border-gray-800">
-        <p className="text-sm font-bold text-gray-900 mb-1" style={{ lineHeight: '1.3' }}>Akaun Ketua Bahagian.</p>
-        <div className="ml-8 mb-2 space-y-1">
-          <p className="text-sm" style={{ lineHeight: '1.3' }}>(i) Adalah disahkan pembelian ini telah dimasukan dalam cadangan anggaran Belanjawan tahunan.</p>
-          <p className="text-sm" style={{ lineHeight: '1.3' }}>(ii) Pembelian ini adalah diperlukan.</p>
+        <div className="flex items-start gap-2 mb-1">
+          <span className="text-sm font-bold">5.</span>
+          <p className="text-sm font-bold text-gray-900" style={{ lineHeight: '1.3' }}>Akaun Ketua Bahagian.</p>
         </div>
-        <div className="flex justify-between items-start gap-10">
-          <div className="pt-8">
+        <div className="ml-8 mb-4 space-y-2">
+          <div className="flex gap-2">
+            <span className="text-sm">(i)</span>
+            <p className="text-sm" style={{ lineHeight: '1.5' }}>Adalah disahkan pembelian ini telah dimasukan dalam cadangan anggaran Belanjawan tahunan.</p>
+          </div>
+          <div className="flex gap-2">
+            <span className="text-sm">(ii)</span>
+            <p className="text-sm" style={{ lineHeight: '1.5' }}>Pembelian ini adalah diperlukan.</p>
+          </div>
+        </div>
+
+        {/* Head of Department Signature */}
+        <div className="flex justify-between items-start mb-6">
+          <div className="pt-8 pl-4">
             <div className="flex gap-2">
               <span className="text-sm font-bold">Tarikh :</span>
-              <span className="text-sm font-bold">{formatDateMalay(order.order_date)}</span>
+              <span className="text-sm font-bold font-serif">{formatDateMalay(order.order_date)}</span>
             </div>
           </div>
-          <div className="text-right flex-1">
-            <span className="sig-line min-w-[200px] mb-1"></span>
+          <div className="text-center">
+            <div className="inline-block min-w-[250px] border-b border-dotted border-black mb-1"></div>
             <p className="text-sm font-bold mb-1" style={{ lineHeight: '1.2' }}>(Tandatangan Ketua Bahagian)</p>
-            <div className="text-left inline-block">
-              <table className="border-collapse">
-                <tbody>
-                  <tr>
-                    <td className="pr-2 text-right" style={{ whiteSpace: 'nowrap' }}>
-                      <span className="text-sm font-bold">Nama :</span>
-                    </td>
-                    <td>
-                      <span className="text-sm font-bold">{signatures.headName}</span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+            <p className="text-sm font-bold uppercase mb-0.5">{signatures.headName}</p>
+            <p className="text-sm font-bold mb-0.5">{formatPosition(signatures.headPosition)}</p>
+          </div>
+        </div>
+
+        {/* Approval Text */}
+        <p className="text-sm font-bold text-center mb-6">Permohonan diluluskan/tidak diluluskan</p>
+
+        {/* Director Approval Signature */}
+        <div className="flex justify-between items-start">
+          <div className="pt-8 pl-4">
+            <div className="flex gap-2">
+              <span className="text-sm font-bold">Tarikh :</span>
+              <span className="inline-block min-w-[150px] border-b border-black"></span>
             </div>
+          </div>
+          <div className="text-center">
+            <div className="inline-block min-w-[250px] border-b border-dotted border-black mb-1"></div>
+            <p className="text-sm font-bold mb-1" style={{ lineHeight: '1.2' }}>(Tandatangan Pegawai Yang Meluluskan)</p>
+            <p className="text-sm font-bold">Pengarah Hospital Daerah, Lawas.</p>
           </div>
         </div>
       </div>
 
-      {/* Approval Section */}
-      <div className="px-8 py-2 border-b-2 border-gray-800">
-        <div className="flex justify-between items-start">
-          <div style={{ width: '45%' }}>
-            <div className="pt-8">
-              <p className="text-sm font-bold italic mb-4" style={{ lineHeight: '1.3' }}>Permohonan diluluskan/ tidak diluluskan.</p>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-bold">Tarikh :</span>
-                <span className="sig-line flex-1"></span>
-              </div>
+      {/* Section 6: Finance Department Use - UNTUK KEGUNAAN BAHAGIAN KEWANGAN */}
+      <div className="px-8 py-4 border-b-2 border-gray-800">
+        <p className="text-sm font-bold text-gray-900 text-center uppercase mb-6" style={{ lineHeight: '1.3' }}>
+          UNTUK KEGUNAAN BAHAGIAN KEWANGAN
+        </p>
+
+        <div className="flex justify-between items-end min-h-[100px]">
+          <div className="space-y-2 mb-4">
+            <p className="text-sm font-bold mb-2">6. Kerani Kewangan</p>
+            <div className="ml-8 space-y-2">
+              <p className="text-sm" style={{ lineHeight: '1.5' }}>(iii) Sila Keluarkan Pesanan Kerajaan</p>
+              <p className="text-sm" style={{ lineHeight: '1.5' }}>(iv) Sila dapatkan Sebut harga.</p>
             </div>
           </div>
-          <div className="text-right" style={{ width: '50%' }}>
-            <div className="pt-8">
-              <div className="mb-2">
-                <span className="text-sm font-bold">Nama :</span>
-                <span className="sig-line min-w-[250px] ml-2"></span>
-              </div>
-              <p className="text-sm font-bold mb-1" style={{ lineHeight: '1.3' }}>(Tandatangan Pegawai Yang Meluluskan)</p>
-              <p className="text-sm font-bold" style={{ lineHeight: '1.3' }}>Pengarah Hospital Daerah, Lawas.</p>
+
+          <div className="text-right mb-4">
+            <div className="inline-block min-w-[250px] border-b border-dotted border-black mb-1"></div>
+            <p className="text-sm font-bold mb-1">(Bahagian Kewangan)</p>
+            <p className="text-sm font-bold">B.P. Pengarah Hospital Daerah, Lawas.</p>
+          </div>
+        </div>
+
+        {/* Notes Section - Matches Reference Image 0 */}
+        <div className="pt-4 mt-2">
+          <p className="text-sm font-bold mb-2">Catatan :</p>
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold">No. Rujukan Pesanan Kerajaan:</span>
+            </div>
+            {/* Contract Number Removed from Footer as per request */}
+            <div className="flex gap-2 mt-4">
+              <span className="text-sm font-bold">Tarikh:</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Footer */}
-      <div className="px-8 py-4 bg-gray-100 border-t-2 border-gray-800">
+      <div className="px-8 py-3 bg-gray-100 border-t-2 border-gray-800" style={{ position: 'absolute', bottom: 0, left: 0, width: '100%' }}>
         <div className="text-center">
           <p className="text-xs font-semibold text-gray-700">
             Dokumen Rasmi Kerajaan Malaysia / Official Government Document of Malaysia
+          </p>
+          <p className="text-xs text-gray-600 mt-1">
+            Dikeluarkan oleh Sistem Pengurusan Operasi Hospital / Issued by Hospital Operation Management System
           </p>
         </div>
       </div>
@@ -1090,95 +1294,112 @@ export const PurchaseOrderDetailPage: React.FC = () => {
     <>
       {/* Professional Print Styles - Includes PO Form and Supplier Documents */}
       <style>{`
-        /* A4 Size for Screen View */
-        @media screen {
-          .no-print[style*="width: 210mm"] {
-            width: 210mm !important;
-            max-width: 100% !important;
-            margin: 0 auto 24px auto !important;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
-          }
-        }
-        @media print {
-          @page {
-            size: A4;
-            margin: 0mm !important;
-          }
-          * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          
-          /* Only hide the main content area, letting the print-form take over */
-          .print-content > *:not(.print-form) {
-            display: none !important;
-          }
+/* A4 Size for Screen View */
+@media screen {
+  .no-print[style*="width: 210mm"] {
+    width: 210mm!important;
+    max-width: 100%!important;
+    margin: 0 auto 24px auto!important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)!important;
+  }
+}
+@media print {
+  @page {
+    size: A4;
+    margin: 0mm!important;
+  }
+  * {
+    -webkit-print-color-adjust: exact!important;
+    print-color-adjust: exact!important;
+  }
 
-          .print-form {
-            display: block !important;
-            visibility: visible !important;
-            width: 210mm !important;
-            margin: 0 auto !important;
-          }
+  /* Only hide the main content area, letting the print-form take over */
+  .print-content > *:not(.print-form) {
+    display: none!important;
+  }
 
-          .no-print {
-            display: none !important;
-          }
+  .print-form {
+    display: block!important;
+    visibility: visible!important;
+    width: 210mm!important;
+    margin: 0 auto!important;
+  }
 
-          .page {
-            width: 210mm !important;
-            height: 297mm !important;
-            padding: 10mm !important;
-            margin: 0 !important;
-            position: relative;
-            box-sizing: border-box;
-            background: white !important;
-            page-break-after: always !important;
-            break-after: page !important;
-            display: flex;
-            flex-direction: column;
-            border: 2px solid #000 !important;
-          }
-          .page:last-child {
-            page-break-after: auto !important;
-            break-after: auto !important;
-          }
-          /* Professional Typography */
-          .print-form, .print-form * {
-             font-family: 'Times New Roman', serif !important;
-             color: #000 !important;
-          }
-          /* Precise Table Styling */
-          .print-form table {
-            border-collapse: collapse !important;
-            width: 100% !important;
-            border: 1px solid #000 !important;
-          }
-          .print-form th, .print-form td {
-            border: 1px solid #000 !important;
-            padding: 4px 6px !important;
-            font-size: 10pt !important;
-          }
-          .print-form th {
-            background-color: #f3f4f6 !important;
-            font-weight: bold !important;
-          }
-          /* Signature lines */
-          .sig-line {
-            border-bottom: 1px solid #000 !important;
-            display: inline-block;
-            min-width: 200px;
-          }
-        }
-        @media screen {
-          .print-form.hidden {
-            display: none !important;
-          }
-          .print-form {
-            display: none !important;
-          }
-        }
-      `}</style>
+  .no-print {
+    display: none!important;
+  }
+
+  .page {
+    width: 210mm!important;
+    min-height: 297mm!important;
+    padding: 10mm!important;
+    margin: 0!important;
+    position: relative;
+    box-sizing: border-box;
+    background: white!important;
+    page-break-after: always!important;
+    break-after: page!important;
+    display: flex;
+    flex-direction: column;
+    border: 2px solid #000!important;
+  }
+  .page:last-child {
+    page-break-after: auto!important;
+    break-after: auto!important;
+  }
+  /* Professional Typography */
+  .print-form, .print-form * {
+    font-family: 'Times New Roman', serif!important;
+    color: #000!important;
+  }
+  /* Ensure images display in print */
+  .print-form img {
+    display: block!important;
+    visibility: visible!important;
+    opacity: 1!important;
+    max-height: none!important;
+    max-width: 100%!important;
+    -webkit-print-color-adjust: exact!important;
+    print-color-adjust: exact!important;
+    page-break-inside: avoid!important;
+  }
+  /* Force header logo to display */
+  .print-form img[alt*="Jata"] {
+    width: 100px!important;
+    height: 100px!important;
+    object-fit: contain!important;
+  }
+  /* Precise Table Styling */
+  .print-form table {
+    border-collapse: collapse!important;
+    width: 100%!important;
+    border: 1px solid #000!important;
+  }
+  .print-form th, .print-form td {
+    border: 1px solid #000!important;
+    padding: 4px 6px!important;
+    font-size: 10pt!important;
+  }
+  .print-form th {
+    background-color: #f3f4f6!important;
+    font-weight: bold!important;
+  }
+  /* Signature lines */
+  .sig-line {
+    border-bottom: 1px solid #000!important;
+    display: inline-block;
+    min-width: 200px;
+  }
+}
+@media screen {
+  .print-form.hidden {
+    display: none!important;
+  }
+  .print-form {
+    display: none!important;
+  }
+}
+`}</style>
       <div className="p-4 space-y-4 max-w-7xl mx-auto print-content bg-gray-100 min-h-screen">
         {/* Header - Action Bar */}
         <div className="flex items-center justify-between no-print mb-4">
@@ -1197,7 +1418,7 @@ export const PurchaseOrderDetailPage: React.FC = () => {
               <ShoppingCart className="w-5 h-5 text-blue-700" />
               Butiran Pesanan Kerajaan / Purchase Order Details
               <div className="ml-2">
-                {renderStatusBadge(order.status)}
+                {renderStatusBadge(order)}
               </div>
             </h1>
           </div>
@@ -1212,38 +1433,39 @@ export const PurchaseOrderDetailPage: React.FC = () => {
                 disabled={isSubmitting}
               >
                 {isSubmitting ? <Spinner size="sm" /> : <FileCheck className="w-4 h-4" />}
+                {isSubmitting ? <Spinner size="sm" /> : <CheckCircle className="w-4 h-4" />}
                 {isSubmitting ? 'Submitting...' : 'Submit for Approval'}
               </Button>
             )}
 
-            {/* Approve - Only for pending_approval status and Pharmacy Logistic role */}
             {order.status === 'pending_approval' && isPharmacyLogistic && (
               <Button
                 onClick={() => setShowApproveDialog(true)}
+                variant="primary"
                 size="sm"
-                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white shadow-md"
+                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 shadow-sm"
                 disabled={isApproving}
               >
-                {isApproving ? <Spinner size="sm" /> : <CheckCircle className="w-4 h-4" />}
+                {isApproving ? <Spinner size="sm" /> : <FileCheck className="w-4 h-4" />}
                 {isApproving ? 'Approving...' : 'Approve PO'}
               </Button>
             )}
 
-            {/* Send to Supplier - Only for approved status */}
-            {order.status === 'approved' && (
+            {order.status === 'approved' && isPharmacyLogistic && (
               <Button
                 onClick={() => setShowSendDialog(true)}
+                variant="primary"
                 size="sm"
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 shadow-sm"
                 disabled={isSending}
               >
-                {isSending ? <Spinner size="sm" /> : <Send className="w-4 h-4" />}
+                {isSending ? <Spinner size="sm" /> : <ShoppingCart className="w-4 h-4" />}
                 {isSending ? 'Sending...' : 'Send to Supplier'}
               </Button>
             )}
 
-            {/* Edit Button - Draft only (lock once submitted) */}
-            {order.status === 'draft' && (
+            {/* Edit Button - Draft & Pending Approval (lock once approved) */}
+            {(order.status === 'draft' || order.status === 'pending_approval') && (
               <Button
                 onClick={handleEdit}
                 variant="outline"
@@ -1256,20 +1478,19 @@ export const PurchaseOrderDetailPage: React.FC = () => {
             )}
 
             {/* Cancel/Reject Button - Draft, Pending & Approved */}
-            {['draft', 'pending_approval', 'approved'].includes(order.status) && (
+            {(order.status === 'draft' || order.status === 'pending_approval') && (
               <Button
                 onClick={() => setShowCancelDialog(true)}
                 variant="outline"
                 size="sm"
-                className={`flex items-center gap-2 ${order.status === 'pending_approval' && isPharmacyLogistic
-                  ? 'border-red-500 text-red-600 hover:bg-red-50'
-                  : 'border-red-200 text-red-600 hover:bg-red-50'
-                  }`}
+                className="flex items-center gap-2 border-red-500 text-red-600 hover:bg-red-50 hover:border-red-600"
+                disabled={isCancelling}
               >
                 <XCircle className="w-4 h-4" />
-                {order.status === 'pending_approval' && isPharmacyLogistic ? 'Reject PO' : 'Cancel'}
+                {order.status === 'pending_approval' && isPharmacyLogistic ? 'Reject PO' : 'Cancel PO'}
               </Button>
             )}
+
             <Button
               onClick={() => setShowDeleteDialog(true)}
               variant="outline"
@@ -1301,6 +1522,19 @@ export const PurchaseOrderDetailPage: React.FC = () => {
                     Cetak / Print
                   </>
                 )}
+              </Button>
+            )}
+
+            {/* Create LPO Bridge Button */}
+            {(order.status === 'approved' || order.status === 'sent') && (
+              <Button
+                onClick={() => navigate('/pharmacy/procurement/lpo', { state: { createForPO: order.id, poNumber: order.po_number } })}
+                variant="default"
+                size="sm"
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Plus className="w-4 h-4" />
+                Create LPO Document
               </Button>
             )}
             <Button
@@ -1339,6 +1573,13 @@ export const PurchaseOrderDetailPage: React.FC = () => {
         <div className="space-y-8 no-print">
           {renderPage1Content()}
           {renderPage2Content()}
+          {order && (
+            <BudgetDebug
+              voteCode={order.vote_code || ''}
+              voteActivity={order.vote_activity || ''}
+              department={order.department || ''}
+            />
+          )}
         </div>
       </div>
 
@@ -1364,7 +1605,7 @@ export const PurchaseOrderDetailPage: React.FC = () => {
         message={
           order.status === 'pending_approval' && isPharmacyLogistic
             ? `Are you sure you want to reject purchase order ${order.po_number}? You must provide a reason for the rejection.`
-            : `Are you sure you want to cancel purchase order ${order.po_number}? This action cannot be undone.`
+            : `Are you sure you want to cancel purchase order ${order.po_number}? This will permanently remove all associated expense records and financial tracking.`
         }
         variant="danger"
         confirmText={order.status === 'pending_approval' && isPharmacyLogistic ? 'Reject PO' : 'Cancel PO'}
@@ -1373,14 +1614,14 @@ export const PurchaseOrderDetailPage: React.FC = () => {
       >
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700">
-            Cancellation Reason <span className="text-red-500">*</span>
+            {order.status === 'pending_approval' && isPharmacyLogistic ? 'Rejection Reason' : 'Cancellation Reason'} <span className="text-red-500">*</span>
           </label>
           <textarea
             value={cancelReason}
             onChange={(e) => setCancelReason(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-blue-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             rows={4}
-            placeholder="Please provide a reason for cancellation..."
+            placeholder={order.status === 'pending_approval' && isPharmacyLogistic ? "Please provide a reason for rejection..." : "Please provide a reason for cancellation..."}
             required
           />
         </div>
@@ -1395,7 +1636,7 @@ export const PurchaseOrderDetailPage: React.FC = () => {
         }}
         onConfirm={handleSubmitForApproval}
         title="Submit for Approval"
-        message={`Are you sure you want to submit purchase order ${order.po_number} for approval? Once submitted, you will not be able to edit it until it is approved or rejected.`}
+        message={`Are you sure you want to submit purchase order ${order.po_number} for approval? The PO will be sent to the approver and you won't be able to edit it until it's approved or rejected.`}
         variant="info"
         confirmText="Submit"
         cancelText="Cancel"
@@ -1411,14 +1652,14 @@ export const PurchaseOrderDetailPage: React.FC = () => {
         }}
         onConfirm={handleApprove}
         title="Approve Purchase Order"
-        message={`Are you sure you want to approve purchase order ${order.po_number}? This will allow it to be sent to the supplier.`}
+        message={`Are you sure you want to approve purchase order ${order.po_number}? This will create a financial liability of ${formatCurrency(order.total_amount)} and cannot be undone.`}
         variant="success"
         confirmText="Approve"
         cancelText="Cancel"
         isLoading={isApproving}
       />
 
-      {/* Send to Supplier dialog */}
+      {/* Send PO dialog */}
       <ConfirmationDialog
         isOpen={showSendDialog}
         onClose={() => {
@@ -1427,9 +1668,9 @@ export const PurchaseOrderDetailPage: React.FC = () => {
         }}
         onConfirm={handleSendToSupplier}
         title="Send to Supplier"
-        message={`Are you sure you want to send purchase order ${order.po_number} to ${order.supplier?.company_name || 'the supplier'}? This action will mark the order as sent.`}
+        message={`Are you sure you want to mark ${order.po_number} as sent to the supplier? This will lock the PO from further modifications.`}
         variant="info"
-        confirmText="Send"
+        confirmText="Send PO"
         cancelText="Cancel"
         isLoading={isSending}
       />
@@ -1444,25 +1685,25 @@ export const PurchaseOrderDetailPage: React.FC = () => {
         }}
         onConfirm={handleConfirmDelete}
         title="Delete Purchase Order"
-        message={`Are you sure you want to delete purchase order ${order.po_number}? This action cannot be undone and all associated data will be permanently removed.`}
+        message={`Are you sure you want to permanently delete ${order.po_number}? This action cannot be undone and all associated data will be removed. Please type 'DELETE' in the reason field and provide a justification.`}
         variant="danger"
-        confirmText="Delete"
+        confirmText="Delete Permanently"
         cancelText="Cancel"
         isLoading={isDeleting}
       >
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700">
-            Deletion Reason <span className="text-red-500">*</span>
+            Justification & Confirmation <span className="text-red-500">*</span>
           </label>
           <textarea
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="w-full rounded-lg border border-red-200 px-3 py-2 text-sm shadow-sm focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
             rows={4}
             value={deleteReason}
             onChange={(e) => setDeleteReason(e.target.value)}
-            placeholder="Explain why this purchase order is being deleted"
+            placeholder="Type DELETE and explain why this is being deleted"
           />
-          <p className="text-xs text-gray-500">
-            The reason will be logged for audit purposes.
+          <p className="text-xs text-slate-500 italic">
+            Note: All audit logs will record this action and justification.
           </p>
         </div>
       </ConfirmationDialog>

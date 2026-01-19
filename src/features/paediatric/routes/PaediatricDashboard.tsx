@@ -1,25 +1,26 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { MetricsCard } from '@/features/emergency/components/MetricsCard';
+import { PharmacyLogisticsWidget } from '@/features/pharmacy-logistics/components/PharmacyLogisticsWidget';
 import type { PaediatricPatient } from '../types/Paediatric';
 import { mockPaediatricPatients, mockPaediatricBeds, calculatePaediatricStats } from '../services/mockPaediatricData';
 
 export default function PaediatricDashboard() {
-  const [patients, setPatients] = useState<PaediatricPatient[]>(mockPaediatricPatients);
+  const [patients] = useState<PaediatricPatient[]>(mockPaediatricPatients);
   const [selectedPatient, setSelectedPatient] = useState<PaediatricPatient | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
-  
+
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
     }, 60000);
     return () => clearInterval(timer);
   }, []);
-  
+
   const stats = calculatePaediatricStats(patients, mockPaediatricBeds);
   const activePatients = patients.filter(p => p.status !== 'discharged');
-  
+
   const getAge = (ageMonths: number) => {
     if (ageMonths < 1) return `${Math.floor(ageMonths * 30)} days`;
     if (ageMonths < 12) return `${ageMonths} months`;
@@ -27,17 +28,7 @@ export default function PaediatricDashboard() {
     const months = ageMonths % 12;
     return months > 0 ? `${years}y ${months}m` : `${years} years`;
   };
-  
-  const formatDateTime = (date: Date) => {
-    return new Date(date).toLocaleString('en-MY', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-  
+
   const statusColors = {
     admitted: 'bg-blue-100 text-blue-800',
     stable: 'bg-green-100 text-green-800',
@@ -45,7 +36,7 @@ export default function PaediatricDashboard() {
     observation: 'bg-yellow-100 text-yellow-800',
     discharged: 'bg-gray-100 text-gray-800',
   };
-  
+
   const ageGroupColors = {
     neonate: 'bg-purple-500',
     infant: 'bg-blue-500',
@@ -54,7 +45,7 @@ export default function PaediatricDashboard() {
     'school-age': 'bg-orange-500',
     adolescent: 'bg-pink-500',
   };
-  
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -75,7 +66,7 @@ export default function PaediatricDashboard() {
           </div>
         </div>
       </div>
-      
+
       {/* Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <MetricsCard
@@ -89,7 +80,7 @@ export default function PaediatricDashboard() {
             </svg>
           }
         />
-        
+
         <MetricsCard
           title="Bed Occupancy"
           value={`${stats.occupancyRate}%`}
@@ -101,7 +92,7 @@ export default function PaediatricDashboard() {
             </svg>
           }
         />
-        
+
         <MetricsCard
           title="Immunization Status"
           value={stats.immunizationUpToDate}
@@ -113,7 +104,7 @@ export default function PaediatricDashboard() {
             </svg>
           }
         />
-        
+
         <MetricsCard
           title="Critical Cases"
           value={stats.criticalCases}
@@ -126,7 +117,7 @@ export default function PaediatricDashboard() {
           }
         />
       </div>
-      
+
       {/* Age Group Breakdown */}
       <div className="bg-white rounded-2xl shadow-lg border border-slate-200/60 p-6">
         <h2 className="text-xl font-bold text-slate-900 mb-4">Patients by Age Group</h2>
@@ -149,13 +140,18 @@ export default function PaediatricDashboard() {
           ))}
         </div>
       </div>
-      
+
+      {/* Shared Logistics Widget (Permission-aware) */}
+      <div className="mt-6">
+        <PharmacyLogisticsWidget />
+      </div>
+
       {/* Patient List */}
       <div className="bg-white rounded-2xl shadow-lg border border-slate-200/60">
         <div className="p-6 border-b border-slate-200">
           <h2 className="text-xl font-bold text-slate-900">Patient Census</h2>
         </div>
-        
+
         <div className="p-6">
           <div className="space-y-3 max-h-[600px] overflow-y-auto">
             {activePatients.map(patient => (
@@ -174,7 +170,7 @@ export default function PaediatricDashboard() {
                         {patient.ageGroup.toUpperCase()}
                       </span>
                     </div>
-                    
+
                     <h3 className="text-lg font-bold text-slate-900">{patient.name}</h3>
                     <p className="text-sm text-slate-600 mt-1">
                       {getAge(patient.ageMonths)} • {patient.gender} • {patient.registrationNumber}
@@ -182,7 +178,7 @@ export default function PaediatricDashboard() {
                     <p className="text-sm text-slate-700 font-semibold mt-2">
                       Bed: {patient.bedNumber} • {patient.primaryDiagnosis}
                     </p>
-                    
+
                     {patient.vitals.length > 0 && (
                       <div className="mt-3 bg-blue-50 p-3 rounded-lg border border-blue-200">
                         <div className="text-xs text-slate-600 mb-1">Latest Vitals</div>
@@ -206,17 +202,16 @@ export default function PaediatricDashboard() {
                         </div>
                       </div>
                     )}
-                    
+
                     <div className="mt-2 text-xs text-slate-600">
                       Parents: {patient.motherName} & {patient.fatherName} • Contact: {patient.contactNumber}
                     </div>
-                    
+
                     <div className="mt-2 flex gap-2">
-                      <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                        patient.immunizationStatus === 'up-to-date' ? 'bg-green-100 text-green-700' :
+                      <span className={`px-2 py-1 rounded text-xs font-semibold ${patient.immunizationStatus === 'up-to-date' ? 'bg-green-100 text-green-700' :
                         patient.immunizationStatus === 'delayed' ? 'bg-red-100 text-red-700' :
-                        'bg-yellow-100 text-yellow-700'
-                      }`}>
+                          'bg-yellow-100 text-yellow-700'
+                        }`}>
                         💉 {patient.immunizationStatus.replace('-', ' ')}
                       </span>
                       {patient.developmentalAssessments.length > 0 && patient.developmentalAssessments[0].overallStatus === 'on-track' && (
@@ -226,7 +221,7 @@ export default function PaediatricDashboard() {
                       )}
                     </div>
                   </div>
-                  
+
                   <div className="text-right ml-4">
                     <div className="text-sm font-semibold text-purple-900">{patient.attendingPediatrician}</div>
                     <div className="text-xs text-slate-500">{patient.assignedNurse}</div>
@@ -237,11 +232,11 @@ export default function PaediatricDashboard() {
           </div>
         </div>
       </div>
-      
+
       {/* Patient Details Modal */}
       {selectedPatient && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSelectedPatient(null)}>
-          <div 
+          <div
             className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
@@ -266,13 +261,13 @@ export default function PaediatricDashboard() {
                 </button>
               </div>
             </div>
-            
+
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               <div>
                 <h3 className="text-lg font-bold text-slate-900 mb-3">Diagnosis</h3>
                 <p className="text-slate-800 font-semibold">{selectedPatient.primaryDiagnosis}</p>
               </div>
-              
+
               {selectedPatient.growthMeasurements.length > 0 && (
                 <div>
                   <h3 className="text-lg font-bold text-slate-900 mb-3">Latest Growth Measurements</h3>
@@ -297,7 +292,7 @@ export default function PaediatricDashboard() {
                   </div>
                 </div>
               )}
-              
+
               <div>
                 <h3 className="text-lg font-bold text-slate-900 mb-3">Immunization Status: {selectedPatient.immunizationStatus.replace('-', ' ')}</h3>
                 <div className="space-y-2">
@@ -307,18 +302,17 @@ export default function PaediatricDashboard() {
                         <div className="font-semibold text-slate-900">{record.vaccineName} (Dose {record.doseNumber})</div>
                         <div className="text-xs text-slate-600">{record.scheduledAge}</div>
                       </div>
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        record.status === 'given' ? 'bg-green-100 text-green-700' :
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${record.status === 'given' ? 'bg-green-100 text-green-700' :
                         record.status === 'scheduled' ? 'bg-blue-100 text-blue-700' :
-                        'bg-red-100 text-red-700'
-                      }`}>
+                          'bg-red-100 text-red-700'
+                        }`}>
                         {record.status === 'given' && record.givenDate ? `✓ Given ${new Date(record.givenDate).toLocaleDateString('en-MY')}` : record.status}
                       </span>
                     </div>
                   ))}
                 </div>
               </div>
-              
+
               {selectedPatient.developmentalAssessments.length > 0 && (
                 <div>
                   <h3 className="text-lg font-bold text-slate-900 mb-3">Developmental Assessment</h3>

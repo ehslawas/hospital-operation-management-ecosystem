@@ -3,7 +3,7 @@
  * Handles government allocated funds (warrants) for hospital pharmacy use
  */
 
-import { supabase, isSupabaseConfigured } from '../supabase'
+import { supabase } from '../supabase'
 import type { ApiResponse } from '@/types'
 import type {
   Warrant,
@@ -28,41 +28,36 @@ export async function getWarrants(
   }
 ): Promise<ApiResponse<Warrant[]>> {
   try {
-    if (isSupabaseConfigured()) {
-      let query = supabase
-        .from('pharmacy_warrants')
-        .select('*')
-        .eq('hospital_id', hospitalId)
+    let query = supabase
+      .from('pharmacy_warrants')
+      .select('*')
+      .eq('hospital_id', hospitalId)
 
-      if (filters?.startDate) {
-        query = query.gte('warrant_date', filters.startDate)
-      }
-
-      if (filters?.endDate) {
-        query = query.lte('warrant_date', filters.endDate)
-      }
-
-      if (filters?.category) {
-        query = query.eq('category', filters.category)
-      }
-
-      if (filters?.department) {
-        query = query.eq('department', filters.department)
-      }
-
-      if (filters?.voteCode) {
-        query = query.eq('vote_code', filters.voteCode)
-      }
-
-      const { data, error } = await query.order('warrant_date', { ascending: false })
-
-      if (error) throw error
-
-      return { data: (data || []) as Warrant[], error: null }
+    if (filters?.startDate) {
+      query = query.gte('warrant_date', filters.startDate)
     }
 
-    // Fallback: return empty array when Supabase is not configured
-    return { data: [], error: null }
+    if (filters?.endDate) {
+      query = query.lte('warrant_date', filters.endDate)
+    }
+
+    if (filters?.category) {
+      query = query.eq('category', filters.category)
+    }
+
+    if (filters?.department) {
+      query = query.eq('department', filters.department)
+    }
+
+    if (filters?.voteCode) {
+      query = query.eq('vote_code', filters.voteCode)
+    }
+
+    const { data, error } = await query.order('warrant_date', { ascending: false })
+
+    if (error) throw error
+
+    return { data: (data || []) as Warrant[], error: null }
   } catch (error) {
     console.error('Error fetching warrants:', error)
     return {
@@ -77,22 +72,18 @@ export async function getWarrants(
  */
 export async function getWarrantById(warrantId: string): Promise<ApiResponse<Warrant & { created_by_user?: { full_name: string; email: string } }>> {
   try {
-    if (isSupabaseConfigured()) {
-      const { data, error } = await supabase
-        .from('pharmacy_warrants')
-        .select(`
-          *,
-          created_by_user:users!created_by(full_name, email)
-        `)
-        .eq('id', warrantId)
-        .single()
+    const { data, error } = await supabase
+      .from('pharmacy_warrants')
+      .select(`
+        *,
+        created_by_user:users!created_by(full_name, email)
+      `)
+      .eq('id', warrantId)
+      .single()
 
-      if (error) throw error
+    if (error) throw error
 
-      return { data: data as Warrant & { created_by_user?: { full_name: string; email: string } }, error: null }
-    }
-
-    return { data: null, error: 'Supabase not configured' }
+    return { data: data as Warrant & { created_by_user?: { full_name: string; email: string } }, error: null }
   } catch (error) {
     console.error('Error fetching warrant:', error)
     return {
@@ -111,46 +102,25 @@ export async function createWarrant(
   data: WarrantFormData
 ): Promise<ApiResponse<Warrant>> {
   try {
-    if (isSupabaseConfigured()) {
-      const { data: inserted, error } = await supabase
-        .from('pharmacy_warrants')
-        .insert({
-          hospital_id: hospitalId,
-          warrant_date: data.warrant_date,
-          document_no: data.document_no,
-          vote_code: data.vote_code,
-          vote_activity: data.vote_activity,
-          category: data.category,
-          department: data.department,
-          amount: data.amount,
-          created_by: userId,
-        })
-        .select('*')
-        .single()
+    const { data: inserted, error } = await supabase
+      .from('pharmacy_warrants')
+      .insert({
+        hospital_id: hospitalId,
+        warrant_date: data.warrant_date,
+        document_no: data.document_no,
+        vote_code: data.vote_code,
+        vote_activity: data.vote_activity,
+        category: data.category,
+        department: data.department,
+        amount: data.amount,
+        created_by: userId,
+      })
+      .select('*')
+      .single()
 
-      if (error) throw error
+    if (error) throw error
 
-      return { data: inserted as Warrant, error: null }
-    }
-
-    // Mock response for development
-    await new Promise((resolve) => setTimeout(resolve, 500))
-
-    const newWarrant: Warrant = {
-      id: `warrant-${Date.now()}`,
-      hospital_id: hospitalId,
-      warrant_date: data.warrant_date,
-      document_no: data.document_no,
-      vote_code: data.vote_code,
-      vote_activity: data.vote_activity,
-      category: data.category,
-      department: data.department,
-      amount: data.amount,
-      created_by: userId,
-      created_at: new Date().toISOString(),
-    }
-
-    return { data: newWarrant, error: null }
+    return { data: inserted as Warrant, error: null }
   } catch (error: any) {
     console.error('Error creating warrant:', error)
 
@@ -183,23 +153,19 @@ export async function updateWarrant(
   data: Partial<WarrantFormData>
 ): Promise<ApiResponse<Warrant>> {
   try {
-    if (isSupabaseConfigured()) {
-      const { data: updated, error } = await supabase
-        .from('pharmacy_warrants')
-        .update({
-          ...data,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', warrantId)
-        .select('*')
-        .single()
+    const { data: updated, error } = await supabase
+      .from('pharmacy_warrants')
+      .update({
+        ...data,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', warrantId)
+      .select('*')
+      .single()
 
-      if (error) throw error
+    if (error) throw error
 
-      return { data: updated as Warrant, error: null }
-    }
-
-    return { data: null, error: 'Supabase not configured' }
+    return { data: updated as Warrant, error: null }
   } catch (error: any) {
     console.error('Error updating warrant:', error)
 
@@ -229,18 +195,14 @@ export async function updateWarrant(
  */
 export async function deleteWarrant(warrantId: string): Promise<ApiResponse<boolean>> {
   try {
-    if (isSupabaseConfigured()) {
-      const { error } = await supabase
-        .from('pharmacy_warrants')
-        .delete()
-        .eq('id', warrantId)
+    const { error } = await supabase
+      .from('pharmacy_warrants')
+      .delete()
+      .eq('id', warrantId)
 
-      if (error) throw error
+    if (error) throw error
 
-      return { data: true, error: null }
-    }
-
-    return { data: null, error: 'Supabase not configured' }
+    return { data: true, error: null }
   } catch (error) {
     console.error('Error deleting warrant:', error)
     return {
@@ -260,6 +222,7 @@ export async function getWarrantSummary(
     category?: WarrantCategory
     department?: WarrantDepartment
     voteCode?: WarrantVoteCode
+    voteActivity?: string
   }
 ): Promise<ApiResponse<WarrantSummary>> {
   try {
@@ -267,93 +230,89 @@ export async function getWarrantSummary(
     const startDate = `${currentYear}-01-01`
     const endDate = `${currentYear}-12-31`
 
-    if (isSupabaseConfigured()) {
-      let query = supabase
-        .from('pharmacy_warrants')
+    let query = supabase
+      .from('pharmacy_warrants')
+      .select('*')
+      .eq('hospital_id', hospitalId)
+      .gte('warrant_date', startDate)
+      .lte('warrant_date', endDate)
+
+    if (filters?.department) {
+      query = query.eq('department', filters.department)
+    }
+
+    if (filters?.voteCode) {
+      query = query.eq('vote_code', filters.voteCode)
+    }
+
+    if (filters?.voteActivity) {
+      query = query.eq('vote_activity', filters.voteActivity)
+    }
+
+    // Special handling for category mismatch between Manual PO (non_standard) and Warrants (non_drug)
+    if (filters?.category === 'non_standard') {
+      // If searching for non_standard, we also want to see non_drug warrants 
+      // as they are often used interchangeably for manual procurement.
+      query = query.in('category', ['non_standard', 'non_drug'])
+    } else if (filters?.category === 'non_drug') {
+      query = query.in('category', ['non_standard', 'non_drug'])
+    } else if (filters?.category) {
+      query = query.eq('category', filters.category)
+    }
+
+    const { data: warrants, error } = await query.order('warrant_date', { ascending: false })
+
+    if (error) throw error
+
+    const warrantsList = (warrants || []) as Warrant[]
+
+    // Fetch expenses from pharmacy_cc_expenses and pharmacy_appl_expenses
+    // This ensures we match the data shown in the allocation dashboards
+    const expensePromises = []
+
+    // If no voteCode filter or voteCode is 080702, fetch CC expenses
+    if (!filters?.voteCode || filters.voteCode === '080702') {
+      let ccQuery = supabase
+        .from('pharmacy_cc_expenses')
         .select('*')
         .eq('hospital_id', hospitalId)
-        .gte('warrant_date', startDate)
-        .lte('warrant_date', endDate)
+        .eq('fiscal_year', currentYear)
+        .neq('status', 'cancelled')
 
-      if (filters?.category) {
-        query = query.eq('category', filters.category)
-      }
+      if (filters?.category) ccQuery = ccQuery.eq('category', filters.category)
+      if (filters?.department) ccQuery = ccQuery.eq('department', filters.department)
+      if (filters?.voteActivity) ccQuery = ccQuery.eq('vote_activity', filters.voteActivity)
 
-      if (filters?.department) {
-        query = query.eq('department', filters.department)
-      }
-
-      if (filters?.voteCode) {
-        query = query.eq('vote_code', filters.voteCode)
-      }
-
-      const { data: warrants, error } = await query.order('warrant_date', { ascending: false })
-
-      if (error) throw error
-
-      const warrantsList = (warrants || []) as Warrant[]
-
-      // Fetch expenses from pharmacy_cc_expenses and pharmacy_appl_expenses
-      // This ensures we match the data shown in the allocation dashboards
-      const expensePromises = []
-
-      // If no voteCode filter or voteCode is 080702, fetch CC expenses
-      if (!filters?.voteCode || filters.voteCode === '080702') {
-        let ccQuery = supabase
-          .from('pharmacy_cc_expenses')
-          .select('*')
-          .eq('hospital_id', hospitalId)
-          .eq('fiscal_year', currentYear)
-
-        if (filters?.category) ccQuery = ccQuery.eq('category', filters.category)
-        if (filters?.department) ccQuery = ccQuery.eq('department', filters.department)
-
-        expensePromises.push(ccQuery.then(res =>
-          (res.data || []).map(e => ({ ...e, vote_code: '080702' }))
-        ))
-      }
-
-      // If no voteCode filter or voteCode is 990102, fetch APPL expenses
-      if (!filters?.voteCode || filters.voteCode === '990102') {
-        let applQuery = supabase
-          .from('pharmacy_appl_expenses')
-          .select('*')
-          .eq('hospital_id', hospitalId)
-          .eq('fiscal_year', currentYear)
-
-        if (filters?.category) applQuery = applQuery.eq('category', filters.category)
-        if (filters?.department) applQuery = applQuery.eq('department', filters.department)
-
-        expensePromises.push(applQuery.then(res =>
-          (res.data || []).map(e => ({ ...e, vote_code: '990102' }))
-        ))
-      }
-
-      const expenseResults = await Promise.all(expensePromises)
-      const combinedExpenses = expenseResults.flat()
-
-      // Calculate summary with combined expense data
-      const summary = calculateWarrantSummary(warrantsList, combinedExpenses)
-
-      return { data: summary, error: null }
+      expensePromises.push(ccQuery.then(res =>
+        (res.data || []).map(e => ({ ...e, vote_code: '080702' }))
+      ))
     }
 
-    // Fallback: return empty summary
-    const emptySummary: WarrantSummary = {
-      total_allocation: 0,
-      total_expenses: 0,
-      total_balance: 0,
-      total_liabilities: 0,
-      net_expenses: 0,
-      usage_percentage: 0,
-      total_count: 0,
-      by_category: [],
-      by_department: [],
-      by_vote_code: [],
-      recent_warrants: [],
+    // If no voteCode filter or voteCode is 990102, fetch APPL expenses
+    if (!filters?.voteCode || filters.voteCode === '990102') {
+      let applQuery = supabase
+        .from('pharmacy_appl_expenses')
+        .select('*')
+        .eq('hospital_id', hospitalId)
+        .eq('fiscal_year', currentYear)
+        .neq('status', 'cancelled')
+
+      if (filters?.category) applQuery = applQuery.eq('category', filters.category)
+      if (filters?.department) applQuery = applQuery.eq('department', filters.department)
+      if (filters?.voteActivity) applQuery = applQuery.eq('vote_activity', filters.voteActivity)
+
+      expensePromises.push(applQuery.then(res =>
+        (res.data || []).map(e => ({ ...e, vote_code: '990102' }))
+      ))
     }
 
-    return { data: emptySummary, error: null }
+    const expenseResults = await Promise.all(expensePromises)
+    const combinedExpenses = expenseResults.flat()
+
+    // Calculate summary with combined expense data
+    const summary = calculateWarrantSummary(warrantsList, combinedExpenses)
+
+    return { data: summary, error: null }
   } catch (error) {
     console.error('Error fetching warrant summary:', error)
     return {
@@ -394,89 +353,140 @@ function calculateWarrantSummary(
   const total_expenses = normalizedExpenses
     .reduce((sum, e) => sum + e.finalAmount, 0)
 
-  // Liabilities: pending, approved, sent, partial_received (anything not completed)
+  // Liabilities: approved, sent, partial_received (anything not yet completed but valid)
   const total_liabilities = normalizedExpenses
-    .filter((e) => e.status !== 'completed')
+    .filter((e) => ['approved', 'sent', 'partial_received'].includes(e.status || ''))
     .reduce((sum, e) => sum + e.finalAmount, 0)
 
   const total_balance = total_allocation - total_expenses
   const net_expenses = total_expenses - total_liabilities
   const usage_percentage = total_allocation > 0 ? (total_expenses / total_allocation) * 100 : 0
 
-  // Group by category
+  // Initialize maps for all groupings
   const categoryMap = new Map<WarrantCategory, { allocation: number; expenses: number; balance: number; count: number }>()
+  const deptMap = new Map<WarrantDepartment, { allocation: number; expenses: number; balance: number; count: number }>()
+  const voteCodeMap = new Map<WarrantVoteCode, { allocation: number; expenses: number; balance: number; count: number }>()
+  const detailedMap = new Map<string, { department: string; vote_code: string; vote_activity: string; allocation: number; expenses: number; balance: number; count: number }>()
+
+  // 1. Process Allocations (Warrants) to populate initial map entries and sums
   warrants.forEach((w) => {
-    const existing = categoryMap.get(w.category) || { allocation: 0, expenses: 0, balance: 0, count: 0 }
-    const allocation = existing.allocation + Number(w.amount)
+    const warrantAmount = Number(w.amount)
 
-    // Calculate expenses for this category
-    const catExpenses = normalizedExpenses
-      .filter((e) => e.category === w.category)
-      .reduce((sum, e) => sum + e.finalAmount, 0)
+    // Category Map
+    const existingCat = categoryMap.get(w.category) || { allocation: 0, expenses: 0, balance: 0, count: 0 }
+    existingCat.allocation += warrantAmount
+    existingCat.count += 1
+    categoryMap.set(w.category, existingCat)
 
-    categoryMap.set(w.category, {
-      allocation,
-      expenses: catExpenses,
-      balance: allocation - catExpenses,
-      count: existing.count + 1,
-    })
+    // Department Map
+    const existingDept = deptMap.get(w.department) || { allocation: 0, expenses: 0, balance: 0, count: 0 }
+    existingDept.allocation += warrantAmount
+    existingDept.count += 1
+    deptMap.set(w.department, existingDept)
+
+    // Vote Code Map
+    const existingVote = voteCodeMap.get(w.vote_code) || { allocation: 0, expenses: 0, balance: 0, count: 0 }
+    existingVote.allocation += warrantAmount
+    existingVote.count += 1
+    voteCodeMap.set(w.vote_code, existingVote)
+
+    // Detailed Map (Department + Vote Code + Activity)
+    const detailedKey = `${w.department}|${w.vote_code}|${w.vote_activity}`
+    const existingDetailed = detailedMap.get(detailedKey) || {
+      department: w.department,
+      vote_code: w.vote_code,
+      vote_activity: w.vote_activity,
+      allocation: 0,
+      expenses: 0,
+      balance: 0,
+      count: 0
+    }
+    existingDetailed.allocation += warrantAmount
+    existingDetailed.count += 1
+    detailedMap.set(detailedKey, existingDetailed)
   })
+
+  // 2. Process Expenses to update map entries
+  normalizedExpenses.forEach((e) => {
+    const expenseAmount = e.finalAmount
+
+    // Category Map
+    if (e.category) {
+      const cat = e.category as WarrantCategory
+      const existingCat = categoryMap.get(cat) || { allocation: 0, expenses: 0, balance: 0, count: 0 }
+      existingCat.expenses += expenseAmount
+      categoryMap.set(cat, existingCat)
+    }
+
+    // Department Map
+    if (e.department) {
+      const dept = e.department as WarrantDepartment
+      const existingDept = deptMap.get(dept) || { allocation: 0, expenses: 0, balance: 0, count: 0 }
+      existingDept.expenses += expenseAmount
+      deptMap.set(dept, existingDept)
+    }
+
+    // Vote Code Map
+    if (e.vote_code) {
+      const vc = e.vote_code as WarrantVoteCode
+      const existingVote = voteCodeMap.get(vc) || { allocation: 0, expenses: 0, balance: 0, count: 0 }
+      existingVote.expenses += expenseAmount
+      voteCodeMap.set(vc, existingVote)
+    }
+
+    // Detailed Map (Department + Vote Code + Activity)
+    if (e.department && e.vote_code && e.vote_activity) {
+      const detailedKey = `${e.department}|${e.vote_code}|${e.vote_activity}`
+      const existingDetailed = detailedMap.get(detailedKey) || {
+        department: e.department,
+        vote_code: e.vote_code,
+        vote_activity: e.vote_activity,
+        allocation: 0,
+        expenses: 0,
+        balance: 0,
+        count: 0
+      }
+      existingDetailed.expenses += expenseAmount
+      detailedMap.set(detailedKey, existingDetailed)
+    }
+  })
+
+  // Finalize balances and sort results
   const by_category = Array.from(categoryMap.entries())
     .map(([category, data]) => ({
       category,
       ...data,
+      balance: data.allocation - data.expenses,
     }))
     .sort((a, b) => b.allocation - a.allocation)
 
-  // Group by department
-  const deptMap = new Map<WarrantDepartment, { allocation: number; expenses: number; balance: number; count: number }>()
-  warrants.forEach((w) => {
-    const existing = deptMap.get(w.department) || { allocation: 0, expenses: 0, balance: 0, count: 0 }
-    const allocation = existing.allocation + Number(w.amount)
-
-    // Calculate expenses for this department
-    const deptExpenses = normalizedExpenses
-      .filter((e) => e.department === w.department)
-      .reduce((sum, e) => sum + e.finalAmount, 0)
-
-    deptMap.set(w.department, {
-      allocation,
-      expenses: deptExpenses,
-      balance: allocation - deptExpenses,
-      count: existing.count + 1,
-    })
-  })
   const by_department = Array.from(deptMap.entries())
     .map(([department, data]) => ({
       department,
       ...data,
+      balance: data.allocation - data.expenses,
     }))
     .sort((a, b) => b.allocation - a.allocation)
 
-  // Group by vote code
-  const voteCodeMap = new Map<WarrantVoteCode, { allocation: number; expenses: number; balance: number; count: number }>()
-  warrants.forEach((w) => {
-    const existing = voteCodeMap.get(w.vote_code) || { allocation: 0, expenses: 0, balance: 0, count: 0 }
-    const allocation = existing.allocation + Number(w.amount)
-
-    // Calculate expenses for this vote code
-    const voteExpenses = normalizedExpenses
-      .filter((e) => e.vote_code === w.vote_code && e.vote_activity === w.vote_activity)
-      .reduce((sum, e) => sum + e.finalAmount, 0)
-
-    voteCodeMap.set(w.vote_code, {
-      allocation,
-      expenses: voteExpenses,
-      balance: allocation - voteExpenses,
-      count: existing.count + 1,
-    })
-  })
   const by_vote_code = Array.from(voteCodeMap.entries())
     .map(([vote_code, data]) => ({
       vote_code,
       ...data,
+      balance: data.allocation - data.expenses,
     }))
     .sort((a, b) => b.allocation - a.allocation)
+
+  const by_department_vote_activity = Array.from(detailedMap.values())
+    .map(item => ({
+      ...item,
+      balance: item.allocation - item.expenses
+    }))
+    .sort((a, b) => {
+      // Sort by Dept, then Vote Code, then Activity
+      if (a.department !== b.department) return a.department.localeCompare(b.department)
+      if (a.vote_code !== b.vote_code) return a.vote_code.localeCompare(b.vote_code)
+      return a.vote_activity.localeCompare(b.vote_activity)
+    })
 
   // Recent warrants (last 5)
   const recent_warrants = warrants.slice(0, 5)
@@ -492,23 +502,24 @@ function calculateWarrantSummary(
     by_category,
     by_department,
     by_vote_code,
+    by_department_vote_activity,
     recent_warrants,
   }
 }
 
 // Export constants for dropdowns
 export const WARRANT_VOTE_CODES = [
-  { value: '080702', label: '080702' },
-  { value: '990102', label: '990102' },
+  { value: '080702', label: 'CC' },
+  { value: '990102', label: 'APPL' },
 ] as const
 
 export const WARRANT_VOTE_ACTIVITIES = [
-  { value: '27401', label: '27401' },
-  { value: '27499', label: '27499' },
-  { value: '27404', label: '27404' },
-  { value: '27403', label: '27403' },
-  { value: '27402', label: '27402' },
-  { value: '27501', label: '27501' },
+  { value: '27401', label: '27401 - Drug' },
+  { value: '27499', label: '27499 - Non Drug' },
+  { value: '27404', label: '27404 - Vaccine' },
+  { value: '27403', label: '27403 - Pathologist' },
+  { value: '27402', label: '27402 - Medical Cylinder' },
+  { value: '27501', label: '27501 - X-ray' },
 ] as const
 
 export const WARRANT_CATEGORIES = [
@@ -529,7 +540,7 @@ export const WARRANT_DEPARTMENTS = [
   { value: 'emergency_trauma', label: 'Emergency Trauma' },
   { value: 'cssu_cssd', label: 'CSSU & CSSD' },
   { value: 'operation_theater', label: 'Operation Theater' },
-  { value: 'laboratory_pathology', label: 'Laboratory & Pathology' },
+  { value: 'laboratory_pathology', label: 'Pathologist' },
   { value: 'general_ward', label: 'General Ward' },
   { value: 'wound_care', label: 'Wound Care' },
   { value: 'rehabilitation', label: 'Rehabilitation' },

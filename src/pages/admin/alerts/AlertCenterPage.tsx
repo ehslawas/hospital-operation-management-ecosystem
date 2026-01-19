@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import { motion } from 'framer-motion'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   Bell,
   AlertTriangle,
@@ -9,17 +9,14 @@ import {
   RefreshCw,
   Filter,
   Check,
-  X,
   Eye,
-  EyeOff,
-  Download,
-  Search,
   Shield,
   Activity,
   Database,
   Settings,
 } from 'lucide-react'
-import { Button, Badge, Select, Input, Pagination, LoadingOverlay, Modal } from '@/components/ui'
+import { Button, Badge, Modal, Table, Pagination, LoadingOverlay } from '@/components/ui'
+import { AdminPageLayout, AdminStatsGrid, AdminFilterBar, StatItem } from '@/components/admin'
 import {
   getSystemAlerts,
   getUnreadAlertCount,
@@ -32,11 +29,11 @@ import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from '@/lib/constants'
 import { cn, formatDateTime, getRelativeTime } from '@/lib/utils'
 import type { SystemAlert, AlertType, AlertCategory } from '@/types'
 
-const alertTypeConfig: Record<AlertType, { color: string; bgColor: string; icon: React.ElementType; label: string }> = {
-  critical: { color: 'text-error-600', bgColor: 'bg-error-100', icon: XCircle, label: 'Critical' },
-  error: { color: 'text-error-600', bgColor: 'bg-error-100', icon: XCircle, label: 'Error' },
-  warning: { color: 'text-warning-600', bgColor: 'bg-warning-100', icon: AlertTriangle, label: 'Warning' },
-  info: { color: 'text-info-600', bgColor: 'bg-info-100', icon: Info, label: 'Info' },
+const alertTypeConfig: Record<AlertType, { variant: 'error' | 'warning' | 'primary' | 'success', icon: any }> = {
+  critical: { variant: 'error', icon: XCircle },
+  error: { variant: 'error', icon: XCircle },
+  warning: { variant: 'warning', icon: AlertTriangle },
+  info: { variant: 'primary', icon: Info },
 }
 
 const categoryIcons: Record<AlertCategory, React.ElementType> = {
@@ -59,13 +56,14 @@ export const AlertCenterPage: React.FC = () => {
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
-  const [filters, setFilters] = useState<{
-    alert_type?: AlertType
-    category?: AlertCategory
-    is_resolved?: boolean
-    is_read?: boolean
-  }>({})
-  const [searchQuery, setSearchQuery] = useState('')
+
+  // Filters
+  const [search, setSearch] = useState('')
+  const [typeFilter, setTypeFilter] = useState<string>('all')
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [readFilter, setReadFilter] = useState<string>('all')
+
   const [selectedAlert, setSelectedAlert] = useState<SystemAlert | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [showResolveModal, setShowResolveModal] = useState(false)
@@ -76,6 +74,13 @@ export const AlertCenterPage: React.FC = () => {
 
     setIsLoading(true)
     try {
+      const filters = {
+        alert_type: typeFilter !== 'all' ? (typeFilter as AlertType) : undefined,
+        category: categoryFilter !== 'all' ? (categoryFilter as AlertCategory) : undefined,
+        is_resolved: statusFilter !== 'all' ? statusFilter === 'resolved' : undefined,
+        is_read: readFilter !== 'all' ? readFilter === 'read' : undefined,
+      }
+
       const result = await getSystemAlerts(currentPage, pageSize, filters)
       setAlerts(result.data)
       setTotal(result.total)
@@ -90,17 +95,14 @@ export const AlertCenterPage: React.FC = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [currentPage, pageSize, filters, isSystemAdmin])
+  }, [currentPage, pageSize, typeFilter, categoryFilter, statusFilter, readFilter, isSystemAdmin, showError])
 
   useEffect(() => {
     fetchAlerts()
   }, [fetchAlerts])
 
-  // Auto-refresh every 30 seconds
   useEffect(() => {
-    const interval = setInterval(() => {
-      fetchAlerts()
-    }, 30000)
+    const interval = setInterval(fetchAlerts, 30000)
     return () => clearInterval(interval)
   }, [fetchAlerts])
 
@@ -150,534 +152,348 @@ export const AlertCenterPage: React.FC = () => {
     }
   }
 
-  const handleViewDetail = (alert: SystemAlert) => {
-    setSelectedAlert(alert)
-    setShowDetailModal(true)
-    // Auto-mark as read when viewing
-    if (!alert.is_read) {
-      handleMarkAsRead(alert.id)
-    }
-  }
+  // Stats
+  const stats: StatItem[] = useMemo(() => {
+    // Note: These counts are from current page if not fetched separately. 
+    // Ideal would be to fetch stats from API. Assuming we rely on what we have or just simplify.
+    // For now, let's keep it simple or remove if accurate stats unavailable.
+    // Current implementation fetches separate stats in variables. I will just calculate from fetched list or if backend doesn't support aggregate stats easily, I will omit or use 'Overview'.
+    return [
+      {
+        label: 'Unread Alerts',
+        value: unreadCount,
+        icon: Bell,
+        color: unreadCount > 0 ? (unreadCount > 10 ? 'rose' : 'amber') : 'slate',
+        description: 'Requires attention'
+      },
+      {
+        label: 'Total Alerts',
+        value: total,
+        icon: Activity,
+        color: 'blue'
+      }
+    ]
+  }, [unreadCount, total])
 
-  const filteredAlerts = alerts.filter((alert) => {
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
-      return (
-        alert.title.toLowerCase().includes(query) ||
-        alert.message.toLowerCase().includes(query) ||
-        alert.category.toLowerCase().includes(query)
+  const columns = [
+    {
+      key: 'type',
+      label: 'Severity',
+      render: (_: unknown, row: SystemAlert) => {
+        const config = alertTypeConfig[row.alert_type]
+        const Icon = config.icon
+        return (
+          <Badge variant={config.variant}>
+            <Icon className="w-3 h-3 mr-1" />
+            {row.alert_type}
+          </Badge>
+        )
+      }
+    },
+    {
+      key: 'category',
+      label: 'Category',
+      render: (_: unknown, row: SystemAlert) => {
+        const Icon = categoryIcons[row.category]
+        return (
+          <span className="flex items-center gap-1.5 text-sm text-slate-600 capitalize">
+            <Icon className="w-3.5 h-3.5 text-slate-400" />
+            {row.category}
+          </span>
+        )
+      }
+    },
+    {
+      key: 'message',
+      label: 'Message',
+      render: (_: unknown, row: SystemAlert) => (
+        <div>
+          <div className="font-medium text-slate-900 flex items-center gap-2">
+            {row.title}
+            {!row.is_read && <span className="w-2 h-2 rounded-full bg-rose-500" />}
+          </div>
+          <div className="text-sm text-slate-500 line-clamp-1">{row.message}</div>
+        </div>
       )
+    },
+    {
+      key: 'date',
+      label: 'Time',
+      render: (_: unknown, row: SystemAlert) => (
+        <div className="text-sm text-slate-600">
+          {getRelativeTime(row.created_at)}
+        </div>
+      )
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (_: unknown, row: SystemAlert) => (
+        row.is_resolved ? (
+          <Badge variant="success">Resolved</Badge>
+        ) : (
+          <Badge variant="warning">Unresolved</Badge>
+        )
+      )
+    },
+    {
+      key: 'actions',
+      label: '',
+      render: (_: unknown, row: SystemAlert) => (
+        <div className="flex items-center justify-end gap-2">
+          {!row.is_read && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleMarkAsRead(row.id)
+              }}
+              title="Mark as Read"
+              className="text-slate-500 hover:text-indigo-600"
+            >
+              <Eye className="w-4 h-4" />
+            </Button>
+          )}
+          {!row.is_resolved && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation()
+                setSelectedAlert(row)
+                setShowResolveModal(true)
+              }}
+              title="Resolve"
+              className="text-emerald-600 hover:bg-emerald-50"
+            >
+              <Check className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
+      ),
+      className: 'w-24'
     }
-    return true
-  })
+  ]
 
-  const criticalCount = alerts.filter((a) => a.alert_type === 'critical' && !a.is_resolved).length
-  const warningCount = alerts.filter((a) => a.alert_type === 'warning' && !a.is_resolved).length
-  const errorCount = alerts.filter((a) => a.alert_type === 'error' && !a.is_resolved).length
-  const infoCount = alerts.filter((a) => a.alert_type === 'info' && !a.is_resolved).length
-  const unresolvedCount = alerts.filter((a) => !a.is_resolved).length
+  const headerActions = (
+    <div className="flex items-center gap-3">
+      {unreadCount > 0 && (
+        <Button
+          variant="outline"
+          onClick={handleMarkAllAsRead}
+          leftIcon={<Check className="w-4 h-4" />}
+        >
+          Mark All Read
+        </Button>
+      )}
+      <Button
+        variant="outline"
+        onClick={fetchAlerts}
+        disabled={isLoading}
+        leftIcon={<RefreshCw className={isLoading ? 'animate-spin' : ''} />}
+      >
+        Refresh
+      </Button>
+    </div>
+  )
 
   if (!isSystemAdmin) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-[60vh]">
         <div className="text-center">
-          <AlertTriangle className="w-12 h-12 text-error-500 mx-auto mb-4" />
-          <p className="text-lg font-semibold text-slate-900">Access Denied</p>
-          <p className="text-slate-600">Only System Admin can access this page.</p>
+          <AlertTriangle className="w-16 h-16 text-rose-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-slate-900">Access Denied</h2>
+          <p className="text-slate-600 mt-2">Only System Administrators can access this page.</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between"
-      >
-        <div className="flex items-center gap-3">
+    <AdminPageLayout
+      title="Alert Center"
+      description="Monitor system health, security alerts, and critical notifications"
+      icon={Bell}
+      breadcrumbs={[{ label: 'Alerts' }]}
+      actions={headerActions}
+    >
+      <div className="space-y-6">
+        <AdminStatsGrid stats={stats} isLoading={isLoading} />
+
+        <AdminFilterBar
+          searchValue={search}
+          onSearchChange={(val) => {
+            setSearch(val)
+            setCurrentPage(1)
+          }}
+          searchPlaceholder="Search alerts..."
+          filters={[
+            {
+              key: 'type',
+              label: 'Type',
+              value: typeFilter,
+              onChange: setTypeFilter,
+              options: [
+                { value: 'critical', label: 'Critical' },
+                { value: 'error', label: 'Error' },
+                { value: 'warning', label: 'Warning' },
+                { value: 'info', label: 'Info' }
+              ]
+            },
+            {
+              key: 'category',
+              label: 'Category',
+              value: categoryFilter,
+              onChange: setCategoryFilter,
+              options: [
+                { value: 'security', label: 'Security' },
+                { value: 'performance', label: 'Performance' },
+                { value: 'backup', label: 'Backup' },
+                { value: 'system', label: 'System' },
+                { value: 'module', label: 'Module' }
+              ]
+            },
+            {
+              key: 'status',
+              label: 'Status',
+              value: statusFilter,
+              onChange: setStatusFilter,
+              options: [
+                { value: 'unresolved', label: 'Unresolved' },
+                { value: 'resolved', label: 'Resolved' }
+              ]
+            },
+            {
+              key: 'read',
+              label: 'Read Status',
+              value: readFilter,
+              onChange: setReadFilter,
+              options: [
+                { value: 'unread', label: 'Unread' },
+                { value: 'read', label: 'Read' }
+              ]
+            }
+          ]}
+          onReset={() => {
+            setSearch('')
+            setTypeFilter('all')
+            setCategoryFilter('all')
+            setStatusFilter('all')
+            setReadFilter('all')
+            setCurrentPage(1)
+          }}
+        />
+
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+            <h3 className="text-sm font-semibold text-slate-700">Alert List</h3>
+            <span className="text-xs text-slate-500">
+              Showing {alerts.length} of {total} alerts
+            </span>
+          </div>
+
           <div className="relative">
-            <Bell className="w-6 h-6 text-primary-600" />
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-error-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Alert Center</h1>
-            <p className="text-sm text-slate-600 mt-1">
-              Monitor and manage system alerts
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          {unreadCount > 0 && (
-            <Button
-              variant="outline"
-              onClick={handleMarkAllAsRead}
-              leftIcon={<Check className="w-4 h-4" />}
-            >
-              Mark All Read
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            onClick={fetchAlerts}
-            disabled={isLoading}
-            leftIcon={<RefreshCw className={cn('w-4 h-4', isLoading && 'animate-spin')} />}
-          >
-            Refresh
-          </Button>
-        </div>
-      </motion.div>
-
-      {/* Alert Summary Cards */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4"
-      >
-        <StatCard
-          title="Critical"
-          value={criticalCount}
-          icon={XCircle}
-          color="error"
-          subtitle="Requires immediate attention"
-        />
-        <StatCard
-          title="Errors"
-          value={errorCount}
-          icon={XCircle}
-          color="error"
-          subtitle="System errors detected"
-        />
-        <StatCard
-          title="Warnings"
-          value={warningCount}
-          icon={AlertTriangle}
-          color="warning"
-          subtitle="Potential issues"
-        />
-        <StatCard
-          title="Info"
-          value={infoCount}
-          icon={Info}
-          color="info"
-          subtitle="Informational alerts"
-        />
-        <StatCard
-          title="Unresolved"
-          value={unresolvedCount}
-          icon={Bell}
-          color="primary"
-          subtitle="Total active alerts"
-        />
-      </motion.div>
-
-      {/* Filters */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15 }}
-        className="bg-white rounded-xl border border-slate-200 shadow-sm p-4"
-      >
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-            <Filter className="w-4 h-4" />
-            Filters:
-          </div>
-          <Select
-            value={filters.alert_type || 'all'}
-            onChange={(e) => {
-              setFilters((prev) => ({
-                ...prev,
-                alert_type: e.target.value === 'all' ? undefined : (e.target.value as AlertType),
-              }))
-              setCurrentPage(1)
-            }}
-            className="w-40"
-          >
-            <option value="all">All Types</option>
-            <option value="critical">Critical</option>
-            <option value="error">Error</option>
-            <option value="warning">Warning</option>
-            <option value="info">Info</option>
-          </Select>
-          <Select
-            value={filters.category || 'all'}
-            onChange={(e) => {
-              setFilters((prev) => ({
-                ...prev,
-                category: e.target.value === 'all' ? undefined : (e.target.value as AlertCategory),
-              }))
-              setCurrentPage(1)
-            }}
-            className="w-40"
-          >
-            <option value="all">All Categories</option>
-            <option value="security">Security</option>
-            <option value="performance">Performance</option>
-            <option value="backup">Backup</option>
-            <option value="system">System</option>
-            <option value="module">Module</option>
-          </Select>
-          <Select
-            value={filters.is_resolved === undefined ? 'all' : filters.is_resolved ? 'resolved' : 'unresolved'}
-            onChange={(e) => {
-              setFilters((prev) => ({
-                ...prev,
-                is_resolved: e.target.value === 'all' ? undefined : e.target.value === 'resolved',
-              }))
-              setCurrentPage(1)
-            }}
-            className="w-40"
-          >
-            <option value="all">All Status</option>
-            <option value="unresolved">Unresolved</option>
-            <option value="resolved">Resolved</option>
-          </Select>
-          <Select
-            value={filters.is_read === undefined ? 'all' : filters.is_read ? 'read' : 'unread'}
-            onChange={(e) => {
-              setFilters((prev) => ({
-                ...prev,
-                is_read: e.target.value === 'all' ? undefined : e.target.value === 'read',
-              }))
-              setCurrentPage(1)
-            }}
-            className="w-40"
-          >
-            <option value="all">All Read Status</option>
-            <option value="unread">Unread</option>
-            <option value="read">Read</option>
-          </Select>
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input
-              placeholder="Search alerts..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
+            {isLoading && <LoadingOverlay message="Loading alerts..." />}
+            <Table
+              data={alerts}
+              columns={columns}
+              isLoading={isLoading}
+              onRowClick={(row) => {
+                setSelectedAlert(row)
+                setShowDetailModal(true)
+                if (!row.is_read) handleMarkAsRead(row.id)
+              }}
+              emptyMessage="No alerts found."
             />
           </div>
-        </div>
-      </motion.div>
 
-      {/* Alert List */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"
-      >
-        {isLoading ? (
-          <LoadingOverlay message="Loading alerts..." />
-        ) : filteredAlerts.length > 0 ? (
-          <>
-            <div className="divide-y divide-slate-50">
-              {filteredAlerts.map((alert) => {
-                const config = alertTypeConfig[alert.alert_type]
-                const Icon = config.icon
-                const CategoryIcon = categoryIcons[alert.category]
-
-                return (
-                  <div
-                    key={alert.id}
-                    className={cn(
-                      'p-4 hover:bg-slate-50 transition-colors cursor-pointer',
-                      !alert.is_read && 'bg-blue-50/50 border-l-4 border-l-primary-500'
-                    )}
-                    onClick={() => handleViewDetail(alert)}
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0', config.bgColor)}>
-                        <Icon className={cn('w-6 h-6', config.color)} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-3 mb-2">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-semibold text-slate-900">{alert.title}</h3>
-                              {!alert.is_read && (
-                                <span className="w-2 h-2 bg-primary-500 rounded-full" />
-                              )}
-                            </div>
-                            <p className="text-sm text-slate-600 line-clamp-2">{alert.message}</p>
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <Badge variant={config.color.replace('text-', '').replace('-600', '') as any} size="sm">
-                              {config.label}
-                            </Badge>
-                            {alert.is_resolved && (
-                              <Badge variant="success" size="sm">
-                                Resolved
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4 text-xs text-slate-500 mt-2">
-                          <div className="flex items-center gap-1">
-                            <CategoryIcon className="w-3 h-3" />
-                            <span className="capitalize">{alert.category}</span>
-                          </div>
-                          <span>{getRelativeTime(alert.created_at)}</span>
-                          {alert.resolved_at && (
-                            <span>Resolved {getRelativeTime(alert.resolved_at)}</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        {!alert.is_read && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleMarkAsRead(alert.id)
-                            }}
-                            title="Mark as read"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                        )}
-                        {!alert.is_resolved && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setSelectedAlert(alert)
-                              setShowResolveModal(true)
-                            }}
-                            title="Resolve alert"
-                            className="text-success-600 hover:text-success-700"
-                          >
-                            <Check className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+          <div className="border-t border-slate-100 bg-slate-50/30 p-4">
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
               pageSize={pageSize}
               total={total}
               onPageChange={setCurrentPage}
-              onPageSizeChange={(newSize) => {
-                setPageSize(newSize)
-                setCurrentPage(1)
-              }}
+              onPageSizeChange={setPageSize}
               pageSizeOptions={PAGE_SIZE_OPTIONS}
             />
-          </>
-        ) : (
-          <div className="p-12 text-center">
-            <Bell className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">No Alerts Found</h3>
-            <p className="text-slate-600">No alerts match your current filters</p>
           </div>
-        )}
-      </motion.div>
+        </div>
+      </div>
 
-      {/* Alert Detail Modal */}
+      {/* Detail Modal */}
       <Modal
         isOpen={showDetailModal}
-        onClose={() => {
-          setShowDetailModal(false)
-          setSelectedAlert(null)
-        }}
-        title={selectedAlert?.title || 'Alert Details'}
-        size="large"
+        onClose={() => setShowDetailModal(false)}
+        title="Alert Details"
       >
         {selectedAlert && (
           <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div
-                className={cn(
-                  'w-12 h-12 rounded-xl flex items-center justify-center',
-                  alertTypeConfig[selectedAlert.alert_type].bgColor
-                )}
-              >
-                {React.createElement(alertTypeConfig[selectedAlert.alert_type].icon, {
-                  className: cn('w-6 h-6', alertTypeConfig[selectedAlert.alert_type].color),
-                })}
+            <div className="flex items-start gap-4">
+              <div className={`p-3 rounded-lg ${alertTypeConfig[selectedAlert.alert_type].variant === 'error' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+                {React.createElement(alertTypeConfig[selectedAlert.alert_type].icon, { className: 'w-6 h-6' })}
               </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <Badge
-                    variant={alertTypeConfig[selectedAlert.alert_type].color.replace('text-', '').replace('-600', '') as any}
-                  >
-                    {alertTypeConfig[selectedAlert.alert_type].label}
-                  </Badge>
-                  <Badge variant="gray" size="sm" className="capitalize">
-                    {selectedAlert.category}
-                  </Badge>
-                  {selectedAlert.is_resolved && (
-                    <Badge variant="success" size="sm">
-                      Resolved
-                    </Badge>
-                  )}
+              <div>
+                <h3 className="font-semibold text-lg text-slate-900">{selectedAlert.title}</h3>
+                <div className="flex gap-2 mt-1">
+                  <Badge variant={alertTypeConfig[selectedAlert.alert_type].variant}>{selectedAlert.alert_type}</Badge>
+                  <Badge variant="gray">{selectedAlert.category}</Badge>
+                  {selectedAlert.is_resolved && <Badge variant="success">Resolved</Badge>}
                 </div>
-                <p className="text-sm text-slate-500">
-                  Created {formatDateTime(selectedAlert.created_at)}
-                </p>
               </div>
             </div>
 
-            <div className="bg-slate-50 rounded-lg p-4">
-              <p className="text-sm font-medium text-slate-900 mb-2">Message</p>
-              <p className="text-slate-700">{selectedAlert.message}</p>
+            <div className="bg-slate-50 p-4 rounded-lg text-slate-700 border border-slate-100">
+              {selectedAlert.message}
             </div>
 
-            {selectedAlert.metadata && Object.keys(selectedAlert.metadata).length > 0 && (
-              <div className="bg-slate-50 rounded-lg p-4">
-                <p className="text-sm font-medium text-slate-900 mb-2">Additional Information</p>
-                <pre className="text-xs text-slate-600 overflow-auto">
-                  {JSON.stringify(selectedAlert.metadata, null, 2)}
-                </pre>
-              </div>
-            )}
+            <div className="text-xs text-slate-500">
+              <p>Created: {formatDateTime(selectedAlert.created_at)}</p>
+              {selectedAlert.resolved_at && <p>Resolved: {formatDateTime(selectedAlert.resolved_at)}</p>}
+            </div>
 
-            {selectedAlert.resolved_at && (
-              <div className="bg-success-50 border border-success-200 rounded-lg p-4">
-                <p className="text-sm font-medium text-success-900 mb-1">Resolved</p>
-                <p className="text-xs text-success-700">
-                  {formatDateTime(selectedAlert.resolved_at)}
-                </p>
-                {selectedAlert.resolved_by && (
-                  <p className="text-xs text-success-600 mt-1">Resolved by: {selectedAlert.resolved_by}</p>
-                )}
-              </div>
-            )}
-
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
-              {!selectedAlert.is_read && (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    handleMarkAsRead(selectedAlert.id)
-                    setShowDetailModal(false)
-                  }}
-                  leftIcon={<Eye className="w-4 h-4" />}
-                >
-                  Mark as Read
-                </Button>
-              )}
+            <div className="flex justify-end pt-4 border-t border-slate-100">
               {!selectedAlert.is_resolved && (
                 <Button
-                  variant="primary"
                   onClick={() => {
                     setShowDetailModal(false)
                     setShowResolveModal(true)
                   }}
                   leftIcon={<Check className="w-4 h-4" />}
                 >
-                  Resolve Alert
+                  Resolve
                 </Button>
+              )}
+              {selectedAlert.is_resolved && (
+                <Button variant="outline" onClick={() => setShowDetailModal(false)}>Close</Button>
               )}
             </div>
           </div>
         )}
       </Modal>
 
-      {/* Resolve Alert Modal */}
+      {/* Resolve Confirmation */}
       <Modal
         isOpen={showResolveModal}
-        onClose={() => {
-          setShowResolveModal(false)
-          setSelectedAlert(null)
-        }}
+        onClose={() => setShowResolveModal(false)}
         title="Resolve Alert"
       >
         <div className="space-y-4">
-          <p className="text-slate-700">
-            Are you sure you want to mark this alert as resolved?
-          </p>
-          {selectedAlert && (
-            <div className="bg-slate-50 rounded-lg p-4">
-              <p className="text-sm font-medium text-slate-900">{selectedAlert.title}</p>
-              <p className="text-xs text-slate-600 mt-1">{selectedAlert.message}</p>
-            </div>
-          )}
-          <div className="flex items-center justify-end gap-3">
+          <p className="text-slate-600">Are you sure you want to mark this alert as resolved?</p>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={() => setShowResolveModal(false)}>Cancel</Button>
             <Button
-              variant="outline"
-              onClick={() => {
-                setShowResolveModal(false)
-                setSelectedAlert(null)
-              }}
-              disabled={resolvingId !== null}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
               onClick={() => selectedAlert && handleResolve(selectedAlert.id)}
               disabled={resolvingId !== null}
-              leftIcon={<Check className="w-4 h-4" />}
+              variant="primary"
             >
-              {resolvingId ? 'Resolving...' : 'Resolve Alert'}
+              {resolvingId ? 'Resolving...' : 'Confirm Resolve'}
             </Button>
           </div>
         </div>
       </Modal>
-    </div>
-  )
-}
-
-interface StatCardProps {
-  title: string
-  value: number
-  icon: React.ElementType
-  color: 'primary' | 'success' | 'warning' | 'error' | 'info'
-  subtitle?: string
-}
-
-const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, color, subtitle }) => {
-  const colorClasses = {
-    primary: {
-      bg: 'bg-primary-50',
-      icon: 'bg-primary-100 text-primary-600',
-    },
-    success: {
-      bg: 'bg-success-50',
-      icon: 'bg-success-100 text-success-600',
-    },
-    warning: {
-      bg: 'bg-warning-50',
-      icon: 'bg-warning-100 text-warning-600',
-    },
-    error: {
-      bg: 'bg-error-50',
-      icon: 'bg-error-100 text-error-600',
-    },
-    info: {
-      bg: 'bg-info-50',
-      icon: 'bg-info-100 text-info-600',
-    },
-  }
-
-  const colors = colorClasses[color]
-
-  return (
-    <div className={cn('card p-6', colors.bg)}>
-      <div className="flex items-start justify-between mb-4">
-        <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center', colors.icon)}>
-          <Icon className="w-6 h-6" />
-        </div>
-      </div>
-      <h3 className="text-2xl font-bold text-slate-900 mb-1">{value}</h3>
-      <p className="text-sm text-slate-600">{title}</p>
-      {subtitle && <p className="text-xs text-slate-500 mt-1">{subtitle}</p>}
-    </div>
+    </AdminPageLayout>
   )
 }
 

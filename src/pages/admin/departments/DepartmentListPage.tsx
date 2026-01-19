@@ -1,474 +1,428 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { Search, Plus, RefreshCw, Edit, Trash2, Building2, TrendingUp, FileText, AlertCircle, Filter, CheckCircle } from 'lucide-react'
-import { Button, Table, Pagination, Input, Select, Badge, LoadingOverlay, Modal } from '@/components/ui'
-import { getDepartments, deleteDepartment } from '@/services/departmentService'
+import {
+  Building,
+  Plus,
+  Edit,
+  Trash2,
+  Building2,
+  RefreshCw,
+  FolderOpen,
+  LayoutGrid,
+  CheckCircle,
+  Users,
+} from 'lucide-react'
+import { Button, Table, Badge, LoadingOverlay, ConfirmationDialog, Pagination } from '@/components/ui'
+import { AdminPageLayout, AdminStatsGrid, AdminFilterBar, StatItem } from '@/components/admin'
+import { cn } from '@/lib/utils'
+import { getAllDepartments, deleteDepartment } from '@/services/departmentService'
 import { getAllHospitals } from '@/services/hospitalService'
 import { useToastStore } from '@/stores/toastStore'
 import { useAuthStore } from '@/stores/authStore'
-import { ROUTES, DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS, SYSTEM_ROLES } from '@/lib/constants'
-import { formatDate, cn } from '@/lib/utils'
-import type { DepartmentWithRelations, SortConfig, Hospital } from '@/types'
+import { ROUTES, PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE, SYSTEM_ROLES } from '@/lib/constants'
+import type { Department, DepartmentWithRelations, Hospital, SortConfig } from '@/types'
 
 export const DepartmentListPage: React.FC = () => {
   const navigate = useNavigate()
   const { error: showError, success: showSuccess } = useToastStore()
   const { user } = useAuthStore()
   const isHospitalAdmin = user?.role?.role_code === SYSTEM_ROLES.HOSPITAL_ADMIN
+  const isSystemAdmin = user?.role?.role_code === SYSTEM_ROLES.SYSTEM_ADMIN
+  const canModify = isSystemAdmin || isHospitalAdmin
   const userHospitalId = user?.hospital_id
 
+  // State
   const [departments, setDepartments] = useState<DepartmentWithRelations[]>([])
   const [hospitals, setHospitals] = useState<Hospital[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [hospitalFilter, setHospitalFilter] = useState<string>('all')
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'department_name', direction: 'asc' })
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
-  const [total, setTotal] = useState(0)
-  const [totalPages, setTotalPages] = useState(0)
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [hospitalFilter, setHospitalFilter] = useState<string>('all')
-  const [sortConfig, setSortConfig] = useState<SortConfig | undefined>({ key: 'department_name', direction: 'asc' })
-  const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [departmentToDelete, setDepartmentToDelete] = useState<DepartmentWithRelations | null>(null)
 
-  useEffect(() => {
-    if (!isHospitalAdmin) {
-      fetchHospitals()
-    }
-  }, [isHospitalAdmin])
+  // Confirmation State
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean
+    title: string
+    message: string
+    onConfirm: () => Promise<void>
+    variant: 'danger' | 'warning' | 'info' | 'success'
+    confirmText?: string
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: async () => { },
+    variant: 'danger'
+  })
 
-  const fetchHospitals = async () => {
-    try {
-      const data = await getAllHospitals()
-      setHospitals(data)
-    } catch (error) {
-      console.error('Error fetching hospitals:', error)
-    }
-  }
+  const [isActionLoading, setIsActionLoading] = useState(false)
 
-  const fetchDepartments = useCallback(async () => {
+  // Fetch Data
+  const fetchData = useCallback(async () => {
     setIsLoading(true)
     try {
-      // For Hospital Admin, always filter by their hospital_id
-      const effectiveHospitalId = isHospitalAdmin && userHospitalId 
-        ? userHospitalId 
-        : hospitalFilter !== 'all' 
-          ? hospitalFilter 
-          : undefined
+      const [deptsData, hospitalsData] = await Promise.all([
+        getAllDepartments(isHospitalAdmin && userHospitalId ? userHospitalId : undefined),
+        !isHospitalAdmin ? getAllHospitals() : Promise.resolve([])
+      ])
 
-      const result = await getDepartments({
-        page: currentPage,
-        pageSize,
-        search: search || undefined,
-        status: statusFilter !== 'all' ? statusFilter : undefined,
-        hospitalId: effectiveHospitalId,
-        sort: sortConfig,
-      })
-
-      setDepartments(result.data)
-      setTotal(result.total)
-      setTotalPages(result.totalPages)
+      setDepartments(deptsData)
+      if (!isHospitalAdmin) {
+        setHospitals(hospitalsData)
+      }
     } catch (error) {
-      showError('Error', 'Failed to load departments. Please try again.')
-      console.error('Failed to fetch departments:', error)
+      console.error('Error fetching data:', error)
+      showError('Error', 'Failed to load data')
     } finally {
       setIsLoading(false)
     }
-  }, [currentPage, pageSize, search, statusFilter, hospitalFilter, sortConfig, isHospitalAdmin, userHospitalId])
+  }, [isHospitalAdmin, userHospitalId, showError])
 
   useEffect(() => {
-    fetchDepartments()
-  }, [fetchDepartments])
+    fetchData()
+  }, [fetchData])
 
-  // Calculate statistics
-  const stats = useMemo(() => {
-    const active = departments.filter((d) => d.status === 'active').length
-    const inactive = departments.filter((d) => d.status === 'inactive').length
-    return { active, inactive, total }
-  }, [departments, total])
+  // Statistics
+  const stats: StatItem[] = useMemo(() => {
+    const total = departments.length
+    const active = departments.filter(d => d.status === 'active').length
+    // Sum staff counts
+    const totalStaff = departments.reduce((acc, curr) => acc + (curr.staff_count || 0), 0)
 
-  const handleDelete = async () => {
-    if (!departmentToDelete) return
+    return [
+      {
+        label: 'Total Departments',
+        value: total,
+        icon: Building,
+        color: 'blue'
+      },
+      {
+        label: 'Active Units',
+        value: active,
+        icon: CheckCircle,
+        color: 'emerald',
+        description: 'Operational departments'
+      },
+      {
+        label: 'Staff Assigned',
+        value: totalStaff,
+        icon: Users,
+        color: 'indigo',
+        description: 'Total headcount'
+      },
+      {
+        label: 'Standard Code',
+        value: 'Standard',
+        icon: LayoutGrid,
+        color: 'slate',
+        description: 'Department coding'
+      }
+    ]
+  }, [departments])
 
-    try {
-      await deleteDepartment(departmentToDelete.id)
-      showSuccess('Success', 'Department deleted successfully')
-      setShowDeleteModal(false)
-      setDepartmentToDelete(null)
-      fetchDepartments()
-    } catch (error) {
-      showError('Error', 'Failed to delete department')
-      console.error('Failed to delete department:', error)
+  // Filtering and Sorting
+  const filteredDepartments = useMemo(() => {
+    let result = [...departments]
+
+    // Hospital Filter
+    if (hospitalFilter !== 'all') {
+      result = result.filter(d => d.hospital_id === hospitalFilter)
     }
+
+    // Search
+    if (search) {
+      const query = search.toLowerCase()
+      result = result.filter(
+        d =>
+          d.department_name.toLowerCase().includes(query) ||
+          d.department_code.toLowerCase().includes(query) ||
+          d.description?.toLowerCase().includes(query) ||
+          d.hospital?.hospital_name.toLowerCase().includes(query)
+      )
+    }
+
+    // Sorting
+    if (sortConfig.key) {
+      result.sort((a, b) => {
+        let aValue: any = a[sortConfig.key as keyof DepartmentWithRelations]
+        let bValue: any = b[sortConfig.key as keyof DepartmentWithRelations]
+
+        // Handle nested hospital name
+        if (sortConfig.key === 'hospital') {
+          aValue = a.hospital?.hospital_name || ''
+          bValue = b.hospital?.hospital_name || ''
+        }
+
+        // Handle staff count
+        if (sortConfig.key === 'staff_count') {
+          aValue = a.staff_count || 0
+          bValue = b.staff_count || 0
+        }
+
+        if (aValue === bValue) return 0
+        const comparison = aValue > bValue ? 1 : -1
+        return sortConfig.direction === 'asc' ? comparison : -comparison
+      })
+    }
+
+    return result
+  }, [departments, search, hospitalFilter, sortConfig])
+
+  // Pagination
+  const paginatedDepartments = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return filteredDepartments.slice(start, start + pageSize)
+  }, [filteredDepartments, currentPage, pageSize])
+
+  const handleSort = (key: string) => {
+    setSortConfig((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc',
+    }))
+  }
+
+  const handleDelete = async (dept: Department) => {
+    setIsActionLoading(true)
+    try {
+      await deleteDepartment(dept.id)
+      showSuccess('Success', 'Department deleted successfully')
+      fetchData()
+    } catch (error) {
+      console.error('Error deleting department:', error)
+      showError('Error', 'Failed to delete department')
+    } finally {
+      setIsActionLoading(false)
+      setConfirmConfig(prev => ({ ...prev, isOpen: false }))
+    }
+  }
+
+  const confirmDelete = (dept: Department) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Delete Department?',
+      message: `Are you sure you want to delete ${dept.department_name}? Users assigned to this department may lose access.`,
+      variant: 'danger',
+      confirmText: 'Delete Department',
+      onConfirm: () => handleDelete(dept)
+    })
   }
 
   const columns = [
     {
-      key: 'department_code',
-      label: 'Code',
-      sortable: true,
-      render: (_: unknown, row: DepartmentWithRelations) => (
-        <div className="flex items-center gap-2">
-          <Building2 className="w-5 h-5 text-teal-600" />
-          <span className="font-mono font-semibold text-slate-900">{row.department_code}</span>
-        </div>
-      ),
-    },
-    {
       key: 'department_name',
-      label: 'Department Name',
+      label: 'Department',
       sortable: true,
       render: (_: unknown, row: DepartmentWithRelations) => (
-        <div className="space-y-1">
-          <div className="font-semibold text-slate-900">{row.department_name}</div>
-          {row.description && <div className="text-sm text-slate-500">{row.description}</div>}
+        <div className="flex items-start gap-3">
+          <div className="p-2.5 bg-royal-blue/5 rounded-xl text-royal-blue group-hover:bg-royal-blue group-hover:text-white transition-all duration-300">
+            <FolderOpen className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="font-bold text-slate-900 group-hover:text-royal-blue transition-colors">{row.department_name}</div>
+            <div className="text-xs text-slate-500 font-mono mt-0.5 uppercase tracking-wider">{row.department_code}</div>
+          </div>
         </div>
       ),
     },
     {
       key: 'hospital',
       label: 'Hospital',
+      sortable: true,
       render: (_: unknown, row: DepartmentWithRelations) => (
-        <span className="text-sm font-medium text-slate-700">{row.hospital?.hospital_name || 'N/A'}</span>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2 text-sm text-slate-700 font-medium">
+            <Building2 className="w-4 h-4 text-slate-400" />
+            <span className="truncate max-w-[200px]" title={row.hospital?.hospital_name}>
+              {row.hospital?.hospital_name || 'N/A'}
+            </span>
+          </div>
+          <div className="text-[10px] text-slate-400 uppercase tracking-tighter">Organizational Unit</div>
+        </div>
       ),
     },
     {
-      key: 'head_of_department',
-      label: 'Head of Department',
+      key: 'staff_count',
+      label: 'Staff',
+      sortable: true,
       render: (_: unknown, row: DepartmentWithRelations) => (
-        <span className="text-sm text-slate-700">
-          {row.head_of_department?.full_name || 'Not assigned'}
-        </span>
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 bg-slate-100 rounded-md text-slate-600">
+            <Users className="w-3.5 h-3.5" />
+          </div>
+          <span className="text-sm font-medium text-slate-700">{row.staff_count || 0}</span>
+        </div>
       ),
     },
     {
       key: 'status',
       label: 'Status',
       sortable: true,
-      render: (_: unknown, row: DepartmentWithRelations) => {
-        const variant = row.status === 'active' ? 'success' : 'gray'
-        return (
-          <Badge variant={variant} className="capitalize">
-            {row.status}
-          </Badge>
-        )
-      },
-    },
-    {
-      key: 'created_at',
-      label: 'Created',
-      sortable: true,
       render: (_: unknown, row: DepartmentWithRelations) => (
-        <span className="text-sm text-slate-500">{formatDate(row.created_at)}</span>
+        <Badge
+          variant={row.status === 'active' ? 'success' : 'gray'}
+          className="px-3 py-1 rounded-full shadow-sm"
+        >
+          {row.status.charAt(0).toUpperCase() + row.status.slice(1)}
+        </Badge>
       ),
     },
     {
       key: 'actions',
-      label: 'Actions',
+      label: '',
       render: (_: unknown, row: DepartmentWithRelations) => (
-        <div className="flex items-center gap-2">
-          {!isHospitalAdmin ? (
-            <>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  navigate(`${ROUTES.ADMIN_DEPARTMENTS}/${row.id}`)
-                }}
-                leftIcon={<Edit className="w-4 h-4" />}
-                className="shadow-sm hover:shadow-md transition-shadow"
-              >
-                Edit
-              </Button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setDepartmentToDelete(row)
-                  setShowDeleteModal(true)
-                }}
-                className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                title="Delete"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </>
-          ) : (
+        <div className="flex items-center justify-end gap-2">
+          {canModify && (
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={(e) => {
                 e.stopPropagation()
                 navigate(`${ROUTES.ADMIN_DEPARTMENTS}/${row.id}`)
               }}
-              className="text-slate-600 border-slate-200"
+              className="h-9 w-9 p-0 text-slate-400 hover:text-royal-blue hover:bg-royal-blue/10 rounded-xl transition-all"
+              title="Edit Department"
             >
-              View Details
+              <Edit className="w-4 h-4" />
+            </Button>
+          )}
+          {isSystemAdmin && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation()
+                confirmDelete(row)
+              }}
+              className="h-9 w-9 p-0 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+              title="Delete Department"
+            >
+              <Trash2 className="w-4 h-4" />
             </Button>
           )}
         </div>
       ),
-      className: 'w-32',
+      className: 'w-24',
     },
   ]
 
+  const headerActions = (
+    <div className="flex items-center gap-3">
+      <Button
+        variant="ghost"
+        onClick={fetchData}
+        disabled={isLoading}
+        className="text-slate-500 hover:text-royal-blue hover:bg-royal-blue/5 rounded-xl transition-all"
+        leftIcon={<RefreshCw className={cn('w-4 h-4', isLoading ? 'animate-spin' : '')} />}
+      >
+        Refresh
+      </Button>
+      {isSystemAdmin && (
+        <Button
+          variant="primary"
+          onClick={() => navigate(`${ROUTES.ADMIN_DEPARTMENTS}/new`)}
+          leftIcon={<Plus className="w-5 h-5" />}
+          className="bg-royal-blue hover:bg-blue-700 shadow-lg shadow-blue-200 rounded-xl px-5 py-2.5"
+        >
+          Add Department
+        </Button>
+      )}
+    </div>
+  )
+
   return (
-    <div className="space-y-6">
-      {/* Header with Gradient */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 via-emerald-700 to-emerald-800 p-8 shadow-xl"
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 relative">
+      {/* Ambient Background Shapes */}
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-100/20 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-indigo-100/20 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/2 pointer-events-none" />
+
+      <AdminPageLayout
+        title="Department Management"
+        description="Monitor and manage organizational units across all hospital divisions."
+        icon={Building}
+        breadcrumbs={[{ label: 'Departments' }]}
+        actions={headerActions}
       >
-        <div className="relative z-10">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-white/30">
-                <Building2 className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-white mb-2">Department Management</h1>
-                <p className="text-emerald-100 text-sm">Manage departments and organizational structure</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                onClick={fetchDepartments}
-                disabled={isLoading}
-                className="bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20"
-                leftIcon={<RefreshCw className={cn('w-4 h-4', isLoading && 'animate-spin')} />}
-              >
-                Refresh
-              </Button>
-              {!isHospitalAdmin && (
-                <Button
-                  variant="primary"
-                  onClick={() => navigate(`${ROUTES.ADMIN_DEPARTMENTS}/new`)}
-                  className="bg-white text-emerald-600 hover:bg-emerald-50 shadow-lg"
-                  leftIcon={<Plus className="w-5 h-5" />}
-                >
-                  Add Department
-                </Button>
-              )}
-            </div>
+        <div className="space-y-8">
+          {/* Stats Section with Glass Effect */}
+          <div className="glass-card rounded-2xl p-1 bg-white/40 backdrop-blur-sm border border-white/60">
+            <AdminStatsGrid stats={stats} isLoading={isLoading} />
           </div>
-          {isHospitalAdmin && (
-            <div className="mt-4 p-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl">
-              <p className="text-emerald-50 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4" />
-                Departments are managed by the System Administrator based on enabled hospital modules.
-              </p>
-            </div>
-          )}
-        </div>
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full -ml-24 -mb-24" />
-      </motion.div>
 
-      {/* Statistics Cards */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="grid grid-cols-1 md:grid-cols-3 gap-4"
-      >
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-success-100 rounded-xl flex items-center justify-center">
-              <CheckCircle className="w-6 h-6 text-success-600" />
-            </div>
-            <TrendingUp className="w-5 h-5 text-slate-400" />
-          </div>
-          <div className="space-y-1">
-            <p className="text-3xl font-bold text-slate-900">{stats.active}</p>
-            <p className="text-sm font-medium text-slate-600">Active Departments</p>
-            <p className="text-xs text-slate-500">Currently operational</p>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center">
-              <Building2 className="w-6 h-6 text-slate-600" />
-            </div>
-            <TrendingUp className="w-5 h-5 text-slate-400" />
-          </div>
-          <div className="space-y-1">
-            <p className="text-3xl font-bold text-slate-900">{stats.inactive}</p>
-            <p className="text-sm font-medium text-slate-600">Inactive</p>
-            <p className="text-xs text-slate-500">Not operational</p>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-primary-100 rounded-xl flex items-center justify-center">
-              <FileText className="w-6 h-6 text-primary-600" />
-            </div>
-            <FileText className="w-5 h-5 text-slate-400" />
-          </div>
-          <div className="space-y-1">
-            <p className="text-3xl font-bold text-slate-900">{total}</p>
-            <p className="text-sm font-medium text-slate-600">Total Departments</p>
-            <p className="text-xs text-slate-500">All departments</p>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Filters and Search */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15 }}
-        className="bg-white rounded-xl border border-slate-200 shadow-sm p-6"
-      >
-        <div className="flex items-center gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <Input
-              placeholder="Search by name, code, or description..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value)
-                setCurrentPage(1)
-              }}
-              className="pl-12 h-11 border-slate-300 focus:border-primary-500 focus:ring-primary-500"
-            />
-          </div>
-          {!isHospitalAdmin && (
-            <div className="flex items-center gap-2">
-              <Filter className="w-5 h-5 text-slate-500" />
-              <Select
-                value={hospitalFilter}
-                onChange={(e) => {
-                  setHospitalFilter(e.target.value)
+          <div className="glass-card rounded-2xl border border-slate-200/60 bg-white/80 backdrop-blur-md shadow-xl shadow-blue-900/5 overflow-hidden">
+            {/* Filter Bar */}
+            <div className="p-6 border-b border-slate-100/80 bg-slate-50/40">
+              <AdminFilterBar
+                searchValue={search}
+                onSearchChange={(val) => {
+                  setSearch(val)
                   setCurrentPage(1)
                 }}
-                className="w-48 h-11 border-slate-300 focus:border-primary-500"
-              >
-                <option value="all">All Hospitals</option>
-                {hospitals.map((h) => (
-                  <option key={h.id} value={h.id}>
-                    {h.hospital_name}
-                  </option>
-                ))}
-              </Select>
+                searchPlaceholder="Search departments by name or code..."
+                filters={!isHospitalAdmin ? [
+                  {
+                    key: 'hospital',
+                    label: 'Filter by Hospital',
+                    value: hospitalFilter,
+                    onChange: setHospitalFilter,
+                    options: hospitals.map(h => ({ value: h.id, label: h.hospital_name }))
+                  }
+                ] : []}
+                onReset={() => {
+                  setSearch('')
+                  setHospitalFilter('all')
+                  setCurrentPage(1)
+                }}
+              />
             </div>
-          )}
-          <div className="flex items-center gap-2">
-            <Filter className="w-5 h-5 text-slate-500" />
-            <Select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value)
-                setCurrentPage(1)
-              }}
-              className="w-48 h-11 border-slate-300 focus:border-primary-500"
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </Select>
-          </div>
-        </div>
-      </motion.div>
 
-      {/* Table */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"
-      >
-        <div className="p-6 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-primary-600" />
-              Departments
-            </h2>
-            <Badge variant="gray" size="sm">
-              {total} {total === 1 ? 'department' : 'departments'}
-            </Badge>
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          <Table
-            data={departments}
-            columns={columns}
-            sortConfig={sortConfig}
-            onSort={(key) => {
-              setSortConfig((prev) => {
-                if (prev?.key === key) {
-                  return prev.direction === 'asc'
-                    ? { key, direction: 'desc' }
-                    : undefined
-                }
-                return { key, direction: 'asc' }
-              })
-            }}
-            isLoading={isLoading}
-            emptyMessage={
-              <div className="flex flex-col items-center justify-center py-12">
-                <AlertCircle className="w-12 h-12 text-slate-400 mb-4" />
-                <p className="text-slate-600 font-medium">No departments found</p>
-                <p className="text-sm text-slate-500 mt-1">Try adjusting your filters</p>
-              </div>
-            }
-            onRowClick={(row) => navigate(`${ROUTES.ADMIN_DEPARTMENTS}/${row.id}`)}
-          />
-        </div>
-        <div className="border-t border-slate-200 bg-slate-50/50">
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            pageSize={pageSize}
-            total={total}
-            onPageChange={setCurrentPage}
-            onPageSizeChange={(newSize) => {
-              setPageSize(newSize)
-              setCurrentPage(1)
-            }}
-            pageSizeOptions={PAGE_SIZE_OPTIONS}
-          />
-        </div>
-      </motion.div>
+            {/* Table Section */}
+            <div className="relative">
+              {isActionLoading && <LoadingOverlay message="Processing..." />}
+              <Table
+                data={paginatedDepartments}
+                columns={columns}
+                sortConfig={sortConfig}
+                onSort={handleSort}
+                isLoading={isLoading}
+                onRowClick={(row) => navigate(`${ROUTES.ADMIN_DEPARTMENTS}/${row.id}`)}
+                emptyMessage="No departments matching your criteria were found."
+                className="group"
+              />
+            </div>
 
-      {/* Delete Confirmation Modal */}
-      <Modal
-        isOpen={showDeleteModal}
-        onClose={() => {
-          setShowDeleteModal(false)
-          setDepartmentToDelete(null)
-        }}
-        title="Delete Department"
-      >
-        <div className="space-y-4">
-          <p className="text-slate-700">
-            Are you sure you want to delete <strong>{departmentToDelete?.department_name}</strong>? This action cannot be
-            undone.
-          </p>
-          <div className="flex items-center justify-end gap-3">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowDeleteModal(false)
-                setDepartmentToDelete(null)
-              }}
-            >
-              Cancel
-            </Button>
-            <Button variant="danger" onClick={handleDelete}>
-              Delete Department
-            </Button>
+            {/* Pagination with Glass Footer */}
+            <div className="border-t border-slate-100 bg-slate-50/50 p-6 backdrop-blur-sm">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={Math.ceil(filteredDepartments.length / pageSize)}
+                pageSize={pageSize}
+                total={filteredDepartments.length}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={(size) => {
+                  setPageSize(size)
+                  setCurrentPage(1)
+                }}
+                pageSizeOptions={PAGE_SIZE_OPTIONS}
+              />
+            </div>
           </div>
         </div>
-      </Modal>
+
+        <ConfirmationDialog
+          isOpen={confirmConfig.isOpen}
+          onClose={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+          onConfirm={confirmConfig.onConfirm}
+          title={confirmConfig.title}
+          message={confirmConfig.message}
+          variant={confirmConfig.variant}
+          confirmText={confirmConfig.confirmText}
+          isLoading={isActionLoading}
+        />
+      </AdminPageLayout>
     </div>
   )
 }
 
 export default DepartmentListPage
-
-

@@ -16,13 +16,11 @@ const getCurrentModule = (pathname: string): { name: string; code?: string } | n
     return { name: module?.name || 'Pharmacy Logistics', code: 'pharmacy_logistics' }
   }
 
-  // System Admin
-  if (pathname.startsWith('/admin') && pathname.includes('/modules')) {
-    return { name: 'System Administration', code: 'system_admin' }
-  }
-
-  // Hospital Admin
-  if (pathname.startsWith('/admin') && !pathname.includes('/modules')) {
+  // System & Hospital Admin
+  if (pathname.startsWith('/admin')) {
+    if (pathname.includes('/users') || pathname.includes('/roles') || pathname.includes('/modules') || pathname.includes('/features') || pathname.includes('/permissions')) {
+      return { name: 'System Administration', code: 'system_admin' }
+    }
     return { name: 'Hospital Administration', code: 'hospital_admin' }
   }
 
@@ -42,12 +40,8 @@ const getModuleFromRole = (roleCode?: string): string | null => {
 
   // Pharmacy roles
   if ([
-    SYSTEM_ROLES.PHARMACY_DIRECTOR,
-    SYSTEM_ROLES.PHARMACY_MANAGER,
     SYSTEM_ROLES.PHARMACIST,
-    SYSTEM_ROLES.PHARMACY_ASSISTANT,
-    SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-    SYSTEM_ROLES.PHARMACY_STAFF,
+    SYSTEM_ROLES.ASSISTANT_PHARMACIST,
   ].includes(roleCode as any)) {
     return 'Pharmacy Logistics'
   }
@@ -66,17 +60,31 @@ const getModuleFromRole = (roleCode?: string): string | null => {
 }
 
 export const Header: React.FC = () => {
-  const { user } = useAuthStore()
+  const { user, activeRoleCode, setActiveRoleCode } = useAuthStore()
   const { toggleSidebar } = useSidebar()
   const location = useLocation()
   const navigate = useNavigate()
+
+  const isHospitalAdmin = user?.role?.role_code === SYSTEM_ROLES.HOSPITAL_ADMIN
+  const isSystemAdmin = user?.role?.role_code === SYSTEM_ROLES.SYSTEM_ADMIN
+  const canSwitchView = isHospitalAdmin || isSystemAdmin
+
+  const handleRoleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value
+    const newRole = value === 'original' ? null : value
+    setActiveRoleCode(newRole)
+    // Redirect to dashboard to refresh visual context
+    navigate(ROUTES.DASHBOARD)
+  }
 
   // Determine current module
   const currentModule = useMemo(() => {
     const routeModule = getCurrentModule(location.pathname)
     if (routeModule) return routeModule
-    return { name: getModuleFromRole(user?.role?.role_code) || 'HOME System', code: undefined }
-  }, [location.pathname, user?.role?.role_code])
+    const effectiveRole = activeRoleCode || user?.role?.role_code
+    const moduleName = getModuleFromRole(effectiveRole) || user?.department?.department_name || 'HOME System'
+    return { name: moduleName, code: undefined }
+  }, [location.pathname, user?.role?.role_code, user?.department?.department_name, activeRoleCode])
 
   // Get role display name
   const roleDisplayName = useMemo(() => {
@@ -138,6 +146,24 @@ export const Header: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* View Switcher for Admins */}
+        {canSwitchView && (
+          <div className="hidden lg:flex items-center gap-3 px-4 py-2 bg-white/5 border border-white/10 rounded-xl">
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">View Mode:</span>
+            <select
+              value={activeRoleCode || 'original'}
+              onChange={handleRoleChange}
+              className="bg-transparent text-sm font-bold text-white border-none focus:ring-0 cursor-pointer hover:text-blue-400 transition-colors py-0"
+            >
+              <option value="original" className="bg-slate-800">{isSystemAdmin ? 'System Admin' : 'Hospital Admin'}</option>
+              <option value={SYSTEM_ROLES.PHARMACIST} className="bg-slate-800">Pharmacist View</option>
+            </select>
+            {activeRoleCode && (
+              <Badge variant="warning" size="sm" className="animate-pulse">Active View</Badge>
+            )}
+          </div>
+        )}
 
         {/* Right Side */}
         <div className="flex items-center gap-2 xs:gap-2.5 sm:gap-3 flex-shrink-0">

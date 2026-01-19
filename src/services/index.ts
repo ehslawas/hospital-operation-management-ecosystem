@@ -19,7 +19,7 @@ export * from './alertService'
 export * from './facilityService'
 export * from './aiService'
 export * from './webSearchService'
-export * from './mockData'
+
 
 // User Account Fix Service
 export * from './userAccountFixService'

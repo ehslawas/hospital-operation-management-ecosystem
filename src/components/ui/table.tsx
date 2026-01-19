@@ -17,12 +17,13 @@ export interface TableProps<T = any> {
   striped?: boolean;
   hoverable?: boolean;
   isLoading?: boolean;
-  emptyMessage?: string;
+  emptyMessage?: React.ReactNode;
   sortConfig?: { key: string; direction: 'asc' | 'desc' } | null;
   onSort?: (key: string) => void;
+  onRowClick?: (item: T) => void;
 }
 
-function Table<T>({
+function TableImpl<T>({
   data,
   columns,
   children,
@@ -32,12 +33,13 @@ function Table<T>({
   isLoading = false,
   emptyMessage = 'No data available',
   sortConfig = null,
-  onSort
+  onSort,
+  onRowClick,
 }: TableProps<T>) {
   // Data-driven rendering
   if (data && columns) {
     return (
-      <div className={`w-full overflow-hidden rounded-xl border border-gray-200/70 bg-white shadow-md ${className}`}>
+      <div className={`w-full overflow-hidden rounded-2xl glass-card ${className}`}>
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <TableHeader>
@@ -46,7 +48,7 @@ function Table<T>({
                   <TableHead
                     key={column.key}
                     sortable={column.sortable}
-                    sortDirection={sortConfig?.key === column.key ? sortConfig.direction : null}
+                    sortDirection={sortConfig && sortConfig.key && sortConfig.key === column.key ? sortConfig.direction : null}
                     onSort={() => onSort?.(column.key)}
                     align={column.align}
                     className={column.className}
@@ -75,7 +77,7 @@ function Table<T>({
                     hoverable={hoverable}
                     striped={striped}
                     index={rowIndex}
-                    onClick={() => { }} // Maintain layout if needed but clickable depends on item
+                    onClick={() => onRowClick?.(item)}
                   >
                     {columns.map((column) => (
                       <TableCell
@@ -100,7 +102,7 @@ function Table<T>({
 
   // Low-level composition rendering
   return (
-    <div className={`w-full overflow-hidden rounded-xl border border-gray-200/70 bg-white shadow-md ${className}`}>
+    <div className={`w-full overflow-hidden rounded-2xl glass-card ${className}`}>
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
           {children}
@@ -117,7 +119,7 @@ interface TableHeaderProps {
 
 export function TableHeader({ children, className = '' }: TableHeaderProps) {
   return (
-    <thead className={`bg-gradient-to-r from-slate-50 via-blue-50/40 to-indigo-50/30 border-b-2 border-gray-200 ${className}`}>
+    <thead className={`bg-slate-50/80 border-b border-slate-200/60 ${className}`}>
       {children}
     </thead>
   );
@@ -146,8 +148,8 @@ interface TableRowProps {
 }
 
 export function TableRow({ children, className = '', onClick, hoverable = true, striped = false, index = 0 }: TableRowProps) {
-  const stripedClass = striped && index % 2 === 0 ? 'bg-gray-50/50' : 'bg-white';
-  const hoverClass = hoverable ? 'hover:bg-blue-50/50 transition-colors duration-150' : '';
+  const stripedClass = striped && index % 2 === 0 ? 'bg-slate-50/30' : 'bg-transparent';
+  const hoverClass = hoverable ? 'hover:bg-blue-50/60 transition-colors duration-200' : '';
   const clickableClass = onClick ? 'cursor-pointer' : '';
 
   return (
@@ -182,7 +184,7 @@ export function TableHead({
 
   return (
     <th
-      className={`px-6 py-4 text-sm font-bold text-gray-700 tracking-wide uppercase ${alignClass} ${sortableClass} ${className}`}
+      className={`px-6 py-4 text-xs font-bold text-royal-blue tracking-wider uppercase ${alignClass} ${sortableClass} ${className}`}
       onClick={sortable ? onSort : undefined}
     >
       <div className={`flex items-center gap-2 ${align === 'center' ? 'justify-center' : align === 'right' ? 'justify-end' : ''}`}>
@@ -220,7 +222,6 @@ interface TableCellProps {
 
 export function TableCell({ children, className = '', align = 'left', colSpan, as = 'td' }: TableCellProps) {
   const alignClass = align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left';
-  const Component = as;
 
   if (as === 'th') {
     return (
@@ -271,11 +272,13 @@ export function TableCaption({ children, className = '' }: TableCaptionProps) {
 
 // Empty state for tables
 interface TableEmptyProps {
-  message?: string;
+  message?: React.ReactNode;
   icon?: React.ReactNode;
   action?: React.ReactNode;
   colSpan?: number;
 }
+
+import { FileX2 } from 'lucide-react';
 
 export function TableEmpty({
   message = 'No data available',
@@ -285,11 +288,14 @@ export function TableEmpty({
 }: TableEmptyProps) {
   return (
     <TableRow hoverable={false}>
-      <TableCell colSpan={colSpan} className="py-12">
+      <TableCell colSpan={colSpan} className="py-16">
         <div className="flex flex-col items-center justify-center text-center">
-          {icon && <div className="mb-4 text-gray-400">{icon}</div>}
-          <p className="text-gray-500 font-medium mb-2">{message}</p>
-          {action && <div className="mt-4">{action}</div>}
+          <div className="mb-6 p-4 rounded-full bg-slate-50 border border-slate-100 shadow-sm">
+            {icon || <FileX2 className="w-10 h-10 text-slate-300" />}
+          </div>
+          <h3 className="text-lg font-semibold text-slate-900 mb-1">No records found</h3>
+          <p className="text-slate-500 max-w-sm mx-auto mb-6">{message}</p>
+          {action && <div>{action}</div>}
         </div>
       </TableCell>
     </TableRow>
@@ -297,7 +303,7 @@ export function TableEmpty({
 }
 
 // Attach sub-components directly to Table function
-Object.assign(Table, {
+Object.assign(TableImpl, {
   Head: TableHeader,
   Body: TableBody,
   Row: TableRow,
@@ -309,7 +315,7 @@ Object.assign(Table, {
 });
 
 // Type assertion for TypeScript
-type TableWithSubComponents = typeof Table & {
+type TableWithSubComponents = typeof TableImpl & {
   Head: typeof TableHeader;
   Body: typeof TableBody;
   Row: typeof TableRow;
@@ -321,6 +327,5 @@ type TableWithSubComponents = typeof Table & {
 };
 
 // Export Table with sub-components attached
-export { Table };
-export default Table as unknown as TableWithSubComponents;
-
+export const Table = TableImpl as unknown as TableWithSubComponents;
+export default Table;

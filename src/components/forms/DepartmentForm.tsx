@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { motion } from 'framer-motion'
-import { Save, Building2, Hash, User, FileText, Shield } from 'lucide-react'
-import { Button, Input, Select, Textarea } from '@/components/ui'
+import { Save, Building2, Hash, Phone, Mail, MapPin } from 'lucide-react'
+import { Button, Input, Select, Textarea, ConfirmationDialog } from '@/components/ui'
 import { departmentSchema, type DepartmentFormData } from '@/lib/validators'
 import { createDepartment, updateDepartment } from '@/services/departmentService'
 import { getAllHospitals } from '@/services/hospitalService'
@@ -28,7 +28,10 @@ export const DepartmentForm: React.FC<DepartmentFormProps> = ({ department, onSu
   const isEditMode = !!department
   const [hospitals, setHospitals] = useState<Hospital[]>([])
   const [users, setUsers] = useState<UserWithRelations[]>([])
-  const [selectedHospitalId, setSelectedHospitalId] = useState<string>('')
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false)
+  const [pendingData, setPendingData] = useState<DepartmentFormData | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+
 
   const {
     register,
@@ -40,21 +43,26 @@ export const DepartmentForm: React.FC<DepartmentFormProps> = ({ department, onSu
     resolver: zodResolver(departmentSchema),
     defaultValues: department
       ? {
-          departmentCode: department.department_code,
-          departmentName: department.department_name,
-          description: department.description || '',
-          hospitalId: department.hospital_id,
-          headOfDepartmentId: department.head_of_department_id || '',
-          status: department.status,
-        }
+        department_code: department.department_code,
+        department_name: department.department_name,
+        description: department.description || '',
+        hospital_id: department.hospital_id,
+        head_of_department_id: department.head_of_department_id || '',
+        phone: department.phone || '',
+        email: department.email || '',
+        status: department.status,
+        kkm_unit_code: department.kkm_unit_code || '',
+        location: department.location || '',
+        unit_type: department.unit_type,
+      }
       : {
-          status: DEPARTMENT_STATUS.ACTIVE,
-          // For Hospital Admin, pre-fill their hospital_id
-          hospitalId: isHospitalAdmin && userHospitalId ? userHospitalId : undefined,
-        },
+        status: DEPARTMENT_STATUS.ACTIVE,
+        // For Hospital Admin, pre-fill their hospital_id
+        hospital_id: isHospitalAdmin && userHospitalId ? userHospitalId : undefined,
+      },
   })
 
-  const hospitalId = watch('hospitalId')
+  const hospitalId = watch('hospital_id')
 
   useEffect(() => {
     if (!isHospitalAdmin) {
@@ -62,18 +70,17 @@ export const DepartmentForm: React.FC<DepartmentFormProps> = ({ department, onSu
     } else if (userHospitalId) {
       // For Hospital Admin, only show their hospital
       fetchHospitals().then(() => {
-        setValue('hospitalId', userHospitalId)
+        setValue('hospital_id', userHospitalId)
       })
     }
   }, [isHospitalAdmin, userHospitalId, setValue])
 
   useEffect(() => {
     if (hospitalId) {
-      setSelectedHospitalId(hospitalId)
       fetchUsersForHospital(hospitalId)
     } else {
       setUsers([])
-      setValue('headOfDepartmentId', '')
+      setValue('head_of_department_id', '')
     }
   }, [hospitalId, setValue])
 
@@ -104,14 +111,30 @@ export const DepartmentForm: React.FC<DepartmentFormProps> = ({ department, onSu
   }
 
   const onSubmit = async (data: DepartmentFormData) => {
+    if (isEditMode) {
+      setPendingData(data)
+      setIsConfirmOpen(true)
+    } else {
+      await performSave(data)
+    }
+  }
+
+  const performSave = async (data: DepartmentFormData) => {
+    setIsSaving(true)
     try {
       const departmentData: Omit<Department, 'id' | 'created_at' | 'updated_at'> = {
-        department_code: data.departmentCode,
-        department_name: data.departmentName,
+        department_code: data.department_code,
+        department_name: data.department_name,
         description: data.description || undefined,
-        hospital_id: data.hospitalId,
-        head_of_department_id: data.headOfDepartmentId || undefined,
+        hospital_id: data.hospital_id,
+        head_of_department_id: data.head_of_department_id || undefined,
+        phone: data.phone || undefined,
+        email: data.email || undefined,
         status: data.status,
+        approval_type: department?.approval_type || 'standard',
+        kkm_unit_code: data.kkm_unit_code || undefined,
+        location: data.location || undefined,
+        unit_type: data.unit_type || undefined,
       }
 
       if (isEditMode && department) {
@@ -122,10 +145,13 @@ export const DepartmentForm: React.FC<DepartmentFormProps> = ({ department, onSu
         toast.success('Success', 'Department created successfully')
       }
 
+      setIsConfirmOpen(false)
       onSuccess()
     } catch (error) {
       toast.error('Error', isEditMode ? 'Failed to update department' : 'Failed to create department')
       console.error('Error saving department:', error)
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -145,29 +171,80 @@ export const DepartmentForm: React.FC<DepartmentFormProps> = ({ department, onSu
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
-            {...register('departmentCode')}
+            {...register('department_code')}
             label="Department Code"
             placeholder="Enter department code (e.g., PHR)"
             leftIcon={<Hash className="w-5 h-5" />}
-            error={errors.departmentCode?.message}
+            error={!!errors.department_code}
+            errorMessage={errors.department_code?.message}
             required
             disabled={isEditMode}
           />
 
           <Input
-            {...register('departmentName')}
+            {...register('department_name')}
             label="Department Name"
             placeholder="Enter department name"
             leftIcon={<Building2 className="w-5 h-5" />}
-            error={errors.departmentName?.message}
+            error={!!errors.department_name}
+            errorMessage={errors.department_name?.message}
             required
           />
 
+          <Input
+            {...register('kkm_unit_code')}
+            label="KKM Unit Code"
+            placeholder="e.g. CK-01"
+            leftIcon={<Hash className="w-5 h-5" />}
+            error={!!errors.kkm_unit_code}
+            errorMessage={errors.kkm_unit_code?.message}
+          />
+
+          <Input
+            {...register('location')}
+            label="Location"
+            placeholder="e.g. Level 3, Main Block"
+            leftIcon={<MapPin className="w-5 h-5" />}
+            error={!!errors.location}
+            errorMessage={errors.location?.message}
+          />
+
           <Select
-            {...register('hospitalId')}
+            {...register('unit_type')}
+            label="Unit Type"
+            placeholder="Select unit type"
+            error={errors.unit_type?.message}
+            options={[
+              { value: 'clinical', label: 'Clinical' },
+              { value: 'clinical_support', label: 'Clinical Support' },
+              { value: 'non_clinical', label: 'Non-Clinical' },
+              { value: 'admin', label: 'Administrative' },
+            ]}
+          />
+
+          <Input
+            {...register('phone')}
+            label="Phone Number"
+            placeholder="Enter phone number"
+            leftIcon={<Phone className="w-5 h-5" />}
+            error={!!errors.phone}
+            errorMessage={errors.phone?.message}
+          />
+
+          <Input
+            {...register('email')}
+            label="Email Address"
+            placeholder="Enter email address"
+            leftIcon={<Mail className="w-5 h-5" />}
+            error={!!errors.email}
+            errorMessage={errors.email?.message}
+          />
+
+          <Select
+            {...register('hospital_id')}
             label="Hospital"
             placeholder="Select hospital"
-            error={errors.hospitalId?.message}
+            error={errors.hospital_id?.message}
             required
             disabled={isEditMode || isHospitalAdmin}
             options={hospitals.map((h) => ({
@@ -177,10 +254,10 @@ export const DepartmentForm: React.FC<DepartmentFormProps> = ({ department, onSu
           />
 
           <Select
-            {...register('headOfDepartmentId')}
+            {...register('head_of_department_id')}
             label="Head of Department"
             placeholder="Select head of department (optional)"
-            error={errors.headOfDepartmentId?.message}
+            error={errors.head_of_department_id?.message}
             disabled={!hospitalId}
             options={[
               { value: '', label: 'None' },
@@ -210,7 +287,8 @@ export const DepartmentForm: React.FC<DepartmentFormProps> = ({ department, onSu
           <Textarea
             {...register('description')}
             placeholder="Enter department description"
-            error={errors.description?.message}
+            error={!!errors.description}
+            errorMessage={errors.description?.message}
             rows={3}
           />
         </div>
@@ -218,13 +296,26 @@ export const DepartmentForm: React.FC<DepartmentFormProps> = ({ department, onSu
 
       {/* Form Actions */}
       <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button type="button" variant="outline" onClick={onCancel} disabled={isSaving}>
           Cancel
         </Button>
-        <Button type="submit" variant="primary" leftIcon={<Save className="w-5 h-5" />}>
+        <Button type="submit" variant="primary" leftIcon={<Save className="w-5 h-5" />} isLoading={isSaving}>
           {isEditMode ? 'Update Department' : 'Create Department'}
         </Button>
       </div>
+
+      <ConfirmationDialog
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={() => {
+          if (pendingData) performSave(pendingData)
+        }}
+        title="Confirm Update"
+        message={`Are you sure you want to update ${department?.department_name || 'this department'}? This action will save all changes made to the configuration.`}
+        variant="warning"
+        confirmText="Update Now"
+        isLoading={isSaving}
+      />
     </motion.form>
   )
 }

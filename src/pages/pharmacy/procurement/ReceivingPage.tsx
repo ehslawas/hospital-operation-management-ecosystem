@@ -1,290 +1,239 @@
-import React, { useEffect, useState, useCallback } from 'react'
-import { AlertTriangle, PackageCheck, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react'
-import { useAuthStore } from '@/stores/authStore'
-import { Table, Spinner, Input, Badge, Select } from '@/components/ui'
-import { getPurchaseOrders } from '@/services/pharmacy/procurementService'
-import type { PurchaseOrderWithRelations, POStatus } from '@/types/pharmacy'
+import { useState } from 'react'
+import { Card, CardContent, CardHeader, CardTitle, Button, Input, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Badge, LoadingOverlay, Textarea, Label } from '@/components/ui'
+import { receivingService } from '@/services/pharmacy/receivingService'
+import { LPOWithRelations, ReceivingItem } from '@/types/pharmacy/procurementNew'
+import { Search, PackageCheck, Upload, QrCode } from 'lucide-react'
+import { format } from 'date-fns'
+import { QRScanner } from '@/components/procurement/QRScanner'
 
-export const ReceivingPage: React.FC = () => {
-  const { user } = useAuthStore()
-  const hospitalId = user?.hospital_id
-
-  const [orders, setOrders] = useState<PurchaseOrderWithRelations[]>([])
+export default function ReceivingPage() {
+  const [searchTerm, setSearchTerm] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [lpo, setLpo] = useState<LPOWithRelations | null>(null)
+  const [items, setItems] = useState<Partial<ReceivingItem>[]>([])
+  const [notes, setNotes] = useState('')
+  const [isScannerOpen, setIsScannerOpen] = useState(false)
 
-  // Filters
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'sent' | 'partial_received' | 'all'>('all')
-
-  // Pagination
-  const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [total, setTotal] = useState(0)
-  const pageSize = 15
-
-  // Load orders pending receiving
-  const loadOrders = useCallback(async () => {
-    if (!hospitalId) return
+  // Search LPO
+  const handleSearch = async (term: string = searchTerm) => {
+    if (!term) return
 
     setIsLoading(true)
-    setError(null)
+    try {
+      // Note: In real usage, assume term is ID or we handle lookup
+      const data = await receivingService.getLPOForReceiving(term)
+      if (data) {
+        setLpo(data)
+        // Initialize receiving items from current PO items
+        // Initialize receiving items from current PO items, filtered by Tracking Status
+        const poItems = data.purchase_order?.items || []
+        const trackItems = data.tracking_items || []
 
-    // Only show orders that can be received (sent or partial_received)
-    const validStatuses: POStatus[] = statusFilter === 'all' 
-      ? ['sent', 'partial_received'] 
-      : [statusFilter]
+        const validItems = poItems.filter((poItem: any) => {
+          // Find tracking record for this item
+          const track = trackItems.find((t: any) => t.item_id === poItem.item_id)
+          // Allow if tracked and status is receivable
+          return track && ['pending', 'in_transit', 'overdue'].includes(track.status)
+        }).map((poItem: any) => ({
+          lpo_item_id: poItem.id,
+          item_id: poItem.item_id,
+          item_type: (poItem.drug ? 'drug' : 'non_drug') as 'drug' | 'non_drug',
+          ordered_quantity: poItem.quantity,
+          received_quantity: poItem.quantity,
+          outstanding_quantity: 0,
+          is_fully_received: true
+        }))
 
-    const res = await getPurchaseOrders(
-      hospitalId,
-      { 
-        search: search || undefined,
-        status: validStatuses[0], // API takes single status, filter others client-side if needed
-      },
-      page,
-      pageSize
-    )
-
-    if (res.error) {
-      setError(res.error)
-      setOrders([])
-    } else if (res.data) {
-      // Additional client-side filtering if needed
-      const filtered = res.data.data.filter(o => validStatuses.includes(o.status))
-      setOrders(filtered)
-      setTotalPages(res.data.totalPages)
-      setTotal(filtered.length)
+        setItems(validItems)
+        setSearchTerm(term)
+      } else {
+        alert('LPO not found')
+      }
+    } catch (error) {
+      console.error(error)
+      alert('Error fetching LPO')
+    } finally {
+      setIsLoading(false)
     }
+  }
 
-    setIsLoading(false)
-  }, [hospitalId, search, statusFilter, page])
-
-  useEffect(() => {
-    void loadOrders()
-  }, [loadOrders])
-
-  // Reset page when filters change
-  useEffect(() => {
-    setPage(1)
-  }, [search, statusFilter])
-
-  const renderStatusBadge = (status: POStatus) => {
-    const map: Record<POStatus, { color: 'success' | 'warning' | 'error' | 'info' | 'secondary'; label: string }> = {
-      draft: { color: 'secondary', label: 'Draft' },
-      pending_approval: { color: 'warning', label: 'Pending' },
-      approved: { color: 'info', label: 'Approved' },
-      sent: { color: 'info', label: 'Awaiting Delivery' },
-      partial_received: { color: 'warning', label: 'Partial Received' },
-      completed: { color: 'success', label: 'Completed' },
-      cancelled: { color: 'error', label: 'Cancelled' },
+  const handleScan = (data: string | null) => {
+    if (data) {
+      console.log('Scanned QR:', data)
+      // Assuming QR contains LPO ID directly for now
+      // If it contains a URL or other format, we'd parse it here
+      const lpoId = data.replace('LPO:', '') // Example: simple parse
+      setSearchTerm(lpoId)
+      handleSearch(lpoId)
     }
-    const cfg = map[status] || { color: 'secondary', label: status }
-    return <Badge variant={cfg.color}>{cfg.label}</Badge>
   }
 
-  const formatCurrency = (amount?: number) => {
-    if (!amount) return '—'
-    return new Intl.NumberFormat('en-MY', {
-      style: 'currency',
-      currency: 'MYR',
-    }).format(amount)
+  const handleQuantityChange = (index: number, val: string) => {
+    const qty = parseInt(val) || 0
+    const newItems = [...items]
+    const ordered = newItems[index].ordered_quantity || 0
+
+    newItems[index].received_quantity = qty
+    newItems[index].outstanding_quantity = Math.max(0, ordered - qty)
+    newItems[index].is_fully_received = qty >= ordered
+
+    setItems(newItems)
   }
 
-  const formatDate = (dateStr?: string) => {
-    if (!dateStr) return '—'
-    return new Date(dateStr).toLocaleDateString('en-MY', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    })
-  }
+  const handleSubmit = async () => {
+    if (!lpo) return
 
-  const isOverdue = (expectedDate?: string) => {
-    if (!expectedDate) return false
-    return new Date(expectedDate) < new Date()
+    setIsLoading(true)
+    try {
+      await receivingService.createReceiving(
+        lpo.id,
+        items,
+        { doUrl: 'placeholder-url', invoiceUrl: 'placeholder-url' }, // TODO: File upload
+        notes
+      )
+      alert('Receiving recorded successfully!')
+      setLpo(null)
+      setItems([])
+      setSearchTerm('')
+      setNotes('')
+    } catch (error) {
+      console.error(error)
+      alert('Failed to record receiving')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <PackageCheck className="w-6 h-6 text-green-600" />
-          Goods Receiving
-        </h1>
-        <p className="text-sm text-gray-600 mt-1">
-          Receive and inspect goods from purchase orders.
-        </p>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-          <span className="text-sm font-medium text-blue-700">Awaiting Delivery</span>
-          <p className="text-2xl font-bold text-blue-800 mt-1">
-            {orders.filter(o => o.status === 'sent').length}
-          </p>
-        </div>
-
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-          <span className="text-sm font-medium text-amber-700">Partial Received</span>
-          <p className="text-2xl font-bold text-amber-800 mt-1">
-            {orders.filter(o => o.status === 'partial_received').length}
-          </p>
-        </div>
-
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-          <span className="text-sm font-medium text-red-700">Overdue</span>
-          <p className="text-2xl font-bold text-red-800 mt-1">
-            {orders.filter(o => isOverdue(o.expected_delivery_date)).length}
-          </p>
+    <div className="space-y-6 pt-6 pb-12">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Receiving</h1>
+          <p className="text-slate-500">Process incoming deliveries and verify DOs</p>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col md:flex-row md:items-end gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
-        <div className="flex-1">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Search</label>
-          <div className="relative">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
-            <Input
-              placeholder="PO number..."
-              className="pl-9"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+      {/* Search Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Find LPO</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 flex gap-2">
+              <Input
+                placeholder="Enter LPO ID / Scan QR..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <Button onClick={() => handleSearch()} disabled={isLoading}>
+                <Search className="w-4 h-4 mr-2" />
+                Find
+              </Button>
+            </div>
+            <Button variant="outline" onClick={() => setIsScannerOpen(true)}>
+              <QrCode className="w-4 h-4 mr-2" />
+              Scan QR
+            </Button>
           </div>
-        </div>
+        </CardContent>
+      </Card>
 
-        <div className="w-full md:w-48">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
-          <Select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as 'sent' | 'partial_received' | 'all')}
-          >
-            <option value="all">All Pending</option>
-            <option value="sent">Awaiting Delivery</option>
-            <option value="partial_received">Partial Received</option>
-          </Select>
-        </div>
+      {/* Receiving Form */}
+      {lpo && (
+        <Card>
+          <CardHeader>
+            <div className="flex justify-between">
+              <div>
+                <CardTitle>Receive Details: {lpo.lpo_number}</CardTitle>
+                <p className="text-sm text-slate-500 mt-1">
+                  Supplier: {lpo.purchase_order?.supplier?.company_name} |
+                  Order Date: {format(new Date(lpo.created_at), 'dd/MM/yyyy')}
+                </p>
+              </div>
+              <Badge variant="gray" className="h-fit">Status: {lpo.status}</Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Items Table */}
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Item</TableHead>
+                    <TableHead className="text-right">Ordered</TableHead>
+                    <TableHead className="text-right w-32">Received</TableHead>
+                    <TableHead className="text-right">Outstanding</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((item, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell>
+                        {/* In real app, fetch name using item_id or include in PO relation */}
+                        <span className="font-medium">Item {(item.item_id || '').substring(0, 8)}...</span>
+                      </TableCell>
+                      <TableCell className="text-right">{item.ordered_quantity}</TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          min="0"
+                          value={item.received_quantity}
+                          onChange={(e) => handleQuantityChange(idx, e.target.value)}
+                          className="w-24 ml-auto text-right"
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">{item.outstanding_quantity}</TableCell>
+                      <TableCell>
+                        {item.is_fully_received ?
+                          <Badge variant="success">Full</Badge> :
+                          <Badge variant="warning">Partial</Badge>
+                        }
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
 
-        <div className="flex items-center gap-1 text-xs text-gray-500">
-          <Filter className="w-3 h-3" />
-          <span>{total} orders</span>
-        </div>
-      </div>
-
-      {/* Loading */}
-      {isLoading && (
-        <div className="flex items-center justify-center py-16">
-          <Spinner size="lg" />
-        </div>
-      )}
-
-      {/* Error */}
-      {!isLoading && error && (
-        <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-          <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-          <div>
-            <p className="font-medium">Failed to load orders</p>
-            <p className="mt-0.5">{error}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Table */}
-      {!isLoading && !error && (
-        <>
-          <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-            <Table>
-              <Table.Head>
-                <Table.Row>
-                  <Table.Cell as="th">PO Number</Table.Cell>
-                  <Table.Cell as="th">Supplier</Table.Cell>
-                  <Table.Cell as="th">Order Date</Table.Cell>
-                  <Table.Cell as="th">Expected Delivery</Table.Cell>
-                  <Table.Cell as="th" className="text-right">Total</Table.Cell>
-                  <Table.Cell as="th" className="text-center">Status</Table.Cell>
-                  <Table.Cell as="th" className="text-center">Action</Table.Cell>
-                </Table.Row>
-              </Table.Head>
-              <Table.Body>
-                {orders.length === 0 && (
-                  <Table.Row>
-                    <Table.Cell colSpan={7} className="text-center text-sm text-gray-500 py-8">
-                      No orders pending receiving.
-                    </Table.Cell>
-                  </Table.Row>
-                )}
-
-                {orders.map((order) => (
-                  <Table.Row
-                    key={order.id}
-                    className={isOverdue(order.expected_delivery_date) ? 'bg-red-50' : ''}
-                  >
-                    <Table.Cell className="font-mono text-xs text-blue-600 font-medium">
-                      {order.po_number}
-                    </Table.Cell>
-                    <Table.Cell className="text-sm text-gray-900">
-                      {order.supplier?.company_name || '—'}
-                    </Table.Cell>
-                    <Table.Cell className="text-sm text-gray-600">
-                      {formatDate(order.order_date)}
-                    </Table.Cell>
-                    <Table.Cell className="text-sm text-gray-600">
-                      <span className={isOverdue(order.expected_delivery_date) ? 'text-red-600 font-medium' : ''}>
-                        {formatDate(order.expected_delivery_date)}
-                        {isOverdue(order.expected_delivery_date) && ' (Overdue)'}
-                      </span>
-                    </Table.Cell>
-                    <Table.Cell className="text-right text-sm font-medium">
-                      {formatCurrency(order.total_amount)}
-                    </Table.Cell>
-                    <Table.Cell className="text-center">
-                      {renderStatusBadge(order.status)}
-                    </Table.Cell>
-                    <Table.Cell className="text-center">
-                      <button
-                        className="px-3 py-1.5 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                      >
-                        Receive
-                      </button>
-                    </Table.Cell>
-                  </Table.Row>
-                ))}
-              </Table.Body>
-            </Table>
-          </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between text-sm text-gray-600">
-              <span>
-                Page {page} of {totalPages}
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="p-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  className="p-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+            {/* Documents & Notes */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <Label>Delivery Order (DO)</Label>
+                <div className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center text-slate-400 hover:bg-slate-50 transition-colors cursor-pointer">
+                  <Upload className="w-8 h-8 mb-2" />
+                  <span className="text-sm">Click to upload DO</span>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <Label>Notes</Label>
+                <Textarea
+                  placeholder="Enter any remarks..."
+                  className="h-32"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                />
               </div>
             </div>
-          )}
-        </>
+
+            <div className="flex justify-end pt-4">
+              <Button size="lg" onClick={handleSubmit} disabled={isLoading}>
+                <PackageCheck className="w-5 h-5 mr-2" />
+                Confirm Receiving
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
+
+      {isLoading && <LoadingOverlay />}
+
+      <QRScanner
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onScan={handleScan}
+      />
     </div>
   )
 }
-
-export default ReceivingPage
-

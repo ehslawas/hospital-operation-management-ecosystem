@@ -3,19 +3,19 @@ import { motion } from 'framer-motion'
 import {
   DollarSign,
   TrendingUp,
-  TrendingDown,
   Wallet,
   AlertTriangle,
-  Calendar,
-  FileText,
   RefreshCw,
-  Search,
   Download,
   FileDown,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
-import { Spinner, Button, Badge, Table } from '@/components/ui'
+import { Spinner, Button, Badge } from '@/components/ui'
+import { FinancialPageLayout } from '@/components/pharmacy/financial/FinancialPageLayout'
+import { FinancialFilterBar, FilterOption } from '@/components/pharmacy/financial/FinancialFilterBar'
+import { Table } from '@/components/ui/Table'
+import { Pagination } from '@/components/ui/Pagination'
 import {
   getCCAllocationSummary,
   getCCExpenses,
@@ -25,8 +25,9 @@ import {
   exportCCToPDF,
   exportCCToCSV,
 } from '@/services/pharmacy/ccExportService'
-import { WARRANT_CATEGORIES, WARRANT_DEPARTMENTS } from '@/services/pharmacy/warrantService'
+import { WARRANT_DEPARTMENTS, WARRANT_VOTE_ACTIVITIES } from '@/services/pharmacy/warrantService'
 import type { CCAllocationSummary, CCExpenseWithRelations } from '@/types/pharmacy'
+import { FinancialStatsGrid } from '@/components/pharmacy/financial/FinancialStatsGrid'
 
 export const CCAllocationPage: React.FC = () => {
   const { user } = useAuthStore()
@@ -44,10 +45,10 @@ export const CCAllocationPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterVoteActivity, setFilterVoteActivity] = useState<string>('all')
-  const [filterCategory, setFilterCategory] = useState<string>('all')
 
-  // Years for dropdown
-  const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
 
   // Fetch data
   useEffect(() => {
@@ -61,19 +62,24 @@ export const CCAllocationPage: React.FC = () => {
 
       setIsLoading(true)
       setError(null)
+      setCurrentPage(1)
 
       try {
+        const voteActivityParam = filterVoteActivity !== 'all' ? filterVoteActivity : undefined
+        const departmentParam = filterDepartment !== 'all' ? filterDepartment : undefined
+        const statusParam = filterStatus !== 'all' ? filterStatus : undefined
+
         const [summaryResult, expensesResult] = await Promise.all([
           getCCAllocationSummary(hospitalId, selectedYear, {
-            voteActivity: filterVoteActivity !== 'all' ? filterVoteActivity : undefined,
-            category: filterCategory !== 'all' ? filterCategory : undefined,
-            department: filterDepartment !== 'all' ? filterDepartment : undefined,
+            voteActivity: voteActivityParam,
+            category: undefined,
+            department: departmentParam,
           }),
           getCCExpenses(hospitalId, selectedYear, {
-            status: filterStatus !== 'all' ? filterStatus : undefined,
-            voteActivity: filterVoteActivity !== 'all' ? filterVoteActivity : undefined,
-            category: filterCategory !== 'all' ? filterCategory : undefined,
-            department: filterDepartment !== 'all' ? filterDepartment : undefined,
+            status: statusParam,
+            voteActivity: voteActivityParam,
+            category: undefined,
+            department: departmentParam,
           }),
         ])
 
@@ -96,9 +102,8 @@ export const CCAllocationPage: React.FC = () => {
     }
 
     void fetchData()
-  }, [hospitalId, selectedYear, filterStatus, filterVoteActivity, filterCategory, filterDepartment])
+  }, [hospitalId, selectedYear, filterStatus, filterVoteActivity, filterDepartment])
 
-  // Sync expenses from POs
   const handleSync = async () => {
     if (!hospitalId) return
 
@@ -109,7 +114,6 @@ export const CCAllocationPage: React.FC = () => {
         showError('Sync failed', result.error)
       } else if (result.data) {
         showSuccess('Sync completed', `Synced ${result.data.synced} expenses from Purchase Orders`)
-        // Reload data
         window.location.reload()
       }
     } catch (err) {
@@ -119,13 +123,13 @@ export const CCAllocationPage: React.FC = () => {
     }
   }
 
-  // Filtered expenses
+  // Filtered and Paginated expenses
   const filteredExpenses = useMemo(() => {
-    let filtered = expenses
+    let result = expenses.filter(e => e.status !== 'cancelled')
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
-      filtered = filtered.filter(
+      result = result.filter(
         (e) =>
           e.po_number.toLowerCase().includes(query) ||
           (e.lpo_number && e.lpo_number.toLowerCase().includes(query)) ||
@@ -133,15 +137,16 @@ export const CCAllocationPage: React.FC = () => {
       )
     }
 
-    // Filter by department (from warrant)
+    // Additional client-side department filtering for robustness
     if (filterDepartment !== 'all') {
-      filtered = filtered.filter(
-        (e) => e.warrant?.department === filterDepartment
-      )
+      result = result.filter((e) => {
+        const dept = e.department || e.warrant?.department
+        return dept?.toLowerCase() === filterDepartment.toLowerCase()
+      })
     }
 
-    // Sort by date (newest first) and then by PO number (highest first)
-    return [...filtered].sort((a, b) => {
+    // Sort by date (newest first)
+    return result.sort((a, b) => {
       const dateA = new Date(a.expense_date).getTime()
       const dateB = new Date(b.expense_date).getTime()
       if (dateB !== dateA) return dateB - dateA
@@ -149,10 +154,13 @@ export const CCAllocationPage: React.FC = () => {
     })
   }, [expenses, searchQuery, filterDepartment])
 
-  // Get hospital name
+  const paginatedExpenses = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return filteredExpenses.slice(start, start + pageSize)
+  }, [filteredExpenses, currentPage, pageSize])
+
   const hospitalName = user?.hospital?.hospital_name || 'Hospital'
 
-  // Handle PDF Export
   const handleExportPDF = async () => {
     if (!summary || filteredExpenses.length === 0) {
       showError('No data to export', 'Please ensure there are expenses to export')
@@ -169,30 +177,25 @@ export const CCAllocationPage: React.FC = () => {
         {
           voteActivity: filterVoteActivity !== 'all' ? filterVoteActivity : undefined,
           status: filterStatus !== 'all' ? filterStatus : undefined,
-          category: filterCategory !== 'all' ? filterCategory : undefined,
+          category: undefined,
           department: filterDepartment !== 'all' ? filterDepartment : undefined,
-        }
+        },
+        user?.email || 'System User'
       )
 
       const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `cc-allocation-report-${hospitalName.replace(/\s+/g, '-')}-FY${selectedYear}-${new Date().toISOString().split('T')[0]}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      window.URL.revokeObjectURL(url)
+      window.open(url, '_blank')
 
-      showSuccess('Export successful', 'CC allocation report exported as PDF')
+      // Clean up after a delay
+      setTimeout(() => window.URL.revokeObjectURL(url), 100)
+      showSuccess('Success', 'PDF report generated')
     } catch (error) {
-      console.error('Error exporting PDF:', error)
-      showError('Export failed', 'Failed to export CC allocation report as PDF')
+      showError('Export Failed', 'Unable to generate PDF report')
     } finally {
       setIsExporting(false)
     }
   }
 
-  // Handle CSV Export
   const handleExportCSV = () => {
     if (!summary || filteredExpenses.length === 0) {
       showError('No data to export', 'Please ensure there are expenses to export')
@@ -208,39 +211,34 @@ export const CCAllocationPage: React.FC = () => {
         {
           voteActivity: filterVoteActivity !== 'all' ? filterVoteActivity : undefined,
           status: filterStatus !== 'all' ? filterStatus : undefined,
-          category: filterCategory !== 'all' ? filterCategory : undefined,
+          category: undefined,
           department: filterDepartment !== 'all' ? filterDepartment : undefined,
-        }
+        },
+        user?.email || 'System User'
       )
 
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `cc-allocation-report-${hospitalName.replace(/\s+/g, '-')}-FY${selectedYear}-${new Date().toISOString().split('T')[0]}.csv`
+      a.download = `cc-allocation-report-FY${selectedYear}.csv`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
       window.URL.revokeObjectURL(url)
-
-      showSuccess('Export successful', 'CC allocation report exported as CSV')
+      showSuccess('Success', 'CSV report downloaded')
     } catch (error) {
-      console.error('Error exporting CSV:', error)
-      showError('Export failed', 'Failed to export CC allocation report as CSV')
+      showError('Export Failed', 'Unable to generate CSV report')
     }
   }
 
-  // Format currency
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-MY', {
       style: 'currency',
       currency: 'MYR',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
     }).format(amount)
   }
 
-  // Format date
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-MY', {
       day: '2-digit',
@@ -249,7 +247,6 @@ export const CCAllocationPage: React.FC = () => {
     })
   }
 
-  // Get status badge
   const getStatusBadge = (status: string) => {
     const map: Record<string, { color: 'success' | 'warning' | 'error' | 'info' | 'gray'; label: string }> = {
       pending: { color: 'warning', label: 'Pending' },
@@ -257,22 +254,20 @@ export const CCAllocationPage: React.FC = () => {
       completed: { color: 'success', label: 'Completed' },
       cancelled: { color: 'error', label: 'Cancelled' },
     }
-    const cfg = map[status] || { color: 'gray' as const, label: status }
+    const cfg = map[status] || { color: 'gray', label: status }
     return <Badge variant={cfg.color}>{cfg.label}</Badge>
   }
 
-  // Get PO type badge
   const getPoTypeBadge = (poType: string) => {
     const map: Record<string, { color: 'success' | 'warning' | 'error' | 'info' | 'gray'; label: string }> = {
       regular: { color: 'info', label: 'PO' },
       lpo: { color: 'success', label: 'LPO' },
       emergency: { color: 'error', label: 'Emergency' },
     }
-    const cfg = map[poType] || { color: 'gray' as const, label: poType }
+    const cfg = map[poType] || { color: 'gray', label: poType }
     return <Badge variant={cfg.color}>{cfg.label}</Badge>
   }
 
-  // Table columns
   const columns = [
     {
       key: 'expense_date',
@@ -307,6 +302,7 @@ export const CCAllocationPage: React.FC = () => {
     {
       key: 'amount',
       label: 'Amount',
+      align: 'right' as const,
       render: (_: any, e: CCExpenseWithRelations) => (
         <span className="font-semibold text-slate-900">{formatCurrency(Number(e.amount))}</span>
       ),
@@ -318,521 +314,209 @@ export const CCAllocationPage: React.FC = () => {
     },
   ]
 
-  // Quarterly progress data
-  const quarterlyData = summary?.quarterly || []
+  const headerActions = (
+    <div className="flex items-center gap-2">
+      <Button
+        onClick={handleSync}
+        disabled={isSyncing}
+        variant="outline"
+        className="border-slate-300 hover:bg-slate-50 shadow-sm"
+      >
+        {isSyncing ? (
+          <><Spinner size="sm" className="mr-2" />Syncing...</>
+        ) : (
+          <><RefreshCw className="w-4 h-4 mr-2" />Sync POs</>
+        )}
+      </Button>
+      <Button onClick={handleExportPDF} disabled={isExporting} variant="outline" className="border-slate-300 hover:bg-slate-50">
+        <FileDown className="w-4 h-4 mr-2" />
+        PDF
+      </Button>
+      <Button onClick={handleExportCSV} variant="outline" className="border-slate-300 hover:bg-slate-50">
+        <Download className="w-4 h-4 mr-2" />
+        CSV
+      </Button>
+    </div>
+  )
+
+  const statusOptions: FilterOption[] = [
+    { label: 'Pending', value: 'pending' },
+    { label: 'Approved', value: 'approved' },
+    { label: 'Completed', value: 'completed' },
+  ]
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">CC Allocation</h1>
-          <p className="text-slate-600 mt-1">
-            Track expenses from Purchase Orders (PO) and Local Purchase Orders (LPO) linked to warrants (vote code 080702)
-          </p>
-        </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-xl px-4 py-2 border border-slate-200/60 shadow-sm">
-            <Calendar className="w-4 h-4 text-slate-400" />
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="bg-transparent text-sm font-medium text-slate-700 focus:outline-none cursor-pointer"
-            >
-              {years.map((year) => (
-                <option key={year} value={year}>
-                  FY {year}
-                </option>
-              ))}
-            </select>
-          </div>
+    <FinancialPageLayout
+      title="CC Allocation"
+      description="Track expenses from Purchase Orders (PO) and Local Purchase Orders (LPO) linked to warrants (vote code 080702)"
+      icon={Wallet}
+      breadcrumbs={[{ label: 'CC Allocation' }]}
+      actions={headerActions}
+      notice={{
+        title: `Fiscal Year ${selectedYear} Status`,
+        message: 'This dashboard shows allocation and expenses for the selected fiscal year. Ensure all POs are properly synced.',
+        type: 'info'
+      }}
+    >
+      <div className="space-y-6">
+        <FinancialFilterBar
+          onSearchChange={setSearchQuery}
+          searchValue={searchQuery}
+          searchPlaceholder="Search PO/LPO/Supplier..."
+          selectedYear={selectedYear}
+          onYearChange={setSelectedYear}
+          filters={[
+            {
+              key: 'voteActivity',
+              label: 'Activity',
+              value: filterVoteActivity,
+              options: WARRANT_VOTE_ACTIVITIES,
+              onChange: setFilterVoteActivity,
+            },
+            {
+              key: 'department',
+              label: 'Department',
+              value: filterDepartment,
+              options: WARRANT_DEPARTMENTS,
+              onChange: setFilterDepartment,
+            },
+            {
+              key: 'status',
+              label: 'Status',
+              value: filterStatus,
+              options: statusOptions,
+              onChange: setFilterStatus,
+            }
+          ]}
+          onReset={() => {
+            setFilterVoteActivity('all')
+            setFilterDepartment('all')
+            setFilterStatus('all')
+            setSearchQuery('')
+            setCurrentPage(1)
+          }}
+        />
 
-          <Button
-            onClick={handleSync}
-            disabled={isSyncing}
-            variant="outline"
-            className="border-slate-300 hover:bg-slate-50"
-          >
-            {isSyncing ? (
-              <>
-                <Spinner size="sm" className="mr-2" />
-                Syncing...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Sync from POs
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
-
-      {/* Loading */}
-      {isLoading && (
-        <div className="flex items-center justify-center py-20">
-          <Spinner size="lg" />
-        </div>
-      )}
-
-      {/* Error */}
-      {!isLoading && error && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-gradient-to-r from-rose-50 to-red-50 p-4 text-sm text-rose-700 shadow-sm"
-        >
-          <AlertTriangle className="w-5 h-5 mt-0.5 flex-shrink-0" />
-          <div>
-            <p className="font-semibold">Failed to load CC allocation data</p>
-            <p className="mt-0.5 text-rose-600">{error}</p>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Financial Dashboard */}
-      {!isLoading && !error && summary && (
-        <div className="space-y-6">
-          {/* Year Independence Notice */}
+        {!isLoading && error && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4"
+            className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 shadow-sm"
           >
-            <div className="flex items-start gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Calendar className="w-5 h-5 text-blue-600" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-blue-900 mb-1">
-                  Fiscal Year {selectedYear} - CC Allocation Tracking
-                </p>
-                <p className="text-xs text-blue-700">
-                  Expenses from Purchase Orders (PO) and Local Purchase Orders (LPO) linked to warrants with vote code 080702.
-                  All expenses shown are for FY {selectedYear} only.
-                </p>
-              </div>
+            <AlertTriangle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-semibold">Data Loading Error</p>
+              <p className="mt-0.5">{error}</p>
             </div>
+            <Button
+              onClick={() => window.location.reload()}
+              variant="outline"
+              size="sm"
+              className="ml-auto border-rose-300 text-rose-700 hover:bg-rose-100"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Retry
+            </Button>
           </motion.div>
+        )}
 
-          {/* Primary Financial KPIs */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            {/* Total Allocation */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="relative overflow-hidden bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg p-4 text-white shadow-md"
-            >
-              <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-              <div className="relative">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="p-1.5 bg-white/20 rounded-md backdrop-blur-sm">
-                    <Wallet className="w-4 h-4" />
-                  </div>
-                  <TrendingUp className="w-3 h-3 text-emerald-200" />
-                </div>
-                <p className="text-emerald-100 text-[10px] font-medium mb-1">Total Allocation</p>
-                <p className="text-lg font-bold leading-tight">{formatCurrency(summary.total_allocation)}</p>
-                <p className="text-emerald-200 text-[9px] mt-1.5">From warrants (080702)</p>
-              </div>
-            </motion.div>
-
-            {/* Total Expenses */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="relative overflow-hidden bg-gradient-to-br from-rose-500 to-pink-600 rounded-lg p-4 text-white shadow-md"
-            >
-              <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-              <div className="relative">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="p-1.5 bg-white/20 rounded-md backdrop-blur-sm">
-                    <DollarSign className="w-4 h-4" />
-                  </div>
-                  <TrendingUp className="w-3 h-3 text-rose-200" />
-                </div>
-                <p className="text-rose-100 text-[10px] font-medium mb-1">Total Expenses</p>
-                <p className="text-lg font-bold leading-tight">{formatCurrency(summary.total_expenses)}</p>
-                <p className="text-rose-200 text-[9px] mt-1.5">
-                  {summary.usage_percentage.toFixed(1)}% of allocation
-                </p>
-              </div>
-            </motion.div>
-
-            {/* Available Balance */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="relative overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg p-4 text-white shadow-md"
-            >
-              <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-              <div className="relative">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="p-1.5 bg-white/20 rounded-md backdrop-blur-sm">
-                    <DollarSign className="w-4 h-4" />
-                  </div>
-                  {summary.total_balance >= 0 ? (
-                    <TrendingUp className="w-3 h-3 text-blue-200" />
-                  ) : (
-                    <TrendingDown className="w-3 h-3 text-red-200" />
-                  )}
-                </div>
-                <p className="text-blue-100 text-[10px] font-medium mb-1">Available Balance</p>
-                <p className="text-lg font-bold leading-tight">{formatCurrency(summary.total_balance)}</p>
-                <p className="text-blue-200 text-[9px] mt-1.5">
-                  {summary.total_count} expense{summary.total_count !== 1 ? 's' : ''}
-                </p>
-              </div>
-            </motion.div>
-
-            {/* Liabilities */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="relative overflow-hidden bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg p-4 text-white shadow-md"
-            >
-              <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-              <div className="relative">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="p-1.5 bg-white/20 rounded-md backdrop-blur-sm">
-                    <AlertTriangle className="w-4 h-4" />
-                  </div>
-                  <TrendingUp className="w-3 h-3 text-amber-200" />
-                </div>
-                <p className="text-amber-100 text-[10px] font-medium mb-1">Liabilities</p>
-                <p className="text-lg font-bold leading-tight">{formatCurrency(summary.total_liabilities)}</p>
-                <p className="text-amber-200 text-[9px] mt-1.5">Pending & approved</p>
-              </div>
-            </motion.div>
-
-            {/* Net Expenses */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
-              className="relative overflow-hidden bg-gradient-to-br from-purple-500 to-violet-600 rounded-lg p-4 text-white shadow-md"
-            >
-              <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-              <div className="relative">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="p-1.5 bg-white/20 rounded-md backdrop-blur-sm">
-                    <FileText className="w-4 h-4" />
-                  </div>
-                  <TrendingUp className="w-3 h-3 text-purple-200" />
-                </div>
-                <p className="text-purple-100 text-[10px] font-medium mb-1">Net Expenses</p>
-                <p className="text-lg font-bold leading-tight">{formatCurrency(summary.net_expenses)}</p>
-                <p className="text-purple-200 text-[9px] mt-1.5">Completed only</p>
-              </div>
-            </motion.div>
-
-            {/* Usage Percentage */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6 }}
-              className="relative overflow-hidden bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg p-4 text-white shadow-md"
-            >
-              <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-              <div className="relative">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="p-1.5 bg-white/20 rounded-md backdrop-blur-sm">
-                    <TrendingUp className="w-4 h-4" />
-                  </div>
-                  <TrendingUp className="w-3 h-3 text-cyan-200" />
-                </div>
-                <p className="text-cyan-100 text-[10px] font-medium mb-1">Usage Rate</p>
-                <p className="text-lg font-bold leading-tight">{summary.usage_percentage.toFixed(2)}%</p>
-                <p className="text-cyan-200 text-[9px] mt-1.5">Of total allocation</p>
-              </div>
-            </motion.div>
-          </div>
-
-          {/* Breakdown by Vote Activity */}
-          {summary.by_vote_activity && summary.by_vote_activity.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm"
-            >
-              <h2 className="text-base font-semibold text-slate-900 mb-3">Breakdown by Vote Activity</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {summary.by_vote_activity.map((item) => (
-                  <div
-                    key={item.vote_activity}
-                    className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg p-3 border border-slate-200"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-semibold text-slate-700">
-                        Activity {item.vote_activity}
-                      </span>
-                      <span className="text-xs text-slate-500">
-                        {item.allocation > 0 ? ((item.expenses / item.allocation) * 100).toFixed(1) : 0}%
-                      </span>
-                    </div>
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-500">Allocation:</span>
-                        <span className="font-semibold text-slate-900">{formatCurrency(item.allocation)}</span>
-                      </div>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-500">Expenses:</span>
-                        <span className="font-semibold text-slate-900">{formatCurrency(item.expenses)}</span>
-                      </div>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-500">Balance:</span>
-                        <span className={`font-semibold ${item.balance >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                          {formatCurrency(item.balance)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-500">Liabilities:</span>
-                        <span className="font-semibold text-amber-600">{formatCurrency(item.liabilities)}</span>
-                      </div>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-500">Net Expenses:</span>
-                        <span className="font-semibold text-purple-600">{formatCurrency(item.net_expenses)}</span>
-                      </div>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-500">Count:</span>
-                        <span className="font-semibold text-slate-900">{item.count}</span>
-                      </div>
-                    </div>
-                    {/* Progress bar */}
-                    <div className="mt-2">
-                      <div className="w-full bg-slate-200 rounded-full h-1.5">
-                        <div
-                          className="bg-gradient-to-r from-blue-500 to-indigo-600 h-1.5 rounded-full transition-all"
-                          style={{
-                            width: `${Math.min((item.expenses / item.allocation) * 100, 100)}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-
-          {/* Quarterly Progress */}
-          {quarterlyData.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm"
-            >
-              <h2 className="text-lg font-semibold text-slate-900 mb-4">Quarterly Progress</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {quarterlyData.map((quarter) => (
-                  <div
-                    key={quarter.quarter}
-                    className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg p-4 border border-slate-200"
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-semibold text-slate-700">
-                        Q{quarter.quarter}
-                      </span>
-                      <span className="text-xs text-slate-500">
-                        {quarter.usage_percentage.toFixed(1)}%
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      <div>
-                        <p className="text-xs text-slate-500">Allocation</p>
-                        <p className="text-sm font-semibold text-slate-900">
-                          {formatCurrency(quarter.allocation)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500">Expenses</p>
-                        <p className="text-sm font-semibold text-slate-900">
-                          {formatCurrency(quarter.expenses)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500">Balance</p>
-                        <p
-                          className={`text-sm font-semibold ${quarter.balance >= 0 ? 'text-emerald-600' : 'text-rose-600'
-                            }`}
-                        >
-                          {formatCurrency(quarter.balance)}
-                        </p>
-                      </div>
-                    </div>
-                    {/* Progress bar */}
-                    <div className="mt-3">
-                      <div className="w-full bg-slate-200 rounded-full h-2">
-                        <div
-                          className="bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full transition-all"
-                          style={{
-                            width: `${Math.min(quarter.usage_percentage, 100)}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-
-          {/* Expenses Table Header with Filters */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"
-          >
-            {/* Header Section */}
-            <div className="p-4 border-b border-slate-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-emerald-100 rounded-lg">
-                    <FileText className="w-5 h-5 text-emerald-600" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-semibold text-slate-900">Expense Records</h2>
-                    <p className="text-sm text-slate-600 mt-0.5">
-                      {filteredExpenses.length} expense{filteredExpenses.length !== 1 ? 's' : ''} found
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    onClick={handleExportPDF}
-                    disabled={isExporting || !summary || filteredExpenses.length === 0}
-                    variant="outline"
-                    size="sm"
-                    className="h-9 border-slate-300"
-                  >
-                    {isExporting ? (
-                      <>
-                        <Spinner size="sm" className="mr-1.5" />
-                        Exporting...
-                      </>
-                    ) : (
-                      <>
-                        <FileDown className="w-4 h-4 mr-1.5" />
-                        PDF
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    onClick={handleExportCSV}
-                    disabled={!summary || filteredExpenses.length === 0}
-                    variant="outline"
-                    size="sm"
-                    className="h-9 border-slate-300"
-                  >
-                    <Download className="w-4 h-4 mr-1.5" />
-                    CSV
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            {/* Compact Filter Bar */}
-            <div className="px-6 py-4 border-b border-slate-100">
-              <div className="flex flex-wrap items-center gap-3">
-                {/* Search */}
+        {/* Dashboard Cards */}
+        {!isLoading && !error && summary && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Total Allocation */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-6 text-white shadow-lg group hover:shadow-xl transition-all duration-300">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl group-hover:bg-white/20 transition-colors" />
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Search PO/LPO..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 pr-4 py-2 w-64 bg-slate-50/80 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all"
-                  />
-                </div>
-
-                {/* Vote Activity Filter */}
-                <select
-                  value={filterVoteActivity}
-                  onChange={(e) => setFilterVoteActivity(e.target.value)}
-                  className="px-4 py-2 bg-slate-50/80 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all cursor-pointer"
-                >
-                  <option value="all">All Activities</option>
-                  <option value="27401">27401</option>
-                  <option value="27499">27499</option>
-                  <option value="27404">27404</option>
-                  <option value="27403">27403</option>
-                  <option value="27402">27402</option>
-                  <option value="27501">27501</option>
-                </select>
-
-                {/* Status Filter */}
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className="px-4 py-2 bg-slate-50/80 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all cursor-pointer"
-                >
-                  <option value="all">All Status</option>
-                  <option value="pending">Pending</option>
-                  <option value="approved">Approved</option>
-                  <option value="completed">Completed</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
-
-                {/* Category Filter */}
-                <select
-                  value={filterCategory}
-                  onChange={(e) => setFilterCategory(e.target.value)}
-                  className="px-4 py-2 bg-slate-50/80 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all cursor-pointer"
-                >
-                  <option value="all">All Categories</option>
-                  {WARRANT_CATEGORIES.map((cat) => (
-                    <option key={cat.value} value={cat.value}>
-                      {cat.label}
-                    </option>
-                  ))}
-                </select>
-
-                {/* Department Filter */}
-                <select
-                  value={filterDepartment}
-                  onChange={(e) => setFilterDepartment(e.target.value)}
-                  className="px-4 py-2 bg-slate-50/80 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all cursor-pointer"
-                >
-                  <option value="all">All Departments</option>
-                  {WARRANT_DEPARTMENTS.map((dept) => (
-                    <option key={dept.value} value={dept.value}>
-                      {dept.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Table Content */}
-            <div className="overflow-x-auto">
-              {filteredExpenses.length > 0 ? (
-                <Table
-                  data={filteredExpenses}
-                  columns={columns}
-                  className="border-none"
-                  hoverable
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-                  <FileText className="w-12 h-12 mb-3 opacity-50" />
-                  <p className="text-sm font-medium">No expenses found</p>
-                  <p className="text-xs mt-1">
-                    Click 'Sync from POs' to import expenses from Purchase Orders.
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-3 bg-white/20 rounded-xl backdrop-blur-md shadow-inner">
+                      <Wallet className="w-6 h-6" />
+                    </div>
+                    <div className="text-emerald-100 bg-emerald-500/30 px-2 py-1 rounded-lg backdrop-blur-sm border border-emerald-400/30">
+                      <span className="text-xs font-bold uppercase tracking-wider">Total</span>
+                    </div>
+                  </div>
+                  <p className="text-emerald-100 text-sm font-medium mb-1 tracking-wide">Total Allocation</p>
+                  <p className="text-3xl font-bold tracking-tight">{formatCurrency(summary.total_allocation)}</p>
+                  <p className="text-emerald-100/80 text-xs mt-3 font-medium">
+                    In {summary.total_count} record{summary.total_count !== 1 ? 's' : ''}
                   </p>
                 </div>
-              )}
+              </div>
+
+              {/* Total Expenses */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-rose-500 to-pink-600 rounded-2xl p-6 text-white shadow-lg group hover:shadow-xl transition-all duration-300">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl group-hover:bg-white/20 transition-colors" />
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-3 bg-white/20 rounded-xl backdrop-blur-md shadow-inner">
+                      <DollarSign className="w-6 h-6" />
+                    </div>
+                  </div>
+                  <p className="text-rose-100 text-sm font-medium mb-1 tracking-wide">Total Expenses</p>
+                  <p className="text-3xl font-bold tracking-tight">{formatCurrency(summary.total_expenses)}</p>
+                  <p className="text-rose-200 text-xs mt-3 bg-rose-500/30 inline-block px-2 py-1 rounded-lg backdrop-blur-sm border border-rose-400/30">
+                    {summary.usage_percentage.toFixed(1)}% of allocation
+                  </p>
+                </div>
+              </div>
+
+              {/* Available Balance */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-6 text-white shadow-lg group hover:shadow-xl transition-all duration-300">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl group-hover:bg-white/20 transition-colors" />
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-3 bg-white/20 rounded-xl backdrop-blur-md shadow-inner">
+                      <Wallet className="w-6 h-6" />
+                    </div>
+                  </div>
+                  <p className="text-blue-100 text-sm font-medium mb-1 tracking-wide">Available Balance</p>
+                  <p className="text-3xl font-bold tracking-tight">{formatCurrency(summary.total_balance)}</p>
+                  <p className="text-blue-200 text-xs mt-3 bg-blue-500/30 inline-block px-2 py-1 rounded-lg backdrop-blur-sm border border-blue-400/30">
+                    {summary.total_allocation > 0
+                      ? ((summary.total_balance / summary.total_allocation) * 100).toFixed(1)
+                      : '0'}% remaining
+                  </p>
+                </div>
+              </div>
             </div>
-          </motion.div>
+
+            {/* Secondary Metrics */}
+            <FinancialStatsGrid
+              liabilities={summary.total_liabilities}
+              netExpenses={summary.net_expenses}
+              usageRate={summary.usage_percentage}
+              currencyFormatter={formatCurrency}
+            />
+          </div>
+        )}
+
+        {/* Expenses Table */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <Table
+            data={paginatedExpenses}
+            columns={columns}
+            isLoading={isLoading}
+            emptyMessage="No expenses found matching your filters"
+            onSort={(key) => console.log('Sort by', key)}
+          />
+          {filteredExpenses.length > 0 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={Math.ceil(filteredExpenses.length / pageSize)}
+              pageSize={pageSize}
+              total={filteredExpenses.length}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size)
+                setCurrentPage(1)
+              }}
+            />
+          )}
         </div>
-      )}
-    </div>
+      </div>
+    </FinancialPageLayout>
   )
 }
 
 export default CCAllocationPage
-

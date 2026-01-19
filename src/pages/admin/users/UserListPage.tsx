@@ -1,28 +1,23 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Search,
-  Plus,
-  Filter,
-  MoreVertical,
-  Edit,
-  Trash2,
-  UserCheck,
-  UserX,
-  Download,
-  RefreshCw,
   Users,
   UserPlus,
-  TrendingUp,
-  FileText,
+  UserCheck,
+  UserX,
   AlertCircle,
-  Mail,
-  Building2,
-  Briefcase,
   Clock,
+  Edit,
+  Trash2,
+  Mail,
+  Briefcase,
+  Building2,
+  RefreshCw,
+  FileText
 } from 'lucide-react'
-import { Button, Table, Pagination, Input, Select, Badge, Avatar, LoadingOverlay } from '@/components/ui'
+import { Button, Table, Pagination, Badge, Avatar, LoadingOverlay, ConfirmationDialog } from '@/components/ui'
+import { AdminPageLayout, AdminStatsGrid, AdminFilterBar, StatItem } from '@/components/admin'
 import { getUsers, bulkUpdateUserStatus, bulkDeleteUsers } from '@/services/userService'
 import { getAllRoles } from '@/services/roleService'
 import { getDepartmentsByHospital } from '@/services/departmentService'
@@ -30,8 +25,8 @@ import { getAllHospitals } from '@/services/hospitalService'
 import { useToastStore } from '@/stores/toastStore'
 import { useAuthStore } from '@/stores/authStore'
 import { ROUTES, USER_STATUS, DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS, SYSTEM_ROLES } from '@/lib/constants'
-import { formatDate, cn } from '@/lib/utils'
-import type { UserWithRelations, SortConfig, Role, Department, Hospital } from '@/types'
+import { formatDate } from '@/lib/utils'
+import type { UserWithRelations, SortConfig, Role, Department, Hospital, UserStatus } from '@/types'
 
 export const UserListPage: React.FC = () => {
   const navigate = useNavigate()
@@ -40,6 +35,7 @@ export const UserListPage: React.FC = () => {
   const isHospitalAdmin = user?.role?.role_code === SYSTEM_ROLES.HOSPITAL_ADMIN
   const userHospitalId = user?.hospital_id
 
+  // State
   const [users, setUsers] = useState<UserWithRelations[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
@@ -54,11 +50,27 @@ export const UserListPage: React.FC = () => {
   const [sortConfig, setSortConfig] = useState<SortConfig | undefined>()
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
   const [isBulkActionLoading, setIsBulkActionLoading] = useState(false)
-  
+
   // Filter options
   const [roles, setRoles] = useState<Role[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
   const [hospitals, setHospitals] = useState<Hospital[]>([])
+
+  // Confirmation Dialog State
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean
+    title: string
+    message: string
+    onConfirm: () => Promise<void>
+    variant: 'danger' | 'warning' | 'info' | 'success'
+    confirmText?: string
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: async () => { },
+    variant: 'danger'
+  })
 
   // Fetch filter options
   useEffect(() => {
@@ -79,13 +91,13 @@ export const UserListPage: React.FC = () => {
     fetchFilterOptions()
   }, [isHospitalAdmin])
 
-  // Fetch departments when hospital filter changes or on mount for Hospital Admin
+  // Fetch departments when hospital filter changes
   useEffect(() => {
     const fetchDepartmentsForHospital = async () => {
-      const effectiveHospitalId = isHospitalAdmin && userHospitalId 
-        ? userHospitalId 
-        : hospitalFilter !== 'all' 
-          ? hospitalFilter 
+      const effectiveHospitalId = isHospitalAdmin && userHospitalId
+        ? userHospitalId
+        : hospitalFilter !== 'all'
+          ? hospitalFilter
           : null
 
       if (effectiveHospitalId) {
@@ -97,48 +109,61 @@ export const UserListPage: React.FC = () => {
           setDepartments([])
         }
       } else if (!isHospitalAdmin) {
-        // For System Admin, clear departments if no hospital selected
         setDepartments([])
       }
     }
     fetchDepartmentsForHospital()
   }, [hospitalFilter, isHospitalAdmin, userHospitalId])
 
+  // Track mounted state to prevent race conditions
+  const isMounted = React.useRef(true)
+
+  useEffect(() => {
+    return () => {
+      isMounted.current = false
+    }
+  }, [])
+
   const fetchUsers = useCallback(async () => {
-    setIsLoading(true)
+    console.log('[UserListPage] fetchUsers called', {
+      currentPage, pageSize, search, statusFilter, roleFilter, departmentFilter, hospitalFilter, sortConfig
+    })
+
+    if (isMounted.current) setIsLoading(true)
+
     try {
-      // For Hospital Admin, always filter by their hospital_id
-      const effectiveHospitalId = isHospitalAdmin && userHospitalId 
-        ? userHospitalId 
-        : hospitalFilter !== 'all' 
-          ? hospitalFilter 
+      const effectiveHospitalId = isHospitalAdmin && userHospitalId
+        ? userHospitalId
+        : hospitalFilter !== 'all'
+          ? hospitalFilter
           : undefined
 
       const result = await getUsers({
         page: currentPage,
         pageSize,
         search: search || undefined,
-        status: statusFilter !== 'all' ? statusFilter : undefined,
+        status: statusFilter !== 'all' ? statusFilter as UserStatus : undefined,
         hospitalId: effectiveHospitalId,
         departmentId: departmentFilter !== 'all' ? departmentFilter : undefined,
+        roleId: roleFilter !== 'all' ? roleFilter : undefined,
+        excludeSystemAdmins: isHospitalAdmin,
         sort: sortConfig,
       })
 
-      // Filter by role on client side if needed (since userService doesn't support roleId filter yet)
-      let filteredData = result.data
-      if (roleFilter !== 'all') {
-        filteredData = filteredData.filter((user) => user.role?.id === roleFilter)
+      if (isMounted.current) {
+        console.log('[UserListPage] fetchUsers success', result.total)
+        setUsers(result.data)
+        setTotal(result.total)
+        setTotalPages(result.totalPages)
+        setSelectedUsers([])
       }
-
-      setUsers(filteredData)
-      setTotal(roleFilter !== 'all' ? filteredData.length : result.total)
-      setTotalPages(roleFilter !== 'all' ? Math.ceil(filteredData.length / pageSize) : result.totalPages)
-      setSelectedUsers([]) // Clear selection on new fetch
     } catch (error) {
-      showError('Error', 'Failed to load users. Please try again.')
-      console.error('Error fetching users:', error)
+      console.error('[UserListPage] fetchUsers error:', error)
+      if (isMounted.current) {
+        showError('Error', 'Failed to load users. Please refresh.')
+      }
     } finally {
-      setIsLoading(false)
+      if (isMounted.current) setIsLoading(false)
     }
   }, [currentPage, pageSize, search, statusFilter, roleFilter, departmentFilter, hospitalFilter, sortConfig, isHospitalAdmin, userHospitalId])
 
@@ -146,13 +171,42 @@ export const UserListPage: React.FC = () => {
     fetchUsers()
   }, [fetchUsers])
 
-  // Calculate statistics
-  const stats = useMemo(() => {
+  // Statistics
+  const stats: StatItem[] = useMemo(() => {
     const active = users.filter((u) => u.status === USER_STATUS.ACTIVE).length
     const inactive = users.filter((u) => u.status === USER_STATUS.INACTIVE).length
     const suspended = users.filter((u) => u.status === USER_STATUS.SUSPENDED).length
     const pending = users.filter((u) => u.status === USER_STATUS.PENDING).length
-    return { active, inactive, suspended, pending, total }
+
+    return [
+      {
+        label: 'Total Users',
+        value: total,
+        icon: Users,
+        color: 'blue'
+      },
+      {
+        label: 'Active',
+        value: active,
+        icon: UserCheck,
+        color: 'emerald',
+        description: 'Currently active accounts'
+      },
+      {
+        label: 'Pending',
+        value: pending,
+        icon: Clock,
+        color: 'amber',
+        description: 'Awaiting approval'
+      },
+      {
+        label: 'Suspended',
+        value: suspended,
+        icon: AlertCircle,
+        color: 'rose',
+        description: 'Accounts requiring attention'
+      }
+    ]
   }, [users, total])
 
   const handleSort = (key: string) => {
@@ -166,33 +220,72 @@ export const UserListPage: React.FC = () => {
     })
   }
 
-  const handleBulkAction = async (action: 'activate' | 'deactivate' | 'delete') => {
-    if (selectedUsers.length === 0) {
-      showWarning('No Selection', 'Please select at least one user.')
-      return
-    }
-
+  const performBulkAction = async (action: 'activate' | 'deactivate' | 'delete') => {
     setIsBulkActionLoading(true)
     try {
       if (action === 'delete') {
-        if (!confirm(`Are you sure you want to delete ${selectedUsers.length} user(s)?`)) {
-          setIsBulkActionLoading(false)
-          return
-        }
         await bulkDeleteUsers(selectedUsers)
-        showSuccess('Success', `${selectedUsers.length} user(s) deleted successfully.`)
+        showSuccess('Deleted', `${selectedUsers.length} user(s) deleted successfully`)
       } else {
         const status = action === 'activate' ? USER_STATUS.ACTIVE : USER_STATUS.INACTIVE
         await bulkUpdateUserStatus(selectedUsers, status)
-        showSuccess('Success', `${selectedUsers.length} user(s) ${action}d successfully.`)
+        showSuccess('Updated', `${selectedUsers.length} user(s) ${action}d successfully`)
       }
       setSelectedUsers([])
       fetchUsers()
     } catch (error) {
-      showError('Error', `Failed to ${action} users. Please try again.`)
+      showError('Failed', `Failed to ${action} users. Please try again.`)
     } finally {
       setIsBulkActionLoading(false)
+      setConfirmConfig(prev => ({ ...prev, isOpen: false }))
     }
+  }
+
+  const handleBulkActionClick = (action: 'activate' | 'deactivate' | 'delete') => {
+    if (selectedUsers.length === 0) {
+      showWarning('Selection Required', 'Please select at least one user.')
+      return
+    }
+
+    const actionLabels = {
+      activate: 'Activate',
+      deactivate: 'Deactivate',
+      delete: 'Delete'
+    }
+
+    setConfirmConfig({
+      isOpen: true,
+      title: `${actionLabels[action]} Users?`,
+      message: `Are you sure you want to ${action} ${selectedUsers.length} selected user(s)? This action cannot be undone.`,
+      variant: action === 'delete' ? 'danger' : 'warning',
+      confirmText: `Yes, ${actionLabels[action]}`,
+      onConfirm: () => performBulkAction(action)
+    })
+  }
+
+  const performDeleteUser = async (user: UserWithRelations) => {
+    setIsBulkActionLoading(true)
+    try {
+      await bulkDeleteUsers([user.id])
+      showSuccess('Deleted', 'User deleted successfully')
+      fetchUsers()
+    } catch (error) {
+      showError('Failed', 'Failed to delete user')
+    } finally {
+      setIsBulkActionLoading(false)
+      setConfirmConfig(prev => ({ ...prev, isOpen: false }))
+    }
+  }
+
+  const handleDeleteUserClick = (user: UserWithRelations) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Delete User?',
+      message: `Are you sure you want to delete ${user.full_name}? All data associated with this user will be permanently removed.`,
+      variant: 'danger',
+      confirmText: 'Delete User',
+      onConfirm: () => performDeleteUser(user)
+    })
   }
 
   const handleSelectAll = (checked: boolean) => {
@@ -218,7 +311,7 @@ export const UserListPage: React.FC = () => {
             handleSelectUser(row.id, e.target.checked)
           }}
           onClick={(e) => e.stopPropagation()}
-          className="w-4 h-4 text-teal-600 border-slate-300 rounded focus:ring-teal-500"
+          className="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500 cursor-pointer"
         />
       ),
       className: 'w-12',
@@ -226,26 +319,25 @@ export const UserListPage: React.FC = () => {
     {
       key: 'profile_photo_url',
       label: '',
-      render: (_: unknown, row: UserWithRelations) => (
+      render: (_: unknown, u: UserWithRelations) => (
         <Avatar
-          src={row.profile_photo_url}
-          alt={row.full_name}
-          fallback={row.full_name.charAt(0)}
+          src={u.profile_photo_url}
+          name={u.full_name}
           size="md"
-          className="ring-2 ring-slate-200"
+          className="border-2 border-white shadow-sm ring-1 ring-slate-100"
         />
       ),
-      className: 'w-20',
+      className: 'w-16',
     },
     {
       key: 'full_name',
       label: 'Name',
       sortable: true,
       render: (_: unknown, row: UserWithRelations) => (
-        <div className="space-y-1">
+        <div className="space-y-0.5">
           <div className="font-semibold text-slate-900">{row.full_name}</div>
-          <div className="text-sm text-slate-500 flex items-center gap-1">
-            <Mail className="w-3 h-3" />
+          <div className="text-sm text-slate-500 flex items-center gap-1.5">
+            <Mail className="w-3.5 h-3.5 text-slate-400" />
             {row.email}
           </div>
         </div>
@@ -256,23 +348,23 @@ export const UserListPage: React.FC = () => {
       label: 'Employee ID',
       sortable: true,
       render: (_: unknown, row: UserWithRelations) => (
-        <span className="font-mono text-sm">{row.employee_id}</span>
+        <Badge variant="gray" className="font-mono">
+          {row.employee_id}
+        </Badge>
       ),
     },
     {
       key: 'role',
-      label: 'Role',
+      label: 'Role & Dept',
       render: (_: unknown, row: UserWithRelations) => (
-        <span className="text-sm">{row.role?.role_name || 'N/A'}</span>
-      ),
-    },
-    {
-      key: 'department',
-      label: 'Department',
-      render: (_: unknown, row: UserWithRelations) => (
-        <div className="flex items-center gap-2">
-          <Briefcase className="w-4 h-4 text-slate-400" />
-          <span className="text-sm font-medium text-slate-700">{row.department?.department_name || 'N/A'}</span>
+        <div className="space-y-1">
+          <Badge variant="info">
+            {row.role?.role_name || 'No Role'}
+          </Badge>
+          <div className="flex items-center gap-1.5 text-xs text-slate-500">
+            <Briefcase className="w-3 h-3" />
+            {row.department?.department_name || 'No Dept'}
+          </div>
         </div>
       ),
     },
@@ -280,9 +372,11 @@ export const UserListPage: React.FC = () => {
       key: 'hospital',
       label: 'Hospital',
       render: (_: unknown, row: UserWithRelations) => (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 text-sm text-slate-600">
           <Building2 className="w-4 h-4 text-slate-400" />
-          <span className="text-sm font-medium text-slate-700">{row.hospital?.hospital_name || 'N/A'}</span>
+          <span className="truncate max-w-[150px]" title={row.hospital?.hospital_name}>
+            {row.hospital?.hospital_name || 'N/A'}
+          </span>
         </div>
       ),
     },
@@ -291,15 +385,14 @@ export const UserListPage: React.FC = () => {
       label: 'Status',
       sortable: true,
       render: (_: unknown, row: UserWithRelations) => {
-        const statusColors = {
+        const variants: Record<string, 'success' | 'error' | 'warning' | 'gray'> = {
           active: 'success',
-          inactive: 'gray',
           suspended: 'error',
           pending: 'warning',
-        } as const
-
+          inactive: 'gray'
+        }
         return (
-          <Badge variant={statusColors[row.status] || 'gray'}>
+          <Badge variant={variants[row.status] || 'gray'}>
             {row.status.charAt(0).toUpperCase() + row.status.slice(1)}
           </Badge>
         )
@@ -310,337 +403,258 @@ export const UserListPage: React.FC = () => {
       label: 'Last Login',
       sortable: true,
       render: (_: unknown, row: UserWithRelations) => (
-        <span className="text-sm text-slate-500">
-          {row.last_login ? formatDate(row.last_login) : 'Never'}
-        </span>
+        <div className="text-sm text-slate-500">
+          {row.last_login ? (
+            <div className="flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-slate-400" />
+              {formatDate(row.last_login)}
+            </div>
+          ) : (
+            'Never'
+          )}
+        </div>
       ),
     },
     {
       key: 'actions',
-      label: 'Actions',
+      label: '',
       render: (_: unknown, row: UserWithRelations) => (
-        <div className="flex items-center gap-2">
-          <button
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={(e) => {
               e.stopPropagation()
               navigate(`${ROUTES.ADMIN_USERS}/${row.id}`)
             }}
-            className="p-1.5 text-slate-600 hover:text-teal-600 hover:bg-teal-50 rounded transition-colors"
-            title="Edit"
+            className="h-8 w-8 p-0 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"
+            title="Edit User"
           >
             <Edit className="w-4 h-4" />
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={(e) => {
               e.stopPropagation()
-              if (confirm(`Are you sure you want to delete ${row.full_name}?`)) {
-                bulkDeleteUsers([row.id]).then(() => {
-                  showSuccess('Success', 'User deleted successfully.')
-                  fetchUsers()
-                })
-              }
+              handleDeleteUserClick(row)
             }}
-            className="p-1.5 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-            title="Delete"
+            className="h-8 w-8 p-0 text-slate-500 hover:text-rose-600 hover:bg-rose-50"
+            title="Delete User"
           >
             <Trash2 className="w-4 h-4" />
-          </button>
+          </Button>
         </div>
       ),
-      className: 'w-24',
+      className: 'w-20',
     },
   ]
 
+  const headerActions = (
+    <div className="flex items-center gap-3">
+      <Button
+        variant="outline"
+        onClick={fetchUsers}
+        disabled={isLoading}
+        leftIcon={<RefreshCw className={isLoading ? 'animate-spin' : ''} />}
+      >
+        Refresh
+      </Button>
+      <Button
+        variant="primary"
+        onClick={() => navigate(`${ROUTES.ADMIN_USERS}/new`)}
+        leftIcon={<UserPlus className="w-5 h-5" />}
+        className="bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200"
+      >
+        Add User
+      </Button>
+    </div>
+  )
+
   return (
-    <div className="space-y-6">
-      {isBulkActionLoading && <LoadingOverlay message="Processing..." />}
+    <AdminPageLayout
+      title="User Management"
+      description="Manage system users, roles, and access permissions across the organization"
+      icon={Users}
+      breadcrumbs={[{ label: 'User Management' }]}
+      actions={headerActions}
+    >
+      <div className="space-y-6">
+        {/* Stats Grid */}
+        <AdminStatsGrid stats={stats} isLoading={isLoading} />
 
-      {/* Header with Gradient */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-indigo-800 p-8 shadow-xl"
-      >
-        <div className="relative z-10">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-white/30">
-                <Users className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-white mb-2">User Management</h1>
-                <p className="text-indigo-100 text-sm">Manage system users and their access permissions</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                onClick={fetchUsers}
-                disabled={isLoading}
-                className="bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20"
-                leftIcon={<RefreshCw className={cn('w-4 h-4', isLoading && 'animate-spin')} />}
-              >
-                Refresh
-              </Button>
-              <Button
-                variant="primary"
-                onClick={() => navigate(`${ROUTES.ADMIN_USERS}/new`)}
-                className="bg-white text-indigo-600 hover:bg-indigo-50 shadow-lg"
-                leftIcon={<Plus className="w-5 h-5" />}
-              >
-                Add New User
-              </Button>
-            </div>
-          </div>
-        </div>
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full -ml-24 -mb-24" />
-      </motion.div>
-
-      {/* Statistics Cards - Smaller */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="grid grid-cols-2 md:grid-cols-5 gap-3"
-      >
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-10 h-10 bg-success-100 rounded-lg flex items-center justify-center">
-              <UserCheck className="w-5 h-5 text-success-600" />
-            </div>
-            <TrendingUp className="w-4 h-4 text-slate-400" />
-          </div>
-          <div className="space-y-0.5">
-            <p className="text-2xl font-bold text-slate-900">{stats.active}</p>
-            <p className="text-xs font-medium text-slate-600">Active Users</p>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
-              <UserX className="w-5 h-5 text-slate-600" />
-            </div>
-            <TrendingUp className="w-4 h-4 text-slate-400" />
-          </div>
-          <div className="space-y-0.5">
-            <p className="text-2xl font-bold text-slate-900">{stats.inactive}</p>
-            <p className="text-xs font-medium text-slate-600">Inactive</p>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-10 h-10 bg-error-100 rounded-lg flex items-center justify-center">
-              <AlertCircle className="w-5 h-5 text-error-600" />
-            </div>
-            <TrendingUp className="w-4 h-4 text-slate-400" />
-          </div>
-          <div className="space-y-0.5">
-            <p className="text-2xl font-bold text-slate-900">{stats.suspended}</p>
-            <p className="text-xs font-medium text-slate-600">Suspended</p>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
-              <Clock className="w-5 h-5 text-amber-600" />
-            </div>
-            <TrendingUp className="w-4 h-4 text-slate-400" />
-          </div>
-          <div className="space-y-0.5">
-            <p className="text-2xl font-bold text-slate-900">{stats.pending}</p>
-            <p className="text-xs font-medium text-slate-600">Pending</p>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
-              <Users className="w-5 h-5 text-primary-600" />
-            </div>
-            <FileText className="w-4 h-4 text-slate-400" />
-          </div>
-          <div className="space-y-0.5">
-            <p className="text-2xl font-bold text-slate-900">{total}</p>
-            <p className="text-xs font-medium text-slate-600">Total Users</p>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Filters and Search */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15 }}
-        className="bg-white rounded-xl border border-slate-200 shadow-sm p-6"
-      >
-        <div className="flex items-center gap-4">
-          {/* Search Bar */}
-          <div className="flex-1 relative">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <Input
-              placeholder="Search by name, email, employee ID, or role..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value)
-                setCurrentPage(1)
-              }}
-              className="pl-12 h-11 border-slate-300 focus:border-primary-500 focus:ring-primary-500"
-            />
-          </div>
-          
-          {/* Filter Dropdowns */}
-          <div className="flex items-center gap-3">
-            <Select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value)
-                setCurrentPage(1)
-              }}
-              className="w-40 h-11 border-slate-300 focus:border-primary-500"
-              options={[
-                { value: 'all', label: 'All Status' },
+        {/* Filter Bar */}
+        <AdminFilterBar
+          searchValue={search}
+          onSearchChange={(val) => {
+            setSearch(val)
+            setCurrentPage(1)
+          }}
+          searchPlaceholder="Search by name, email, or employee ID..."
+          filters={[
+            {
+              key: 'status',
+              label: 'Status',
+              value: statusFilter,
+              onChange: setStatusFilter,
+              options: [
                 { value: USER_STATUS.ACTIVE, label: 'Active' },
                 { value: USER_STATUS.INACTIVE, label: 'Inactive' },
                 { value: USER_STATUS.SUSPENDED, label: 'Suspended' },
                 { value: USER_STATUS.PENDING, label: 'Pending' },
-              ]}
-            />
+              ]
+            },
+            {
+              key: 'role',
+              label: 'Role',
+              value: roleFilter,
+              onChange: setRoleFilter,
+              options: roles.map(r => ({ value: r.id, label: r.role_name }))
+            },
+            // Only show Hospital filter for System Admin
+            ...(!isHospitalAdmin ? [{
+              key: 'hospital',
+              label: 'Hospital',
+              value: hospitalFilter,
+              onChange: setHospitalFilter,
+              options: hospitals.map(h => ({ value: h.id, label: h.hospital_name }))
+            }] : []),
+            {
+              key: 'department',
+              label: 'Department',
+              value: departmentFilter,
+              onChange: setDepartmentFilter,
+              options: departments.map(d => ({ value: d.id, label: d.department_name })),
+              disabled: departments.length === 0 && !isHospitalAdmin
+            }
+          ]}
+          onReset={() => {
+            setSearch('')
+            setStatusFilter('all')
+            setRoleFilter('all')
+            setHospitalFilter('all')
+            setDepartmentFilter('all')
+            setCurrentPage(1)
+          }}
+        />
 
-            <Select
-              value={departmentFilter}
-              onChange={(e) => {
-                setDepartmentFilter(e.target.value)
-                setCurrentPage(1)
-              }}
-              disabled={departments.length === 0}
-              className="w-48 h-11 border-slate-300 focus:border-primary-500"
-              placeholder={departments.length === 0 ? 'No departments' : 'Select Department'}
-              options={[
-                { value: 'all', label: 'All Departments' },
-                ...departments.map((d) => ({
-                  value: d.id,
-                  label: d.department_name,
-                })),
-              ]}
-            />
-          </div>
-        </div>
-      </motion.div>
+        {/* Bulk Actions Notice */}
+        <AnimatePresence>
+          {selectedUsers.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex items-center justify-between"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-semibold">
+                  {selectedUsers.length}
+                </div>
+                <span className="text-indigo-900 font-medium">users selected</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleBulkActionClick('activate')}
+                  className="bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                  leftIcon={<UserCheck className="w-4 h-4" />}
+                >
+                  Activate
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleBulkActionClick('deactivate')}
+                  className="bg-white border-indigo-200 text-slate-700 hover:bg-slate-50"
+                  leftIcon={<UserX className="w-4 h-4" />}
+                >
+                  Deactivate
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => handleBulkActionClick('delete')}
+                  leftIcon={<Trash2 className="w-4 h-4" />}
+                >
+                  Delete
+                </Button>
+                <div className="h-6 w-px bg-indigo-200 mx-2" />
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setSelectedUsers([])}
+                  className="text-slate-500 hover:text-slate-700"
+                >
+                  Clear Selection
+                </Button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-      {/* Bulk Actions */}
-      {selectedUsers.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-primary-50 border border-primary-200 rounded-xl p-4 flex items-center justify-between shadow-sm"
-        >
-          <span className="text-sm font-semibold text-primary-900 flex items-center gap-2">
-            <UserCheck className="w-4 h-4" />
-            {selectedUsers.length} user(s) selected
-          </span>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleBulkAction('activate')}
-              leftIcon={<UserCheck className="w-4 h-4" />}
-              className="border-primary-300 text-primary-700 hover:bg-primary-100"
-            >
-              Activate
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleBulkAction('deactivate')}
-              leftIcon={<UserX className="w-4 h-4" />}
-              className="border-slate-300"
-            >
-              Deactivate
-            </Button>
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={() => handleBulkAction('delete')}
-              leftIcon={<Trash2 className="w-4 h-4" />}
-            >
-              Delete
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelectedUsers([])}
-            >
-              Clear
-            </Button>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Table */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"
-      >
-        <div className="p-6 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white">
-          <div className="flex items-center justify-between">
+        {/* Users Table */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
                 checked={selectedUsers.length === users.length && users.length > 0}
                 onChange={(e) => handleSelectAll(e.target.checked)}
-                className="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500"
+                className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 cursor-pointer"
               />
-              <span className="text-sm font-medium text-slate-700">Select All</span>
+              <span className="text-sm font-medium text-slate-600">Select All</span>
             </div>
-            <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-slate-400" />
-              <span className="text-sm text-slate-600">
-                Total: <span className="font-semibold text-slate-900">{total}</span> users
-              </span>
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <FileText className="w-4 h-4" />
+              Showing {users.length} of {total} users
             </div>
           </div>
+
+          <div className="relative">
+            {isBulkActionLoading && <LoadingOverlay message="Processing..." />}
+            <Table
+              data={users}
+              columns={columns}
+              sortConfig={sortConfig}
+              onSort={handleSort}
+              isLoading={isLoading}
+              onRowClick={(row) => navigate(`${ROUTES.ADMIN_USERS}/${row.id}`)}
+              emptyMessage="No users found matching your search."
+            />
+          </div>
+
+          <div className="border-t border-slate-100 bg-slate-50/30 p-4">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              total={total}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize)
+                setCurrentPage(1)
+              }}
+              pageSizeOptions={PAGE_SIZE_OPTIONS}
+            />
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <Table
-            data={users}
-            columns={columns}
-            sortConfig={sortConfig}
-            onSort={handleSort}
-            isLoading={isLoading}
-            emptyMessage={
-              <div className="flex flex-col items-center justify-center py-12">
-                <AlertCircle className="w-12 h-12 text-slate-400 mb-4" />
-                <p className="text-slate-600 font-medium">No users found</p>
-                <p className="text-sm text-slate-500 mt-1">Try adjusting your filters</p>
-              </div>
-            }
-            onRowClick={(row) => navigate(`${ROUTES.ADMIN_USERS}/${row.id}`)}
-          />
-        </div>
-        <div className="border-t border-slate-200 bg-slate-50/50">
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            pageSize={pageSize}
-            total={total}
-            onPageChange={setCurrentPage}
-            onPageSizeChange={(newSize) => {
-              setPageSize(newSize)
-              setCurrentPage(1)
-            }}
-            pageSizeOptions={PAGE_SIZE_OPTIONS}
-          />
-        </div>
-      </motion.div>
-    </div>
+      </div>
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={confirmConfig.isOpen}
+        onClose={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmConfig.onConfirm}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        variant={confirmConfig.variant}
+        confirmText={confirmConfig.confirmText}
+        isLoading={isBulkActionLoading}
+      />
+    </AdminPageLayout>
   )
 }
 
 export default UserListPage
-

@@ -175,14 +175,11 @@ export async function recordFileUpload(
           throw error
         }
 
-        // If the previous upload was completed, treat this as a true duplicate
-        if (existing.upload_status === 'completed') {
-          return {
-            data: null,
-            error:
-              'This file has already been uploaded successfully. Duplicate uploads are not allowed for the same file content.',
-          }
-        }
+        // For any existing record (including completed), reset and reuse it to allow re-uploads
+        // This enables users to update existing data by re-uploading the same file
+        console.log(
+          `[recordFileUpload] Reusing existing record (status: ${existing.upload_status}) for re-upload`
+        )
 
         // For pending/processing/failed statuses, reset and reuse the same record
         const resetData: Partial<UploadedFile> = {

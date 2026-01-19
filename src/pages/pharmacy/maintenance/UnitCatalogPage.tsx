@@ -237,8 +237,8 @@ const UnitCatalogFormModal: React.FC<UnitCatalogFormModalProps> = ({
     }
   }
 
-  const moduleCodeStr = typeof formData.module_code === 'string' 
-    ? formData.module_code 
+  const moduleCodeStr = typeof formData.module_code === 'string'
+    ? formData.module_code
     : (formData.module_code ? String(formData.module_code) : '')
   const moduleName =
     MODULE_DEFINITIONS.find((m) => m.code === moduleCodeStr)?.name || moduleCodeStr || ''
@@ -266,8 +266,8 @@ const UnitCatalogFormModal: React.FC<UnitCatalogFormModalProps> = ({
             isLoadingDepartments
               ? 'Loading departments...'
               : availableDepartments.length === 0
-              ? 'No departments available'
-              : 'Select a department'
+                ? 'No departments available'
+                : 'Select a department'
           }
           required
           disabled={!!catalog || isLoadingDepartments || availableDepartments.length === 0}
@@ -276,10 +276,10 @@ const UnitCatalogFormModal: React.FC<UnitCatalogFormModalProps> = ({
             departmentsError
               ? undefined
               : availableDepartments.length === 0 && !isLoadingDepartments
-              ? 'No departments available for this hospital. Please activate modules and ensure departments are created.'
-              : availableDepartments.length > 0
-              ? `${availableDepartments.length} department(s) available`
-              : undefined
+                ? 'No departments available for this hospital. Please activate modules and ensure departments are created.'
+                : availableDepartments.length > 0
+                  ? `${availableDepartments.length} department(s) available`
+                  : undefined
           }
         />
         {availableDepartments.length === 0 && !isLoadingDepartments && !departmentsError && (
@@ -486,7 +486,7 @@ const CatalogItemsModal: React.FC<CatalogItemsModalProps> = ({
 }) => {
   const { user } = useAuthStore()
   const { success: showSuccess, error: showError } = useToastStore()
-  
+
   const [activeTab, setActiveTab] = useState<CatalogItemType>('drug')
   const [items, setItems] = useState<UnitCatalogItemWithRelations[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -567,10 +567,10 @@ const CatalogItemsModal: React.FC<CatalogItemsModalProps> = ({
 
   const handleDelete = async (item: UnitCatalogItemWithRelations) => {
     if (!user?.id || !catalog?.id) return
-    const itemName = activeTab === 'drug' 
+    const itemName = activeTab === 'drug'
       ? item.drug?.drug_name || 'this item'
       : item.non_drug?.item_name || 'this item'
-    
+
     if (!confirm(`Are you sure you want to remove ${itemName} from this catalog?`)) {
       return
     }
@@ -744,11 +744,10 @@ const CatalogItemsModal: React.FC<CatalogItemsModalProps> = ({
         <button
           onClick={() => handleToggleActive(item)}
           disabled={isSaving}
-          className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-            item.is_active
-              ? 'bg-green-100 text-green-700 hover:bg-green-200'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
+          className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${item.is_active
+            ? 'bg-green-100 text-green-700 hover:bg-green-200'
+            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
         >
           {item.is_active ? 'Active' : 'Inactive'}
         </button>
@@ -792,21 +791,19 @@ const CatalogItemsModal: React.FC<CatalogItemsModalProps> = ({
           <div className="flex gap-4">
             <button
               onClick={() => setActiveTab('drug')}
-              className={`px-4 py-2 font-medium border-b-2 transition-colors ${
-                activeTab === 'drug'
-                  ? 'border-violet-500 text-violet-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+              className={`px-4 py-2 font-medium border-b-2 transition-colors ${activeTab === 'drug'
+                ? 'border-violet-500 text-violet-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
             >
               Drugs ({catalog.drug_items_count || 0})
             </button>
             <button
               onClick={() => setActiveTab('non_drug')}
-              className={`px-4 py-2 font-medium border-b-2 transition-colors ${
-                activeTab === 'non_drug'
-                  ? 'border-violet-500 text-violet-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+              className={`px-4 py-2 font-medium border-b-2 transition-colors ${activeTab === 'non_drug'
+                ? 'border-violet-500 text-violet-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
             >
               Non-Drugs ({catalog.non_drug_items_count || 0})
             </button>
@@ -900,11 +897,10 @@ const CatalogItemsModal: React.FC<CatalogItemsModalProps> = ({
               <label className="block text-xs font-medium text-gray-700 mb-1">Active Status</label>
               <button
                 onClick={() => setDefaultActive(!defaultActive)}
-                className={`w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  defaultActive
-                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
+                className={`w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors ${defaultActive
+                  ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
               >
                 {defaultActive ? 'Active' : 'Inactive'}
               </button>
@@ -947,9 +943,8 @@ const CatalogItemsModal: React.FC<CatalogItemsModalProps> = ({
                       {availableItems.map((item: any) => (
                         <tr
                           key={item.id}
-                          className={`hover:bg-gray-50 cursor-pointer ${
-                            selectedItemIds.has(item.id) ? 'bg-violet-50' : ''
-                          }`}
+                          className={`hover:bg-gray-50 cursor-pointer ${selectedItemIds.has(item.id) ? 'bg-violet-50' : ''
+                            }`}
                           onClick={() => handleToggleSelection(item.id)}
                         >
                           <td className="px-4 py-2">
@@ -1257,7 +1252,7 @@ export const UnitCatalogPage: React.FC = () => {
       label: 'Module',
       render: (catalog: UnitCatalogWithRelations) => {
         const code = typeof catalog.module_code === 'string' ? catalog.module_code : String(catalog.module_code || '')
-        return <Badge variant="secondary">{moduleName(code)}</Badge>
+        return <Badge variant="gray">{moduleName(code)}</Badge>
       },
     },
     {
@@ -1289,7 +1284,7 @@ export const UnitCatalogPage: React.FC = () => {
           suspended: 'error',
         }
         const statusStr = typeof catalog.status === 'string' ? catalog.status : String(catalog.status || 'active')
-        return <Badge variant={colors[statusStr] || 'secondary'}>{statusStr}</Badge>
+        return <Badge variant={colors[statusStr] || 'gray'}>{statusStr}</Badge>
       },
     },
     {

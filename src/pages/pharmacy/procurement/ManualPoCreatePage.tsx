@@ -1,16 +1,22 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
+
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ShoppingCart, Save, FileText, ChevronDown, Trash2, Plus } from 'lucide-react'
+import {
+    ShoppingCart, Save, FileText, ChevronDown, Trash2, Plus, X,
+    Calculator, Wallet, TrendingUp, AlertCircle, Package
+} from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
-import { Button, Input, Spinner, Badge } from '@/components/ui'
-import { createPurchaseOrder, updatePurchaseOrder, getPurchaseOrderById, getActiveSuppliers, getPurchaseOrders } from '@/services/pharmacy/procurementService'
+import { Button, Input, Spinner, ConfirmationDialog, AutoExpandingTextarea } from '@/components/ui'
+import { FinancialPageLayout } from '@/components/pharmacy/financial/FinancialPageLayout'
+import { createPurchaseOrder, updatePurchaseOrder, getPurchaseOrderById, getActiveSuppliers } from '@/services/pharmacy/procurementService'
 import { WARRANT_DEPARTMENTS, WARRANT_VOTE_CODES, WARRANT_VOTE_ACTIVITIES, WARRANT_CATEGORIES, getWarrantSummary } from '@/services/pharmacy/warrantService'
 import { ROUTES } from '@/lib/constants'
 import type { PurchaseOrderFormData, WarrantSummary } from '@/types/pharmacy'
 
 const VOTE_CODES = [
-    ...WARRANT_VOTE_CODES.map(v => ({ value: v.value, label: `${v.value} - ${v.label}` })),
+    ...WARRANT_VOTE_CODES.map(v => ({ value: v.value, label: `${v.value} ${v.label}` })),
     { value: 'others', label: 'Others (Manual Entry)' },
 ]
 
@@ -40,10 +46,12 @@ export const ManualPoCreatePage: React.FC = () => {
         po_type: 'manual',
         supplier_id: '',
         manual_supplier_name: '',
+        manual_supplier_address: '',
         vote_code: '',
         vote_activity: '',
-        category: 'non_standard',
+        category: 'non_drug',
         department: '',
+        program_name: '',
         items: [],
     })
 
@@ -63,6 +71,20 @@ export const ManualPoCreatePage: React.FC = () => {
     const [isRefreshingWarrant, setIsRefreshingWarrant] = useState(false)
     const [currentPoTotal, setCurrentPoTotal] = useState(0)
 
+    const [showCancelDialog, setShowCancelDialog] = useState(false)
+    const supplierRef = useRef<HTMLDivElement>(null)
+
+    // Click outside to close supplier suggestions
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (supplierRef.current && !supplierRef.current.contains(event.target as Node)) {
+                setShowSupplierSuggestions(false)
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside)
+        return () => document.removeEventListener('mousedown', handleClickOutside)
+    }, [])
+
     useEffect(() => {
         if (!hospitalId) return
         const loadSuppliers = async () => {
@@ -80,6 +102,7 @@ export const ManualPoCreatePage: React.FC = () => {
                         po_type: 'manual',
                         supplier_id: po.supplier_id,
                         manual_supplier_name: po.manual_supplier_name,
+                        manual_supplier_address: po.manual_supplier_address,
                         vote_code: po.vote_code,
                         vote_activity: po.vote_activity,
                         category: po.category,
@@ -99,7 +122,7 @@ export const ManualPoCreatePage: React.FC = () => {
                         })) || [],
                     })
 
-                    // Handle \"Others\" state for edit
+                    // Handle "Others" state for edit
                     if (!VOTE_CODES.some(c => c.value === po.vote_code)) {
                         setIsOthersVoteCode(true)
                         setManualVoteCode(po.vote_code || '')
@@ -108,13 +131,16 @@ export const ManualPoCreatePage: React.FC = () => {
                         setIsOthersVoteActivity(true)
                         setManualVoteActivity(po.vote_activity || '')
                     }
-                    if (!WARRANT_DEPARTMENTS.some(d => d.label === po.department)) {
+                    if (!WARRANT_DEPARTMENTS.some(d => d.value === po.department)) {
                         setIsOthersDepartment(true)
                         setManualDepartment(po.department || '')
                     }
-                    if (!WARRANT_CATEGORIES.some(c => c.value === po.category)) {
+                    if (!CATEGORIES.some(c => c.value === po.category)) {
                         setIsOthersCategory(true)
                         setManualCategory(po.category || '')
+                    }
+                    if (po.program_name) {
+                        setFormData(prev => ({ ...prev, program_name: po.program_name }))
                     }
                 }
             }
@@ -130,6 +156,26 @@ export const ManualPoCreatePage: React.FC = () => {
         setCurrentPoTotal(total)
     }, [formData.items])
 
+    // Activity to Category Auto-mapping
+    useEffect(() => {
+        const activity = formData.vote_activity
+        if (!activity || isOthersVoteActivity) return
+
+        let autoCategory = ''
+        if (activity === '27401') autoCategory = 'drug'
+        else if (activity === '27499') autoCategory = 'non_drug'
+        else if (activity === '27404') autoCategory = 'vaccine'
+        else if (activity === '27403') autoCategory = 'reagent'
+
+        if (autoCategory && formData.category !== autoCategory) {
+            setFormData(prev => ({
+                ...prev,
+                category: autoCategory
+            }))
+            showSuccess('Auto-filled', `Category set to ${autoCategory} for activity ${activity}`)
+        }
+    }, [formData.vote_activity, isOthersVoteActivity])
+
     // Load Warrant Summary when financial filters change
     useEffect(() => {
         if (!hospitalId) return
@@ -143,8 +189,6 @@ export const ManualPoCreatePage: React.FC = () => {
             if (finalVoteCode && finalVoteActivity && finalDepartment && finalCategory) {
                 setIsRefreshingWarrant(true)
                 try {
-                    // finalDepartment is now the value (unit code like 'pharmacy')
-                    // unless it's a manual entry from 'Others'
                     const deptValue = isOthersDepartment
                         ? finalDepartment
                         : (WARRANT_DEPARTMENTS.find(d => d.value === finalDepartment)?.value || finalDepartment)
@@ -170,8 +214,6 @@ export const ManualPoCreatePage: React.FC = () => {
         manualVoteCode, manualVoteActivity, manualDepartment, manualCategory,
         isOthersVoteCode, isOthersVoteActivity, isOthersDepartment, isOthersCategory
     ])
-
-
 
     // Empty item template
     const emptyItem = {
@@ -209,8 +251,8 @@ export const ManualPoCreatePage: React.FC = () => {
         }))
     }
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
+    const handleSubmit = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault()
 
         if (!hospitalId || !userId) {
             showError('Error', 'User information not available')
@@ -222,12 +264,7 @@ export const ManualPoCreatePage: React.FC = () => {
             return
         }
 
-        if (!formData.vote_code || !formData.vote_activity || !formData.department) {
-            showError('Validation Error', 'Please fill in all required fields')
-            return
-        }
-
-        // Filter out items that are completely empty (accidental clicks)
+        // Filter out items that are completely empty
         const finalItems = (formData.items || []).filter(item =>
             item.item_name?.trim() || item.item_code?.trim() || Number(item.unit_price) > 0
         )
@@ -266,14 +303,16 @@ export const ManualPoCreatePage: React.FC = () => {
                 po_type: 'manual',
                 supplier_id: formData.supplier_id || undefined,
                 manual_supplier_name: formData.manual_supplier_name!,
-                vote_code: finalVoteCode!,
-                vote_activity: finalVoteActivity!,
-                category: finalCategory!,
-                department: finalDepartment!,
+                manual_supplier_address: formData.manual_supplier_address,
+                vote_code: finalVoteCode,
+                vote_activity: finalVoteActivity,
+                category: finalCategory,
+                department: finalDepartment,
                 expected_delivery_date: formData.expected_delivery_date,
                 payment_terms: formData.payment_terms,
                 delivery_address: formData.delivery_address,
                 notes: formData.notes,
+                program_name: isOthersVoteCode ? formData.program_name : undefined,
                 status: 'pending_approval',
                 items: finalItems as any[],
             }
@@ -285,7 +324,7 @@ export const ManualPoCreatePage: React.FC = () => {
             if (result.error) {
                 showError('Error', result.error)
             } else {
-                showSuccess('Success', isEdit ? 'Manual Purchase Order updated successfully' : 'Manual Purchase Order created successfully')
+                showSuccess('Success', isEdit ? 'Manual PO updated successfully' : 'Manual PO created successfully')
                 navigate(ROUTES.PHARMACY_PO)
             }
         } catch (error) {
@@ -296,473 +335,545 @@ export const ManualPoCreatePage: React.FC = () => {
         }
     }
 
+    const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat('en-MY', {
+            style: 'currency',
+            currency: 'MYR',
+            minimumFractionDigits: 2,
+        }).format(amount)
+    }
+
+    const headerActions = (
+        <div className="flex items-center gap-3">
+            <Button
+                variant="ghost"
+                onClick={() => setShowCancelDialog(true)}
+                className="text-slate-500 hover:bg-slate-100"
+            >
+                Cancel
+            </Button>
+            <Button
+                onClick={() => handleSubmit()}
+                disabled={isSubmitting}
+                className={`gap-2 shadow-lg transition-all ${isSubmitting ? 'bg-slate-100' : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:shadow-xl'}`}
+            >
+                {isSubmitting ? <Spinner size="sm" className="text-emerald-600" /> : <Save className="w-4 h-4" />}
+                {isSubmitting ? 'Sending...' : isEdit ? 'Update Manual PO' : 'Send for Approval'}
+            </Button>
+        </div>
+    )
+
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-emerald-900 via-emerald-800 to-emerald-900 text-white shadow-lg">
-                <div className="max-w-7xl mx-auto px-6 py-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-3">
-                                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-2.5 border border-white/20">
-                                    <ShoppingCart className="w-6 h-6 text-white" />
-                                </div>
-                                <div>
-                                    <h1 className="text-xl font-bold tracking-wide uppercase">
-                                        {isEdit ? 'Edit Manual Purchase Order' : 'Manual Purchase Order'}
-                                    </h1>
-                                    <p className="text-sm text-emerald-100 mt-0.5 font-medium">
-                                        Create PO for items not in system catalog
-                                    </p>
-                                </div>
-                            </div>
+        <FinancialPageLayout
+            title={isEdit ? 'Edit Manual Purchase Order' : 'Manual Purchase Order'}
+            description="Create procurement orders for items not in the official system catalog."
+            icon={ShoppingCart}
+            breadcrumbs={[
+                { label: 'Procurement', href: '#' },
+                { label: 'Purchase Orders', href: ROUTES.PHARMACY_PO },
+                { label: 'Manual' }
+            ]}
+            actions={headerActions}
+        >
+            <div className="space-y-8 pb-20">
+                {/* Details Section */}
+                <div className="glass-card rounded-2xl p-6 relative z-20">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-50 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl pointer-events-none opacity-50" />
+
+                    <div className="flex items-center gap-3 mb-6 relative">
+                        <div className="p-2 bg-emerald-50 rounded-lg">
+                            <FileText className="w-5 h-5 text-emerald-600" />
                         </div>
-                        <div className="flex items-center gap-3">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => navigate(ROUTES.PHARMACY_PO)}
-                                className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 bg-white/5 backdrop-blur-sm"
-                            >
-                                Cancel
-                            </Button>
-                            <button
-                                type="button"
-                                onClick={handleSubmit}
-                                disabled={isSubmitting}
-                                className="flex items-center gap-2 h-8 px-4 rounded-xl bg-white text-emerald-900 hover:bg-emerald-50 font-semibold shadow-lg hover:shadow-xl border-2 border-white/50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {isSubmitting ? <Spinner size="sm" /> : <Save className="w-4 h-4" />}
-                                {isSubmitting ? 'Sending...' : isEdit ? 'Update Manual PO' : 'Send for Approval'}
-                            </button>
-                        </div>
+                        <h2 className="text-lg font-bold text-slate-800 uppercase tracking-tight">Manual PO Details</h2>
                     </div>
-                </div>
-            </div>
 
-            <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* Basic Information */}
-                    <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-                        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-gray-200 px-6 py-4">
-                            <div className="flex items-center gap-3">
-                                <div className="bg-emerald-600 rounded-lg p-2">
-                                    <FileText className="w-5 h-5 text-white" />
-                                </div>
-                                <h2 className="text-lg font-bold text-gray-900 uppercase tracking-wide">Manual PO Details</h2>
-                            </div>
-                        </div>
-
-                        <div className="p-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                                {/* Searchable Supplier Dropdown */}
-                                <div className="space-y-2 relative">
-                                    <label className="block text-sm font-semibold text-gray-700">
-                                        Supplier Name <span className="text-red-600">*</span>
-                                    </label>
-                                    <div className="relative">
-                                        <Input
-                                            value={formData.manual_supplier_name}
-                                            onChange={(e) => {
-                                                handleInputChange('manual_supplier_name', e.target.value)
-                                                handleInputChange('supplier_id', '') // Clear ID if typing
-                                                setShowSupplierSuggestions(true)
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative">
+                        {/* Supplier Section */}
+                        <div className="space-y-4 lg:col-span-3 grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                            <div className="space-y-2 relative item-search-container" ref={supplierRef}>
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Supplier Name <span className="text-red-500">*</span></label>
+                                <div className="relative group">
+                                    <Input
+                                        value={formData.manual_supplier_name}
+                                        onChange={(e) => {
+                                            handleInputChange('manual_supplier_name', e.target.value)
+                                            handleInputChange('supplier_id', '')
+                                            setShowSupplierSuggestions(true)
+                                        }}
+                                        onFocus={() => setShowSupplierSuggestions(true)}
+                                        placeholder="Search or enter new..."
+                                        className="h-11 bg-white/50 border-slate-200 focus:border-emerald-500 rounded-xl pr-10"
+                                    />
+                                    {formData.manual_supplier_name ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                handleInputChange('manual_supplier_name', '')
+                                                handleInputChange('supplier_id', '')
+                                                handleInputChange('manual_supplier_address', '')
+                                                setShowSupplierSuggestions(false)
                                             }}
-                                            onFocus={() => setShowSupplierSuggestions(true)}
-                                            placeholder="Search existing or enter new..."
-                                            className="h-11 border-orange-200 focus:ring-orange-500 pr-10"
-                                        />
-                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                                    </div>
-                                    {showSupplierSuggestions && (
-                                        <div className="absolute top-[calc(100%+4px)] left-0 right-0 bg-white rounded-xl shadow-xl border border-gray-200 max-h-[500px] overflow-y-auto z-[60]">
+                                            className="absolute right-10 top-3 text-slate-400 hover:text-red-500 transition-colors"
+                                        >
+                                            <X className="w-5 h-5" />
+                                        </button>
+                                    ) : (
+                                        <ChevronDown className="absolute right-3 top-3.5 w-4 h-4 text-slate-400" />
+                                    )}
+                                </div>
+
+                                {showSupplierSuggestions && suppliers.length > 0 && (
+                                    <AnimatePresence>
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            className="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-2xl border border-slate-100 max-h-[600px] overflow-y-auto"
+                                        >
                                             {suppliers
                                                 .filter(s => s.company_name?.toLowerCase().includes((formData.manual_supplier_name || '').toLowerCase()))
-                                                .map((sup, idx) => (
-                                                    <button
-                                                        key={sup.id || `sup-${idx}`}
-                                                        type="button"
+                                                .map((sup) => (
+                                                    <div
+                                                        key={sup.id}
                                                         onClick={() => {
                                                             handleInputChange('manual_supplier_name', sup.company_name)
                                                             handleInputChange('supplier_id', sup.id)
+                                                            if (sup.address) handleInputChange('manual_supplier_address', sup.address)
                                                             setShowSupplierSuggestions(false)
                                                         }}
-                                                        className="w-full text-left px-6 py-5 hover:bg-emerald-50 text-base font-semibold border-b border-gray-100 last:border-0 transition-colors"
+                                                        className="p-4 hover:bg-emerald-50 cursor-pointer border-b border-slate-50 last:border-0 transition-colors font-medium text-slate-700"
                                                     >
                                                         {sup.company_name}
-                                                    </button>
+                                                    </div>
                                                 ))
                                             }
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowSupplierSuggestions(false)}
-                                                className="w-full text-center py-4 text-sm text-blue-600 bg-gray-50 font-bold hover:bg-gray-100 transition-colors"
-                                            >
-                                                Done / Close
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
+                                        </motion.div>
+                                    </AnimatePresence>
+                                )}
+                            </div>
 
-                                {/* Vote Code */}
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">
-                                        Vote Code <span className="text-red-600">*</span>
-                                    </label>
-                                    <div className="relative">
-                                        <select
-                                            value={isOthersVoteCode ? 'others' : formData.vote_code || ''}
-                                            onChange={(e) => {
-                                                const val = e.target.value
-                                                if (val === 'others') {
-                                                    setIsOthersVoteCode(true)
-                                                    handleInputChange('vote_code', '')
-                                                } else {
-                                                    setIsOthersVoteCode(false)
-                                                    handleInputChange('vote_code', val)
-                                                }
-                                            }}
-                                            required
-                                            className="h-11 w-full rounded-lg border-2 border-gray-300 bg-white px-4 pr-10 text-sm text-gray-900 font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none"
-                                        >
-                                            <option value="">Select Vote Code</option>
-                                            {VOTE_CODES.map((code) => (
-                                                <option key={code.value} value={code.value}>
-                                                    {code.label}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-                                    </div>
-                                    {isOthersVoteCode && (
-                                        <Input
-                                            value={manualVoteCode}
-                                            onChange={(e) => setManualVoteCode(e.target.value)}
-                                            placeholder="Enter Vote Code manually..."
-                                            className="mt-2"
-                                        />
-                                    )}
-                                </div>
-
-                                {/* Vote Activity */}
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">
-                                        Vote Activity <span className="text-red-600">*</span>
-                                    </label>
-                                    <div className="relative">
-                                        <select
-                                            value={isOthersVoteActivity ? 'others' : formData.vote_activity || ''}
-                                            onChange={(e) => {
-                                                const val = e.target.value
-                                                if (val === 'others') {
-                                                    setIsOthersVoteActivity(true)
-                                                    handleInputChange('vote_activity', '')
-                                                } else {
-                                                    setIsOthersVoteActivity(false)
-                                                    handleInputChange('vote_activity', val)
-                                                }
-                                            }}
-                                            required
-                                            className="h-11 w-full rounded-lg border-2 border-gray-300 bg-white px-4 pr-10 text-sm text-gray-900 font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none"
-                                        >
-                                            <option value="">Select Activity</option>
-                                            {VOTE_ACTIVITIES.map((act) => (
-                                                <option key={act.value} value={act.value}>
-                                                    {act.label}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-                                    </div>
-                                    {isOthersVoteActivity && (
-                                        <Input
-                                            value={manualVoteActivity}
-                                            onChange={(e) => setManualVoteActivity(e.target.value)}
-                                            placeholder="Enter Vote Activity manually..."
-                                            className="mt-2"
-                                        />
-                                    )}
-                                </div>
-
-                                {/* Category */}
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">
-                                        Category <span className="text-red-600">*</span>
-                                    </label>
-                                    <div className="relative">
-                                        <select
-                                            value={isOthersCategory ? 'others' : formData.category || ''}
-                                            onChange={(e) => {
-                                                const val = e.target.value
-                                                if (val === 'others') {
-                                                    setIsOthersCategory(true)
-                                                    handleInputChange('category', '')
-                                                } else {
-                                                    setIsOthersCategory(false)
-                                                    handleInputChange('category', val)
-                                                }
-                                            }}
-                                            required
-                                            className="h-11 w-full rounded-lg border-2 border-gray-300 bg-white px-4 pr-10 text-sm text-gray-900 font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none"
-                                        >
-                                            <option value="">Select Category</option>
-                                            {CATEGORIES.map((cat) => (
-                                                <option key={cat.value} value={cat.value}>
-                                                    {cat.label}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-                                    </div>
-                                    {isOthersCategory && (
-                                        <Input
-                                            value={manualCategory}
-                                            onChange={(e) => setManualCategory(e.target.value)}
-                                            placeholder="Enter Category manually..."
-                                            className="mt-2"
-                                        />
-                                    )}
-                                </div>
-
-                                {/* Department */}
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">
-                                        Department <span className="text-red-600">*</span>
-                                    </label>
-                                    <div className="relative">
-                                        <select
-                                            value={isOthersDepartment ? 'others' : formData.department || ''}
-                                            onChange={(e) => {
-                                                const val = e.target.value
-                                                if (val === 'others') {
-                                                    setIsOthersDepartment(true)
-                                                    handleInputChange('department', '')
-                                                } else {
-                                                    setIsOthersDepartment(false)
-                                                    handleInputChange('department', val)
-                                                }
-                                            }}
-                                            className="h-11 w-full rounded-lg border-2 border-gray-300 bg-white px-4 pr-10 text-sm text-gray-900 font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none"
-                                        >
-                                            <option value="">Select Department</option>
-                                            {WARRANT_DEPARTMENTS.map((d, idx) => (
-                                                <option key={`${d.value}-${idx}`} value={d.value}>{d.label}</option>
-                                            ))}
-                                            <option value="others">Others (Manual Entry)</option>
-                                        </select>
-                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-                                    </div>
-                                    {isOthersDepartment && (
-                                        <Input
-                                            value={manualDepartment}
-                                            onChange={(e) => setManualDepartment(e.target.value)}
-                                            placeholder="Enter Department manually..."
-                                            className="mt-2"
-                                        />
-                                    )}
-                                </div>
+                            <div className="space-y-2 lg:col-span-2">
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Supplier Address</label>
+                                <AutoExpandingTextarea
+                                    value={formData.manual_supplier_address || ''}
+                                    onChange={(e) => handleInputChange('manual_supplier_address', e.target.value)}
+                                    placeholder="Full mailing address..."
+                                    className="h-auto bg-white/50 border-slate-200 focus:border-emerald-500 rounded-xl"
+                                />
                             </div>
                         </div>
-                    </div>
 
-                    {/* Financial Summary Tracking */}
-                    <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="bg-blue-600 rounded-lg p-2 text-white">
-                                    <ShoppingCart className="w-5 h-5" />
-                                </div>
-                                <h2 className="text-lg font-bold text-gray-900 uppercase tracking-wide">Warrant Allocation & Summary</h2>
+                        {/* Standard Selects */}
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Vote Code</label>
+                            <div className="relative">
+                                <select
+                                    value={isOthersVoteCode ? 'others' : formData.vote_code || ''}
+                                    onChange={(e) => {
+                                        const val = e.target.value
+                                        if (val === 'others') {
+                                            setIsOthersVoteCode(true)
+                                            handleInputChange('vote_code', '')
+                                        } else {
+                                            setIsOthersVoteCode(false)
+                                            handleInputChange('vote_code', val)
+                                            handleInputChange('program_name', '')
+                                        }
+                                    }}
+                                    className="w-full h-11 pl-3 pr-10 bg-white/50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-100 focus:border-emerald-500 outline-none appearance-none"
+                                >
+                                    <option value="">Select Vote Code</option>
+                                    {VOTE_CODES.map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
+                                </select>
+                                <ChevronDown className="absolute right-3 top-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
                             </div>
-                            {isRefreshingWarrant && (
-                                <div className="flex items-center gap-2 text-blue-600 text-sm font-semibold">
-                                    <Spinner size="sm" /> Calculating live balance...
-                                </div>
+                            {isOthersVoteCode && (
+                                <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    className="space-y-2 mt-2"
+                                >
+                                    <Input
+                                        value={manualVoteCode}
+                                        onChange={(e) => setManualVoteCode(e.target.value)}
+                                        placeholder="Enter Manual Vote Code..."
+                                        className="h-10 border-emerald-200"
+                                    />
+                                </motion.div>
                             )}
                         </div>
-                        <div className="p-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                <div className="bg-gray-50 p-4 rounded-xl border-2 border-gray-100 flex flex-col items-center justify-center text-center">
-                                    <span className="text-xs font-bold text-gray-500 uppercase mb-1">Total Allocation</span>
-                                    <span className="text-xl font-extrabold text-blue-800">
-                                        RM {warrantSummary ? warrantSummary.total_allocation.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '0.00'}
-                                    </span>
-                                </div>
-                                <div className="bg-gray-50 p-4 rounded-xl border-2 border-gray-100 flex flex-col items-center justify-center text-center">
-                                    <span className="text-xs font-bold text-gray-500 uppercase mb-1">Utilized / Liabilities</span>
-                                    <span className="text-xl font-extrabold text-red-600">
-                                        RM {warrantSummary ? warrantSummary.total_expenses.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '0.00'}
-                                    </span>
-                                </div>
-                                <div className="bg-emerald-50 p-4 rounded-xl border-2 border-emerald-100 flex flex-col items-center justify-center text-center shadow-inner">
-                                    <span className="text-xs font-bold text-emerald-600 uppercase mb-1">Current PO Total</span>
-                                    <span className="text-xl font-extrabold text-emerald-800">
-                                        RM {currentPoTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                    </span>
-                                </div>
-                                <div className={`p-4 rounded-xl border-2 flex flex-col items-center justify-center text-center shadow-lg transition-all duration-300 ${(warrantSummary?.total_balance ?? 0) - currentPoTotal < 0
-                                    ? 'bg-red-600 border-red-700 text-white animate-pulse'
-                                    : 'bg-indigo-600 border-indigo-700 text-white'
-                                    }`}>
-                                    <span className="text-xs font-bold uppercase opacity-80 mb-1">Projected Balance</span>
-                                    <span className="text-2xl font-black">
-                                        RM {warrantSummary
-                                            ? (warrantSummary.total_balance - currentPoTotal).toLocaleString(undefined, { minimumFractionDigits: 2 })
-                                            : '0.00'
+
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Vote Activity</label>
+                            <div className="relative">
+                                <select
+                                    value={isOthersVoteActivity ? 'others' : formData.vote_activity || ''}
+                                    onChange={(e) => {
+                                        const val = e.target.value
+                                        if (val === 'others') {
+                                            setIsOthersVoteActivity(true)
+                                            handleInputChange('vote_activity', '')
+                                        } else {
+                                            setIsOthersVoteActivity(false)
+                                            handleInputChange('vote_activity', val)
                                         }
-                                    </span>
-                                    {(warrantSummary?.total_balance ?? 0) - currentPoTotal < 0 && (
-                                        <span className="text-[10px] font-bold mt-1 uppercase">Insufficient Funds!</span>
-                                    )}
-                                </div>
+                                    }}
+                                    className="w-full h-11 pl-3 pr-10 bg-white/50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-100 focus:border-emerald-500 outline-none appearance-none"
+                                >
+                                    <option value="">Select Activity</option>
+                                    {VOTE_ACTIVITIES.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
+                                </select>
+                                <ChevronDown className="absolute right-3 top-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
+                            </div>
+                            {isOthersVoteActivity && (
+                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
+                                    <Input
+                                        value={manualVoteActivity}
+                                        onChange={(e) => setManualVoteActivity(e.target.value)}
+                                        placeholder="Enter Manual Activity..."
+                                        className="mt-2 h-10"
+                                    />
+                                </motion.div>
+                            )}
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Category</label>
+                            <div className="relative">
+                                <select
+                                    value={isOthersCategory ? 'others' : formData.category || ''}
+                                    onChange={(e) => {
+                                        const val = e.target.value
+                                        if (val === 'others') {
+                                            setIsOthersCategory(true)
+                                            handleInputChange('category', '')
+                                        } else {
+                                            setIsOthersCategory(false)
+                                            handleInputChange('category', val)
+                                        }
+                                    }}
+                                    className="w-full h-11 pl-3 pr-10 bg-white/50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-100 focus:border-emerald-500 outline-none appearance-none"
+                                >
+                                    <option value="">Select Category</option>
+                                    {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                                </select>
+                                <ChevronDown className="absolute right-3 top-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
+                            </div>
+                            {isOthersCategory && (
+                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
+                                    <Input
+                                        value={manualCategory}
+                                        onChange={(e) => setManualCategory(e.target.value)}
+                                        placeholder="Enter Manual Category..."
+                                        className="mt-2 h-10"
+                                    />
+                                </motion.div>
+                            )}
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Department</label>
+                            <div className="relative">
+                                <select
+                                    value={isOthersDepartment ? 'others' : formData.department || ''}
+                                    onChange={(e) => {
+                                        const val = e.target.value
+                                        if (val === 'others') {
+                                            setIsOthersDepartment(true)
+                                            handleInputChange('department', '')
+                                        } else {
+                                            setIsOthersDepartment(false)
+                                            handleInputChange('department', val)
+                                        }
+                                    }}
+                                    className="w-full h-11 pl-3 pr-10 bg-white/50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-100 focus:border-emerald-500 outline-none appearance-none"
+                                >
+                                    <option value="">Select Department</option>
+                                    {WARRANT_DEPARTMENTS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+                                    <option value="others">Others (Manual Entry)</option>
+                                </select>
+                                <ChevronDown className="absolute right-3 top-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
+                            </div>
+                            {isOthersDepartment && (
+                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
+                                    <Input
+                                        value={manualDepartment}
+                                        onChange={(e) => setManualDepartment(e.target.value)}
+                                        placeholder="Enter Manual Department..."
+                                        className="mt-2 h-10"
+                                    />
+                                </motion.div>
+                            )}
+                        </div>
+
+                        {/* Full Width Program Name */}
+                        <AnimatePresence mode="wait">
+                            {isOthersVoteCode && (
+                                <motion.div
+                                    initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                                    animate={{ opacity: 1, height: 'auto', marginTop: 8 }}
+                                    exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                                    className="lg:col-span-3 space-y-2 overflow-hidden"
+                                >
+                                    <label className="text-xs font-bold text-emerald-600 uppercase tracking-wider ml-1">Program Name</label>
+                                    <AutoExpandingTextarea
+                                        value={formData.program_name || ''}
+                                        onChange={(e) => handleInputChange('program_name', e.target.value)}
+                                        placeholder="eg: Taklimat Perolehan Hospital 2026"
+                                        className="h-auto bg-white/50 border-emerald-200 focus:border-emerald-500 rounded-xl"
+                                    />
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+                </div>
+
+                {/* Warrant Summary KPI Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {/* Allocation */}
+                    <motion.div
+                        whileHover={{ y: -5 }}
+                        className="glass-card p-6 rounded-2xl relative overflow-hidden group border-l-4 border-l-blue-500"
+                    >
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+                            <Wallet className="w-12 h-12 text-blue-600" />
+                        </div>
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Total Allocation</p>
+                        <h4 className="text-2xl font-black text-slate-900 flex items-center gap-2">
+                            {formatCurrency(warrantSummary?.total_allocation || 0)}
+                            {isRefreshingWarrant && <Spinner className="w-3 h-3" />}
+                        </h4>
+                        <div className="mt-2 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+                            <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: '100%' }}
+                                className="h-full bg-blue-500"
+                            />
+                        </div>
+                    </motion.div>
+
+                    {/* Utilized */}
+                    <motion.div
+                        whileHover={{ y: -5 }}
+                        className="glass-card p-6 rounded-2xl relative overflow-hidden group border-l-4 border-l-orange-500"
+                    >
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+                            <TrendingUp className="w-12 h-12 text-orange-600" />
+                        </div>
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Utilized / Liabilities</p>
+                        <h4 className="text-2xl font-black text-slate-900 flex items-center gap-2">
+                            {formatCurrency(warrantSummary?.total_expenses || 0)}
+                            {isRefreshingWarrant && <Spinner className="w-3 h-3" />}
+                        </h4>
+                        <div className="mt-2 text-[10px] font-bold text-orange-500 uppercase">
+                            {(warrantSummary?.usage_percentage || 0).toFixed(1)}% Consumption
+                        </div>
+                    </motion.div>
+
+                    {/* Current PO */}
+                    <motion.div
+                        whileHover={{ y: -5 }}
+                        className="glass-card p-6 rounded-2xl relative overflow-hidden group border-l-4 border-l-emerald-500"
+                    >
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+                            <ShoppingCart className="w-12 h-12 text-emerald-600" />
+                        </div>
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Current PO Total</p>
+                        <h4 className="text-2xl font-black text-emerald-700">
+                            {formatCurrency(currentPoTotal)}
+                        </h4>
+                        <div className="mt-2 text-[10px] font-bold text-emerald-600 uppercase">
+                            {formData.items?.length || 0} Manual Items
+                        </div>
+                    </motion.div>
+
+                    {/* Balance */}
+                    <motion.div
+                        whileHover={{ y: -5 }}
+                        className={`p-6 rounded-2xl relative overflow-hidden group border-l-4 shadow-lg ${(warrantSummary?.total_balance || 0) - currentPoTotal < 0
+                            ? 'bg-red-500 border-l-red-700 text-white animate-pulse'
+                            : 'glass-card border-l-violet-500'
+                            }`}
+                    >
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+                            <Calculator className="w-12 h-12" />
+                        </div>
+                        <p className={`text-xs font-bold uppercase tracking-widest mb-1 ${(warrantSummary?.total_balance || 0) - currentPoTotal < 0 ? 'text-red-100' : 'text-slate-500'
+                            }`}>Projected Balance</p>
+                        <h4 className={`text-2xl font-black ${(warrantSummary?.total_balance || 0) - currentPoTotal < 0 ? 'text-white' : 'text-violet-700'
+                            }`}>
+                            {formatCurrency((warrantSummary?.total_balance || 0) - currentPoTotal)}
+                        </h4>
+                        {(warrantSummary?.total_balance || 0) - currentPoTotal < 0 && (
+                            <div className="mt-2 flex items-center gap-1 text-[10px] font-bold uppercase">
+                                <AlertCircle className="w-3 h-3" /> Over Budget
+                            </div>
+                        )}
+                    </motion.div>
+                </div>
+
+                {/* Items Section */}
+                <div className="glass-card rounded-2xl p-6 min-h-[400px]">
+                    <div className="flex items-center justify-between mb-8">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-indigo-50 rounded-lg">
+                                <Package className="w-5 h-5 text-indigo-600" />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-bold text-slate-900 uppercase tracking-tight">Manual Items</h2>
+                                <p className="text-xs text-slate-500">Add logic items manually without catalog IDs.</p>
                             </div>
                         </div>
+                        <Button
+                            onClick={addItem}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 shadow-emerald-200 shadow-md"
+                        >
+                            <Plus className="w-4 h-4" /> Add Item
+                        </Button>
                     </div>
 
-                    {/* Items Section */}
-                    <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-                        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-                            <div className="flex items-center gap-3">
-                                <div className="bg-emerald-600 rounded-lg p-2">
-                                    <ShoppingCart className="w-5 h-5 text-white" />
-                                </div>
-                                <h2 className="text-lg font-bold text-gray-900 uppercase tracking-wide">Manual Items</h2>
-                            </div>
-                            <Button size="sm" onClick={addItem} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md">
-                                <Plus className="w-4 h-4" /> Add Item
-                            </Button>
-                        </div>
-
-                        <div className="p-6">
-                            {(!formData.items || formData.items.length === 0) ? (
-                                <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
-                                    <div className="bg-gray-100 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-3">
-                                        <ShoppingCart className="w-6 h-6 text-gray-400" />
-                                    </div>
-                                    <p className="font-semibold text-gray-600">No items added to this PO.</p>
-                                    <p className="text-sm mt-1">Click the "Add Item" button above to start.</p>
-                                </div>
-                            ) : (
-                                <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm bg-gray-50/30">
-                                    <table className="w-full text-left border-collapse min-w-[1000px]">
-                                        <thead>
-                                            <tr className="bg-gray-100/80 text-gray-700 uppercase text-[10px] font-black tracking-widest border-b border-gray-200">
-                                                <th className="px-4 py-3 text-center w-12">#</th>
-                                                <th className="px-4 py-3">Item Name & Description</th>
-                                                <th className="px-4 py-3 w-40">Item Code</th>
-                                                <th className="px-4 py-3 w-36 text-right">Unit Price (RM)</th>
-                                                <th className="px-4 py-3 w-24 text-center">Qty</th>
-                                                <th className="px-4 py-3 w-44">Packaging Info</th>
-                                                <th className="px-4 py-3 w-40 text-right">Total (RM)</th>
-                                                <th className="px-4 py-3 w-16 text-center"></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {formData.items.map((item, index) => (
-                                                <tr key={index} className="bg-white border-b border-gray-100 hover:bg-emerald-50/20 transition-colors group">
-                                                    <td className="px-4 py-3 text-center font-bold text-gray-400 text-xs">{index + 1}</td>
-                                                    <td className="px-4 py-3">
-                                                        <Input
-                                                            value={item.item_name}
-                                                            onChange={(e) => handleItemChange(index, 'item_name', e.target.value)}
-                                                            placeholder="Enter item name..."
-                                                            className="border-gray-200 focus:border-emerald-500 h-9 text-sm font-semibold text-gray-800"
-                                                        />
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                        <Input
+                    <div className="overflow-hidden bg-slate-50/50 rounded-xl border border-slate-100">
+                        <table className="w-full text-left">
+                            <thead className="bg-white border-b border-slate-200">
+                                <tr>
+                                    <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center w-12">#</th>
+                                    <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Item Name & Description</th>
+                                    <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-40">Price (MYR)</th>
+                                    <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-24">Qty</th>
+                                    <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right w-40">Total</th>
+                                    <th className="px-4 py-3 w-12"></th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                <AnimatePresence mode="popLayout">
+                                    {(formData.items || []).map((item, index) => (
+                                        <motion.tr
+                                            key={index}
+                                            initial={{ opacity: 0, x: -10 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, scale: 0.95 }}
+                                            className="bg-white hover:bg-emerald-50/30 transition-colors"
+                                        >
+                                            <td className="px-4 py-4 text-center font-bold text-slate-400 text-xs">{index + 1}</td>
+                                            <td className="px-4 py-4">
+                                                <div className="space-y-2">
+                                                    <AutoExpandingTextarea
+                                                        value={item.item_name}
+                                                        onChange={(e) => handleItemChange(index, 'item_name', e.target.value)}
+                                                        placeholder="Full item name and description..."
+                                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-semibold focus:bg-white focus:border-emerald-500 transition-all shadow-sm"
+                                                    />
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <AutoExpandingTextarea
                                                             value={item.item_code}
                                                             onChange={(e) => handleItemChange(index, 'item_code', e.target.value)}
-                                                            placeholder="Optional"
-                                                            className="border-gray-200 focus:border-emerald-500 h-9 text-xs font-medium"
+                                                            placeholder="Item Code (Optional)"
+                                                            className="min-h-[32px] text-[10px] font-mono py-1.5 rounded-lg"
+                                                            maxHeight="100px"
                                                         />
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                        <Input
-                                                            type="number"
-                                                            step="0.01"
-                                                            value={item.unit_price}
-                                                            onChange={(e) => handleItemChange(index, 'unit_price', parseFloat(e.target.value) || 0)}
-                                                            className="text-right border-gray-200 focus:border-emerald-500 h-9 text-sm font-bold text-gray-700"
-                                                        />
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                        <Input
-                                                            type="number"
-                                                            value={item.quantity}
-                                                            onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value) || 0)}
-                                                            className="text-center border-gray-200 focus:border-emerald-500 h-9 text-sm font-bold text-gray-700"
-                                                        />
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                        <Input
+                                                        <AutoExpandingTextarea
                                                             value={item.packaging_description}
                                                             onChange={(e) => handleItemChange(index, 'packaging_description', e.target.value)}
-                                                            placeholder="e.g. Pack of 12"
-                                                            className="border-gray-200 focus:border-emerald-500 h-9 text-xs"
+                                                            placeholder="Packaging (e.g. Box of 10)"
+                                                            className="min-h-[32px] text-[10px] py-1.5 rounded-lg"
+                                                            maxHeight="100px"
                                                         />
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right">
-                                                        <span className="text-sm font-black text-gray-900 pr-2">
-                                                            {(Number(item.quantity) * Number(item.unit_price)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-4 py-3 text-center">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => removeItem(index)}
-                                                            className="p-1.5 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                        <tfoot>
-                                            <tr className="bg-gray-50 font-bold border-t-2 border-gray-100">
-                                                <td colSpan={6} className="px-6 py-4 text-right text-gray-600 uppercase text-xs tracking-widest">
-                                                    Grand Total
-                                                </td>
-                                                <td className="px-4 py-4 text-right">
-                                                    <span className="text-xl font-black text-emerald-800">
-                                                        RM {currentPoTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                    </span>
-                                                </td>
-                                                <td></td>
-                                            </tr>
-                                        </tfoot>
-                                    </table>
-                                </div>
-                            )}
-                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-4">
+                                                <Input
+                                                    type="number"
+                                                    value={item.unit_price}
+                                                    onChange={(e) => handleItemChange(index, 'unit_price', parseFloat(e.target.value) || 0)}
+                                                    className="h-10 text-right font-bold text-slate-700"
+                                                />
+                                            </td>
+                                            <td className="px-4 py-4">
+                                                <Input
+                                                    type="number"
+                                                    value={item.quantity}
+                                                    onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value) || 0)}
+                                                    className="h-10 text-center font-bold text-slate-700"
+                                                />
+                                            </td>
+                                            <td className="px-4 py-4 text-right">
+                                                <span className="text-sm font-black text-slate-900">
+                                                    {formatCurrency(Number(item.quantity) * Number(item.unit_price))}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-4 text-center">
+                                                <button
+                                                    onClick={() => removeItem(index)}
+                                                    className="p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </td>
+                                        </motion.tr>
+                                    ))}
+                                </AnimatePresence>
+                            </tbody>
+                            <tfoot className="bg-slate-50 border-t-2 border-slate-100">
+                                <tr>
+                                    <td colSpan={4} className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Grand Total</td>
+                                    <td className="px-4 py-4 text-right">
+                                        <span className="text-xl font-black text-emerald-800">
+                                            {formatCurrency(currentPoTotal)}
+                                        </span>
+                                    </td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+
+                        {(!formData.items || formData.items.length === 0) && (
+                            <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white">
+                                <ShoppingCart className="w-12 h-12 mb-3 text-slate-200" />
+                                <p className="font-semibold text-slate-600">No manual items added</p>
+                                <p className="text-sm">Click "Add Item" to describe what you need to purchase</p>
+                            </div>
+                        )}
                     </div>
+                </div>
 
-
-                    <div className="flex justify-end gap-3 pt-6 border-t border-gray-200 mt-8">
+                {/* Final Actions Summary */}
+                <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-lg border border-slate-100">
+                    <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Current Selection</p>
+                        <p className="text-sm font-bold text-slate-700">
+                            {formData.manual_supplier_name || 'No Supplier'} • {formData.items?.length || 0} Items
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-3">
                         <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() => navigate(-1)}
-                            disabled={isSubmitting}
+                            variant="ghost"
+                            onClick={() => setShowCancelDialog(true)}
                         >
                             Cancel
                         </Button>
                         <Button
-                            type="submit"
+                            onClick={() => handleSubmit()}
                             disabled={isSubmitting}
-                            className="bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-200"
+                            className={`gap-2 min-w-[180px] h-11 ${isSubmitting ? 'bg-slate-100' : 'bg-gradient-to-r from-emerald-600 to-teal-600 shadow-emerald-200 shadow-lg'}`}
                         >
-                            {isSubmitting ? (
-                                <><Spinner className="w-4 h-4 mr-2" /> Saving...</>
-                            ) : (
-                                <><Save className="w-4 h-4 mr-2" /> Send for Approval</>
-                            )}
+                            {isSubmitting ? <Spinner size="sm" /> : <Save className="w-4 h-4" />}
+                            {isSubmitting ? 'Processing...' : 'Send for Approval'}
                         </Button>
                     </div>
-                </form>
-            </div >
-        </div >
+                </div>
+            </div>
+
+            <ConfirmationDialog
+                isOpen={showCancelDialog}
+                onClose={() => setShowCancelDialog(false)}
+                onConfirm={() => navigate(ROUTES.PHARMACY_PO)}
+                title="Discard Changes?"
+                message="Are you sure you want to cancel? All entries in this manual PO will be permanently lost."
+                variant="danger"
+                confirmText="Yes, Discard All"
+                cancelText="Stay on Page"
+            />
+        </FinancialPageLayout>
     )
 }
 

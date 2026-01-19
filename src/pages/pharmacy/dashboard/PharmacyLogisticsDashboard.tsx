@@ -3,37 +3,49 @@ import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import {
   Package,
-  Pill,
   ShoppingCart,
-  AlertTriangle,
   TrendingUp,
   TrendingDown,
-  Clock,
-  CheckCircle,
-  XCircle,
+  AlertTriangle,
   FileText,
+  DollarSign,
+  Users,
+  Building,
   ArrowUpRight,
   ArrowDownRight,
+  Search,
+  Plus,
+  RefreshCw,
+  Box,
   Truck,
   ClipboardList,
-  BarChart3,
-  DollarSign,
-  Wind,
-  Calendar,
-  Activity,
-  RefreshCw,
   AlertCircle,
-  ChevronRight,
+  XCircle,
+  Clock,
+  MoreVertical,
+  Calendar,
   Layers,
   ArrowRightLeft,
   Timer,
+  Megaphone,
+  CheckCircle,
+  BarChart3,
+  Wind,
+  Wrench,
+  Info,
+  Activity,
+  ChevronRight
 } from 'lucide-react'
+
 import { useAuthStore } from '@/stores/authStore'
 import { Badge, Button, Spinner } from '@/components/ui'
 import { cn, formatDate, formatCurrency } from '@/lib/utils'
 import { ROUTES } from '@/lib/constants'
 import { getDashboardStats } from '@/services/pharmacy/pharmacyDashboardService'
 import type { PharmacyDashboardStats, PharmacyAlert } from '@/types/pharmacy'
+import { MemoFeed } from '@/components/dashboard/MemoFeed'
+import { CreateMemoModal } from '@/components/dashboard/CreateMemoModal'
+import { ShareStockModal } from '@/components/dashboard/ShareStockModal'
 
 // =====================================================
 // STAT CARD COMPONENT
@@ -258,6 +270,8 @@ export const PharmacyLogisticsDashboard: React.FC = () => {
   const [stats, setStats] = useState<PharmacyDashboardStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [lastRefresh, setLastRefresh] = useState(new Date())
+  const [showMemoModal, setShowMemoModal] = useState(false)
+  const [showStockModal, setShowStockModal] = useState(false)
 
   useEffect(() => {
     loadDashboardData()
@@ -313,6 +327,23 @@ export const PharmacyLogisticsDashboard: React.FC = () => {
               <RefreshCw className="w-4 h-4 mr-2" />
               Refresh
             </Button>
+            <Button
+              className="bg-teal-600 hover:bg-teal-700 text-white"
+              size="sm"
+              onClick={() => setShowMemoModal(true)}
+            >
+              <Megaphone className="w-4 h-4 mr-2" />
+              Post Announcement
+            </Button>
+            <Button
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+              size="sm"
+              onClick={() => setShowStockModal(true)}
+              title="Share Stock Status"
+            >
+              <AlertTriangle className="w-4 h-3 sm:mr-2" />
+              <span className="hidden sm:inline">Stock Alert</span>
+            </Button>
           </div>
         </div>
       </motion.div>
@@ -323,7 +354,7 @@ export const PharmacyLogisticsDashboard: React.FC = () => {
           <BarChart3 className="w-4 h-4 xs:w-5 xs:h-5 text-teal-600 flex-shrink-0" />
           <span className="truncate">Key Metrics</span>
         </h2>
-        <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-2 xs:gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 xs:gap-3 sm:gap-4">
           <StatCard
             title="Total Inventory Items"
             value={stats?.inventory.total_items.toLocaleString() || '0'}
@@ -365,7 +396,7 @@ export const PharmacyLogisticsDashboard: React.FC = () => {
           <Activity className="w-4 h-4 xs:w-5 xs:h-5 text-teal-600 flex-shrink-0" />
           <span className="truncate">Operations Overview</span>
         </h2>
-        <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-2 xs:gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 xs:gap-3 sm:gap-4">
           <StatCard
             title="Budget Utilization"
             value={`${Math.round(stats?.budget.utilization_percentage || 0)}%`}
@@ -504,7 +535,7 @@ export const PharmacyLogisticsDashboard: React.FC = () => {
           <FileText className="w-4 h-4 xs:w-5 xs:h-5 text-teal-600 flex-shrink-0" />
           <span className="truncate">Summary Overview</span>
         </h2>
-        <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 gap-3 xs:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 xs:gap-4">
           {/* Procurement Summary */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -623,6 +654,10 @@ export const PharmacyLogisticsDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Hospital Announcements Feed */}
+      <MemoFeed limit={3} />
+
+
       {/* Footer */}
       <motion.div
         initial={{ opacity: 0 }}
@@ -632,9 +667,11 @@ export const PharmacyLogisticsDashboard: React.FC = () => {
       >
         Last updated: {formatDate(lastRefresh, { hour: 'numeric', minute: 'numeric', second: 'numeric' })}
       </motion.div>
+
+      <CreateMemoModal isOpen={showMemoModal} onClose={() => setShowMemoModal(false)} />
+      <ShareStockModal isOpen={showStockModal} onClose={() => setShowStockModal(false)} />
     </div>
   )
 }
 
 export default PharmacyLogisticsDashboard
-

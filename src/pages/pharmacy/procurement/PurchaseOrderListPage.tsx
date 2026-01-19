@@ -1,19 +1,30 @@
-import React, { useEffect, useState, useCallback } from 'react'
-import { AlertTriangle, ShoppingCart, Search, Filter, ChevronLeft, ChevronRight, Plus, DollarSign, FileText, TrendingUp, Package, Edit } from 'lucide-react'
+import React, { useState, useEffect, useCallback } from 'react'
+import { motion } from 'framer-motion'
+import {
+  ShoppingCart, Search, Plus, CheckCircle, XCircle, FileDigit, FileText,
+  Edit, Clock, AlertTriangle, Truck, Package, FileCheck, DollarSign, X, Building2
+} from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
-import { Table, Spinner, Input, Badge, Button, StatCard } from '@/components/ui'
-import { getPurchaseOrders, getActiveSuppliers, getProcurementStats } from '@/services/pharmacy/procurementService'
+import { useToastStore } from '@/stores/toastStore'
+import {
+  Table, TableHeader, TableBody, TableRow, TableCell,
+  Spinner, Badge, Button, Pagination, ConfirmationDialog
+} from '@/components/ui'
+import { FinancialPageLayout } from '@/components/pharmacy/financial/FinancialPageLayout'
+import { ActionTooltip } from '@/components/ui/Tooltip'
+import { getPurchaseOrders, getActiveSuppliers, getProcurementStats, approvePurchaseOrder, deletePurchaseOrder } from '@/services/pharmacy/procurementService'
+import { WARRANT_VOTE_CODES, WARRANT_VOTE_ACTIVITIES, WARRANT_DEPARTMENTS } from '@/services/pharmacy/warrantService'
 import type { PurchaseOrderWithRelations, Supplier, ProcurementFilter, POStatus, ProcurementStats } from '@/types/pharmacy'
 import { ROUTES } from '@/lib/constants'
 
 export const PurchaseOrderListPage: React.FC = () => {
   const navigate = useNavigate()
   const { user } = useAuthStore()
+  const { success: showSuccess, error: showError } = useToastStore()
   const hospitalId = user?.hospital_id
 
   const [orders, setOrders] = useState<PurchaseOrderWithRelations[]>([])
-  const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -22,6 +33,7 @@ export const PurchaseOrderListPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<POStatus | 'all'>('all')
   const [supplierId, setSupplierId] = useState('')
   const [voteCodeFilter, setVoteCodeFilter] = useState('')
+  const [voteActivityFilter, setVoteActivityFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [departmentFilter, setDepartmentFilter] = useState('')
 
@@ -29,20 +41,17 @@ export const PurchaseOrderListPage: React.FC = () => {
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
-  const pageSize = 15
+  const [pageSize, setPageSize] = useState(15)
 
   const [stats, setStats] = useState<ProcurementStats | null>(null)
+  const [activeTab, setActiveTab] = useState<'po' | 'sq'>('po')
 
-  // Load suppliers once
-  useEffect(() => {
-    const loadSuppliers = async () => {
-      const res = await getActiveSuppliers()
-      if (res.data) {
-        setSuppliers(res.data)
-      }
-    }
-    void loadSuppliers()
-  }, [])
+  // Selection
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [showBatchApproveDialog, setShowBatchApproveDialog] = useState(false)
+  const [showBatchDeleteDialog, setShowBatchDeleteDialog] = useState(false)
+  const [isBatchProcessing, setIsBatchProcessing] = useState(false)
+  const [deleteReason, setDeleteReason] = useState('')
 
   // Load stats once (global KPIs)
   useEffect(() => {
@@ -56,23 +65,16 @@ export const PurchaseOrderListPage: React.FC = () => {
     void loadStats()
   }, [hospitalId])
 
-  // ... existing code ...
-
-
-
-  // Map backend stats to UI if needed, but the structure matches mostly
-  // Backend: total_orders, total_value, pending_orders, completed_orders
-  // Frontend previously used: totalOrders, totalValue...
-
   const kpis = {
     totalOrders: stats?.total_orders || 0,
     totalValue: stats?.total_value || 0,
     pendingOrders: stats?.pending_orders || 0,
     completedOrders: stats?.completed_orders || 0,
+    totalItems: stats?.total_items || 0,
     statusBreakdown: stats?.by_status || {},
     categoryBreakdown: stats?.by_category || {},
     departmentBreakdown: stats?.by_department || {},
-    voteCodeBreakdown: stats?.by_vote_code || {}
+    voteCodeBreakdown: stats?.by_vote_code || {},
   }
 
   // Load orders with filters
@@ -86,22 +88,12 @@ export const PurchaseOrderListPage: React.FC = () => {
       search: search || undefined,
       status: statusFilter === 'all' ? undefined : statusFilter,
       supplier_id: supplierId || undefined,
+      po_type: activeTab === 'sq' ? 'sq' : 'po_only', // Filter by tab
       vote_code: voteCodeFilter || undefined,
+      vote_activity: voteActivityFilter || undefined,
       category: categoryFilter || undefined,
       department: departmentFilter || undefined,
     }
-
-    // Server-side sorting: By default sort by PO number ascending so users see 0001, 0002...
-    // Or descending if they prefer latest first?
-    // User complaint was "missing PO-0001 until 0004", creating pagination.
-    // Usually lists are newest first. But "missing" implies they looked for them and couldn't find them.
-    // If we paginate correctly, they can find them.
-    // Let's stick to standard practice: Newest First (Desc), but ensure pagination works.
-    // Actually, user screenshot shows sorting is by Date/Number.
-    // If I fix pagination, they can find older POs on next pages.
-    // Let's use 'po_number' descending so latest is top.
-
-    // Changing page size to 15 as requested? No, code has 15.
 
     const res = await getPurchaseOrders(hospitalId, filter, page, pageSize, 'po_number', 'desc')
 
@@ -115,29 +107,101 @@ export const PurchaseOrderListPage: React.FC = () => {
     }
 
     setIsLoading(false)
-  }, [hospitalId, search, statusFilter, supplierId, voteCodeFilter, categoryFilter, departmentFilter, page])
+  }, [hospitalId, search, statusFilter, supplierId, voteCodeFilter, voteActivityFilter, categoryFilter, departmentFilter, page, pageSize, activeTab])
 
   useEffect(() => {
     void loadOrders()
   }, [loadOrders])
 
-  // Reset page when filters change
+  // Reset selection when data changes
   useEffect(() => {
-    setPage(1)
-  }, [search, statusFilter, supplierId, voteCodeFilter, categoryFilter, departmentFilter])
+    setSelectedIds([])
+  }, [orders])
 
-  const renderStatusBadge = (status: POStatus) => {
-    const map: Record<POStatus, { color: 'success' | 'warning' | 'error' | 'info' | 'secondary'; label: string }> = {
-      draft: { color: 'secondary', label: 'Draft' },
-      pending_approval: { color: 'warning', label: 'Pending Approval' },
-      approved: { color: 'info', label: 'Approved' },
-      sent: { color: 'info', label: 'Sent' },
-      partial_received: { color: 'warning', label: 'Partial' },
-      completed: { color: 'success', label: 'Completed' },
-      cancelled: { color: 'error', label: 'Cancelled' },
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(orders.map((o) => o.id))
+    } else {
+      setSelectedIds([])
     }
-    const cfg = map[status] || { color: 'secondary', label: status }
-    return <Badge variant={cfg.color}>{cfg.label}</Badge>
+  }
+
+  const handleSelectOne = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    )
+  }
+
+  const handleBatchApprove = async () => {
+    if (selectedIds.length === 0) return
+
+    setIsBatchProcessing(true)
+    try {
+      let successCount = 0
+      let failCount = 0
+
+      for (const id of selectedIds) {
+        const order = orders.find((o) => o.id === id)
+        if (order?.status === 'pending_approval') {
+          const res = await approvePurchaseOrder(id, user?.id || 'system')
+          if (!res.error) successCount++
+          else failCount++
+        }
+      }
+
+      if (successCount > 0) {
+        showSuccess('Batch Approval Successful', `Successfully approved ${successCount} purchase orders.`)
+        void loadOrders()
+        // Determine whether to reload stats as well if needed, but wait for next mount is okay
+      }
+      if (failCount > 0) {
+        showError('Batch Approval Partial Failure', `Failed to approve ${failCount} purchase orders.`)
+      }
+    } catch (err) {
+      showError('Batch Approval Failed', 'An error occurred during batch approval.')
+    } finally {
+      setIsBatchProcessing(false)
+      setShowBatchApproveDialog(false)
+      setSelectedIds([])
+    }
+  }
+
+  const handleBatchDelete = async () => {
+    if (selectedIds.length === 0) return
+    if (deleteReason.trim().toLowerCase() !== 'delete') {
+      showError('Validation Error', "Please type 'DELETE' to confirm.")
+      return
+    }
+
+    setIsBatchProcessing(true)
+    try {
+      let successCount = 0
+      let failCount = 0
+
+      for (const id of selectedIds) {
+        const order = orders.find((o) => o.id === id)
+        if (order?.status === 'draft' && user?.id) {
+          const res = await deletePurchaseOrder(id, user.id)
+          if (!res.error) successCount++
+          else failCount++
+        }
+      }
+
+      if (successCount > 0) {
+        showSuccess('Batch Deletion Successful', `Successfully deleted ${successCount} purchase orders.`)
+        void loadOrders()
+      }
+      if (failCount > 0) {
+        showError('Batch Deletion Partial Failure', `Failed to delete ${failCount} purchase orders.`)
+      }
+    } catch (err) {
+      showError('Batch Deletion Failed', 'An error occurred during batch deletion.')
+    } finally {
+      setIsBatchProcessing(false)
+      setShowBatchDeleteDialog(false)
+      setSelectedIds([])
+      setDeleteReason('')
+    }
   }
 
   const formatCurrency = (amount?: number) => {
@@ -157,346 +221,574 @@ export const PurchaseOrderListPage: React.FC = () => {
     })
   }
 
-  // Using global stats now instead of local calculation
+  const renderStatusBadge = (status: POStatus) => {
+    const map: Record<POStatus, { color: 'success' | 'warning' | 'error' | 'info' | 'gray' | 'primary'; label: string; icon: React.ElementType; tooltip: string }> = {
+      draft: { color: 'gray', label: 'Draft', icon: Clock, tooltip: 'Order is preparing' },
+      pending_approval: { color: 'warning', label: 'Pending Approval', icon: AlertTriangle, tooltip: 'Awaiting approval' },
+      approved: { color: 'info', label: 'Approved', icon: CheckCircle, tooltip: 'Approved' },
+      sent: { color: 'primary', label: 'Sent', icon: Truck, tooltip: 'Sent to supplier' },
+      partial_received: { color: 'warning', label: 'Partial', icon: Package, tooltip: 'Partial delivery' },
+      completed: { color: 'success', label: 'Completed', icon: FileCheck, tooltip: 'Order completed' },
+      cancelled: { color: 'error', label: 'Cancelled', icon: XCircle, tooltip: 'Order cancelled' },
+    }
+    const cfg = map[status] || { color: 'gray', label: status, icon: Clock, tooltip: 'Unknown' }
+    const Icon = cfg.icon
 
+    return (
+      <ActionTooltip content={cfg.tooltip}>
+        <Badge variant={cfg.color} className="flex items-center w-fit gap-1.5 py-1 px-2.5 shadow-sm font-medium mx-auto justify-center">
+          <Icon className="w-3.5 h-3.5" />
+          {cfg.label}
+        </Badge>
+      </ActionTooltip>
+    )
+  }
+
+  const headerActions = (
+    <div className="flex items-center gap-2">
+      <Button variant="outline" onClick={() => navigate(ROUTES.PHARMACY_SQ_CREATE)} className="flex items-center gap-2 bg-white/50 backdrop-blur-sm border-blue-200 text-blue-700 hover:bg-blue-50">
+        <FileText className="w-4 h-4" />
+        Create SQ
+      </Button>
+      <Button variant="outline" onClick={() => navigate(ROUTES.PHARMACY_MANUAL_CREATE)} className="flex items-center gap-2 bg-white/50 backdrop-blur-sm border-purple-200 text-purple-700 hover:bg-purple-50">
+        <Edit className="w-4 h-4" />
+        Manual PO
+      </Button>
+      <Button onClick={() => navigate(ROUTES.PHARMACY_PO_CREATE)} className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 shadow-md hover:shadow-lg transition-all">
+        <Plus className="w-4 h-4" />
+        New PO
+      </Button>
+    </div>
+  )
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <ShoppingCart className="w-6 h-6 text-blue-600" />
-            Purchase Orders
-          </h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Manage purchase orders for drugs and non-drug items.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => navigate(ROUTES.PHARMACY_SQ_CREATE)} className="flex items-center gap-2 bg-white">
-            <FileText className="w-4 h-4" />
-            Create SQ
-          </Button>
-          <Button variant="outline" onClick={() => navigate(ROUTES.PHARMACY_MANUAL_CREATE)} className="flex items-center gap-2 bg-white">
-            <Edit className="w-4 h-4" />
-            Manual PO
-          </Button>
-          <Button onClick={() => navigate(ROUTES.PHARMACY_PO_CREATE)} className="flex items-center gap-2">
-            <Plus className="w-4 h-4" />
-            New PO
-          </Button>
-        </div>
-      </div>
-
-      {/* KPI Dashboard */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Total Purchase Orders"
-          value={kpis.totalOrders.toString()}
-          icon={FileText}
-          color="primary"
-        />
-        <StatCard
-          title="Total Purchase Value"
-          value={formatCurrency(kpis.totalValue)}
-          icon={DollarSign}
-          color="success"
-        />
-        <StatCard
-          title="Pending Orders"
-          value={kpis.pendingOrders.toString()}
-          icon={Package}
-          color="warning"
-        />
-        <StatCard
-          title="Completed Orders"
-          value={kpis.completedOrders.toString()}
-          icon={TrendingUp}
-          color="info"
-        />
-      </div>
-
-      {/* Breakdown Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Orders by Status</h3>
-          <div className="space-y-2">
-            {Object.entries(kpis.statusBreakdown).map(([status, count]) => (
-              <div key={status} className="flex items-center justify-between text-sm">
-                <span className="text-gray-600 capitalize">{status.replace('_', ' ')}</span>
-                <Badge variant="gray">{count}</Badge>
+    <FinancialPageLayout
+      title="Purchase Orders"
+      description="Manage purchase orders for drugs and non-drug items with real-time tracking."
+      icon={ShoppingCart}
+      breadcrumbs={[{ label: 'Procurement', href: '#' }, { label: 'Purchase Orders' }]}
+      actions={headerActions}
+    >
+      <div className="space-y-6">
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Total Orders */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="relative overflow-hidden bg-gradient-to-br from-blue-500 to-cyan-400 rounded-2xl p-5 text-white shadow-lg group"
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl group-hover:bg-white/20 transition-colors" />
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                  <FileText className="w-5 h-5 text-blue-50" />
+                </div>
+                <span className="text-sm font-medium text-blue-50">Total Orders</span>
               </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Orders by Vote Code</h3>
-          <div className="space-y-2">
-            {Object.entries(kpis.voteCodeBreakdown).map(([code, count]) => (
-              <div key={code} className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">{code}</span>
-                <Badge variant="gray">{count}</Badge>
+              <div className="flex items-end justify-between">
+                <p className="text-3xl font-bold">{kpis.totalOrders}</p>
+                <span className="text-xs text-blue-100 bg-blue-600/30 px-2 py-1 rounded-full">All time</span>
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
+          </motion.div>
 
-        <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Orders by Category</h3>
-          <div className="space-y-2">
-            {Object.entries(kpis.categoryBreakdown).map(([category, count]) => (
-              <div key={category} className="flex items-center justify-between text-sm">
-                <span className="text-gray-600 capitalize">{category.replace('_', ' ')}</span>
-                <Badge variant="gray">{count}</Badge>
+          {/* Total Value */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="relative overflow-hidden bg-gradient-to-br from-emerald-500 to-teal-400 rounded-2xl p-5 text-white shadow-lg group"
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl group-hover:bg-white/20 transition-colors" />
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                  <DollarSign className="w-5 h-5 text-emerald-50" />
+                </div>
+                <span className="text-sm font-medium text-emerald-50">Total Value</span>
               </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Orders by Department</h3>
-          <div className="space-y-2">
-            {Object.entries(kpis.departmentBreakdown).map(([dept, count]) => (
-              <div key={dept} className="flex items-center justify-between text-sm">
-                <span className="text-gray-600 capitalize">{dept.replace('_', ' ')}</span>
-                <Badge variant="gray">{count}</Badge>
+              <div className="flex items-end justify-between">
+                <p className="text-2xl font-bold">{formatCurrency(kpis.totalValue)}</p>
+                <span className="text-xs text-emerald-100 bg-emerald-600/30 px-2 py-1 rounded-full">Accumulated</span>
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
+            </div>
+          </motion.div>
 
-      {/* Filters */}
-      <div className="flex flex-col md:flex-row md:items-end gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
-        <div className="flex-1">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Search</label>
-          <div className="relative">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
-            <Input
-              placeholder="PO number..."
-              className="pl-9"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="w-full md:w-48">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Supplier</label>
-          <select
-            value={supplierId}
-            onChange={(e) => setSupplierId(e.target.value)}
-            className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          {/* Pending */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="relative overflow-hidden bg-gradient-to-br from-amber-500 to-orange-400 rounded-2xl p-5 text-white shadow-lg group"
           >
-            <option value="">All Suppliers</option>
-            {suppliers.map((sup) => (
-              <option key={sup.id} value={sup.id}>
-                {sup.company_name}
-              </option>
-            ))}
-          </select>
-        </div>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl group-hover:bg-white/20 transition-colors" />
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                  <Clock className="w-5 h-5 text-amber-50" />
+                </div>
+                <span className="text-sm font-medium text-amber-50">Pending</span>
+              </div>
+              <div className="flex items-end justify-between">
+                <p className="text-3xl font-bold">{kpis.pendingOrders}</p>
+                <span className="text-xs text-amber-100 bg-amber-600/30 px-2 py-1 rounded-full">Action required</span>
+              </div>
+            </div>
+          </motion.div>
 
-        <div className="w-full md:w-44">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as POStatus | 'all')}
-            className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          {/* Completed */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="relative overflow-hidden bg-gradient-to-br from-violet-500 to-purple-400 rounded-2xl p-5 text-white shadow-lg group"
           >
-            <option value="all">All Status</option>
-            <option value="draft">Draft</option>
-            <option value="pending_approval">Pending Approval</option>
-            <option value="approved">Approved</option>
-            <option value="sent">Sent</option>
-            <option value="partial_received">Partial Received</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl group-hover:bg-white/20 transition-colors" />
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                  <CheckCircle className="w-5 h-5 text-violet-50" />
+                </div>
+                <span className="text-sm font-medium text-violet-50">Completed</span>
+              </div>
+              <div className="flex items-end justify-between">
+                <p className="text-3xl font-bold">{kpis.completedOrders}</p>
+                <span className="text-xs text-violet-100 bg-violet-600/30 px-2 py-1 rounded-full">Fully received</span>
+              </div>
+            </div>
+          </motion.div>
         </div>
 
-        <div className="w-full md:w-36">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Vote Code</label>
-          <select
-            value={voteCodeFilter}
-            onChange={(e) => setVoteCodeFilter(e.target.value)}
-            className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">All</option>
-            <option value="080702">080702</option>
-            <option value="990102">990102</option>
-          </select>
-        </div>
-
-        <div className="w-full md:w-40">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Category</label>
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">All</option>
-            <option value="drug">Drug</option>
-            <option value="non_drug">Non-Drug</option>
-            <option value="non_standard">Non-Standard</option>
-            <option value="reagent">Reagent</option>
-            <option value="vaccine">Vaccine</option>
-            <option value="insulin">Insulin</option>
-            <option value="hepc">HEPC</option>
-            <option value="medical_oxygen">Medical Oxygen</option>
-          </select>
-        </div>
-
-        <div className="w-full md:w-44">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Department</label>
-          <select
-            value={departmentFilter}
-            onChange={(e) => setDepartmentFilter(e.target.value)}
-            className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">All Departments</option>
-            <option value="pharmacy">Pharmacy</option>
-            <option value="nephrology">Nephrology</option>
-            <option value="radiology_radiography">Radiology & Radiography</option>
-            <option value="emergency_trauma">Emergency Trauma</option>
-            <option value="cssu_cssd">CSSU & CSSD</option>
-            <option value="operation_theater">Operation Theater</option>
-            <option value="laboratory_pathology">Laboratory & Pathology</option>
-            <option value="general_ward">General Ward</option>
-            <option value="wound_care">Wound Care</option>
-            <option value="rehabilitation">Rehabilitation</option>
-            <option value="anaesthesiology">Anaesthesiology</option>
-          </select>
-        </div>
-
-        <div className="flex items-center gap-1 text-xs text-gray-500">
-          <Filter className="w-3 h-3" />
-          <span>{total} orders</span>
-        </div>
-      </div>
-
-      {/* Loading */}
-      {isLoading && (
-        <div className="flex items-center justify-center py-16">
-          <Spinner size="lg" />
-        </div>
-      )}
-
-      {/* Error */}
-      {!isLoading && error && (
-        <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-          <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+        {/* Department Breakdown */}
+        {stats?.department_breakdown && stats.department_breakdown.length > 0 && (
           <div>
-            <p className="font-medium">Failed to load purchase orders</p>
-            <p className="mt-0.5">{error}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Table */}
-      {!isLoading && !error && (
-        <>
-          <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-            <Table>
-              <Table.Head>
-                <Table.Row>
-                  <Table.Cell as="th">Order Date</Table.Cell>
-                  <Table.Cell as="th" className="min-w-[min(140px,100%)] xs:min-w-[140px]">PO Number</Table.Cell>
-                  <Table.Cell as="th" className="min-w-[min(200px,100%)] xs:min-w-[200px]">Supplier</Table.Cell>
-                  <Table.Cell as="th">Vote Code</Table.Cell>
-                  <Table.Cell as="th">Category</Table.Cell>
-                  <Table.Cell as="th">Department</Table.Cell>
-                  <Table.Cell as="th" className="text-right">Total</Table.Cell>
-                  <Table.Cell as="th" className="text-center">Status</Table.Cell>
-                </Table.Row>
-              </Table.Head>
-              <Table.Body>
-                {orders.length === 0 && (
-                  <Table.Row>
-                    <Table.Cell colSpan={8} className="text-center text-sm text-gray-500 py-8">
-                      No purchase orders found matching your filters.
-                    </Table.Cell>
-                  </Table.Row>
-                )}
-
-                {orders.map((order) => (
-                  <Table.Row
-                    key={order.id}
-                    className={order.status === 'cancelled' ? 'bg-red-100 hover:bg-red-200 border-l-4 border-red-600 transition-colors' : ''}
-                  >
-                    <Table.Cell className="text-sm text-gray-600">
-                      {formatDate(order.order_date)}
-                    </Table.Cell>
-                    <Table.Cell>
-                      <button
-                        onClick={() => navigate(ROUTES.PHARMACY_PO_DETAIL.replace(':id', order.id))}
-                        className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
-                      >
-                        {order.po_number}
-                      </button>
-                    </Table.Cell>
-                    <Table.Cell className="text-sm text-gray-900">
-                      {order.supplier?.company_name || '—'}
-                    </Table.Cell>
-                    <Table.Cell className="text-sm text-gray-600">
-                      {order.vote_code || '—'}
-                    </Table.Cell>
-                    <Table.Cell className="text-sm">
-                      {order.category ? (
-                        <Badge variant="secondary" className="capitalize">
-                          {order.category.replace('_', ' ')}
-                        </Badge>
-                      ) : (
-                        '—'
-                      )}
-                    </Table.Cell>
-                    <Table.Cell className="text-sm text-gray-600 capitalize">
-                      {order.department ? order.department.replace('_', ' ') : '—'}
-                    </Table.Cell>
-                    <Table.Cell className="text-right text-sm font-medium">
-                      {formatCurrency(order.total_amount)}
-                    </Table.Cell>
-                    <Table.Cell className="text-center">
-                      {renderStatusBadge(order.status)}
-                    </Table.Cell>
-                  </Table.Row>
-                ))}
-              </Table.Body>
-            </Table>
-          </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between text-sm text-gray-600">
-              <span>
-                Page {page} of {totalPages}
+            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+              Department Breakdown
+              <span className="text-xs font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                By Vote Code
               </span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="p-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  className="p-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+              {stats.department_breakdown.map((dept) => (
+                <div key={dept.department} className="glass-card p-6 rounded-2xl border border-slate-100 bg-white/50 hover:shadow-lg transition-all duration-300 w-full">
+                  <h3 className="text-base font-bold text-slate-800 capitalize mb-3 flex items-center gap-2 pb-2 border-b border-slate-100">
+                    <div className="p-1.5 bg-blue-100 rounded-lg">
+                      <Building2 className="w-4 h-4 text-blue-600" />
+                    </div>
+                    {dept.department === 'laboratory_pathology' ? 'Pathologist' : dept.department.replace(/_/g, ' ')}
+                  </h3>
+                  <div className="space-y-4">
+                    {dept.vote_codes.map((vc) => (
+                      <div key={vc.code} className="bg-white/40 rounded-xl border border-slate-100 p-3 shadow-sm">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex flex-col">
+                            <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Vote Code</span>
+                            <span className="font-mono font-bold text-slate-700 leading-none">{vc.code}</span>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full inline-block">
+                              {vc.total_orders} ORDERS
+                            </div>
+                            <div className="text-[10px] text-emerald-600 font-medium mt-0.5 flex items-center justify-end gap-1">
+                              <Package className="w-3 h-3" />
+                              {vc.total_items} Items
+                            </div>
+                          </div>
+                        </div>
+
+                        {vc.activities && vc.activities.length > 0 && (
+                          <div className="mt-2 border-t border-slate-50 pt-2">
+                            <div className="grid grid-cols-3 gap-2 text-[9px] uppercase tracking-wider font-bold text-slate-400 mb-1 px-1">
+                              <span>Activity</span>
+                              <span className="text-center">Orders</span>
+                              <span className="text-right">Items</span>
+                            </div>
+                            <div className="space-y-1">
+                              {vc.activities.map((act) => (
+                                <div key={act.code} className="grid grid-cols-3 gap-2 px-1 py-1 items-center hover:bg-slate-50 rounded transition-colors border-b border-slate-50 last:border-0">
+                                  <span className="text-xs font-mono font-bold text-slate-600">{act.code}</span>
+                                  <span className="text-center text-[11px] font-semibold text-slate-500">{act.total_orders}</span>
+                                  <span className="text-right text-[11px] font-semibold text-slate-500">{act.total_items}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-6">
+          {/* Tab Switcher */}
+          <div className="flex items-center p-1 bg-slate-100/50 rounded-2xl w-fit self-center lg:self-start shadow-inner border border-slate-200">
+            <button
+              onClick={() => {
+                setActiveTab('po')
+                setPage(1)
+              }}
+              className={`relative px-6 py-2.5 text-sm font-bold transition-all duration-300 rounded-xl flex items-center gap-2 ${activeTab === 'po' ? 'text-blue-600' : 'text-slate-500 hover:text-slate-700'
+                }`}
+            >
+              {activeTab === 'po' && (
+                <motion.div
+                  layoutId="activeTabBg"
+                  className="absolute inset-0 bg-white rounded-xl shadow-sm border border-slate-100"
+                  transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+                />
+              )}
+              <ShoppingCart className="w-4 h-4 relative z-10" />
+              <span className="relative z-10">Purchase Orders</span>
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab('sq')
+                setPage(1)
+              }}
+              className={`relative px-6 py-2.5 text-sm font-bold transition-all duration-300 rounded-xl flex items-center gap-2 ${activeTab === 'sq' ? 'text-blue-600' : 'text-slate-500 hover:text-slate-700'
+                }`}
+            >
+              {activeTab === 'sq' && (
+                <motion.div
+                  layoutId="activeTabBg"
+                  className="absolute inset-0 bg-white rounded-xl shadow-sm border border-slate-100"
+                  transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+                />
+              )}
+              <FileDigit className="w-4 h-4 relative z-10" />
+              <span className="relative z-10">Stock Quotations</span>
+            </button>
+          </div>
+
+          {/* Filters & Search */}
+          <div className="glass-card rounded-2xl p-4 flex flex-col xl:flex-row xl:items-center gap-4 border border-white/40 shadow-xl">
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
+              <input
+                type="text"
+                placeholder="Search PO#, supplier, or medication..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-10 pr-4 h-11 bg-slate-50 border-transparent rounded-xl focus:bg-white focus:border-blue-200 focus:ring-2 focus:ring-blue-100 transition-all text-sm outline-none placeholder:text-slate-400"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 lg:grid-cols-5 xl:flex xl:items-center gap-3">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as POStatus | 'all')}
+                className="h-11 px-3 bg-slate-50 border-transparent rounded-xl text-sm text-slate-600 focus:bg-white focus:border-blue-200 focus:ring-2 focus:ring-blue-100 outline-none cursor-pointer"
+              >
+                <option value="all">All Status</option>
+                <option value="draft">Draft</option>
+                <option value="pending_approval">Pending Approval</option>
+                <option value="approved">Approved</option>
+                <option value="partial_received">Partial Received</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+
+              <select
+                value={voteCodeFilter}
+                onChange={(e) => setVoteCodeFilter(e.target.value)}
+                className="h-11 px-3 bg-slate-50 border-transparent rounded-xl text-sm text-slate-600 focus:bg-white focus:border-blue-200 focus:ring-2 focus:ring-blue-100 outline-none cursor-pointer"
+              >
+                <option value="">All Vote Codes</option>
+                {WARRANT_VOTE_CODES.map((v) => (
+                  <option key={v.value} value={v.value}>{v.label}</option>
+                ))}
+              </select>
+
+              <select
+                value={voteActivityFilter}
+                onChange={(e) => setVoteActivityFilter(e.target.value)}
+                className="h-11 px-3 bg-slate-50 border-transparent rounded-xl text-sm text-slate-600 focus:bg-white focus:border-blue-200 focus:ring-2 focus:ring-blue-100 outline-none cursor-pointer"
+              >
+                <option value="">All Vote Activities</option>
+                {WARRANT_VOTE_ACTIVITIES.map((v) => (
+                  <option key={v.value} value={v.value}>{v.label}</option>
+                ))}
+              </select>
+
+              <select
+                value={departmentFilter}
+                onChange={(e) => setDepartmentFilter(e.target.value)}
+                className="h-11 px-3 bg-slate-50 border-transparent rounded-xl text-sm text-slate-600 focus:bg-white focus:border-blue-200 focus:ring-2 focus:ring-blue-100 outline-none cursor-pointer"
+              >
+                <option value="">All Departments</option>
+                {WARRANT_DEPARTMENTS.map((d) => (
+                  <option key={d.value} value={d.value}>{d.label}</option>
+                ))}
+              </select>
+
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSearch('')
+                  setStatusFilter('all')
+                  setSupplierId('')
+                  setVoteCodeFilter('')
+                  setVoteActivityFilter('')
+                  setCategoryFilter('')
+                  setDepartmentFilter('')
+                  setPage(1)
+                }}
+                className="h-11 border-slate-200 text-slate-500 hover:text-red-500 hover:bg-red-50 hover:border-red-200 col-span-2 lg:col-span-4 xl:w-auto lg:col-start-5 xl:col-start-auto"
+              >
+                <X className="w-4 h-4 mr-2" />
+                Clear
+              </Button>
+            </div>
+          </div>
+
+          {/* Loading */}
+          {isLoading && (
+            <div className="flex items-center justify-center py-16">
+              <Spinner size="lg" />
+            </div>
+          )}
+
+          {/* Error */}
+          {!isLoading && error && (
+            <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 shadow-sm animate-in fade-in slide-in-from-top-2">
+              <AlertTriangle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-semibold">Failed to load purchase orders</p>
+                <p className="mt-0.5">{error}</p>
               </div>
             </div>
           )}
-        </>
-      )}
-    </div>
+
+          {/* Table */}
+          {!isLoading && !error && (
+            <div className="glass-card rounded-2xl overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-slate-50/50">
+                    <TableRow className="border-b border-slate-100 hover:bg-transparent">
+                      <TableCell as="th" className="pl-4">
+                        <input
+                          type="checkbox"
+                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 shadow-sm"
+                          checked={orders.length > 0 && selectedIds.length === orders.length}
+                          onChange={handleSelectAll}
+                        />
+                      </TableCell>
+                      <TableCell as="th" className="font-semibold text-slate-600">Order Date</TableCell>
+                      <TableCell as="th" className="font-semibold text-slate-600">{activeTab === 'sq' ? 'SQ Number' : 'PO Number'}</TableCell>
+                      <TableCell as="th" className="font-semibold text-slate-600">Supplier</TableCell>
+                      <TableCell as="th" className="font-semibold text-slate-600">Vote Code</TableCell>
+                      <TableCell as="th" className="font-semibold text-slate-600">Category</TableCell>
+                      <TableCell as="th" className="font-semibold text-slate-600">Department</TableCell>
+                      {activeTab === 'po' && (
+                        <TableCell as="th" className="text-right font-semibold text-slate-600">Total</TableCell>
+                      )}
+                      <TableCell as="th" className="text-center font-semibold text-slate-600">Status</TableCell>
+                      <TableCell as="th" className="text-right font-semibold text-slate-600 pr-4">Actions</TableCell>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {/* Batch Actions Toolbar */}
+                    {selectedIds.length > 0 && (
+                      <TableRow className="bg-blue-50/50 border-b border-blue-100 sticky top-0 z-20 backdrop-blur-sm">
+                        <TableCell colSpan={activeTab === 'sq' ? 9 : 10} className="py-3 px-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm font-semibold text-blue-700 bg-blue-100 px-2 py-1 rounded-md">
+                                {selectedIds.length} items selected
+                              </span>
+                              <div className="h-4 w-px bg-blue-200" />
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="primary"
+                                  className="bg-emerald-600 hover:bg-emerald-700 h-8 text-xs gap-1.5 shadow-sm"
+                                  onClick={() => setShowBatchApproveDialog(true)}
+                                  disabled={!selectedIds.some((id) => orders.find((o) => o.id === id)?.status === 'pending_approval')}
+                                >
+                                  <CheckCircle className="w-3.5 h-3.5" />
+                                  Approve Selected
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-red-200 text-red-600 hover:bg-red-50 h-8 text-xs gap-1.5 shadow-sm"
+                                  onClick={() => setShowBatchDeleteDialog(true)}
+                                  disabled={!selectedIds.some((id) => orders.find((o) => o.id === id)?.status === 'draft')}
+                                >
+                                  <XCircle className="w-3.5 h-3.5" />
+                                  Delete Drafts
+                                </Button>
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setSelectedIds([])}
+                              className="h-8 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-100/50"
+                            >
+                              Deselect All
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+
+                    {orders.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={activeTab === 'sq' ? 9 : 10} className="text-center py-16">
+                          <div className="flex flex-col items-center justify-center text-slate-400">
+                            <div className="p-4 bg-slate-50 rounded-full mb-3">
+                              <Search className="w-6 h-6" />
+                            </div>
+                            <p className="text-lg font-medium text-slate-600">No orders found</p>
+                            <p className="text-sm mt-1">Try adjusting your filters or search query.</p>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+
+                    {orders.map((order) => (
+                      <TableRow
+                        key={order.id}
+                        className={`
+                        group border-b border-slate-50 hover:bg-slate-50/50 transition-colors
+                        ${order.status === 'cancelled' ? 'bg-red-50/20 grayscale-[0.3]' : ''}
+                        ${selectedIds.includes(order.id) ? 'bg-blue-50/30' : ''}
+                      `}
+                      >
+                        <TableCell className="pl-4">
+                          <input
+                            type="checkbox"
+                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                            checked={selectedIds.includes(order.id)}
+                            onChange={() => handleSelectOne(order.id)}
+                          />
+                        </TableCell>
+                        <TableCell className="text-sm text-slate-500 font-medium">
+                          {formatDate(order.order_date)}
+                        </TableCell>
+                        <TableCell>
+                          <button
+                            onClick={() => navigate(ROUTES.PHARMACY_PO_DETAIL.replace(':id', order.id))}
+                            className="text-sm font-bold text-royal-blue hover:text-blue-700 hover:underline cursor-pointer"
+                          >
+                            {order.po_number}
+                          </button>
+                        </TableCell>
+                        <TableCell className="text-sm text-slate-700">
+                          {order.supplier?.company_name || '—'}
+                        </TableCell>
+                        <TableCell className="text-sm text-slate-600 font-mono text-xs">
+                          {order.vote_code || '—'}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {order.category ? (
+                            <Badge variant="gray" className="capitalize bg-slate-100 text-slate-600 border-slate-200">
+                              {order.category.replace('_', ' ')}
+                            </Badge>
+                          ) : '—'}
+                        </TableCell>
+                        <TableCell className="text-sm text-slate-600">
+                          {order.department === 'laboratory_pathology' ? 'Pathologist' : (order.department ? order.department.replace('_', ' ') : '—')}
+                        </TableCell>
+                        {activeTab === 'po' && (
+                          <TableCell className="text-right text-sm font-bold text-slate-700">
+                            {formatCurrency(order.total_amount)}
+                          </TableCell>
+                        )}
+                        <TableCell className="text-center">
+                          {renderStatusBadge(order.status)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <button
+                            onClick={() => navigate(ROUTES.PHARMACY_PO_DETAIL.replace(':id', order.id))}
+                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          >
+                            <FileText className="w-4 h-4" />
+                          </button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 0 && (
+                <div className="p-4 border-t border-slate-100 bg-slate-50/30">
+                  <Pagination
+                    currentPage={page}
+                    totalPages={totalPages}
+                    pageSize={pageSize}
+                    total={total}
+                    onPageChange={(p) => setPage(p)}
+                    onPageSizeChange={(s) => {
+                      setPageSize(s)
+                      setPage(1)
+                    }}
+                    className="border-none justify-center"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Breakdown Cards in Grid - Hidden for now or keep them? 
+            The requirements asked for a lively vibe and revamp. 
+            Detailed textual breakdown lists might be clutter. 
+            I'll keep them but styled cleanly if they are important.
+            The user said "make it look modern", "less confusion". 
+            Maybe hiding them or putting them in a collapsible logic or just cleaner grid.
+            I will include them but as small "Overview" cards below KPI.
+        */}
+        </div>
+
+        {/* Batch Dialogs */}
+        <ConfirmationDialog
+          isOpen={showBatchApproveDialog}
+          onClose={() => !isBatchProcessing && setShowBatchApproveDialog(false)}
+          onConfirm={handleBatchApprove}
+          title="Batch Approval"
+          message={`Are you sure you want to approve ${selectedIds.filter(id => orders.find(o => o.id === id)?.status === 'pending_approval').length} selected purchase orders? This will create financial liabilities for each approved order.`}
+          variant="success"
+          confirmText="Approve All"
+          isLoading={isBatchProcessing}
+        />
+
+        <ConfirmationDialog
+          isOpen={showBatchDeleteDialog}
+          onClose={() => !isBatchProcessing && (setShowBatchDeleteDialog(false), setDeleteReason(''))}
+          onConfirm={handleBatchDelete}
+          title="Batch Delete Drafts"
+          message={`Warning: You are about to permanently delete ${selectedIds.filter(id => orders.find(o => o.id === id)?.status === 'draft').length} draft purchase orders. This action cannot be undone.`}
+          variant="danger"
+          confirmText="Delete Permanently"
+          isLoading={isBatchProcessing}
+        >
+          <div className="space-y-2 mt-2">
+            <label className="block text-sm font-medium text-slate-700">
+              Type 'DELETE' to confirm <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              className="w-full rounded-lg border border-red-200 px-3 py-2 text-sm shadow-sm focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value)}
+              placeholder="Type DELETE here"
+            />
+          </div>
+        </ConfirmationDialog>
+      </div>
+    </FinancialPageLayout>
   )
 }
 
 export default PurchaseOrderListPage
-

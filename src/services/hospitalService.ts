@@ -1,5 +1,5 @@
-import { supabase, isSupabaseConfigured } from './supabase'
-import type { Hospital, PaginatedResponse, SortConfig, FilterConfig } from '@/types'
+import { supabase } from './supabase'
+import type { Hospital, PaginatedResponse } from '@/types'
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants'
 
 interface GetHospitalsParams {
@@ -7,7 +7,7 @@ interface GetHospitalsParams {
   pageSize?: number
   search?: string
   status?: string
-  sort?: SortConfig
+  sort?: { key: string; direction: 'asc' | 'desc' }
 }
 
 /**
@@ -21,48 +21,42 @@ export async function getHospitals({
   sort,
 }: GetHospitalsParams): Promise<PaginatedResponse<Hospital>> {
   try {
-    if (isSupabaseConfigured()) {
-      // Supabase implementation
-      let query = supabase.from('hospitals').select('*', { count: 'exact' })
+    let query = supabase.from('hospitals').select('*', { count: 'exact' })
 
-      if (search) {
-        query = query.or(
-          `hospital_name.ilike.%${search}%,hospital_code.ilike.%${search}%,address.ilike.%${search}%`
-        )
-      }
-      if (status) {
-        query = query.eq('status', status)
-      }
+    if (search) {
+      query = query.or(
+        `hospital_name.ilike.%${search}%,hospital_code.ilike.%${search}%,address.ilike.%${search}%`
+      )
+    }
+    if (status) {
+      query = query.eq('status', status)
+    }
 
-      if (sort) {
-        query = query.order(sort.key, { ascending: sort.direction === 'asc' })
-      } else {
-        query = query.order('hospital_name', { ascending: true })
-      }
-
-      const from = (page - 1) * pageSize
-      const to = from + pageSize - 1
-      query = query.range(from, to)
-
-      const { data, error, count } = await query
-
-      if (error) {
-        console.error('Error fetching hospitals from Supabase:', error)
-        throw new Error(error.message)
-      }
-
-      const totalPages = count ? Math.ceil(count / pageSize) : 0
-
-      return {
-        data: (data || []) as Hospital[],
-        total: count || 0,
-        page,
-        pageSize,
-        totalPages,
-      }
+    if (sort) {
+      query = query.order(sort.key, { ascending: sort.direction === 'asc' })
     } else {
-      // Supabase is required
-      throw new Error('Supabase is not configured. Hospital operations require database connection.')
+      query = query.order('hospital_name', { ascending: true })
+    }
+
+    const from = (page - 1) * pageSize
+    const to = from + pageSize - 1
+    query = query.range(from, to)
+
+    const { data, error, count } = await query
+
+    if (error) {
+      console.error('Error fetching hospitals from Supabase:', error)
+      throw new Error(error.message)
+    }
+
+    const totalPages = count ? Math.ceil(count / pageSize) : 0
+
+    return {
+      data: (data || []) as Hospital[],
+      total: count || 0,
+      page,
+      pageSize,
+      totalPages,
     }
   } catch (error) {
     console.error('Error fetching hospitals:', error)
@@ -75,18 +69,13 @@ export async function getHospitals({
  */
 export async function getHospitalById(id: string): Promise<Hospital | null> {
   try {
-    if (isSupabaseConfigured()) {
-      const { data, error } = await supabase.from('hospitals').select('*').eq('id', id).single()
+    const { data, error } = await supabase.from('hospitals').select('*').eq('id', id).single()
 
-      if (error) {
-        console.error('Error fetching hospital from Supabase:', error)
-        throw new Error(error.message)
-      }
-      return data as Hospital
-    } else {
-      // Supabase is required
-      throw new Error('Supabase is not configured. Hospital operations require database connection.')
+    if (error) {
+      console.error('Error fetching hospital from Supabase:', error)
+      throw new Error(error.message)
     }
+    return data as Hospital
   } catch (error) {
     console.error('Error fetching hospital:', error)
     throw error
@@ -98,20 +87,15 @@ export async function getHospitalById(id: string): Promise<Hospital | null> {
  */
 export async function createHospital(hospital: Omit<Hospital, 'id' | 'created_at' | 'updated_at'>): Promise<Hospital> {
   try {
-    if (isSupabaseConfigured()) {
-      const { data, error } = await supabase.from('hospitals').insert(hospital).select().single()
-      if (error) {
-        console.error('Error creating hospital in Supabase:', error)
-        throw new Error(error.message || 'Failed to create hospital')
-      }
-      if (!data) {
-        throw new Error('Hospital was created but no data was returned')
-      }
-      return data as Hospital
-    } else {
-      // Supabase is required
-      throw new Error('Supabase is not configured. Hospital creation requires database connection.')
+    const { data, error } = await supabase.from('hospitals').insert(hospital).select().single()
+    if (error) {
+      console.error('Error creating hospital in Supabase:', error)
+      throw new Error(error.message || 'Failed to create hospital')
     }
+    if (!data) {
+      throw new Error('Hospital was created but no data was returned')
+    }
+    return data as Hospital
   } catch (error) {
     console.error('Error creating hospital:', error)
     throw error
@@ -123,19 +107,14 @@ export async function createHospital(hospital: Omit<Hospital, 'id' | 'created_at
  */
 export async function updateHospital(id: string, updates: Partial<Hospital>): Promise<Hospital> {
   try {
-    if (isSupabaseConfigured()) {
-      const { data, error } = await supabase
-        .from('hospitals')
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq('id', id)
-        .select()
-        .single()
-      if (error) throw new Error(error.message)
-      return data as Hospital
-    } else {
-      // Supabase is required
-      throw new Error('Supabase is not configured. Hospital update requires database connection.')
-    }
+    const { data, error } = await supabase
+      .from('hospitals')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) throw new Error(error.message)
+    return data as Hospital
   } catch (error) {
     console.error('Error updating hospital:', error)
     throw error
@@ -147,15 +126,10 @@ export async function updateHospital(id: string, updates: Partial<Hospital>): Pr
  */
 export async function deleteHospital(id: string): Promise<void> {
   try {
-    if (isSupabaseConfigured()) {
-      const { error } = await supabase.from('hospitals').delete().eq('id', id)
-      if (error) {
-        console.error('Error deleting hospital from Supabase:', error)
-        throw new Error(error.message || 'Failed to delete hospital')
-      }
-    } else {
-      // Supabase is required
-      throw new Error('Supabase is not configured. Hospital deletion requires database connection.')
+    const { error } = await supabase.from('hospitals').delete().eq('id', id)
+    if (error) {
+      console.error('Error deleting hospital from Supabase:', error)
+      throw new Error(error.message || 'Failed to delete hospital')
     }
   } catch (error) {
     console.error('Error deleting hospital:', error)
@@ -168,25 +142,30 @@ export async function deleteHospital(id: string): Promise<void> {
  */
 export async function getAllHospitals(): Promise<Hospital[]> {
   try {
-    if (isSupabaseConfigured()) {
-      const { data, error } = await supabase
-        .from('hospitals')
-        .select('*')
-        .eq('status', 'active')
-        .order('hospital_name', { ascending: true })
+    const TIMEOUT_MS = 8000
+    const query = supabase
+      .from('hospitals')
+      .select('*')
+      .eq('status', 'active')
+      .order('hospital_name', { ascending: true })
+      .limit(100)
 
-      if (error) {
-        console.error('Error fetching hospitals from Supabase:', error)
-        throw new Error(error.message)
-      }
-      return (data || []) as Hospital[]
-    } else {
-      // Supabase is required
-      throw new Error('Supabase is not configured. Hospital operations require database connection.')
+    const { data, error } = await Promise.race([
+      query,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Hospitals query timed out')), TIMEOUT_MS)
+      )
+    ]) as any
+
+    if (error) {
+      console.error('Error fetching hospitals from Supabase:', error)
+      throw new Error(error.message)
     }
+    return (data || []) as Hospital[]
   } catch (error) {
     console.error('Error fetching hospitals:', error)
-    throw error
+    // Return empty array instead of throwing to prevent cascade failures
+    return []
   }
 }
 

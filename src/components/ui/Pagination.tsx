@@ -63,7 +63,7 @@ export function Pagination({
   }
 
   return (
-    <div className={cn('flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-white', className)}>
+    <div className={cn('flex items-center justify-between px-6 py-4 glass-card rounded-2xl mt-4', className)}>
       <div className="flex items-center gap-4">
         <div className="text-sm text-slate-700">
           Showing <span className="font-medium">{start}</span> to{' '}
@@ -124,10 +124,10 @@ export function Pagination({
                 key={pageNum}
                 onClick={() => onPageChange(pageNum)}
                 className={cn(
-                  'px-3 py-1.5 text-sm font-medium rounded-lg transition-colors',
+                  'px-3.5 py-2 text-sm font-medium rounded-xl transition-all shadow-sm',
                   currentPage === pageNum
-                    ? 'bg-teal-600 text-white'
-                    : 'text-slate-700 hover:bg-slate-100'
+                    ? 'bg-royal-blue text-white shadow-blue-900/20 ring-2 ring-blue-900/10'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-royal-blue'
                 )}
               >
                 {pageNum}

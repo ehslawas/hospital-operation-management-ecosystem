@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react'
+import React, { useState, useEffect, lazy, Suspense } from 'react'
 import { motion } from 'framer-motion'
-import { Search, Plus, Download, X, Edit, Trash2, Filter, FileUp } from 'lucide-react'
-import { Button, Input, Select, Badge, Table, Pagination, Modal, LoadingOverlay, Spinner } from '@/components/ui'
+import { Search, Plus, Download, FileUp, Edit, Trash2, Package, Syringe, CheckCircle, XCircle } from 'lucide-react'
+import { Button, Input, Select, Badge, Table, TableHeader, TableRow, TableCell, TableBody, Pagination, Modal, Spinner, ConfirmationDialog } from '@/components/ui'
+import { FinancialPageLayout } from '@/components/pharmacy/financial/FinancialPageLayout'
 import { useToastStore } from '@/stores/toastStore'
 import { useAuthStore } from '@/stores/authStore'
 import { formatCurrency } from '@/lib/utils'
 import {
   getNonDrugCatalogKPIs,
   getNonDrugCatalog,
-  searchNonDrugs,
   createNonDrug,
   updateNonDrug,
   deleteNonDrug,
@@ -18,44 +18,13 @@ import {
 } from '@/services/pharmacy/nonDrugCatalogService'
 import { getNonDrugCategories } from '@/services/pharmacy/inventoryService'
 import { getSuppliers } from '@/services/pharmacy/procurementService'
-import { isSupabaseConfigured } from '@/services/supabase'
 import type { NonDrugWithRelations, NonDrugCategory, Supplier } from '@/types/pharmacy'
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants'
 
 const ExcelImport = lazy(() => import('@/components/pharmacy/ExcelImport'))
 
 // =====================================================
-// KPI CARD COMPONENT
-// =====================================================
-
-interface KPICardProps {
-  title: string
-  value: number
-  color: 'primary' | 'success' | 'warning' | 'error'
-}
-
-const KPICard: React.FC<KPICardProps> = ({ title, value, color }) => {
-  const colorClasses = {
-    primary: 'bg-teal-50 border-teal-200 text-teal-700',
-    success: 'bg-emerald-50 border-emerald-200 text-emerald-700',
-    warning: 'bg-amber-50 border-amber-200 text-amber-700',
-    error: 'bg-rose-50 border-rose-200 text-rose-700',
-  }
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={`rounded-xl border-2 p-4 ${colorClasses[color]}`}
-    >
-      <p className="text-sm font-medium mb-1">{title}</p>
-      <p className="text-3xl font-bold">{value.toLocaleString()}</p>
-    </motion.div>
-  )
-}
-
-// =====================================================
-// NON-DRUG FORM MODAL COMPONENT
+// NON-DRUG FORM MODAL COMPONENT (Reused logic, updated styling)
 // =====================================================
 
 interface NonDrugFormModalProps {
@@ -75,40 +44,25 @@ const NonDrugFormModal: React.FC<NonDrugFormModalProps> = ({
   categories,
   suppliers,
 }) => {
-  const [formData, setFormData] = useState<Partial<NonDrugWithRelations & { packaging_description?: string }>>({
-    item_code: '',
-    item_name: '',
-    category_id: '',
-    supplier_id: '',
-    procurement_vote: undefined,
-    sku: '',
-    pku: '',
-    price: 0,
-    status: 'active',
-    min_stock_level: 0,
-    max_stock_level: 0,
-    reorder_level: 0,
-    unit_of_measure: 'unit',
-    packaging_description: '',
-  })
+  const [formData, setFormData] = useState<Partial<NonDrugWithRelations & { packaging_description?: string }>>({})
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
     if (nonDrug) {
       setFormData({
-        item_code: nonDrug.item_code,
-        item_name: nonDrug.item_name,
+        item_code: nonDrug.item_code || '',
+        item_name: nonDrug.item_name || '',
         category_id: nonDrug.category_id || '',
         supplier_id: nonDrug.supplier_id || '',
         procurement_vote: nonDrug.procurement_vote,
         sku: nonDrug.sku || '',
         pku: nonDrug.pku || '',
         price: nonDrug.price || 0,
-        status: nonDrug.status,
-        min_stock_level: nonDrug.min_stock_level,
-        max_stock_level: nonDrug.max_stock_level,
-        reorder_level: nonDrug.reorder_level,
-        unit_of_measure: nonDrug.unit_of_measure,
+        status: nonDrug.status || 'active',
+        min_stock_level: nonDrug.min_stock_level || 0,
+        max_stock_level: nonDrug.max_stock_level || 0,
+        reorder_level: nonDrug.reorder_level || 0,
+        unit_of_measure: nonDrug.unit_of_measure || 'unit',
         packaging_description: (nonDrug as any).packaging_description || '',
       })
     } else {
@@ -147,14 +101,11 @@ const NonDrugFormModal: React.FC<NonDrugFormModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={nonDrug ? 'Edit Non-Drug Item' : 'Add New Non-Drug Item'} size="full">
       <form onSubmit={handleSubmit} className="space-y-6 max-h-[calc(90vh-120px)] overflow-y-auto pr-2">
-        {/* Basic Information Section */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">
-            Basic Information
-          </h3>
+          <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">Basic Information</h3>
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Non-Drug Code *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Item Code *</label>
               <Input
                 value={formData.item_code || ''}
                 onChange={(e) => setFormData({ ...formData, item_code: e.target.value })}
@@ -162,7 +113,7 @@ const NonDrugFormModal: React.FC<NonDrugFormModalProps> = ({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Non-Drug Name *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Item Name *</label>
               <Input
                 value={formData.item_name || ''}
                 onChange={(e) => setFormData({ ...formData, item_name: e.target.value })}
@@ -170,7 +121,7 @@ const NonDrugFormModal: React.FC<NonDrugFormModalProps> = ({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Item Category</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
               <Select
                 value={formData.category_id || ''}
                 onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
@@ -183,12 +134,17 @@ const NonDrugFormModal: React.FC<NonDrugFormModalProps> = ({
                 ))}
               </Select>
             </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">Details</h3>
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Packaging Description</label>
               <Input
                 value={(formData as any).packaging_description || ''}
                 onChange={(e) => setFormData({ ...formData, packaging_description: e.target.value })}
-                placeholder="Enter packaging description"
               />
             </div>
             <div>
@@ -216,7 +172,7 @@ const NonDrugFormModal: React.FC<NonDrugFormModalProps> = ({
                   })
                 }
               >
-                <option value="">Select Procurement Vote</option>
+                <option value="">Select Vote</option>
                 <option value="appl">APPL</option>
                 <option value="cc">CC</option>
                 <option value="dp">DP</option>
@@ -232,28 +188,13 @@ const NonDrugFormModal: React.FC<NonDrugFormModalProps> = ({
                 <option value="">Select Supplier</option>
                 {suppliers.map((sup) => (
                   <option key={sup.id} value={sup.id}>
-                    {sup.company_name || 'Unknown Supplier'}
+                    {sup.company_name}
                   </option>
                 ))}
               </Select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-              <Select
-                value={formData.status || 'active'}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    status: e.target.value as 'active' | 'inactive',
-                  })
-                }
-              >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </Select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Unit Price (RM)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Price (RM)</label>
               <Input
                 type="number"
                 step="0.01"
@@ -261,393 +202,138 @@ const NonDrugFormModal: React.FC<NonDrugFormModalProps> = ({
                 onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Unit of Measure</label>
-              <Input
-                value={formData.unit_of_measure || ''}
-                onChange={(e) => setFormData({ ...formData, unit_of_measure: e.target.value })}
-              />
-            </div>
           </div>
         </div>
 
-        {/* Stock Management Section */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">
-            Stock Management
-          </h3>
+          <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">Stock & Status</h3>
           <div className="grid grid-cols-4 gap-4">
+            <div><label className="block text-sm font-medium text-gray-700 mb-1">Min Stock</label><Input type="number" value={formData.min_stock_level || 0} onChange={e => setFormData({ ...formData, min_stock_level: parseInt(e.target.value) })} /></div>
+            <div><label className="block text-sm font-medium text-gray-700 mb-1">Max Stock</label><Input type="number" value={formData.max_stock_level || 0} onChange={e => setFormData({ ...formData, max_stock_level: parseInt(e.target.value) })} /></div>
+            <div><label className="block text-sm font-medium text-gray-700 mb-1">Reorder Level</label><Input type="number" value={formData.reorder_level || 0} onChange={e => setFormData({ ...formData, reorder_level: parseInt(e.target.value) })} /></div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Min Stock Level</label>
-              <Input
-                type="number"
-                value={formData.min_stock_level || 0}
-                onChange={(e) =>
-                  setFormData({ ...formData, min_stock_level: parseInt(e.target.value) || 0 })
-                }
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Max Stock Level</label>
-              <Input
-                type="number"
-                value={formData.max_stock_level || 0}
-                onChange={(e) =>
-                  setFormData({ ...formData, max_stock_level: parseInt(e.target.value) || 0 })
-                }
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Reorder Level</label>
-              <Input
-                type="number"
-                value={formData.reorder_level || 0}
-                onChange={(e) =>
-                  setFormData({ ...formData, reorder_level: parseInt(e.target.value) || 0 })
-                }
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <Select value={formData.status || 'active'} onChange={e => setFormData({ ...formData, status: e.target.value as any })}>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </Select>
             </div>
           </div>
         </div>
 
         <div className="flex justify-end gap-3 pt-4 border-t sticky bottom-0 bg-white">
-          <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={isSaving}>
-            {isSaving ? <Spinner size="sm" /> : nonDrug ? 'Update' : 'Create'}
-          </Button>
+          <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>Cancel</Button>
+          <Button type="submit" disabled={isSaving}>{isSaving ? <Spinner size="sm" /> : nonDrug ? 'Update' : 'Create'}</Button>
         </div>
       </form>
     </Modal>
   )
 }
 
-// =====================================================
-// MAIN NON-DRUG CATALOG PAGE
-// =====================================================
-
 export const NonDrugCatalogPage: React.FC = () => {
   const { user } = useAuthStore()
   const { success: showSuccess, error: showError } = useToastStore()
 
   const [kpis, setKpis] = useState({ total: 0, active: 0, inactive: 0 })
-  const [nonDrugs, setNonDrugs] = useState<NonDrugWithRelations[]>([])
+  const [items, setItems] = useState<NonDrugWithRelations[]>([])
   const [categories, setCategories] = useState<NonDrugCategory[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [currentPage, setCurrentPage] = useState(1)
+
+  // Pagination & Filters
+  const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | undefined>(undefined)
 
-  // Filters
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchSuggestions, setSearchSuggestions] = useState<NonDrugWithRelations[]>([])
-  const [showSuggestions, setShowSuggestions] = useState(false)
-  const [categoryFilter, setCategoryFilter] = useState<string>('')
-  const [supplierFilter, setSupplierFilter] = useState<string>('')
-  const [procurementVoteFilter, setProcurementVoteFilter] = useState<string>('')
-  const [statusFilter, setStatusFilter] = useState<string>('')
+  const [search, setSearch] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
+  const [supplierFilter, setSupplierFilter] = useState('')
+  const [voteFilter, setVoteFilter] = useState('')
 
   // Modals
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
-  const [selectedNonDrug, setSelectedNonDrug] = useState<NonDrugWithRelations | null>(null)
-  const [isExporting, setIsExporting] = useState(false)
+  const [selectedItem, setSelectedItem] = useState<NonDrugWithRelations | null>(null)
 
-  // Load initial data
   useEffect(() => {
     if (user?.hospital_id) {
-      loadKPIs()
-      loadCategories()
-      loadSuppliers()
+      loadData()
+      loadMetadata()
     }
-  }, [user?.hospital_id])
+  }, [user?.hospital_id, page, pageSize, search, categoryFilter, supplierFilter, voteFilter])
 
-  // Load non-drugs when filters change
-  useEffect(() => {
+  const loadMetadata = async () => {
+    const cats = await getNonDrugCategories()
+    if (cats.data) setCategories(cats.data)
+
+    const sups = await getSuppliers(undefined, 1, 1000)
+    if (sups.data?.data) setSuppliers(sups.data.data)
+
     if (user?.hospital_id) {
-      loadNonDrugs()
+      const stats = await getNonDrugCatalogKPIs(user.hospital_id)
+      if (stats.data) setKpis(stats.data)
     }
-  }, [currentPage, pageSize, categoryFilter, supplierFilter, procurementVoteFilter, statusFilter, searchQuery, user?.hospital_id])
+  }
 
-  // Search suggestions
-  useEffect(() => {
-    if (searchQuery.length >= 2 && user?.hospital_id) {
-      const timer = setTimeout(() => {
-        loadSearchSuggestions()
-      }, 300)
-      return () => clearTimeout(timer)
-    } else {
-      setSearchSuggestions([])
-      setShowSuggestions(false)
-    }
-  }, [searchQuery])
-
-  const loadKPIs = async () => {
+  const loadData = async () => {
     if (!user?.hospital_id) return
-    try {
-      const result = await getNonDrugCatalogKPIs(user.hospital_id)
-      if (result.data) {
-        setKpis(result.data)
-      }
-    } catch (error) {
-      console.error('Error loading KPIs:', error)
-    }
-  }
-
-  const loadCategories = async () => {
-    try {
-      const result = await getNonDrugCategories()
-      if (result.data) {
-        setCategories(result.data)
-        console.log('Loaded categories:', result.data.length)
-      } else {
-        console.warn('No categories loaded:', result.error)
-      }
-    } catch (error) {
-      console.error('Error loading categories:', error)
-    }
-  }
-
-  const loadSuppliers = async () => {
-    try {
-      const result = await getSuppliers(undefined, 1, 1000) // Get all suppliers
-      if (result.data?.data) {
-        setSuppliers(result.data.data)
-        console.log('Loaded suppliers:', result.data.data.length)
-      } else {
-        console.warn('No suppliers loaded:', result.error)
-      }
-    } catch (error) {
-      console.error('Error loading suppliers:', error)
-    }
-  }
-
-  const loadNonDrugs = async () => {
-    if (!user?.hospital_id) {
-      console.log('loadNonDrugs: No user hospital_id')
-      return
-    }
-    console.log('loadNonDrugs called with hospital_id:', user.hospital_id)
     setIsLoading(true)
     try {
       const filter: NonDrugCatalogFilter = {
-        search: searchQuery?.trim() || undefined,
-        category_id: categoryFilter?.trim() || undefined,
-        supplier_id: supplierFilter?.trim() || undefined,
-        procurement_vote: procurementVoteFilter?.trim() ? (procurementVoteFilter as 'appl' | 'cc' | 'dp' | 'lp') : undefined,
-        status: statusFilter?.trim() ? (statusFilter as 'active' | 'inactive') : undefined,
+        search: search || undefined,
+        category_id: categoryFilter || undefined,
+        supplier_id: supplierFilter || undefined,
+        procurement_vote: voteFilter as any
       }
-      console.log('Loading with filters:', filter)
-      console.log('Supabase configured:', isSupabaseConfigured())
-
-      const result = await getNonDrugCatalog(user.hospital_id, filter, currentPage, pageSize)
-      if (result.data) {
-        console.log('Loaded non-drugs:', {
-          count: result.data.data.length,
-          total: result.data.total,
-          page: result.data.page,
-          totalPages: result.data.totalPages
-        })
-        setNonDrugs(result.data.data)
-        setTotal(result.data.total)
-        setTotalPages(result.data.totalPages)
-      } else if (result.error) {
-        console.error('Error loading non-drugs:', result.error)
-        showError('Error', result.error)
+      const res = await getNonDrugCatalog(user.hospital_id, filter, page, pageSize)
+      if (res.data) {
+        setItems(res.data.data)
+        setTotal(res.data.total)
+        setTotalPages(res.data.totalPages)
       }
-    } catch (error) {
-      showError('Error', 'Failed to load non-drug items')
-      console.error('Error loading non-drugs:', error)
     } finally {
       setIsLoading(false)
     }
   }
 
-  const loadSearchSuggestions = async () => {
+  const handleSave = async (data: Partial<NonDrugWithRelations>) => {
     if (!user?.hospital_id) return
     try {
-      const result = await searchNonDrugs(user.hospital_id, searchQuery, 10)
-      if (result.data) {
-        setSearchSuggestions(result.data)
-        setShowSuggestions(true)
-      }
-    } catch (error) {
-      console.error('Error loading search suggestions:', error)
-    }
-  }
-
-  const handleSearch = () => {
-    setCurrentPage(1)
-    setSortConfig(undefined) // Reset sort when searching
-    loadNonDrugs()
-  }
-
-  const handleClearFilters = () => {
-    setSearchQuery('')
-    setCategoryFilter('')
-    setSupplierFilter('')
-    setProcurementVoteFilter('')
-    setStatusFilter('')
-    setCurrentPage(1)
-    setSortConfig(undefined) // Reset sort when clearing filters
-  }
-
-  const handleSaveNonDrug = async (data: Partial<NonDrugWithRelations>) => {
-    if (!user?.hospital_id) return
-    try {
-      if (selectedNonDrug) {
-        // Update
-        const result = await updateNonDrug(selectedNonDrug.id, data)
-        if (result.error) {
-          showError('Error', result.error)
-          throw new Error(result.error)
-        }
-        showSuccess('Success', 'Non-drug item updated successfully')
+      if (selectedItem) {
+        await updateNonDrug(selectedItem.id, data)
+        showSuccess('Updated', 'Non-Drug updated successfully')
       } else {
-        // Create
-        const result = await createNonDrug(user.hospital_id, data)
-        if (result.error) {
-          showError('Error', result.error)
-          throw new Error(result.error)
-        }
-        showSuccess('Success', 'Non-drug item created successfully')
+        await createNonDrug(user.hospital_id, data)
+        showSuccess('Created', 'Non-Drug created successfully')
       }
-      await loadNonDrugs()
-      await loadKPIs()
+      loadData()
       setShowAddModal(false)
       setShowEditModal(false)
-      setSelectedNonDrug(null)
-    } catch (error) {
-      console.error('Error saving non-drug:', error)
+    } catch (e) {
+      showError('Error', 'Failed to save non-drug')
     }
   }
 
-  const handleDeleteNonDrug = async () => {
-    if (!selectedNonDrug) return
-    try {
-      console.log('Deleting non-drug:', {
-        id: selectedNonDrug.id,
-        code: selectedNonDrug.item_code,
-        name: selectedNonDrug.item_name
-      })
-      
-      const result = await deleteNonDrug(selectedNonDrug.id)
-      if (result.error) {
-        console.error('Delete error:', result.error)
-        showError('Error', result.error)
-        return
-      }
-      
-      console.log('Delete successful, reloading data...')
-      showSuccess('Success', 'Non-drug item deleted successfully')
-      setShowDeleteModal(false)
-      setSelectedNonDrug(null)
-      
-      // Wait a bit to ensure deletion is committed
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      await loadNonDrugs()
-      await loadKPIs()
-    } catch (error) {
-      showError('Error', 'Failed to delete non-drug item')
-      console.error('Error deleting non-drug:', error)
-    }
+  const handleDelete = async () => {
+    if (!selectedItem) return
+    await deleteNonDrug(selectedItem.id)
+    showSuccess('Deleted', 'Non-Drug deleted successfully')
+    setShowDeleteModal(false)
+    loadData()
   }
 
-  const handleExport = async () => {
-    if (!user?.hospital_id) return
-    setIsExporting(true)
-    try {
-      const filter: NonDrugCatalogFilter = {
-        search: searchQuery?.trim() || undefined,
-        category_id: categoryFilter?.trim() || undefined,
-        supplier_id: supplierFilter?.trim() || undefined,
-        procurement_vote: procurementVoteFilter?.trim() ? (procurementVoteFilter as 'appl' | 'cc' | 'dp' | 'lp') : undefined,
-        status: statusFilter?.trim() ? (statusFilter as 'active' | 'inactive') : undefined,
-      }
-
-      const result = await exportNonDrugCatalog(user.hospital_id, filter)
-      if (result.data) {
-        // Download CSV
-        const blob = new Blob([result.data], { type: 'text/csv' })
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `non-drug-catalog-${new Date().toISOString().split('T')[0]}.csv`
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        window.URL.revokeObjectURL(url)
-        showSuccess('Success', 'Non-drug catalog exported successfully')
-      } else if (result.error) {
-        showError('Error', result.error)
-      }
-    } catch (error) {
-      showError('Error', 'Failed to export non-drug catalog')
-      console.error('Error exporting:', error)
-    } finally {
-      setIsExporting(false)
+  const handleImport = async (data: any[]) => {
+    if (!user?.hospital_id) return { success: 0, errors: [] }
+    const res = await batchImportNonDrugs(user.hospital_id, data)
+    if (res.data) {
+      showSuccess('Imported', `Successfully imported ${res.data.success} items`)
+      loadData()
+      return res.data
     }
-  }
-
-  const handleImport = async (
-    data: any[],
-    mappings: any[],
-    onProgress?: (info: { processed: number; total: number; success: number; failed: number }) => void
-  ) => {
-    if (!user?.hospital_id) {
-      console.error('handleImport: No user hospital_id')
-      return { success: 0, errors: ['User not authenticated'] }
-    }
-
-    console.log('handleImport called with:', {
-      dataCount: data.length,
-      hospital_id: user.hospital_id,
-      sampleData: data.slice(0, 2)
-    })
-
-    try {
-      const result = await batchImportNonDrugs(user.hospital_id, data, onProgress)
-      console.log('Import result:', result)
-      
-      if (result.data) {
-        // Force a small delay to ensure data is persisted
-        await new Promise(resolve => setTimeout(resolve, 100))
-        
-        // Reset to first page and clear filters to show all imported items
-        setCurrentPage(1)
-        setSearchQuery('')
-        setCategoryFilter('')
-        setSupplierFilter('')
-        setProcurementVoteFilter('')
-        setStatusFilter('')
-        
-        console.log('Reloading non-drugs after import...')
-        await loadNonDrugs()
-        await loadKPIs()
-        
-        if (result.data.success > 0) {
-          showSuccess('Success', `Successfully imported ${result.data.success} non-drug item(s). Please refresh the page if items don't appear.`)
-        }
-        return result.data
-      } else if (result.error) {
-        console.error('Import error:', result.error)
-        showError('Error', result.error)
-        return { success: 0, errors: [result.error] }
-      }
-      return { success: 0, errors: ['Unknown error'] }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Failed to import non-drugs'
-      console.error('Import exception:', error)
-      showError('Error', errorMsg)
-      return { success: 0, errors: [errorMsg] }
-    }
+    return { success: 0, errors: ['Import failed'] }
   }
 
   const nonDrugImportFields = [
@@ -667,426 +353,169 @@ export const NonDrugCatalogPage: React.FC = () => {
     { key: 'reorder_level', label: 'Reorder Level', required: false, type: 'number' as const },
   ]
 
-  // Sort data based on sortConfig
-  const sortedNonDrugs = useMemo(() => {
-    if (!sortConfig) return nonDrugs
-
-    return [...nonDrugs].sort((a, b) => {
-      let aValue: any
-      let bValue: any
-
-      // Handle different column types
-      switch (sortConfig.key) {
-        case 'item_code':
-          aValue = a.item_code || ''
-          bValue = b.item_code || ''
-          break
-        case 'item_name':
-          aValue = a.item_name || ''
-          bValue = b.item_name || ''
-          break
-        case 'category':
-          aValue = a.category?.category_name || ''
-          bValue = b.category?.category_name || ''
-          break
-        case 'packaging_description':
-          aValue = (a as any).packaging_description || ''
-          bValue = (b as any).packaging_description || ''
-          break
-        case 'sku':
-          aValue = a.sku || ''
-          bValue = b.sku || ''
-          break
-        case 'pku':
-          aValue = a.pku || ''
-          bValue = b.pku || ''
-          break
-        case 'procurement_vote':
-          aValue = a.procurement_vote || ''
-          bValue = b.procurement_vote || ''
-          break
-        case 'supplier':
-          aValue = a.supplier?.supplier_name || ''
-          bValue = b.supplier?.supplier_name || ''
-          break
-        case 'status':
-          aValue = a.status || ''
-          bValue = b.status || ''
-          break
-        case 'price':
-          aValue = a.price || 0
-          bValue = b.price || 0
-          break
-        default:
-          return 0
-      }
-
-      // Compare values
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        const comparison = aValue.localeCompare(bValue, undefined, { sensitivity: 'base' })
-        return sortConfig.direction === 'asc' ? comparison : -comparison
-      } else {
-        const comparison = aValue > bValue ? 1 : aValue < bValue ? -1 : 0
-        return sortConfig.direction === 'asc' ? comparison : -comparison
-      }
-    })
-  }, [nonDrugs, sortConfig])
-
-  const columns = [
-    {
-      key: 'item_code',
-      label: 'NON-DRUG CODE',
-      sortable: true,
-    },
-    {
-      key: 'item_name',
-      label: 'NON-DRUG NAME',
-      sortable: true,
-      className: 'min-w-[350px] w-[35%]',
-      render: (_value: unknown, item: NonDrugWithRelations) => (
-        <div className="max-w-full">
-          <p className="text-sm font-medium text-gray-900 break-words whitespace-normal">{item.item_name}</p>
-        </div>
-      ),
-    },
-    {
-      key: 'category',
-      label: 'ITEM CATEGORY',
-      sortable: true,
-      render: (_value: unknown, item: NonDrugWithRelations) => item.category?.category_name || '-',
-    },
-    {
-      key: 'packaging_description',
-      label: 'PACKAGING DESCRIPTION',
-      sortable: true,
-      render: (_value: unknown, item: NonDrugWithRelations) => (item as any).packaging_description || '-',
-    },
-    {
-      key: 'sku',
-      label: 'SKU',
-      sortable: true,
-      render: (_value: unknown, item: NonDrugWithRelations) => item.sku || '-',
-    },
-    {
-      key: 'pku',
-      label: 'PKU',
-      sortable: true,
-      render: (_value: unknown, item: NonDrugWithRelations) => item.pku || '-',
-    },
-    {
-      key: 'procurement_vote',
-      label: 'PROCUREMENT VOTE',
-      sortable: true,
-      render: (_value: unknown, item: NonDrugWithRelations) => (item.procurement_vote?.toUpperCase() || '-'),
-    },
-    {
-      key: 'supplier',
-      label: 'SUPPLIER',
-      sortable: true,
-      render: (_value: unknown, item: NonDrugWithRelations) => item.supplier?.supplier_name || '-',
-    },
-    {
-      key: 'status',
-      label: 'STATUS',
-      sortable: true,
-      render: (_value: unknown, item: NonDrugWithRelations) => {
-        const statusColors = {
-          active: 'success',
-          inactive: 'warning',
-        } as const
-        return (
-          <Badge variant={statusColors[item.status] || 'default'} size="sm">
-            {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-          </Badge>
-        )
-      },
-    },
-    {
-      key: 'price',
-      label: 'UNIT PRICE(RM)',
-      sortable: true,
-      render: (_value: unknown, item: NonDrugWithRelations) => formatCurrency(item.price || 0),
-    },
-    {
-      key: 'actions',
-      label: 'ACTIONS',
-      sortable: false,
-      render: (_value: unknown, item: NonDrugWithRelations) => (
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation()
-              setSelectedNonDrug(item)
-              setShowEditModal(true)
-            }}
-          >
-            <Edit className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation()
-              setSelectedNonDrug(item)
-              setShowDeleteModal(true)
-            }}
-          >
-            <Trash2 className="w-4 h-4 text-red-600" />
-          </Button>
-        </div>
-      ),
-    },
-  ]
-
-  const hasActiveFilters =
-    searchQuery || categoryFilter || supplierFilter || procurementVoteFilter || statusFilter
+  const headerActions = (
+    <div className="flex items-center gap-2">
+      <Button variant="outline" onClick={() => setShowImportModal(true)} className="bg-white/50 backdrop-blur-sm text-blue-700 border-blue-200">
+        <FileUp className="w-4 h-4 mr-2" /> Import
+      </Button>
+      <Button variant="outline" onClick={() => exportNonDrugCatalog(user?.hospital_id || '')} className="bg-white/50 backdrop-blur-sm text-emerald-700 border-emerald-200">
+        <Download className="w-4 h-4 mr-2" /> Export
+      </Button>
+      <Button onClick={() => { setSelectedItem(null); setShowAddModal(true) }} className="bg-gradient-to-r from-blue-600 to-indigo-600 shadow-md">
+        <Plus className="w-4 h-4 mr-2" /> New Non-Drug
+      </Button>
+    </div>
+  )
 
   return (
-    <div className="space-y-6 p-6">
-      {/* KPI Section */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <KPICard title="Total" value={kpis.total} color="primary" />
-        <KPICard title="Active" value={kpis.active} color="success" />
-        <KPICard title="Inactive" value={kpis.inactive} color="warning" />
-      </div>
-
-      {/* Search and Filter Section */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-4">
-        <div className="flex items-center gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <Input
-              placeholder="Search by name or code..."
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value)
-                if (e.target.value.length < 2) {
-                  setShowSuggestions(false)
-                }
-              }}
-              onFocus={() => {
-                if (searchSuggestions.length > 0) setShowSuggestions(true)
-              }}
-              onBlur={() => {
-                setTimeout(() => setShowSuggestions(false), 200)
-              }}
-              className="pl-10"
-            />
-            {showSuggestions && searchSuggestions.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                {searchSuggestions.map((item) => (
-                  <div
-                    key={item.id}
-                    className="p-2 hover:bg-gray-100 cursor-pointer"
-                    onClick={() => {
-                      setSearchQuery(item.item_name)
-                      setShowSuggestions(false)
-                      handleSearch()
-                    }}
-                  >
-                    <p className="font-medium">{item.item_name}</p>
-                    <p className="text-xs text-gray-500">{item.item_code}</p>
-                  </div>
-                ))}
+    <FinancialPageLayout
+      title="Non-Drug Catalog"
+      description="Manage medical consumables and equipment."
+      icon={Syringe}
+      breadcrumbs={[{ label: 'Catalogs', href: '#' }, { label: 'Non-Drugs' }]}
+      actions={headerActions}
+    >
+      <div className="space-y-6">
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="p-5 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-400 text-white shadow-lg relative overflow-hidden">
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-white/20 rounded-lg"><Package className="w-5 h-5 text-blue-50" /></div>
+                <span className="text-sm font-medium text-blue-50">Total Items</span>
               </div>
-            )}
-          </div>
-          <Button onClick={handleSearch}>
-            <Search className="w-4 h-4 mr-2" />
-            Search
-          </Button>
+              <p className="text-3xl font-bold">{kpis.total}</p>
+            </div>
+          </motion.div>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="p-5 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-400 text-white shadow-lg relative overflow-hidden">
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-white/20 rounded-lg"><CheckCircle className="w-5 h-5 text-emerald-50" /></div>
+                <span className="text-sm font-medium text-emerald-50">Active Items</span>
+              </div>
+              <p className="text-3xl font-bold">{kpis.active}</p>
+            </div>
+          </motion.div>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="p-5 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-400 text-white shadow-lg relative overflow-hidden">
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-white/20 rounded-lg"><XCircle className="w-5 h-5 text-amber-50" /></div>
+                <span className="text-sm font-medium text-amber-50">Inactive Items</span>
+              </div>
+              <p className="text-3xl font-bold">{kpis.inactive}</p>
+            </div>
+          </motion.div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <Select
-            value={categoryFilter}
-            onChange={(e) => {
-              setCategoryFilter(e.target.value)
-              setCurrentPage(1)
-              setSortConfig(undefined)
-            }}
-            placeholder="Category"
-          >
-            <option value="">All Categories</option>
-            {categories.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {cat.category_name}
-              </option>
-            ))}
-          </Select>
+        {/* Filters */}
+        <div className="glass-card rounded-xl p-4 flex flex-col lg:flex-row gap-4 border border-white/40 shadow-sm">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search items..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full pl-9 pr-4 h-10 bg-slate-50 border-transparent rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-100 outline-none text-sm transition-all"
+            />
+          </div>
+          <div className="flex gap-3">
+            <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="h-10 px-3 bg-slate-50 border-transparent rounded-lg text-sm text-slate-600 focus:bg-white outline-none">
+              <option value="">All Categories</option>
+              {categories.map(c => <option key={c.id} value={c.id}>{c.category_name}</option>)}
+            </select>
+            <select value={supplierFilter} onChange={e => setSupplierFilter(e.target.value)} className="h-10 px-3 bg-slate-50 border-transparent rounded-lg text-sm text-slate-600 focus:bg-white outline-none">
+              <option value="">All Suppliers</option>
+              {suppliers.map(s => <option key={s.id} value={s.id}>{s.company_name}</option>)}
+            </select>
+            <select value={voteFilter} onChange={e => setVoteFilter(e.target.value)} className="h-10 px-3 bg-slate-50 border-transparent rounded-lg text-sm text-slate-600 focus:bg-white outline-none">
+              <option value="">All Votes</option>
+              <option value="appl">APPL</option>
+              <option value="cc">CC</option>
+              <option value="dp">DP</option>
+              <option value="lp">LP</option>
+            </select>
+          </div>
+        </div>
 
-          <Select
-            value={supplierFilter}
-            onChange={(e) => {
-              setSupplierFilter(e.target.value)
-              setCurrentPage(1)
-              setSortConfig(undefined)
-            }}
-            placeholder="Supplier"
-          >
-            <option value="">All Suppliers</option>
-            {suppliers.length > 0 ? (
-              suppliers.map((sup) => (
-                <option key={sup.id} value={sup.id}>
-                  {sup.company_name || 'Unknown Supplier'}
-                </option>
-              ))
-            ) : (
-              <option value="" disabled>No suppliers available</option>
-            )}
-          </Select>
-
-          <Select
-            value={procurementVoteFilter}
-            onChange={(e) => {
-              setProcurementVoteFilter(e.target.value)
-              setCurrentPage(1)
-              setSortConfig(undefined)
-            }}
-            placeholder="Procurement Vote"
-          >
-            <option value="">All Votes</option>
-            <option value="appl">APPL</option>
-            <option value="cc">CC</option>
-            <option value="dp">DP</option>
-            <option value="lp">LP</option>
-          </Select>
-
-          <Select
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value)
-              setCurrentPage(1)
-              setSortConfig(undefined)
-            }}
-            placeholder="Status"
-          >
-            <option value="">All Status</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </Select>
-
-          <Button variant="outline" onClick={handleClearFilters} disabled={!hasActiveFilters}>
-            <X className="w-4 h-4 mr-2" />
-            Clear Filters
-          </Button>
+        {/* Table */}
+        <div className="glass-card rounded-xl overflow-hidden shadow-sm border border-slate-100">
+          <Table>
+            <TableHeader className="bg-slate-50/50">
+              <TableRow>
+                <TableCell as="th" className="font-semibold text-slate-600">Item Code</TableCell>
+                <TableCell as="th" className="font-semibold text-slate-600 w-[30%]">Item Name</TableCell>
+                <TableCell as="th" className="font-semibold text-slate-600">Category</TableCell>
+                <TableCell as="th" className="font-semibold text-slate-600">Supplier</TableCell>
+                <TableCell as="th" className="font-semibold text-slate-600 text-center">Vote</TableCell>
+                <TableCell as="th" className="font-semibold text-slate-600 text-right">Price</TableCell>
+                <TableCell as="th" className="font-semibold text-slate-600 text-center">Status</TableCell>
+                <TableCell as="th" className="font-semibold text-slate-600 text-right">Actions</TableCell>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow><TableCell colSpan={8} className="text-center py-10"><Spinner size="lg" /></TableCell></TableRow>
+              ) : items.length === 0 ? (
+                <TableRow><TableCell colSpan={8} className="text-center py-10 text-slate-500">No items found</TableCell></TableRow>
+              ) : (
+                items.map(item => (
+                  <TableRow key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                    <TableCell className="font-medium text-slate-700">{item.item_code}</TableCell>
+                    <TableCell className="text-slate-600">{item.item_name}</TableCell>
+                    <TableCell><Badge variant="primary" className="text-xs font-semibold px-2 py-0.5">
+                      {item.category?.category_name || '—'}</Badge></TableCell>
+                    <TableCell className="text-slate-600 text-sm">{item.supplier?.company_name || '—'}</TableCell>
+                    <TableCell className="text-center"><span className="uppercase text-xs font-bold text-slate-500">{item.procurement_vote || '—'}</span></TableCell>
+                    <TableCell className="text-right font-mono text-slate-700">{formatCurrency(item.price || 0)}</TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant={item.status === 'active' ? 'success' : 'gray'}>
+                        {item.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(item); setShowEditModal(true) }}>
+                          <Edit className="w-3.5 h-3.5 text-blue-600" />
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(item); setShowDeleteModal(true) }}>
+                          <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+          {totalPages > 0 && <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} total={total} pageSize={pageSize} onPageSizeChange={setPageSize} className="border-t border-slate-100 p-4" />}
         </div>
       </div>
 
-      {/* Actions Bar */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-gray-900">Non-Drug Catalog</h2>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={() => setShowImportModal(true)}>
-            <FileUp className="w-4 h-4 mr-2" />
-            Import from Document
-          </Button>
-          <Button variant="outline" onClick={handleExport} disabled={isExporting}>
-            <Download className="w-4 h-4 mr-2" />
-            {isExporting ? 'Exporting...' : 'Export Data'}
-          </Button>
-          <Button
-            onClick={() => {
-              setSelectedNonDrug(null)
-              setShowAddModal(true)
-            }}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add New Non-Drug
-          </Button>
-        </div>
-      </div>
-
-      {/* Table */}
-      {isLoading ? (
-        <LoadingOverlay />
-      ) : (
-        <>
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <Table
-              data={sortedNonDrugs}
-              columns={columns}
-              sortConfig={sortConfig}
-              onSort={(key) => {
-                setSortConfig((prev) => {
-                  if (prev?.key === key) {
-                    return prev.direction === 'asc'
-                      ? { key, direction: 'desc' }
-                      : undefined
-                  }
-                  return { key, direction: 'asc' }
-                })
-              }}
-              isLoading={isLoading}
-              emptyMessage="No non-drug items found"
-            />
-          </div>
-          {totalPages > 1 && (
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-              pageSize={pageSize}
-              onPageSizeChange={setPageSize}
-              total={total}
-            />
-          )}
-        </>
-      )}
-
-      {/* Modals */}
+      {/* Dialogs */}
       <NonDrugFormModal
         isOpen={showAddModal}
-        onClose={() => {
-          setShowAddModal(false)
-          setSelectedNonDrug(null)
-        }}
-        onSave={handleSaveNonDrug}
+        onClose={() => setShowAddModal(false)}
+        onSave={handleSave}
         categories={categories}
         suppliers={suppliers}
       />
-
       <NonDrugFormModal
         isOpen={showEditModal}
-        onClose={() => {
-          setShowEditModal(false)
-          setSelectedNonDrug(null)
-        }}
-        onSave={handleSaveNonDrug}
-        nonDrug={selectedNonDrug}
+        onClose={() => setShowEditModal(false)}
+        onSave={handleSave}
+        nonDrug={selectedItem}
         categories={categories}
         suppliers={suppliers}
       />
-
-      <Modal
+      <ConfirmationDialog
         isOpen={showDeleteModal}
-        onClose={() => {
-          setShowDeleteModal(false)
-          setSelectedNonDrug(null)
-        }}
-        title="Delete Non-Drug Item"
-      >
-        <div className="space-y-4">
-          <p>Are you sure you want to delete "{selectedNonDrug?.item_name}"?</p>
-          <p className="text-sm text-gray-600">This action cannot be undone.</p>
-          <div className="flex justify-end gap-3">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowDeleteModal(false)
-                setSelectedNonDrug(null)
-              }}
-            >
-              Cancel
-            </Button>
-            <Button variant="danger" onClick={handleDeleteNonDrug}>
-              Delete
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleDelete}
+        title="Delete Item"
+        message={`Are you sure you want to delete ${selectedItem?.item_name}?`}
+        variant="danger"
+      />
 
       <Suspense fallback={<div className="p-4 text-center">Loading import dialog...</div>}>
         <ExcelImport
@@ -1094,14 +523,13 @@ export const NonDrugCatalogPage: React.FC = () => {
           onClose={() => setShowImportModal(false)}
           onImport={handleImport}
           targetFields={nonDrugImportFields}
-          title="Import Non-Drug Items from Document"
-          description="Upload an Excel file, PDF, or image to import non-drug items. Our AI will automatically extract and import catalog information from any document."
+          title="Import Non-Drugs from Document"
+          description="Upload an Excel file, PDF, or image to import non-drugs."
           catalogType="non_drug"
         />
       </Suspense>
-    </div>
+    </FinancialPageLayout>
   )
 }
 
 export default NonDrugCatalogPage
-

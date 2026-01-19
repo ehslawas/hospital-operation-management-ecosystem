@@ -36,14 +36,14 @@ export const StockLocationPage: React.FC = () => {
   }, [hospitalId])
 
   const renderLocationTypeBadge = (type: LocationType) => {
-    const map: Record<LocationType, { color: 'success' | 'warning' | 'error' | 'info' | 'secondary'; label: string }> = {
+    const map: Record<LocationType, { color: 'success' | 'warning' | 'error' | 'info' | 'gray'; label: string }> = {
       warehouse: { color: 'info', label: 'Warehouse' },
       pharmacy: { color: 'success', label: 'Pharmacy' },
       ward: { color: 'warning', label: 'Ward' },
-      cold_room: { color: 'secondary', label: 'Cold Room' },
+      cold_room: { color: 'gray', label: 'Cold Room' },
       controlled: { color: 'error', label: 'Controlled' },
     }
-    const cfg = map[type] || { color: 'secondary', label: type }
+    const cfg = map[type] || { color: 'gray', label: type }
     return <Badge variant={cfg.color}>{cfg.label}</Badge>
   }
 
@@ -185,7 +185,7 @@ export const StockLocationPage: React.FC = () => {
                     {location.is_active ? (
                       <Badge variant="success">Active</Badge>
                     ) : (
-                      <Badge variant="secondary">Inactive</Badge>
+                      <Badge variant="gray">Inactive</Badge>
                     )}
                   </Table.Cell>
                 </Table.Row>

@@ -65,7 +65,7 @@ BEGIN
       WHEN 'paediatric_ward' THEN 'Paediatric Ward'::TEXT
       WHEN 'maternity_ward' THEN 'Maternity Ward'::TEXT
       WHEN 'emergency_trauma' THEN 'Emergency & Trauma'::TEXT
-      WHEN 'laboratory' THEN 'Laboratory'::TEXT
+      WHEN 'laboratory' THEN 'Pathologist'::TEXT
       WHEN 'operation_theater' THEN 'Operation Theater'::TEXT
       WHEN 'cssu_cssd' THEN 'CSSU/CSSD'::TEXT
       WHEN 'radiology' THEN 'Radiology & Radiography'::TEXT

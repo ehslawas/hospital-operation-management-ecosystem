@@ -30,10 +30,10 @@ export interface ExcelImportProps {
     mappings: ColumnMapping[],
     onProgress?: (info: { processed: number; total: number; success: number; failed: number }) => void
   ) => Promise<{ success: number; errors: string[] }>
-  targetFields: Array<{ key: string; label: string; required?: boolean; type?: 'string' | 'number' | 'select' }>
+  targetFields: Array<{ key: string; label: string; required?: boolean; type?: 'string' | 'number' | 'select' | 'date' }>
   title?: string
   description?: string
-  catalogType?: 'drug' | 'non_drug' | 'contract' // For Vision AI document analysis
+  catalogType?: 'drug' | 'non_drug' | 'contract' | 'contract_drug' | 'contract_non_drug' // For Vision AI document analysis
 }
 
 export const ExcelImport: React.FC<ExcelImportProps> = ({
@@ -105,7 +105,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
   }
 
   // AI-assisted column mapping using pattern matching
-  const mapColumns = useCallback((columns: string[], targetFields: ExcelImportProps['targetFields'], catalogType?: 'drug' | 'non_drug' | 'contract'): ColumnMapping[] => {
+  const mapColumns = useCallback((columns: string[], targetFields: ExcelImportProps['targetFields'], catalogType?: 'drug' | 'non_drug' | 'contract' | 'contract_drug' | 'contract_non_drug'): ColumnMapping[] => {
     const mappings: ColumnMapping[] = []
 
     // Create a mapping dictionary with various patterns
@@ -120,24 +120,37 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
 
       // Common variations - more aggressive patterns
       if (key.includes('code') || key.includes('drug_code') || key.includes('item_code')) {
-        // Prioritize columns that look like product codes, not packaging descriptions
-        patterns.push('drug/non-drug code', 'drug/non-drug', 'drug code', 'non-drug code', 'product code', 'code', 'item code', 'item_code', 'drug_code', 'id', 'identifier', 'item id', 'drug id', 'itemid', 'drugid')
-        // Lower priority for generic "item code" which might be packaging
-        patterns.push('item code') // Add at end for lower priority
+        // Prioritize columns that look like product codes
+        patterns.push('drug/non-drug code', 'drug code', 'non-drug code', 'product code', 'item code', 'item_code', 'drug_code', 'kod item', 'kod ubat', 'kod')
+        // Less specific but still likely codes
+        patterns.push('code', 'id', 'identifier', 'item id', 'drug id', 'itemid', 'drugid', 'sku')
       }
       if (key.includes('name') || key.includes('drug_name') || key.includes('item_name')) {
-        // Prioritize "drug/non-drug name" patterns first (highest priority)
-        patterns.push('drug/non-drug name', 'drug/non-drug', 'drug name', 'non-drug name', 'non drug name')
-        // Then product name patterns
-        patterns.push('product name', 'name', 'item name', 'item_name', 'drug_name', 'product_name', 'title')
-        // Lower priority for generic descriptions
-        patterns.push('description', 'desc', 'packaging description') // Add at end for lower priority
+        // Prioritize "drug/non-drug name" patterns first
+        patterns.push('drug/non-drug name', 'drug name', 'non-drug name', 'non drug name', 'nama item', 'nama ubat', 'item name', 'item_name')
+        // General name patterns - prioritize clear name headers
+        patterns.push('product name', 'name', 'drug_name', 'product_name', 'title', 'produk', 'ubat')
+        // Only use generic label as lowest fallback
+        patterns.push('label')
       }
       if (key.includes('sku')) {
         patterns.push('sku', 'stock keeping unit')
       }
       if (key.includes('pku')) {
         patterns.push('pku', 'packing unit')
+      }
+      if (key.includes('packaging') || key === 'packaging_description' || key === 'pku' || key === 'uom') {
+        // High priority patterns for "Packaging" to avoid matching generic "Description"
+        patterns.unshift('packaging', 'packaging description', 'packaging_description', 'pembungkusan', 'deskripsi pembungkusan', 'spesifikasi pembungkusan', 'packaging_spec')
+        patterns.push('package', 'unit', 'uom', 'pack', 'pku', 'packing unit', 'unit of measure', 'unit ukuran', 'saiz', 'size', 'qty', 'pack size', 'packing')
+      }
+      if (key.includes('description') && !key.includes('packaging')) {
+        // Support for generic "Description"
+        patterns.push('description', 'desc', 'deskripsi', 'keterangan', 'maklumat')
+      }
+      if (key.includes('notes') || key === 'notes') {
+        // Support for "Catatan", "Notes", "Remarks"
+        patterns.push('catatan', 'nota', 'notes', 'note', 'remarks', 'remark', 'comments', 'comment')
       }
       if (key.includes('category')) {
         patterns.push('item category', 'item_category', 'category', 'cat', 'type', 'classification', 'item type', 'item_type')
@@ -146,7 +159,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
         patterns.push('supplier', 'vendor', 'manufacturer', 'supplier name', 'vendor name')
       }
       if (key.includes('price')) {
-        patterns.push('price', 'cost', 'unit price', 'unit cost', 'amount', 'rm', 'ringgit')
+        patterns.push('price', 'price (rm)', 'price rm', 'harga (rm)', 'harga rm', 'cost', 'unit price', 'unit cost', 'amount', 'rm', 'ringgit')
       }
       if (key.includes('status')) {
         patterns.push('status', 'state', 'active', 'inactive')
@@ -189,7 +202,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
       }
 
       // CONTRACT CATALOG SPECIFIC PATTERNS
-      if (catalogType === 'contract') {
+      if (catalogType === 'contract' || catalogType === 'contract_drug' || catalogType === 'contract_non_drug') {
         if (key === 'item_name') {
           // Highest priority for "Drug Name" (current system label) and "Item" (common Excel header)
           patterns.unshift('drug name', 'drugname', 'item', 'item name', 'nama item', 'nama ubat', 'produk', 'product', 'product name')
@@ -249,13 +262,13 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
         .replace(/\s+/g, ' ')                   // Collapse spaces again
         .trim()
       const colLower = normalizedColumn.toLowerCase()
-      
+
       console.log(`[MAP] Processing column: "${column}" -> normalized: "${normalizedColumn}" -> lowercase: "${colLower}"`)
 
-      // DIRECT MATCHES FIRST: Handle "drug/non-drug code" and "drug/non-drug name" explicitly
+      // DIRECT MATCHES FIRST: Handle "code" and "name" explicitly
+      // For items with clear "drug/non-drug" prefixes
       if (colLower.includes('drug/non-drug') && colLower.includes('code')) {
-        // This is definitely the code column
-        const codeField = catalogType === 'drug' ? 'drug_code' : 'item_code'
+        const codeField = 'item_code'
         if (targetFields.some(f => f.key === codeField)) {
           const existing = fieldMatches.get(codeField)
           if (!existing || existing.confidence < 0.99) {
@@ -266,8 +279,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
       }
 
       if (colLower.includes('drug/non-drug') && colLower.includes('name')) {
-        // This is definitely the name column
-        const nameField = catalogType === 'drug' ? 'drug_name' : 'item_name'
+        const nameField = 'item_name'
         if (targetFields.some(f => f.key === nameField)) {
           const existing = fieldMatches.get(nameField)
           if (!existing || existing.confidence < 0.99) {
@@ -277,22 +289,78 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
         }
       }
 
+      // MORE DIRECT MATCHES: Handle common headers exactly
+      if (colLower === 'item code' || colLower === 'kod item' || colLower === 'product code' || colLower === 'drug code') {
+        const field = 'item_code'
+        if (targetFields.some(f => f.key === field)) {
+          const existing = fieldMatches.get(field)
+          if (!existing || existing.confidence < 0.99) {
+            fieldMatches.set(field, { column, confidence: 0.99 })
+            console.log(`[MAP] Direct match: "${column}" -> "${field}"`)
+          }
+        }
+      }
+
+      if (colLower === 'item name' || colLower === 'nama item' || colLower === 'product name' || colLower === 'drug name' || colLower === 'nama ubat') {
+        const field = 'item_name'
+        if (targetFields.some(f => f.key === field)) {
+          const existing = fieldMatches.get(field)
+          if (!existing || existing.confidence < 0.99) {
+            fieldMatches.set(field, { column, confidence: 0.99 })
+            console.log(`[MAP] Direct match: "${column}" -> "${field}"`)
+          }
+        }
+      }
+
+      if (colLower === 'price' || colLower === 'harga' || colLower === 'harga rm' || colLower === 'price rm' || colLower === 'unit price') {
+        const field = 'price'
+        if (targetFields.some(f => f.key === field)) {
+          const existing = fieldMatches.get(field)
+          if (!existing || existing.confidence < 0.99) {
+            fieldMatches.set(field, { column, confidence: 0.99 })
+            console.log(`[MAP] Direct match: "${column}" -> "${field}"`)
+          }
+        }
+      }
+
+      if (colLower === 'packaging' || colLower === 'pembungkusan' || colLower === 'packaging description' || colLower === 'pku' || colLower === 'uom' || colLower === 'pack size' || colLower === 'unit ukuran') {
+        const field = 'packaging_description'
+        if (targetFields.some(f => f.key === field)) {
+          const existing = fieldMatches.get(field)
+          if (!existing || existing.confidence < 0.99) {
+            fieldMatches.set(field, { column, confidence: 0.99 })
+            console.log(`[MAP] Direct match (packaging): "${column}" -> "${field}"`)
+          }
+        }
+      }
+
+      if (colLower === 'catatan' || colLower === 'notes' || colLower === 'nota' || colLower === 'remark' || colLower === 'remarks') {
+        const field = 'notes'
+        if (targetFields.some(f => f.key === field)) {
+          const existing = fieldMatches.get(field)
+          if (!existing || existing.confidence < 0.99) {
+            fieldMatches.set(field, { column, confidence: 0.99 })
+            console.log(`[MAP] Direct match: "${column}" -> "${field}"`)
+          }
+        }
+      }
+
       // CONTRACT CATALOG DIRECT MATCHES - STRICT matching to prevent misalignment
-      if (catalogType === 'contract') {
+      if (catalogType === 'contract' || catalogType === 'contract_drug' || catalogType === 'contract_non_drug') {
         // Item/Product name column - STRICT matching to avoid misalignment
         // Only match if it clearly looks like an item/drug name column, NOT a date or code column
         if (targetFields.some(f => f.key === 'item_name')) {
           const existing = fieldMatches.get('item_name')
           let confidence = 0
-          
+
           // REJECT if column looks like a date column
           if (colLower.includes('date') || colLower.includes('mula') || colLower.includes('tamat') ||
-              colLower.includes('tarikh') || colLower.includes('kontrak mula') || colLower.includes('kontrak tamat')) {
+            colLower.includes('tarikh') || colLower.includes('kontrak mula') || colLower.includes('kontrak tamat')) {
             confidence = 0 // Don't match date columns to item_name
           }
           // REJECT if column looks like a contract number column
-          else if (colLower.includes('no kontrak') || colLower.includes('contract number') || 
-                   colLower.includes('contract no') || (colLower.includes('no') && colLower.includes('kontrak'))) {
+          else if (colLower.includes('no kontrak') || colLower.includes('contract number') ||
+            colLower.includes('contract no') || (colLower.includes('no') && colLower.includes('kontrak'))) {
             confidence = 0 // Don't match contract number columns to item_name
           }
           // REJECT if column looks like a code column (long alphanumeric codes)
@@ -300,22 +368,22 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
             confidence = 0 // Don't match code columns to item_name
           }
           // STRICT matches only - exact header names
-          else if (colLower === 'drug name' || colLower === 'item name' || colLower === 'nama ubat' || 
-                   colLower === 'product name' || colLower === 'nama item') {
+          else if (colLower === 'drug name' || colLower === 'item name' || colLower === 'nama ubat' ||
+            colLower === 'product name' || colLower === 'nama item') {
             confidence = 0.99 // Highest confidence for exact matches
           }
           // "Item" alone is too ambiguous - don't match it
           // Only match if it contains both "item" AND "name"
           else if ((colLower.includes('item') && colLower.includes('name')) ||
-                   (colLower.includes('drug') && colLower.includes('name'))) {
+            (colLower.includes('drug') && colLower.includes('name'))) {
             confidence = 0.95
           }
           // Lower confidence for partial matches
-          else if (colLower.includes('product') || colLower.includes('drug') || 
-                   colLower.includes('nama ubat') || colLower.includes('nama item')) {
+          else if (colLower.includes('product') || colLower.includes('drug') ||
+            colLower.includes('nama ubat') || colLower.includes('nama item')) {
             confidence = 0.85
           }
-          
+
           if (confidence > 0 && (!existing || existing.confidence < confidence)) {
             fieldMatches.set('item_name', { column, confidence })
             console.log(`[MAP] Contract match: "${column}" -> "item_name" (confidence: ${confidence})`)
@@ -378,20 +446,20 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
         if (targetFields.some(f => f.key === 'unit_price')) {
           const existing = fieldMatches.get('unit_price')
           let confidence = 0
-          
+
           // Exact matches with RM
-          if ((colLower.includes('harga') && (colLower.includes('rm') || colLower.includes('(rm)'))) || 
-              (colLower.includes('price') && (colLower.includes('rm') || colLower.includes('(rm)')))) {
+          if ((colLower.includes('harga') && (colLower.includes('rm') || colLower.includes('(rm)'))) ||
+            (colLower.includes('price') && (colLower.includes('rm') || colLower.includes('(rm)')))) {
             confidence = 0.99
           }
           // Contains "harga" or "price" but check it's not "unit price" field being matched elsewhere
           else if (colLower.includes('harga') || (colLower.includes('price') && !colLower.includes('unit'))) {
             confidence = 0.9
           }
-          
+
           // Don't match if it's clearly a unit field
-          if (confidence > 0 && !colLower.includes('unit') && !colLower.includes('measure') && 
-              (!existing || existing.confidence < confidence)) {
+          if (confidence > 0 && !colLower.includes('unit') && !colLower.includes('measure') &&
+            (!existing || existing.confidence < confidence)) {
             fieldMatches.set('unit_price', { column, confidence })
             console.log(`[MAP] Contract match: "${column}" -> "unit_price" (confidence: ${confidence})`)
           }
@@ -424,16 +492,19 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
       Object.entries(fieldPatterns).forEach(([fieldKey, patterns]) => {
         patterns.forEach((pattern, patternIndex) => {
           const patternLower = pattern.toLowerCase()
+          // Normalize pattern to match colLower (remove parentheses)
+          const normalizedPattern = patternLower.replace(/[()]/g, ' ').replace(/\s+/g, ' ').trim()
+
           const priority = 1 / (patternIndex + 1) // Earlier patterns have higher priority
           let matchConfidence = 0
 
           // Exact match - highest priority
-          if (colLower === patternLower) {
+          if (colLower === normalizedPattern) {
             matchConfidence = 1.0 * priority
             console.log(`[MAP] Exact match: "${column}" -> "${fieldKey}" (confidence: ${matchConfidence})`)
           }
           // Contains match - check if column contains pattern or vice versa
-          else if (colLower.includes(patternLower) || patternLower.includes(colLower)) {
+          else if (colLower.includes(normalizedPattern) || normalizedPattern.includes(colLower)) {
             // Boost confidence for "drug/non-drug" patterns
             let confidence = Math.min(
               patternLower.length / colLower.length,
@@ -457,13 +528,30 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
               confidence = 0.95 // Very high confidence for drug/non-drug columns
               console.log(`[MAP] Drug/non-drug contains match: "${column}" -> "${fieldKey}" (confidence: ${confidence})`)
             }
-            // Lower confidence for generic "item code" which might be packaging
+            // Ensure "item code" matching "item code" is high confidence
             else if (patternLower === 'item code' && colLower === 'item code') {
-              confidence = 0.3 // Lower confidence - might be packaging description
-              console.log(`[MAP] Item code match (low confidence): "${column}" -> "${fieldKey}" (confidence: ${confidence})`)
+              confidence = 0.99
+              console.log(`[MAP] Item code match: "${column}" -> "${fieldKey}" (confidence: ${confidence})`)
+            }
+            // Boost "packaging" fields if they clearly match packaging keywords
+            else if (fieldKey === 'packaging_description' &&
+              (colLower.includes('packaging') || colLower.includes('pembungkusan'))) {
+              confidence = 0.98
+              console.log(`[MAP] Packaging boost: "${column}" -> "${fieldKey}" (confidence: ${confidence})`)
+            }
+            // Prevent names or other fields from stealing "packaging" columns
+            else if (fieldKey !== 'packaging_description' &&
+              (colLower === 'packaging' || colLower === 'pembungkusan')) {
+              confidence = 0.05
+            }
+            // Prevent names from matching codes
+            else if ((fieldKey.includes('name') || fieldKey.includes('desc')) && colLower.includes('code')) {
+              confidence = 0.1
             }
             // Lower confidence for "packaging description" to avoid mapping to name
-            else if (colLower.includes('packaging description') || colLower.includes('packaging')) {
+            // FIX: Only lower if the fieldKey is NOT a packaging/description field
+            else if ((colLower.includes('packaging description') || colLower.includes('packaging')) &&
+              (!fieldKey.includes('packaging') && !fieldKey.includes('desc'))) {
               confidence = 0.1 // Very low confidence - this is not a product name
             }
             else {
@@ -482,7 +570,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
           }
 
           // Update best match for this field if this is better
-          if (matchConfidence > 0.4) {
+          if (matchConfidence > 0.2) {
             const existing = fieldMatches.get(fieldKey)
             if (!existing || existing.confidence < matchConfidence) {
               fieldMatches.set(fieldKey, { column, confidence: matchConfidence })
@@ -496,12 +584,33 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
     console.log('[MAP] Final field matches:', Array.from(fieldMatches.entries()).map(([field, match]) => ({ field, column: match.column, confidence: match.confidence })))
 
     // Convert map to mappings array (now each field has its best matching column)
+    // To ensure one-to-one mapping, we evaluate all possible matches and pick the best uniquely
+    const allPossibleMatches: Array<{ fieldKey: string; column: string; confidence: number }> = []
+
     fieldMatches.forEach((match, fieldKey) => {
-      mappings.push({
-        excelColumn: match.column,
-        targetField: fieldKey,
-        confidence: match.confidence,
+      allPossibleMatches.push({
+        fieldKey,
+        column: match.column,
+        confidence: match.confidence
       })
+    })
+
+    // Sort by confidence DESC
+    allPossibleMatches.sort((a, b) => b.confidence - a.confidence)
+
+    const usedColumns = new Set<string>()
+    const usedFields = new Set<string>()
+
+    allPossibleMatches.forEach(match => {
+      if (!usedFields.has(match.fieldKey) && !usedColumns.has(match.column)) {
+        mappings.push({
+          excelColumn: match.column,
+          targetField: match.fieldKey,
+          confidence: match.confidence,
+        })
+        usedFields.add(match.fieldKey)
+        usedColumns.add(match.column)
+      }
     })
 
     return mappings
@@ -584,16 +693,8 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
 
       if (duplicateCheck.data?.isDuplicate && duplicateCheck.data.existingFile) {
         const existing = duplicateCheck.data.existingFile
-        setImportResult({
-          success: 0,
-          errors: [
-            `This file has already been uploaded on ${new Date(existing.uploaded_at).toLocaleDateString()}. ` +
-            `It imported ${existing.items_imported} item(s). Duplicate uploads are not allowed.`,
-          ],
-        })
-        setIsProcessing(false)
-        setFile(null)
-        return
+        console.log(`[IMPORT] Re-uploading file previously uploaded on ${new Date(existing.uploaded_at).toLocaleDateString()} with ${existing.items_imported} item(s). Will update existing records.`)
+        // Allow re-upload to proceed - existing items will be updated via upsert
       }
 
       // Record file upload
@@ -838,13 +939,13 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
           const workbook = XLSX.read(data, { type: 'array', cellHyperlinks: true })
           const sheetName = workbook.SheetNames[0]
           const worksheet = workbook.Sheets[sheetName]
-          
+
           // Extract hyperlinks from worksheet (Excel hyperlinks can be stored in multiple ways)
           // Method 1: Check !hyperlinks array (some Excel formats)
           // Method 2: Check cell.l (link) property (other Excel formats)
           // Method 3: Check cell.hlink property (yet another format)
           const hyperlinks: Record<string, string> = {}
-          
+
           // Method 1: !hyperlinks array
           if (worksheet['!hyperlinks'] && Array.isArray(worksheet['!hyperlinks'])) {
             worksheet['!hyperlinks'].forEach((hyperlink: any) => {
@@ -857,7 +958,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
               }
             })
           }
-          
+
           // Method 2 & 3: Check each cell directly for hyperlink properties
           const cellRefs = Object.keys(worksheet).filter(key => !key.startsWith('!'))
           cellRefs.forEach(ref => {
@@ -877,12 +978,12 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
               }
             }
           })
-          
+
           console.log('[IMPORT] Extracted hyperlinks from Excel:', Object.keys(hyperlinks).length, 'hyperlinks found')
           if (Object.keys(hyperlinks).length > 0) {
             console.log('[IMPORT] Sample hyperlinks:', Object.entries(hyperlinks).slice(0, 3))
           }
-          
+
           const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '', raw: false })
 
           if (!jsonData || jsonData.length === 0) {
@@ -897,7 +998,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
           // STRICT HEADER DETECTION: Find the EXACT header row for contracts
           // Must contain at least 3 of the expected contract headers to be considered valid
           let headerRowIndex = -1
-          
+
           if (catalogType === 'contract') {
             // Expected contract headers (case-insensitive)
             const expectedHeaders = [
@@ -911,7 +1012,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
               'tempoh serahan', 'delivery period',
               'sst'
             ]
-            
+
             // For contracts, look for rows containing MULTIPLE expected headers
             // This prevents misidentifying data rows as headers
             for (let i = 0; i < Math.min(jsonData.length, 10); i++) {
@@ -919,10 +1020,10 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
               if (row && Array.isArray(row)) {
                 const rowLower = row.map(cell => String(cell || '').trim().toLowerCase())
                 // Count how many expected headers are found in this row
-                const headerMatches = expectedHeaders.filter(header => 
+                const headerMatches = expectedHeaders.filter(header =>
                   rowLower.some(cell => cell === header || cell.includes(header) || header.includes(cell))
                 )
-                
+
                 // Require at least 3 header matches to consider this a header row
                 if (headerMatches.length >= 3) {
                   headerRowIndex = i
@@ -934,7 +1035,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
               }
             }
           }
-          
+
           // Fallback: first row with at least 3 non-empty cells that look like headers (not dates/numbers)
           if (headerRowIndex === -1) {
             for (let i = 0; i < Math.min(jsonData.length, 10); i++) {
@@ -944,8 +1045,8 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                   const cellStr = String(cell || '').trim()
                   // Skip if it looks like a date or number (data row, not header)
                   if (cellStr.match(/^\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}$/) || // Date format
-                      cellStr.match(/^\d+$/) || // Pure number
-                      cellStr.match(/^[A-Z0-9]{10,}$/)) { // Long alphanumeric code
+                    cellStr.match(/^\d+$/) || // Pure number
+                    cellStr.match(/^[A-Z0-9]{10,}$/)) { // Long alphanumeric code
                     return false
                   }
                   return cellStr !== ''
@@ -973,7 +1074,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
           const maxColumns = Math.max(
             ...jsonData.slice(headerRowIndex).map((row: any) => Array.isArray(row) ? row.length : 0)
           )
-          
+
           // Create headers array with default names for empty columns
           // IMPORTANT: We preserve column positions to ensure data alignment
           const headers: string[] = []
@@ -995,18 +1096,18 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
           // Even if a header is empty (placeholder), the data in that column position should still be accessible
           const rows = jsonData
             .slice(headerRowIndex + 1)
-            .filter((row) => row != null && Array.isArray(row) && row.length > 0)
-            .map((row, arrayIndex) => {
+            .filter((row: any) => row != null && Array.isArray(row) && row.length > 0)
+            .map((row: any, arrayIndex: number) => {
               const obj: any = {}
               // Calculate actual Excel row number (headerRowIndex + 1 for header, + 2 for first data row, etc.)
               const excelRowNumber = headerRowIndex + 2 + arrayIndex
-              
+
               // Map each column by its index position, preserving alignment
               // This ensures that column 0 data goes to column 0 header, column 1 to column 1, etc.
               for (let index = 0; index < Math.max(headers.length, row.length); index++) {
                 const header = headers[index] || `_column_${index + 1}`
                 const value = row[index]
-                
+
                 // Convert column index to Excel column letter (A, B, C, ..., Z, AA, AB, ...)
                 const getColumnLetter = (colIndex: number): string => {
                   let colLetter = ''
@@ -1019,10 +1120,10 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                 }
                 const columnLetter = getColumnLetter(index)
                 const excelRef = `${columnLetter}${excelRowNumber}`
-                
+
                 // Check if this cell has a hyperlink - use the hyperlink URL instead of the display text
                 let cellValue = value != null ? String(value).trim() : ''
-                
+
                 // For SST column specifically, prioritize hyperlink URL or URL in text
                 if (header.toLowerCase().includes('sst') || header.toLowerCase() === 'sst') {
                   // First, check if there's a hyperlink URL
@@ -1049,7 +1150,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                     console.log(`[IMPORT] Cell ${excelRef} has hyperlink but using display value:`, { display: cellValue, hyperlink: hyperlinkUrl })
                   }
                 }
-                
+
                 // Only skip if it's a placeholder AND empty (to avoid clutter)
                 // But if there's data in a placeholder column, include it (might be unmapped data)
                 if (!header.startsWith('_column_')) {
@@ -1064,9 +1165,9 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
               }
               return obj
             })
-            .filter(row => {
+            .filter((row: any) => {
               // Filter out completely empty rows
-              const hasData = Object.values(row).some(val => val !== '' && val != null && String(val).trim() !== '')
+              const hasData = Object.values(row).some((val: any) => val !== '' && val != null && String(val).trim() !== '')
               return hasData
             })
 
@@ -1080,7 +1181,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
           console.log('Auto-mapped columns:', autoMappings)
           console.log('Excel headers:', headers)
           console.log('Target fields:', targetFields.map(f => ({ key: f.key, label: f.label, required: f.required })))
-          
+
           // CRITICAL VALIDATION: Check if column mapping looks correct for contracts
           if (catalogType === 'contract') {
             const itemNameMapping = autoMappings.find(m => m.targetField === 'item_name')
@@ -1088,25 +1189,25 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
               // Check first 5 data rows to see if item_name column contains dates (misalignment)
               const sampleRows = rows.slice(0, Math.min(5, rows.length))
               const itemNameColumn = itemNameMapping.excelColumn
-              
+
               const dateLikeValues = sampleRows
-                .map(row => row[itemNameColumn])
-                .filter(val => {
+                .map((row: any) => row[itemNameColumn])
+                .filter((val: any) => {
                   if (!val) return false
                   const valStr = String(val).trim()
                   // Check if it looks like a date
                   return /^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}$/.test(valStr) ||
-                         /^\d{1,2}\s+[A-Za-z]{3}\s+\d{4}$/i.test(valStr) ||
-                         /^\d{1,2}-[A-Za-z]{3}-\d{4}$/i.test(valStr)
+                    /^\d{1,2}\s+[A-Za-z]{3}\s+\d{4}$/i.test(valStr) ||
+                    /^\d{1,2}-[A-Za-z]{3}-\d{4}$/i.test(valStr)
                 })
-              
+
               if (dateLikeValues.length >= 2) {
                 // More than 2 rows have dates in item_name column - likely misalignment
                 console.error('[IMPORT] Column misalignment detected in ExcelImport!')
                 console.error('[IMPORT] Drug Name column contains dates:', dateLikeValues)
                 console.error('[IMPORT] Detected headers:', headers)
                 console.error('[IMPORT] Mappings:', autoMappings)
-                
+
                 setImportResult({
                   success: 0,
                   errors: [
@@ -1183,82 +1284,95 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
               try {
                 const finalCategories = await loadCategoriesIfNeeded()
                 console.log('[CATEGORY] Using categories:', finalCategories.length, 'categories')
-                console.log('[CATEGORY] Available categories:', finalCategories.map(c => ({ id: c.id, name: c.category_name, code: c.category_code })))
 
-                // Helper function to find or create category ID by name
-                const findOrCreateCategoryIdByName = async (categoryName: string): Promise<string | undefined> => {
-                  if (!categoryName || !categoryName.trim()) {
-                    return undefined
-                  }
+                // NEW OPTIMIZATION: Pre-resolve all unique category names from the file
+                const categoryMapping = autoMappings.find(m => m.targetField === 'category_id')
+                const categoryIdMap = new Map<string, string>()
 
-                  const nameTrimmed = categoryName.trim()
-                  const nameLower = nameTrimmed.toLowerCase()
+                if (categoryMapping && catalogType) {
+                  const uniqueCategoryNames = new Set<string>()
+                  rows.forEach((row: any) => {
+                    if (row && typeof row === 'object') {
+                      const excelColumn = categoryMapping.excelColumn
+                      // Match column using the same logic as getRowValue
+                      let value = row[excelColumn]
+                      if (value === undefined) {
+                        const excelColumnLower = excelColumn.toLowerCase().trim()
+                        const rowKey = Object.keys(row).find(key => key.toLowerCase().trim() === excelColumnLower)
+                        if (rowKey) value = row[rowKey]
+                      }
 
-                  // First, try to find in existing categories
-                  const catsToUse = finalCategories || categories
+                      if (value) {
+                        const name = String(value).trim()
+                        if (name) uniqueCategoryNames.add(name)
+                      }
+                    }
+                  })
 
-                  if (catsToUse.length > 0) {
-                    // Try exact match first
-                    let category = catsToUse.find(c =>
+                  console.log(`[CATEGORY] Found ${uniqueCategoryNames.size} unique categories in file. Pre-resolving...`)
+
+                  // Resolve each unique category name
+                  for (const categoryName of Array.from(uniqueCategoryNames)) {
+                    const nameLower = categoryName.toLowerCase()
+
+                    // 1. Check existing
+                    let category = finalCategories.find(c =>
                       c.category_name.toLowerCase() === nameLower ||
                       c.category_code.toLowerCase() === nameLower
                     )
 
-                    // Try partial match if exact match not found
+                    // 2. Try partial match
                     if (!category) {
-                      category = catsToUse.find(c =>
+                      category = finalCategories.find(c =>
                         c.category_name.toLowerCase().includes(nameLower) ||
                         nameLower.includes(c.category_name.toLowerCase())
                       )
                     }
 
                     if (category) {
-                      console.log(`[CATEGORY] ✓ Matched "${categoryName}" to existing category: ${category.category_name} (ID: ${category.id})`)
-                      return category.id
+                      categoryIdMap.set(categoryName, category.id)
+                      continue
                     }
-                  }
 
-                  // If not found, create new category
-                  console.log(`[CATEGORY] Creating new category: "${categoryName}"`)
-                  const result = catalogType === 'non_drug'
-                    ? await createOrGetNonDrugCategory(nameTrimmed, user?.hospital_id)
-                    : await createOrGetDrugCategory(nameTrimmed, user?.hospital_id)
+                    // 3. Create new if not found
+                    console.log(`[CATEGORY] Creating new category: "${categoryName}"`)
+                    const result = catalogType === 'non_drug'
+                      ? await createOrGetNonDrugCategory(categoryName, user?.hospital_id)
+                      : await createOrGetDrugCategory(categoryName, user?.hospital_id)
 
-                  if (result.data) {
-                    // Add to local categories array for subsequent lookups
-                    if (finalCategories) {
+                    if (result.data) {
                       finalCategories.push(result.data)
-                    } else {
-                      setCategories([...categories, result.data])
+                      categoryIdMap.set(categoryName, result.data.id)
                     }
-                    console.log(`[CATEGORY] ✓ Created category: ${result.data.category_name} (ID: ${result.data.id})`)
-                    return result.data.id
-                  } else {
-                    console.warn(`[CATEGORY] Failed to create category: "${categoryName}"`, result.error)
-                    return undefined
                   }
+                }
+
+                // Helper function to find or create category ID by name
+                const findOrCreateCategoryIdByName = (categoryName: string): string | undefined => {
+                  if (!categoryName) return undefined
+                  return categoryIdMap.get(categoryName.trim())
                 }
 
                 // Transform data based on mappings (with async category creation)
                 const transformedDataPromises = rows
-                  .filter((row) => row != null && typeof row === 'object') // Filter out null/undefined rows
-                  .map(async (row, index) => {
+                  .filter((row: any) => row != null && typeof row === 'object') // Filter out null/undefined rows
+                  .map(async (row: any, index: number) => {
                     const transformed: any = {}
-                    
+
                     // Helper function to get value from row with fallback matching
                     const getRowValue = (excelColumn: string): any => {
                       // First try exact match
                       if (row[excelColumn] !== undefined) {
                         return row[excelColumn]
                       }
-                      
+
                       // Try case-insensitive match
                       const excelColumnLower = excelColumn.toLowerCase().trim()
                       const rowKey = Object.keys(row).find(key => key.toLowerCase().trim() === excelColumnLower)
                       if (rowKey) {
                         return row[rowKey]
                       }
-                      
+
                       // Try partial match (header might have extra spaces or variations)
                       const normalizedExcelColumn = excelColumn.replace(/\s+/g, ' ').trim().toLowerCase()
                       const rowKeyPartial = Object.keys(row).find(key => {
@@ -1269,23 +1383,23 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                         console.log(`[TRANSFORM] Row ${index + 2}: Using partial match "${rowKeyPartial}" for "${excelColumn}"`)
                         return row[rowKeyPartial]
                       }
-                      
+
                       return undefined
                     }
-                    
+
                     for (const mapping of autoMappings) {
                       const value = getRowValue(mapping.excelColumn)
                       const targetField = targetFields.find(f => f.key === mapping.targetField)
-                      
+
                       // Debug logging for first few rows to help diagnose issues
-                      if (index < 3) {
-                        console.log(`[TRANSFORM] Row ${index + 2}: Mapping "${mapping.excelColumn}" -> "${mapping.targetField}":`, value)
+                      if (index < 10) {
+                        console.log(`[TRANSFORM] Row ${index + 2}: Mapping "${mapping.excelColumn}" -> "${mapping.targetField}": "${value}"`)
                       }
 
                       // Special handling for category_id: convert category name to ID or create new category
                       if (mapping.targetField === 'category_id' && catalogType) {
                         if (value) {
-                          const categoryId = await findOrCreateCategoryIdByName(String(value))
+                          const categoryId = findOrCreateCategoryIdByName(String(value))
                           transformed[mapping.targetField] = categoryId || ''
                           if (!categoryId && value) {
                             console.warn(`[CATEGORY] Row ${index + 2}: Could not create/find category ID for: "${value}"`)
@@ -1296,16 +1410,17 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                         }
                       } else if (targetField?.type === 'number') {
                         // Handle number parsing - remove "RM" prefix, commas, etc.
-                        if (value) {
+                        if (value !== undefined && value !== null && value !== '') {
                           const numStr = String(value).trim().replace(/^RM\s*/i, '').replace(/,/g, '').replace(/\s+/g, '')
                           const num = parseFloat(numStr)
                           transformed[mapping.targetField] = isNaN(num) ? 0 : num
+                          if (index < 3) console.log(`[TRANSFORM] Row ${index + 2}: Parsed number for ${mapping.targetField}: "${value}" -> ${num}`)
                         } else {
                           transformed[mapping.targetField] = 0
                         }
                       } else if (targetField?.type === 'date') {
                         // Handle date parsing - Excel dates come in various formats
-                        if (value) {
+                        if (value !== undefined && value !== null && value !== '') {
                           // Excel dates might be numbers (days since Jan 1, 1900)
                           const dateStr = String(value).trim()
                           if (!isNaN(Number(dateStr)) && Number(dateStr) > 25569) {
@@ -1324,13 +1439,22 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                           transformed[mapping.targetField] = ''
                         }
                       } else {
-                        transformed[mapping.targetField] = value ? String(value).trim() : ''
+                        transformed[mapping.targetField] = (value !== undefined && value !== null && value !== '') ? String(value).trim() : ''
                       }
                     }
                     return transformed
                   })
 
                 const transformedDataArray = await Promise.all(transformedDataPromises)
+
+                // Debug log: Check if packaging_description exists in first few rows
+                console.log('[TRANSFORM] Transformed result preview (first 3):',
+                  transformedDataArray.slice(0, 3).map(r => ({
+                    code: r.item_code,
+                    name: r.item_name,
+                    packaging: r.packaging_description || 'MISSING/NULL'
+                  }))
+                )
 
                 const transformedData = transformedDataArray.filter((transformed) => {
                   // Filter out objects that have no meaningful data (all empty strings)
@@ -1340,7 +1464,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                   )
 
                   if (!hasData) return false
-                  
+
                   // Log for debugging - show first few transformed rows
                   const index = transformedDataArray.indexOf(transformed)
                   if (index < 3) {
@@ -1404,9 +1528,9 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                     const invalidCodes = ['APPL', 'CC', 'DP', 'LP', 'CONTRACT', 'ITEM CODE', 'ITEM_CODE', 'NON-DRUG NAME', 'DRUG NAME', 'SKU', 'PKU', 'CATEGORY', 'SUPPLIER', 'PROCUREMENT VOTE', 'STATUS', 'PRICE', 'ACTIONS']
                     const invalidNamePatterns = ['each', 'pack of', 'contract', 'non-drug name', 'drug name', 'item name']
 
-                    // Get the code and name fields based on catalog type
-                    const codeField = catalogType === 'drug' ? 'drug_code' : 'item_code'
-                    const nameField = catalogType === 'drug' ? 'drug_name' : 'item_name'
+                    // Catalog validation - use item_code/item_name for all types (matches schema)
+                    const codeField = 'item_code'
+                    const nameField = 'item_name'
 
                     const code = transformed[codeField]
                     const name = transformed[nameField]
@@ -1606,17 +1730,39 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
     try {
       // Transform data based on mappings
       const transformedData = excelData
-        .filter((row) => row != null && typeof row === 'object') // Filter out null/undefined rows
-        .map(row => {
+        .filter((row: any) => row != null && typeof row === 'object') // Filter out null/undefined rows
+        .map((row: any) => {
           const transformed: any = {}
-          mappings.forEach(mapping => {
+          mappings.forEach((mapping: ColumnMapping) => {
             const value = row[mapping.excelColumn]
             const targetField = targetFields.find(f => f.key === mapping.targetField)
 
             if (targetField?.type === 'number') {
-              transformed[mapping.targetField] = value ? parseFloat(String(value)) || 0 : 0
+              // Handle number parsing consistently with auto-import
+              if (value !== undefined && value !== null && value !== '') {
+                const numStr = String(value).trim().replace(/^RM\s*/i, '').replace(/,/g, '').replace(/\s+/g, '')
+                const num = parseFloat(numStr)
+                transformed[mapping.targetField] = isNaN(num) ? 0 : num
+              } else {
+                transformed[mapping.targetField] = 0
+              }
+            } else if (targetField?.type === 'date') {
+              // Handle date parsing consistently
+              if (value !== undefined && value !== null && value !== '') {
+                const dateStr = String(value).trim()
+                if (!isNaN(Number(dateStr)) && Number(dateStr) > 25569) {
+                  const excelDate = new Date((Number(dateStr) - 25569) * 86400 * 1000)
+                  transformed[mapping.targetField] = !isNaN(excelDate.getTime())
+                    ? excelDate.toISOString().split('T')[0]
+                    : dateStr
+                } else {
+                  transformed[mapping.targetField] = dateStr
+                }
+              } else {
+                transformed[mapping.targetField] = ''
+              }
             } else {
-              transformed[mapping.targetField] = value ? String(value).trim() : ''
+              transformed[mapping.targetField] = (value !== undefined && value !== null && value !== '') ? String(value).trim() : ''
             }
           })
           return transformed
@@ -1677,9 +1823,11 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
     onClose()
   }
 
+  /* Unused but kept for potential future use
   const getFieldLabel = (key: string) => {
     return targetFields.find(f => f.key === key)?.label || key
   }
+  */
 
   const getUnmappedColumns = () => {
     return excelColumns.filter(col => !mappings.some(m => m.excelColumn === col))
@@ -1798,11 +1946,23 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
             </div>
 
             {importProgress && importProgress.total > 0 && (
-              <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-                <div
-                  className="h-2 bg-teal-500 transition-all"
-                  style={{ width: `${Math.round((importProgress.processed / importProgress.total) * 100)}%` }}
-                />
+              <div className="space-y-2">
+                <div className="flex justify-between items-end">
+                  <span className="text-xs font-medium text-gray-500">Import Progress</span>
+                  <span className="text-2xl font-bold text-teal-600">
+                    {Math.round((importProgress.processed / importProgress.total) * 100)}%
+                  </span>
+                </div>
+                <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden shadow-sm">
+                  <div
+                    className="h-full bg-teal-500 transition-all duration-300 ease-out"
+                    style={{ width: `${Math.round((importProgress.processed / importProgress.total) * 100)}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[10px] text-gray-400 font-medium uppercase tracking-wider">
+                  <span>Processed: {importProgress.processed}</span>
+                  <span>Total: {importProgress.total}</span>
+                </div>
               </div>
             )}
 
@@ -1936,41 +2096,59 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
         )}
 
         {/* Import Result - Always show when there's a result */}
+        {/* Import Result - Enhanced Completion View */}
         {importResult && (
           <div
             className={cn(
-              'p-4 rounded-lg',
+              'p-6 rounded-xl border-2 shadow-sm animate-in fade-in zoom-in duration-300',
               importResult.errors.length === 0
-                ? 'bg-green-50 border border-green-200'
-                : 'bg-red-50 border border-red-200'
+                ? 'bg-emerald-50 border-emerald-200'
+                : importResult.success > 0
+                  ? 'bg-amber-50 border-amber-200'
+                  : 'bg-rose-50 border-rose-200'
             )}
           >
-            <div className="flex items-start gap-3">
-              {importResult.errors.length === 0 ? (
-                <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5" />
-              ) : (
-                <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
-              )}
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900">
-                  {importResult.errors.length === 0
-                    ? `✓ Successfully imported ${importResult.success} item(s)`
-                    : `Import failed: ${importResult.success} item(s) imported, ${importResult.errors.length} error(s)`}
-                </p>
-                {importResult.errors.length > 0 && (
-                  <div className="mt-2">
-                    <p className="text-xs font-medium text-red-800 mb-1">Errors:</p>
-                    <ul className="text-xs text-red-700 list-disc list-inside space-y-1">
-                      {importResult.errors.slice(0, 10).map((error, idx) => (
-                        <li key={idx} className="break-words">{error}</li>
-                      ))}
-                      {importResult.errors.length > 10 && (
-                        <li>... and {importResult.errors.length - 10} more errors</li>
-                      )}
-                    </ul>
-                  </div>
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className={cn(
+                "p-3 rounded-full",
+                importResult.errors.length === 0 ? "bg-emerald-100" : importResult.success > 0 ? "bg-amber-100" : "bg-rose-100"
+              )}>
+                {importResult.errors.length === 0 ? (
+                  <CheckCircle2 className="w-10 h-10 text-emerald-600" />
+                ) : (
+                  <AlertCircle className="w-10 h-10 text-rose-600" />
                 )}
               </div>
+
+              <div className="space-y-1">
+                <h3 className="text-xl font-bold text-gray-900">
+                  {importResult.errors.length === 0 ? 'Import Complete!' : 'Import Finished with Errors'}
+                </h3>
+                <p className="text-sm text-gray-600">
+                  {importResult.success} items successfully processed
+                </p>
+              </div>
+
+              {importResult.errors.length > 0 && (
+                <div className="w-full bg-white/50 rounded-lg p-4 text-left border border-black/5">
+                  <p className="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wider">Error Details ({importResult.errors.length}):</p>
+                  <ul className="text-xs text-rose-700 list-disc list-inside space-y-1 max-h-40 overflow-y-auto custom-scrollbar">
+                    {importResult.errors.slice(0, 50).map((error, idx) => (
+                      <li key={idx} className="break-words">{error}</li>
+                    ))}
+                    {importResult.errors.length > 50 && (
+                      <li className="font-medium">... and {importResult.errors.length - 50} more errors</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+
+              {importResult.errors.length === 0 && (
+                <div className="flex items-center gap-2 text-emerald-700 bg-emerald-100/50 px-4 py-2 rounded-full text-sm font-medium">
+                  <CheckCircle2 className="w-4 h-4" />
+                  All items processed successfully
+                </div>
+              )}
             </div>
           </div>
         )}

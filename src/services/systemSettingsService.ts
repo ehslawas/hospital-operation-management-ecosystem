@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from './supabase'
+import { supabase } from './supabase'
 import type { SystemSettings } from '@/types'
 
 // Default system settings
@@ -35,34 +35,26 @@ const defaultSettings: SystemSettings = {
   updated_at: new Date().toISOString(),
 }
 
-// In-memory settings (for mock mode)
-let mockSettings: SystemSettings = { ...defaultSettings }
-
 /**
  * Get system settings
  */
 export async function getSystemSettings(): Promise<SystemSettings> {
   try {
-    if (isSupabaseConfigured()) {
-      const { data, error } = await supabase
-        .from('system_settings')
-        .select('*')
-        .eq('id', 'system-settings')
-        .maybeSingle()
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('*')
+      .eq('id', 'system-settings')
+      .maybeSingle()
 
-      if (error) {
-        // If table doesn't exist or settings don't exist, return defaults
-        // Error code PGRST116 = no rows found, but table exists
-        // Other errors might mean table doesn't exist yet
-        console.warn('Error fetching system settings, using defaults:', error.message)
-        return defaultSettings
-      }
-
-      return (data || defaultSettings) as SystemSettings
-    } else {
-      await new Promise((resolve) => setTimeout(resolve, 300))
-      return { ...mockSettings }
+    if (error) {
+      // If table doesn't exist or settings don't exist, return defaults
+      // Error code PGRST116 = no rows found, but table exists
+      // Other errors might mean table doesn't exist yet
+      console.warn('Error fetching system settings, using defaults:', error.message)
+      return defaultSettings
     }
+
+    return (data || defaultSettings) as SystemSettings
   } catch (error) {
     console.error('Error fetching system settings:', error)
     return defaultSettings
@@ -74,31 +66,21 @@ export async function getSystemSettings(): Promise<SystemSettings> {
  */
 export async function updateSystemSettings(updates: Partial<SystemSettings>): Promise<SystemSettings> {
   try {
-    if (isSupabaseConfigured()) {
-      const { data, error } = await supabase
-        .from('system_settings')
-        .upsert(
-          {
-            id: 'system-settings',
-            ...updates,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'id' }
-        )
-        .select()
-        .single()
+    const { data, error } = await supabase
+      .from('system_settings')
+      .upsert(
+        {
+          id: 'system-settings',
+          ...updates,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' }
+      )
+      .select()
+      .single()
 
-      if (error) throw new Error(error.message)
-      return data as SystemSettings
-    } else {
-      await new Promise((resolve) => setTimeout(resolve, 300))
-      mockSettings = {
-        ...mockSettings,
-        ...updates,
-        updated_at: new Date().toISOString(),
-      }
-      return { ...mockSettings }
-    }
+    if (error) throw new Error(error.message)
+    return data as SystemSettings
   } catch (error) {
     console.error('Error updating system settings:', error)
     throw error
@@ -110,26 +92,20 @@ export async function updateSystemSettings(updates: Partial<SystemSettings>): Pr
  */
 export async function resetSystemSettings(): Promise<SystemSettings> {
   try {
-    if (isSupabaseConfigured()) {
-      const { data, error } = await supabase
-        .from('system_settings')
-        .upsert(
-          {
-            ...defaultSettings,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'id' }
-        )
-        .select()
-        .single()
+    const { data, error } = await supabase
+      .from('system_settings')
+      .upsert(
+        {
+          ...defaultSettings,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' }
+      )
+      .select()
+      .single()
 
-      if (error) throw new Error(error.message)
-      return data as SystemSettings
-    } else {
-      await new Promise((resolve) => setTimeout(resolve, 300))
-      mockSettings = { ...defaultSettings, updated_at: new Date().toISOString() }
-      return { ...mockSettings }
-    }
+    if (error) throw new Error(error.message)
+    return data as SystemSettings
   } catch (error) {
     console.error('Error resetting system settings:', error)
     throw error

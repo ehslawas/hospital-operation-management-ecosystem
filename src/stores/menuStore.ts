@@ -18,241 +18,287 @@ export interface MenuItem {
 interface MenuState {
     menus: MenuItem[]
     isLoading: boolean
+    isInitialized: boolean // NEW: Tracks if we've attempted to fetch menus at least once
     error: string | null
 
     // Actions
-    fetchMenus: (userId: string, options?: { roleCode?: string, departmentCode?: string }) => Promise<void>
+    fetchMenus: (userId: string, options?: { roleCode?: string, departmentCode?: string, user?: any }) => Promise<void>
     clearMenus: () => void
 }
 
-/**
- * Menu Store - Manages dynamic navigation menus based on user role and department
- */
-export const useMenuStore = create<MenuState>((set) => ({
+// Fallback menus for System/Hospital Admin to ensure system is never unusable
+const FALLBACK_ADMIN_MENUS: MenuItem[] = [
+    { id: 'dash', label: 'Dashboard', path: '/dashboard', icon: 'LayoutDashboard', parent_id: null, order_index: 0, is_core: true, allowed_department_id: null, module_code: 'dashboard', children: [] },
+    { id: 'users', label: 'User Management', path: '/admin/users', icon: 'Users', parent_id: null, order_index: 1, is_core: true, allowed_department_id: null, module_code: 'admin.users', children: [] },
+    { id: 'roles', label: 'Role Management', path: '/admin/roles', icon: 'Shield', parent_id: null, order_index: 2, is_core: true, allowed_department_id: null, module_code: 'admin.roles', children: [] },
+    { id: 'depts', label: 'Departments', path: '/admin/departments', icon: 'Building2', parent_id: null, order_index: 3, is_core: true, allowed_department_id: null, module_code: 'admin.depts', children: [] },
+    { id: 'hosp', label: 'Hospitals', path: '/admin/hospitals', icon: 'Building', parent_id: null, order_index: 4, is_core: true, allowed_department_id: null, module_code: 'admin.hospitals', children: [] },
+    { id: 'acc', label: 'Access Requests', path: '/admin/access-requests', icon: 'UserPlus', parent_id: null, order_index: 5, is_core: true, allowed_department_id: null, module_code: 'admin.access', children: [] },
+    { id: 'audit', label: 'Audit Logs', path: '/admin/audit-logs', icon: 'FileText', parent_id: null, order_index: 6, is_core: true, allowed_department_id: null, module_code: 'admin.audit', children: [] },
+    { id: 'sett', label: 'System Settings', path: '/admin/settings', icon: 'Settings', parent_id: null, order_index: 7, is_core: true, allowed_department_id: null, module_code: 'admin.settings', children: [] },
+]
+
+export const useMenuStore = create<MenuState>((set, get) => ({
     menus: [],
     isLoading: false,
+    isInitialized: false,
     error: null,
 
-    fetchMenus: async (userId: string, options?: { roleCode?: string, departmentCode?: string }) => {
+    fetchMenus: async (userId: string, options?: { roleCode?: string, departmentCode?: string, user?: any }) => {
+        // Prevent duplicate calls
+        if (get().isLoading) return
+
         set({ isLoading: true, error: null })
 
         try {
-            console.log('[MenuStore] === START FETCH ===')
-            console.log('[MenuStore] User ID:', userId)
-            console.log('[MenuStore] Options:', options)
+            console.log('[MenuStore] Fetching menus for user:', userId)
 
-            // 0. Validate input
-            if (!userId) {
-                throw new Error('User ID is required for menu fetch')
-            }
+            // 1. Resolve User Context
+            let effectiveRoleCode = options?.roleCode || options?.user?.role?.role_code
+            let effectiveDeptCode = options?.departmentCode || options?.user?.department?.department_code
 
-            // 1. Get User Data or Simulated Data
-            let roleId = ''
-            let departmentId: string | null = ''
-            let departmentCode = ''
+            let effectiveRoleId = options?.user?.role_id
+            let effectiveDeptId = options?.user?.department_id
 
-            // Base user fetch
-            const { data: user, error: userError } = await supabase
-                .from('users')
-                .select('role_id, department_id')
-                .eq('id', userId)
-                .single()
-
-            if (userError || !user) {
-                throw new Error(`User not found: ${userError?.message || 'Unknown error'}`)
-            }
-
-            // Validate user has a role
-            if (!user.role_id && !options?.roleCode) {
-                throw new Error('User has no role assigned and no role simulation provided')
-            }
-
-            // A. Handle Role Simulation
-            if (options?.roleCode) {
-                const { data: roleData, error: roleError } = await supabase
-                    .from('roles')
-                    .select('id')
-                    .eq('role_code', options.roleCode)
+            // Fetch user from DB if crucial info is missing
+            if (!effectiveRoleCode || !effectiveDeptCode || !effectiveRoleId) {
+                const { data: userData, error: userError } = await supabase
+                    .from('users')
+                    .select('role_id, department_id, role:roles(role_code), department:departments(department_code)')
+                    .eq('id', userId)
                     .single()
 
-                if (roleError) {
-                    console.error('[MenuStore] Simulated Role not found:', roleError)
-                    roleId = user.role_id // Fallback
-                } else {
-                    roleId = roleData.id
-                }
-            } else {
-                roleId = user.role_id
-            }
-
-            // B. Handle Department Simulation or Inheritance
-            // If explicit department code provided (e.g. switching to pharmacy view implies pharmacy dept)
-            if (options?.departmentCode) {
-                const { data: deptData, error: deptError } = await supabase
-                    .from('departments')
-                    .select('id, department_code')
-                    .eq('department_code', options.departmentCode)
-                    .single()
-
-                if (deptError) {
-                    console.error('[MenuStore] Simulated Dept not found:', deptError)
-                    departmentCode = '' // Fallback
-                    departmentId = user.department_id // Fallback key
-                } else {
-                    departmentId = deptData.id
-                    departmentCode = deptData.department_code
-                }
-            } else {
-                // If no simulated department, use user's real one
-                departmentId = user.department_id
-                if (departmentId) {
-                    const { data: dept, error: deptError } = await supabase
-                        .from('departments')
-                        .select('department_code')
-                        .eq('id', departmentId)
-                        .single()
-                    if (!deptError) {
-                        departmentCode = dept?.department_code
-                    }
+                if (!userError && userData) {
+                    const roleData: any = userData.role;
+                    const deptData: any = userData.department;
+                    effectiveRoleCode = effectiveRoleCode || (Array.isArray(roleData) ? roleData[0]?.role_code : roleData?.role_code);
+                    effectiveDeptCode = effectiveDeptCode || (Array.isArray(deptData) ? deptData[0]?.department_code : deptData?.department_code);
+                    effectiveRoleId = effectiveRoleId || userData.role_id;
+                    effectiveDeptId = effectiveDeptId || userData.department_id;
                 }
             }
 
-            // C. Post-processing: Ensure Admins have a department context
-            // If we still have no department, but the role is Admin, force 'hospital_admin'
-            if (!departmentId) {
-                const { data: roleData } = await supabase
-                    .from('roles')
-                    .select('role_code')
-                    .eq('id', roleId)
-                    .single()
+            const normalizedRole = effectiveRoleCode?.toLowerCase() || ''
+            const isAdmin = normalizedRole === 'hospital_admin' || normalizedRole === 'system_admin'
+            const isPharmacy = normalizedRole === 'pharmacist' || normalizedRole === 'assistant_pharmacist'
 
-                if (roleData && (roleData.role_code === 'hospital_admin' || roleData.role_code === 'system_admin')) {
-                    console.log('[MenuStore] No department found for Admin, auto-linking to hospital_admin context.')
-                    const { data: adminDept } = await supabase
-                        .from('departments')
-                        .select('id, department_code')
-                        .eq('department_code', 'hospital_admin')
-                        .single()
+            console.log(`[MenuStore] Context - Role: ${normalizedRole}, IsAdmin: ${isAdmin}`)
 
-                    if (adminDept) {
-                        departmentId = adminDept.id
-                        departmentCode = adminDept.department_code
-                    }
-                }
-            }
-
-            console.log('[MenuStore] Effective Context -> Role:', roleId, 'Dept:', departmentCode, 'DeptID:', departmentId)
-
-            // 3. Fetch ALL Menus and ALL Role Permissions (Filter in JS for reliability)
-            const { data: allMenus, error: allMenusError } = await supabase
+            // 2. Fetch All Structural Menus
+            const { data: allMenus, error: menusError } = await supabase
                 .from('menus')
                 .select('*')
-                .order('order_index', { ascending: true })
+                .order('order_index')
 
-            if (allMenusError) {
-                throw new Error(`Failed to load menus: ${allMenusError.message}`)
+            if (menusError) throw menusError
+
+            // 3. Fetch RBAC Permissions (Modules) for Regular Roles
+            // The RPC function handles feature→module inheritance automatically via feature_grants CTE
+            let accessibleModuleCodes = new Set<string>()
+
+            if (!isAdmin) {
+                console.log('[MenuStore] Regular role - fetching RBAC permissions')
+
+                // Fetch Modules (via RPC) - this already includes modules granted via features!
+                const { data: accessibleModules } = await supabase.rpc('get_staff_accessible_modules', {
+                    p_staff_id: userId
+                })
+
+                console.log('[MenuStore] RPC returned modules:', accessibleModules?.map((m: any) => m.module_code))
+
+                if (accessibleModules) {
+                    accessibleModules.forEach((m: any) => accessibleModuleCodes.add(m.module_code))
+                } else {
+                    console.warn('[MenuStore] RPC returned NO accessible modules for user', userId)
+                    console.warn('[MenuStore] Role:', effectiveRoleCode, 'Dept:', effectiveDeptCode)
+                }
             }
-            console.log('[MenuStore] Total Raw Menus in DB:', allMenus.length)
 
-            const { data: allRoleAccess, error: allAccessError } = await supabase
-                .from('role_menu_access')
-                .select('menu_id, can_view')
-                .eq('role_id', roleId)
-                .eq('can_view', true)
-
-            if (allAccessError) {
-                throw new Error(`Failed to load permissions: ${allAccessError.message}`)
-            }
-            console.log('[MenuStore] Permissions found for this role:', allRoleAccess.length)
-
-            // 5. Filter and Map in Javascript
-            const permissionSet = new Set(allRoleAccess.map(a => a.menu_id))
-
-            const filteredMenus = allMenus.filter(menu => {
-                const hasPermission = permissionSet.has(menu.id)
-                const isDeptMatched = !menu.allowed_department_id || menu.allowed_department_id === departmentId
-                return hasPermission && isDeptMatched
+            // 4. Filter and Map Menus
+            // Helper: Normalize accessible codes (add base codes if prefixed)
+            // e.g. if 'pharmacy.procurement' is granted, also treat 'procurement' as accessible for checking
+            const normalizedAccessibleCodes = new Set(accessibleModuleCodes)
+            accessibleModuleCodes.forEach(code => {
+                if (code.includes('.')) {
+                    const parts = code.split('.')
+                    if (parts.length === 2) normalizedAccessibleCodes.add(parts[1])
+                }
             })
 
-            console.log('[MenuStore] Filtered Menus count:', filteredMenus.length)
-            if (filteredMenus.length === 0) {
-                console.error('[MenuStore] CRITICAL: Zero menus passed filters. Role ID:', roleId, 'Dept ID:', departmentId)
+            // Pass 1: Identify directly accessible menu IDs
+            const directlyAccessibleMenuIds = new Set<string>()
+
+            console.log('[MenuStore] Normalized Accessible Modules:', Array.from(normalizedAccessibleCodes))
+
+            allMenus?.forEach(m => {
+                const code = m.module_code
+                if (!code) return
+
+                let isAccessible = false
+
+                // Admin Logic
+                if (isAdmin) {
+                    isAccessible = code === 'hospital_admin' || code === 'system_admin' || code === 'dashboard'
+                }
+                // Regular Role Logic - Trust the RPC!
+                else {
+                    // The RPC already handles feature→module inheritance
+                    // Just check if the module code is in the accessible set
+                    if (normalizedAccessibleCodes.has(code) ||
+                        normalizedAccessibleCodes.has(`pharmacy.${code}`) ||
+                        normalizedAccessibleCodes.has(`admin.${code}`)) {
+                        isAccessible = true
+                    }
+                }
+
+                if (isAccessible) {
+                    directlyAccessibleMenuIds.add(m.id)
+                }
+            })
+
+            console.log('[MenuStore] Directly Accessible IDs:', Array.from(directlyAccessibleMenuIds))
+
+            // Pass 2: Propagate accessibility to descendants (Recursive Inheritance)
+            // If a parent is accessible, ALL its children should be accessible unless explicitly denied?
+            // For now, assume strict inheritance: Access to parent = Access to subtree.
+
+            // Build adjacency list for traversal
+            const childrenMap = new Map<string, any[]>()
+            allMenus?.forEach(m => {
+                if (m.parent_id) {
+                    if (!childrenMap.has(m.parent_id)) childrenMap.set(m.parent_id, [])
+                    childrenMap.get(m.parent_id)!.push(m)
+                }
+            })
+
+            const finalAccessibleIds = new Set<string>(directlyAccessibleMenuIds)
+
+            // Queue for BFS traversal starting from directly accessible nodes
+            const queue = Array.from(directlyAccessibleMenuIds)
+
+            while (queue.length > 0) {
+                const parentId = queue.shift()!
+                const children = childrenMap.get(parentId)
+                if (children) {
+                    children.forEach(child => {
+                        if (!finalAccessibleIds.has(child.id)) {
+                            finalAccessibleIds.add(child.id)
+                            queue.push(child.id)
+                        }
+                    })
+                }
             }
 
-            // 6. Build Hierarchy
+            // Also ensure parents of accessible items are visible (Upward propagation for structure)
+            // Needed if a specific child is granted but parent wasn't generic? 
+            // Usually we want the tree path to exist. 
+            // Current Logic: We filter from allMenus. If we keep a child, we MUST keep its parents or the tree breaks?
+            // The tree builder handles "orphan" nodes? No, "if (item.parent_id && menuMap.has(item.parent_id))".
+            // So if parent is missing, child is essentially lost or becomes root?
+            // Let's ensure parents are kept if a child is accessible.
+
+            const ensureParents = (menuId: string, allMenusMap: Map<string, any>) => {
+                let currentId = menuId
+                while (true) {
+                    const menu = allMenusMap.get(currentId)
+                    if (!menu || !menu.parent_id) break
+
+                    if (!finalAccessibleIds.has(menu.parent_id)) {
+                        finalAccessibleIds.add(menu.parent_id)
+                        currentId = menu.parent_id // Continue up
+                    } else {
+                        break // Parent already added, assume ancestors are too
+                    }
+                }
+            }
+
+            const allMenusMap = new Map(allMenus?.map(m => [m.id, m]))
+            // Create array from set to iterate safely
+            Array.from(finalAccessibleIds).forEach(id => ensureParents(id, allMenusMap))
+
+            const filteredMenus = allMenus?.filter(m => finalAccessibleIds.has(m.id)) || []
+
+            const menuItems: MenuItem[] = filteredMenus.map(m => ({
+                id: m.id,
+                label: m.label,
+                path: m.path,
+                icon: m.icon || 'Circle',
+                parent_id: m.parent_id,
+                order_index: m.order_index,
+                is_core: true,
+                allowed_department_id: m.allowed_department_id,
+                module_code: m.module_code,
+                children: []
+            }))
+
+            // 3. Construct Hierarchy
             const menuMap = new Map<string, MenuItem>()
             const rootMenus: MenuItem[] = []
 
-            filteredMenus.forEach(menu => {
-                menuMap.set(menu.id, { ...menu, children: [] })
+            // Add all items to map
+            menuItems.forEach(item => {
+                menuMap.set(item.id, { ...item, children: [] })
             })
 
-            filteredMenus.forEach(menu => {
-                const menuItem = menuMap.get(menu.id)!
-                if (menu.parent_id && menuMap.has(menu.parent_id)) {
-                    const parent = menuMap.get(menu.parent_id)!
-                    if (!parent.children) parent.children = []
-                    parent.children.push(menuItem)
+            // Build tree
+            menuItems.forEach(item => {
+                const menuItem = menuMap.get(item.id)!
+                if (item.parent_id && menuMap.has(item.parent_id)) {
+                    menuMap.get(item.parent_id)!.children!.push(menuItem)
                 } else {
                     rootMenus.push(menuItem)
                 }
             })
 
-            const sortMenusRecursive = (items: MenuItem[]) => {
+            // Sort
+            const sortRecursive = (items: MenuItem[]) => {
                 items.sort((a, b) => a.order_index - b.order_index)
                 items.forEach(child => {
-                    if (child.children?.length) sortMenusRecursive(child.children)
+                    if (child.children) sortRecursive(child.children)
                 })
             }
-            sortMenusRecursive(rootMenus)
+            sortRecursive(rootMenus)
 
-            // 7. Applying Presentation Wrapping for Department Header
-            const deptLabels: Record<string, string> = {
-                'pharmacy_logistics': 'Pharmacy Logistics',
-                'hospital_admin': 'Hospital Administration',
-                'system_admin': 'System Administration',
-                'emergency_trauma': 'Emergency & Trauma'
-            }
+            // 4. Wrap in Department Header (Visual consistency)
+            let headerTitle = ''
+            if (isAdmin) headerTitle = 'Hospital Administration'
+            else if (isPharmacy) headerTitle = 'Pharmacy Logistics'
 
-            const headerLabel = departmentCode ? deptLabels[departmentCode] || departmentCode.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : null
-
-            if (headerLabel) {
-                console.log(`[MenuStore] Applying Header wrapper for: ${headerLabel}`)
+            if (headerTitle && rootMenus.length > 0) {
                 const rootHeader: MenuItem = {
-                    id: `header-${departmentCode}`,
-                    label: headerLabel,
+                    id: 'dept-header',
+                    label: headerTitle,
                     path: '#',
-                    icon: departmentCode === 'hospital_admin' || departmentCode === 'system_admin' ? 'Shield' : 'Package',
+                    icon: isAdmin ? 'Shield' : 'Package',
                     parent_id: null,
                     order_index: 0,
                     is_core: true,
-                    allowed_department_id: departmentId,
-                    module_code: departmentCode,
+                    allowed_department_id: null,
+                    module_code: 'header',
                     isHeader: true,
                     children: rootMenus
                 }
-                set({ menus: [rootHeader], isLoading: false })
+                set({ menus: [rootHeader], isLoading: false, isInitialized: true })
             } else {
-                set({ menus: rootMenus, isLoading: false })
+                set({ menus: rootMenus, isLoading: false, isInitialized: true })
             }
 
-            console.log('[MenuStore] === END FETCH SUCCESS ===')
-
-        } catch (error) {
-            console.error('[MenuStore] FATAL ERROR:', error)
+        } catch (error: any) {
+            console.error('[MenuStore] Error loading menus:', error)
             set({
-                error: error instanceof Error ? error.message : 'Unknown fatal error',
+                error: error.message || 'Failed to fetch menus',
                 isLoading: false,
-                menus: []
+                isInitialized: true,
+                menus: FALLBACK_ADMIN_MENUS // Emergency fallback
             })
         }
     },
 
     clearMenus: () => {
-        set({ menus: [], error: null })
+        set({ menus: [], error: null, isLoading: false, isInitialized: false })
     },
 }))
 
-// Helper hook to get menus
 export const useMenus = () => useMenuStore((state) => state.menus)
 export const useMenusLoading = () => useMenuStore((state) => state.isLoading)
+export const useIsMenusInitialized = () => useMenuStore((state) => state.isInitialized)

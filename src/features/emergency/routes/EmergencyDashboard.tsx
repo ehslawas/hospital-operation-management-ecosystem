@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { MetricsCard } from '../components/MetricsCard';
+import { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { TriageBoard } from '../components/TriageBoard';
 import { BedManagement } from '../components/BedManagement';
 import { PatientAssessmentModal } from '../components/PatientAssessmentModal';
@@ -12,25 +12,36 @@ import { DispositionWorkflow } from '../components/DispositionWorkflow';
 import { PatientTimeline } from '../components/PatientTimeline';
 import { AmbulanceBoard } from '../components/AmbulanceBoard';
 import { ReportsDashboard } from '../components/ReportsDashboard';
+import { PharmacyLogisticsWidget } from '@/features/pharmacy-logistics/components/PharmacyLogisticsWidget';
 import type { EmergencyPatient, EmergencyBed } from '../types/Patient';
-import { 
-  mockEmergencyPatients, 
-  mockEmergencyBeds, 
+import {
+  mockEmergencyPatients,
+  mockEmergencyBeds,
   mockIncomingPatients,
   calculateTriageStats,
-  calculateDepartmentMetrics 
+  calculateDepartmentMetrics
 } from '../services/mockEmergencyData';
 
 type ModalType = 'assessment' | 'register' | 'clinical' | 'orders' | 'disposition' | 'timeline' | 'reports' | null;
 
 export default function EmergencyDashboard() {
   const [patients, setPatients] = useState<EmergencyPatient[]>(mockEmergencyPatients);
-  const [beds, setBeds] = useState<EmergencyBed[]>(mockEmergencyBeds);
+  const [beds] = useState<EmergencyBed[]>(mockEmergencyBeds);
   const [selectedPatient, setSelectedPatient] = useState<EmergencyPatient | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [activeModal, setActiveModal] = useState<ModalType>(null);
-  const [view, setView] = useState<'overview' | 'triage' | 'beds' | 'ambulances'>('overview');
-  
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const getViewFromPath = (path: string) => {
+    if (path.includes('/triage')) return 'triage';
+    if (path.includes('/beds')) return 'beds';
+    if (path.includes('/ambulances')) return 'ambulances';
+    return 'overview';
+  };
+
+  const view = getViewFromPath(location.pathname);
+
   // Update current time every minute
   useEffect(() => {
     const timer = setInterval(() => {
@@ -38,30 +49,29 @@ export default function EmergencyDashboard() {
     }, 60000);
     return () => clearInterval(timer);
   }, []);
-  
+
   const stats = calculateTriageStats(patients);
-  const deptMetrics = calculateDepartmentMetrics(patients);
   const availableBeds = beds.filter(b => b.status === 'available').length;
   const totalBeds = beds.length;
   const bedOccupancy = Math.round((totalBeds - availableBeds) / totalBeds * 100);
-  
+
   const activePatients = patients.filter(
-    p => p.status !== 'discharged' && 
-        p.status !== 'transferred' && 
-        p.status !== 'admitted' &&
-        p.status !== 'left-without-being-seen' &&
-        p.status !== 'deceased'
+    p => p.status !== 'discharged' &&
+      p.status !== 'transferred' &&
+      p.status !== 'admitted' &&
+      p.status !== 'left-without-being-seen' &&
+      p.status !== 'deceased'
   );
-  
+
   const criticalPatients = activePatients.filter(
     p => p.triageLevel === 'P1' || p.triageLevel === 'P2'
   );
-  
+
   const handlePatientClick = (patient: EmergencyPatient) => {
     setSelectedPatient(patient);
     setActiveModal('assessment');
   };
-  
+
   const handleBedClick = (bed: EmergencyBed) => {
     if (bed.patientId) {
       const patient = patients.find(p => p.id === bed.patientId);
@@ -71,7 +81,7 @@ export default function EmergencyDashboard() {
       }
     }
   };
-  
+
   const handleRegisterPatient = (newPatient: Partial<EmergencyPatient>) => {
     const patient: EmergencyPatient = {
       ...newPatient,
@@ -83,11 +93,11 @@ export default function EmergencyDashboard() {
       timeline: newPatient.timeline || [],
       vitals: newPatient.vitals || [],
     } as EmergencyPatient;
-    
+
     setPatients([...patients, patient]);
     setActiveModal(null);
   };
-  
+
   const handleUpdatePatient = (updates: Partial<EmergencyPatient>) => {
     if (selectedPatient) {
       setPatients(prev =>
@@ -97,25 +107,25 @@ export default function EmergencyDashboard() {
       setActiveModal(null);
     }
   };
-  
+
   const openPatientModal = (patient: EmergencyPatient, modal: ModalType) => {
     setSelectedPatient(patient);
     setActiveModal(modal);
   };
-  
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Modern Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="px-8 py-6">
-        <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-red-600 rounded-xl flex items-center justify-center shadow-lg">
                 <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </div>
-          <div>
+              <div>
                 <h1 className="text-2xl font-bold text-gray-900">Emergency & Trauma Department</h1>
                 <p className="text-sm text-gray-600 mt-1">Clinical Management System</p>
               </div>
@@ -129,55 +139,51 @@ export default function EmergencyDashboard() {
                   {currentTime.toLocaleDateString('en-MY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                 </div>
               </div>
-          </div>
+            </div>
           </div>
         </div>
       </div>
-      
+
       {/* Main Container */}
       <div className="max-w-7xl mx-auto px-8 py-6 space-y-6">
-        
+
         {/* Modern Navigation */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="flex items-center justify-between px-6 py-4">
             <div className="flex items-center space-x-1">
               <button
-                onClick={() => setView('overview')}
-                className={`px-6 py-3 text-sm font-semibold rounded-xl transition-all duration-200 ${
-                  view === 'overview'
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
+                onClick={() => navigate('/emergency')}
+                className={`px-6 py-3 text-sm font-semibold rounded-xl transition-all duration-200 ${view === 'overview'
+                  ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
               >
                 Overview
               </button>
               <button
-                onClick={() => setView('triage')}
-                className={`px-6 py-3 text-sm font-semibold rounded-xl transition-all duration-200 ${
-                  view === 'triage'
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
+                onClick={() => navigate('/emergency/triage')}
+                className={`px-6 py-3 text-sm font-semibold rounded-xl transition-all duration-200 ${view === 'triage'
+                  ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
               >
                 Triage Board
               </button>
               <button
-                onClick={() => setView('beds')}
-                className={`px-6 py-3 text-sm font-semibold rounded-xl transition-all duration-200 ${
-                  view === 'beds'
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
+                onClick={() => navigate('/emergency/beds')}
+                className={`px-6 py-3 text-sm font-semibold rounded-xl transition-all duration-200 ${view === 'beds'
+                  ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
               >
                 Bed Management
               </button>
               <button
-                onClick={() => setView('ambulances')}
-                className={`px-6 py-3 text-sm font-semibold rounded-xl transition-all duration-200 ${
-                  view === 'ambulances'
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
+                onClick={() => navigate('/emergency/ambulances')}
+                className={`px-6 py-3 text-sm font-semibold rounded-xl transition-all duration-200 ${view === 'ambulances'
+                  ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
               >
                 Incoming Ambulances
               </button>
@@ -198,7 +204,7 @@ export default function EmergencyDashboard() {
             </div>
           </div>
         </div>
-      
+
         {/* Modern Metrics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
@@ -213,7 +219,7 @@ export default function EmergencyDashboard() {
             <div className="text-sm font-semibold text-gray-600">Total Patients</div>
             <div className="text-xs text-gray-500 mt-1">Currently in ED</div>
           </div>
-          
+
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
             <div className="flex items-center justify-between mb-4">
               <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-red-600 rounded-xl flex items-center justify-center">
@@ -226,7 +232,7 @@ export default function EmergencyDashboard() {
             <div className="text-sm font-semibold text-gray-600">Critical Cases</div>
             <div className="text-xs text-gray-500 mt-1">P1: {stats.p1} | P2: {stats.p2}</div>
           </div>
-          
+
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
             <div className="flex items-center justify-between mb-4">
               <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${bedOccupancy > 80 ? 'bg-gradient-to-br from-orange-500 to-orange-600' : 'bg-gradient-to-br from-green-500 to-green-600'}`}>
@@ -239,7 +245,7 @@ export default function EmergencyDashboard() {
             <div className="text-sm font-semibold text-gray-600">Bed Occupancy</div>
             <div className="text-xs text-gray-500 mt-1">{availableBeds} of {totalBeds} available</div>
           </div>
-          
+
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
             <div className="flex items-center justify-between mb-4">
               <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${stats.averageWaitTime > 30 ? 'bg-gradient-to-br from-orange-500 to-orange-600' : 'bg-gradient-to-br from-teal-500 to-teal-600'}`}>
@@ -253,7 +259,10 @@ export default function EmergencyDashboard() {
             <div className="text-xs text-gray-500 mt-1">Longest: {stats.longestWaitTime}m</div>
           </div>
         </div>
-      
+
+        {/* Shared Logistics Widget (Permission-aware) */}
+        <PharmacyLogisticsWidget />
+
         {/* Modern Triage Summary */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-6">
@@ -282,167 +291,165 @@ export default function EmergencyDashboard() {
             ))}
           </div>
         </div>
-      
-      {/* Main Content Area */}
-      <div className="space-y-6">
-        {view === 'overview' && (
-          <div className="space-y-6">
-            
-            {/* Modern Patient List */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-              <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-900">Active Patients</h2>
-                  <p className="text-sm text-gray-600 mt-1">{activePatients.length} patients currently in department</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-200 transition-colors">
-                    Filter
-                  </button>
-                  <button className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-200 transition-colors">
-                    Sort
-                  </button>
-                </div>
-              </div>
-              
-              {activePatients.length === 0 ? (
-                <div className="text-center py-16">
-                  <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                    </svg>
+
+        {/* Main Content Area */}
+        <div className="space-y-6">
+          {view === 'overview' && (
+            <div className="space-y-6">
+
+              {/* Modern Patient List */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900">Active Patients</h2>
+                    <p className="text-sm text-gray-600 mt-1">{activePatients.length} patients currently in department</p>
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No active patients</h3>
-                  <p className="text-gray-500">All patients have been discharged or transferred</p>
+                  <div className="flex items-center gap-3">
+                    <button className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-200 transition-colors">
+                      Filter
+                    </button>
+                    <button className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-200 transition-colors">
+                      Sort
+                    </button>
+                  </div>
                 </div>
-              ) : (
-                <div className="divide-y divide-gray-200">
-                  {activePatients.map(patient => {
-                    const bed = patient.assignedBed ? beds.find(b => b.bedNumber === patient.assignedBed) : null;
-                    const waitTime = Math.floor((currentTime.getTime() - new Date(patient.arrivalTime).getTime()) / (1000 * 60));
-                    
-                    return (
-                      <div key={patient.id} className="p-6 hover:bg-gray-50 transition-colors group">
-                        <div className="flex items-center gap-6">
-                          {/* Triage Level Badge */}
-                          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-white font-bold text-lg flex-shrink-0 shadow-lg ${
-                            patient.triageLevel === 'P1' ? 'bg-gradient-to-br from-red-500 to-red-600' :
-                            patient.triageLevel === 'P2' ? 'bg-gradient-to-br from-orange-500 to-orange-600' :
-                            patient.triageLevel === 'P3' ? 'bg-gradient-to-br from-yellow-500 to-yellow-600' :
-                            patient.triageLevel === 'P4' ? 'bg-gradient-to-br from-green-500 to-green-600' : 
-                            'bg-gradient-to-br from-blue-500 to-blue-600'
-                          }`}>
-                            {patient.triageLevel}
-                          </div>
-                          
-                          {/* Patient Information */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-3 mb-2">
-                              <h3 className="text-xl font-bold text-gray-900">{patient.name}</h3>
-                              <span className="px-3 py-1 bg-gray-100 text-gray-700 text-sm font-semibold rounded-full">
-                                #{patient.registrationNumber}
-                              </span>
-                              {patient.trauma.activated && (
-                                <span className="px-3 py-1 bg-red-600 text-white text-sm font-bold rounded-full animate-pulse">
-                                  🚨 TRAUMA {patient.trauma.level.toUpperCase()}
-                                </span>
-                              )}
-                              <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                                patient.status === 'in-treatment' ? 'bg-blue-100 text-blue-700' :
-                                patient.status === 'in-assessment' ? 'bg-purple-100 text-purple-700' :
-                                patient.status === 'waiting' ? 'bg-yellow-100 text-yellow-700' :
-                                'bg-gray-100 text-gray-700'
+
+                {activePatients.length === 0 ? (
+                  <div className="text-center py-16">
+                    <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No active patients</h3>
+                    <p className="text-gray-500">All patients have been discharged or transferred</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-200">
+                    {activePatients.map(patient => {
+                      const bed = patient.assignedBed ? beds.find(b => b.bedNumber === patient.assignedBed) : null;
+                      const waitTime = Math.floor((currentTime.getTime() - new Date(patient.arrivalTime).getTime()) / (1000 * 60));
+
+                      return (
+                        <div key={patient.id} className="p-6 hover:bg-gray-50 transition-colors group">
+                          <div className="flex items-center gap-6">
+                            {/* Triage Level Badge */}
+                            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-white font-bold text-lg flex-shrink-0 shadow-lg ${patient.triageLevel === 'P1' ? 'bg-gradient-to-br from-red-500 to-red-600' :
+                              patient.triageLevel === 'P2' ? 'bg-gradient-to-br from-orange-500 to-orange-600' :
+                                patient.triageLevel === 'P3' ? 'bg-gradient-to-br from-yellow-500 to-yellow-600' :
+                                  patient.triageLevel === 'P4' ? 'bg-gradient-to-br from-green-500 to-green-600' :
+                                    'bg-gradient-to-br from-blue-500 to-blue-600'
                               }`}>
-                                {patient.status.replace('-', ' ').toUpperCase()}
-                              </span>
+                              {patient.triageLevel}
                             </div>
-                            
-                            <div className="flex items-center gap-6 text-sm text-gray-600 mb-3">
-                              <span className="font-semibold">{patient.age}y, {patient.gender}</span>
-                              <span>•</span>
-                              <span className="font-medium">{patient.chiefComplaint}</span>
-                              {bed && (
-                                <>
-                                  <span>•</span>
-                                  <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded-lg font-semibold">
-                                    🛏️ Bed {bed.bedNumber}
+
+                            {/* Patient Information */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-3 mb-2">
+                                <h3 className="text-xl font-bold text-gray-900">{patient.name}</h3>
+                                <span className="px-3 py-1 bg-gray-100 text-gray-700 text-sm font-semibold rounded-full">
+                                  #{patient.registrationNumber}
+                                </span>
+                                {patient.trauma.activated && (
+                                  <span className="px-3 py-1 bg-red-600 text-white text-sm font-bold rounded-full animate-pulse">
+                                    🚨 TRAUMA {patient.trauma.level.toUpperCase()}
                                   </span>
-                                </>
-                              )}
-                              {patient.assignedDoctor && (
-                                <>
-                                  <span>•</span>
-                                  <span className="font-semibold">Dr. {patient.assignedDoctor}</span>
-                                </>
-                              )}
+                                )}
+                                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${patient.status === 'in-treatment' ? 'bg-blue-100 text-blue-700' :
+                                  patient.status === 'in-assessment' ? 'bg-purple-100 text-purple-700' :
+                                    patient.status === 'waiting' ? 'bg-yellow-100 text-yellow-700' :
+                                      'bg-gray-100 text-gray-700'
+                                  }`}>
+                                  {patient.status.replace('-', ' ').toUpperCase()}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-6 text-sm text-gray-600 mb-3">
+                                <span className="font-semibold">{patient.age}y, {patient.gender}</span>
+                                <span>•</span>
+                                <span className="font-medium">{patient.chiefComplaint}</span>
+                                {bed && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded-lg font-semibold">
+                                      🛏️ Bed {bed.bedNumber}
+                                    </span>
+                                  </>
+                                )}
+                                {patient.assignedDoctor && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="font-semibold">Dr. {patient.assignedDoctor}</span>
+                                  </>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-4">
+                                <span className="text-sm text-gray-500 font-medium">Wait: {waitTime}m</span>
+                                {patient.labOrders && patient.labOrders.length > 0 && (
+                                  <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-lg text-sm font-semibold">
+                                    🧪 {patient.labOrders.length} Lab
+                                  </span>
+                                )}
+                                {patient.radiologyOrders && patient.radiologyOrders.length > 0 && (
+                                  <span className="px-2 py-1 bg-purple-50 text-purple-700 rounded-lg text-sm font-semibold">
+                                    📸 {patient.radiologyOrders.length} Imaging
+                                  </span>
+                                )}
+                                {patient.pharmacyOrders && patient.pharmacyOrders.length > 0 && (
+                                  <span className="px-2 py-1 bg-green-50 text-green-700 rounded-lg text-sm font-semibold">
+                                    💊 {patient.pharmacyOrders.length} Meds
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            
-                            <div className="flex items-center gap-4">
-                              <span className="text-sm text-gray-500 font-medium">Wait: {waitTime}m</span>
-                              {patient.labOrders && patient.labOrders.length > 0 && (
-                                <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-lg text-sm font-semibold">
-                                  🧪 {patient.labOrders.length} Lab
-                                </span>
-                              )}
-                              {patient.radiologyOrders && patient.radiologyOrders.length > 0 && (
-                                <span className="px-2 py-1 bg-purple-50 text-purple-700 rounded-lg text-sm font-semibold">
-                                  📸 {patient.radiologyOrders.length} Imaging
-                                </span>
-                              )}
-                              {patient.pharmacyOrders && patient.pharmacyOrders.length > 0 && (
-                                <span className="px-2 py-1 bg-green-50 text-green-700 rounded-lg text-sm font-semibold">
-                                  💊 {patient.pharmacyOrders.length} Meds
-                                </span>
-                              )}
+
+                            {/* Action Buttons */}
+                            <div className="flex items-center gap-3 flex-shrink-0">
+                              <button
+                                onClick={() => handlePatientClick(patient)}
+                                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl"
+                              >
+                                View Details
+                              </button>
+                              <button
+                                onClick={() => openPatientModal(patient, 'orders')}
+                                className="px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white text-sm font-semibold rounded-xl hover:from-green-700 hover:to-green-800 transition-all duration-200 shadow-lg hover:shadow-xl"
+                              >
+                                Orders
+                              </button>
+                              <button
+                                onClick={() => openPatientModal(patient, 'disposition')}
+                                className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-200 transition-all duration-200"
+                              >
+                                Disposition
+                              </button>
                             </div>
-                          </div>
-                          
-                          {/* Action Buttons */}
-                          <div className="flex items-center gap-3 flex-shrink-0">
-                            <button
-                              onClick={() => handlePatientClick(patient)}
-                              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl"
-                            >
-                              View Details
-                            </button>
-                            <button
-                              onClick={() => openPatientModal(patient, 'orders')}
-                              className="px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white text-sm font-semibold rounded-xl hover:from-green-700 hover:to-green-800 transition-all duration-200 shadow-lg hover:shadow-xl"
-                            >
-                              Orders
-                            </button>
-                            <button
-                              onClick={() => openPatientModal(patient, 'disposition')}
-                              className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-200 transition-all duration-200"
-                            >
-                              Disposition
-                            </button>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
-        
-        {view === 'ambulances' && (
-          <AmbulanceBoard incomingPatients={mockIncomingPatients} />
-        )}
-        
-        {view === 'triage' && (
-          <TriageBoard patients={patients} onPatientClick={handlePatientClick} />
-        )}
-        
-        {view === 'beds' && (
-          <BedManagement beds={beds} patients={patients} onBedClick={handleBedClick} />
-        )}
+          )}
+
+          {view === 'ambulances' && (
+            <AmbulanceBoard incomingPatients={mockIncomingPatients} />
+          )}
+
+          {view === 'triage' && (
+            <TriageBoard patients={patients} onPatientClick={handlePatientClick} />
+          )}
+
+          {view === 'beds' && (
+            <BedManagement beds={beds} patients={patients} onBedClick={handleBedClick} />
+          )}
+        </div>
+
       </div>
-      
-      </div>
-      
+
       {/* Modals */}
       {activeModal === 'register' && (
         <PatientRegistration
@@ -450,7 +457,7 @@ export default function EmergencyDashboard() {
           onRegister={handleRegisterPatient}
         />
       )}
-      
+
       {activeModal === 'assessment' && selectedPatient && (
         <PatientAssessmentModal
           patient={selectedPatient}
@@ -461,7 +468,7 @@ export default function EmergencyDashboard() {
           onSave={handleUpdatePatient}
         />
       )}
-      
+
       {activeModal === 'clinical' && selectedPatient && (
         <ClinicalDocumentation
           patient={selectedPatient}
@@ -472,7 +479,7 @@ export default function EmergencyDashboard() {
           onSave={handleUpdatePatient}
         />
       )}
-      
+
       {activeModal === 'orders' && selectedPatient && (
         <OrderManagement
           patient={selectedPatient}
@@ -483,7 +490,7 @@ export default function EmergencyDashboard() {
           onSave={handleUpdatePatient}
         />
       )}
-      
+
       {activeModal === 'disposition' && selectedPatient && (
         <DispositionWorkflow
           patient={selectedPatient}
@@ -494,7 +501,7 @@ export default function EmergencyDashboard() {
           onSave={handleUpdatePatient}
         />
       )}
-      
+
       {activeModal === 'timeline' && selectedPatient && (
         <PatientTimeline
           patient={selectedPatient}
@@ -504,7 +511,7 @@ export default function EmergencyDashboard() {
           }}
         />
       )}
-      
+
       {activeModal === 'reports' && (
         <ReportsDashboard
           patients={patients}

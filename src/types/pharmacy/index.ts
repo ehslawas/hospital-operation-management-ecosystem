@@ -64,8 +64,9 @@ export type TransferStatus =
 
 export type TransferType = 'inter_facility' | 'intra_facility'
 
-export type OxygenCylinderStatus = 'full' | 'empty' | 'in_use' | 'maintenance' | 'disposed'
-export type OxygenCylinderType = 'B' | 'D' | 'E' | 'M' | 'G' | 'K' | 'T'
+// Deprecated or replaced by interfaces below
+// export type OxygenCylinderStatus = ...
+// export type OxygenCylinderType = ...
 
 export type BudgetType = 'appl' | 'cc' | 'dp'
 export type BudgetCategory = 'drug' | 'non_drug' | 'equipment' | 'operational'
@@ -122,6 +123,7 @@ export interface Drug extends BaseEntity {
   price?: number
   packaging_description?: string
   item_sub_class?: string
+  notes?: string
 }
 
 export interface DrugWithRelations extends Drug {
@@ -156,6 +158,7 @@ export interface NonDrug extends BaseEntity {
   procurement_vote?: 'appl' | 'cc' | 'dp' | 'lp'
   price?: number
   packaging_description?: string
+  notes?: string
 }
 
 export interface NonDrugWithRelations extends NonDrug {
@@ -165,6 +168,79 @@ export interface NonDrugWithRelations extends NonDrug {
   current_stock?: number
   stock_status?: 'in_stock' | 'low_stock' | 'critical' | 'out_of_stock'
 }
+
+// =====================================================
+// APPL CATALOG TYPES
+// =====================================================
+
+export interface ApplDrug extends BaseEntity {
+  hospital_id: string
+  item_code: string
+  item_name: string
+  packaging_description?: string
+  price?: number
+  notes?: string
+  status: 'active' | 'inactive'
+  created_by?: string
+}
+
+export interface ApplDrugWithRelations extends ApplDrug {
+  hospital?: Hospital
+  created_by_user?: User
+}
+
+export interface ApplNonDrug extends BaseEntity {
+  hospital_id: string
+  item_code: string
+  item_name: string
+  packaging_description?: string
+  price?: number
+  notes?: string
+  status: 'active' | 'inactive'
+  created_by?: string
+}
+
+export interface ApplNonDrugWithRelations extends ApplNonDrug {
+  hospital?: Hospital
+  created_by_user?: User
+}
+
+// =====================================================
+// LP CATALOG TYPES
+// =====================================================
+
+export interface LpDrug extends BaseEntity {
+  hospital_id: string
+  item_code: string
+  item_name: string
+  packaging_description?: string
+  price?: number
+  notes?: string
+  status: 'active' | 'inactive'
+  created_by?: string
+}
+
+export interface LpDrugWithRelations extends LpDrug {
+  hospital?: Hospital
+  created_by_user?: User
+}
+
+export interface LpNonDrug extends BaseEntity {
+  hospital_id: string
+  item_code: string
+  item_name: string
+  packaging_description?: string
+  price?: number
+  notes?: string
+  status: 'active' | 'inactive'
+  created_by?: string
+}
+
+export interface LpNonDrugWithRelations extends LpNonDrug {
+  hospital?: Hospital
+  created_by_user?: User
+}
+
 
 export interface StockLocation extends BaseEntity {
   hospital_id: string
@@ -298,50 +374,145 @@ export interface SlowMovingItem {
 // OXYGEN MANAGEMENT TYPES
 // =====================================================
 
-export interface OxygenCylinderTypeInfo extends BaseEntity {
-  type_code: OxygenCylinderType
-  type_name: string
-  capacity_liters: number
-  weight_kg?: number
-  description?: string
+export interface OxygenCylinderSize extends BaseEntity {
+  code: string // P101-D, P101-E, etc.
+  capacity: number
+  unit: string // m3
+  is_loan: boolean
 }
 
-export interface OxygenCylinder extends BaseEntity {
+export interface OxygenCylinderType extends BaseEntity {
+  code: string // BN, PI
+  name: string // Bullnose, Pin Index
+}
+
+export interface OxygenReceptionRecord extends BaseEntity {
   hospital_id: string
-  serial_number: string
-  type_id: string
-  status: OxygenCylinderStatus
-  current_location_id?: string
-  assigned_ward_id?: string
-  last_fill_date?: string
-  next_maintenance_date?: string
-  certification_expiry?: string
-  supplier_id?: string
-  notes?: string
+  reception_date: string
+  delivery_order_no: string
+  sales_order_no?: string
+  refill_amount: number
+  loan_amount: number
+  total_amount: number
+  vote_code: string // 080702
+  vote_activity: string // 27402
+  status: 'pending' | 'completed' | 'cancelled'
+  created_by?: string
 }
 
-export interface OxygenCylinderWithRelations extends OxygenCylinder {
-  type_info?: OxygenCylinderTypeInfo
-  current_location?: StockLocation
-  assigned_ward?: Department
-  supplier?: Supplier
+export interface OxygenReceptionRecordWithRelations extends OxygenReceptionRecord {
+  hospital?: Hospital
+  created_by_user?: User
+  items?: OxygenReceptionItemWithRelations[]
 }
 
-export interface OxygenConsumption extends BaseEntity {
+export interface OxygenReceptionItem extends BaseEntity {
+  reception_id: string
+  cylinder_id: string
+  cylinder_size_id: string
+  cylinder_type_id: string
+  unit_price: number
+}
+
+export interface OxygenReceptionItemWithRelations extends OxygenReceptionItem {
+  cylinder?: OxygenCylinderInventory
+  cylinder_size?: OxygenCylinderSize
+  cylinder_type?: OxygenCylinderType
+}
+
+export interface OxygenCylinderInventory extends BaseEntity {
   hospital_id: string
-  cylinder_id?: string
-  department_id: string
-  consumption_date: string
-  quantity_used: number
-  unit: 'liters' | 'cylinders'
-  recorded_by: string
-  notes?: string
+  cylinder_size_id: string
+  cylinder_type_id: string
+  qr_code: string
+  serial_number?: string
+  status: 'available' | 'issued' | 'empty' | 'damaged' | 'returned_to_supplier'
+  current_location: string
+  department_id?: string
 }
 
-export interface OxygenConsumptionWithRelations extends OxygenConsumption {
-  cylinder?: OxygenCylinder
+export interface OxygenCylinderInventoryWithRelations extends OxygenCylinderInventory {
+  size_info?: OxygenCylinderSize
+  type_info?: OxygenCylinderType
   department?: Department
-  recorded_by_user?: User
+  movements?: OxygenCylinderMovement[]
+}
+
+export interface OxygenCylinderMovement extends BaseEntity {
+  hospital_id: string
+  cylinder_id: string
+  movement_type: 'received' | 'issued' | 'returned_from_dept' | 'sent_to_supplier'
+  from_location?: string
+  to_location?: string
+  department_id?: string
+  moved_by?: string
+  moved_at: string
+  remarks?: string
+}
+
+export interface OxygenCylinderMovementWithRelations extends OxygenCylinderMovement {
+  cylinder?: OxygenCylinderInventory
+  department?: Department
+  moved_by_user?: User
+}
+
+export interface OxygenCylinderRequest extends BaseEntity {
+  hospital_id: string
+  supplier_id?: string
+  request_number: string
+  request_date: string
+  request_type: 'purchase' | 'maintenance' | 'return_empty'
+  status: 'draft' | 'submitted' | 'approved' | 'sent' | 'completed' | 'cancelled'
+  total_amount: number
+  email_sent_at?: string
+  remarks?: string
+  created_by?: string
+  approved_by?: string
+}
+
+export interface OxygenCylinderRequestWithRelations extends OxygenCylinderRequest {
+  hospital?: Hospital
+  supplier?: Supplier
+  items?: OxygenRequestItemWithRelations[]
+  created_by_user?: User
+  approved_by_user?: User
+}
+
+export interface OxygenRequestItem extends BaseEntity {
+  request_id: string
+  cylinder_size_id: string
+  cylinder_type_id: string
+  quantity: number
+  unit_price: number
+  total_price: number
+  remarks?: string
+}
+
+export interface OxygenRequestItemWithRelations extends OxygenRequestItem {
+  size_info?: OxygenCylinderSize
+  type_info?: OxygenCylinderType
+}
+
+export interface OxygenDashboardKPIs {
+  cc_allocation: number
+  total_allocation: number
+  expense: number
+  balance: number
+  liabilities: number
+  net_expenses: number
+  loan_total: number
+}
+
+export interface OxygenPricingConfig extends BaseEntity {
+  hospital_id?: string
+  cylinder_size_code: string
+  refill_price: number
+  effective_from: string
+}
+
+export interface OxygenSystemSettings {
+  hospital_id: string
+  loan_cylinder_rate: number
 }
 
 export interface OxygenSummary {
@@ -350,9 +521,22 @@ export interface OxygenSummary {
   empty_cylinders: number
   in_use_cylinders: number
   maintenance_cylinders: number
-  cylinders_by_type: { type: OxygenCylinderType; count: number }[]
+  cylinders_by_type: { type: string; count: number }[]
   daily_consumption: number
   monthly_consumption: number
+  kpis?: OxygenDashboardKPIs
+  inventory_summary?: {
+    size_code: string
+    type_name: string
+    capacity: number
+    unit: string
+    available: number
+    empty: number
+    issued: number
+    total: number
+    avg_usage_month: number
+  }[]
+  recent_receptions?: OxygenReceptionRecord[]
 }
 
 // =====================================================
@@ -380,6 +564,8 @@ export interface Supplier extends BaseEntity {
   account_document_url?: string
   /** Optional URL to uploaded MOF certificate (PDF in Supabase Storage) */
   mof_certificate_url?: string
+  /** Optional URL to uploaded Bumiputera Registration certificate (PDF in Supabase Storage) */
+  bumiputera_registration_certificate_url?: string
   status: SupplierStatus
   hospital_id?: string
   performance_rating?: number
@@ -555,6 +741,15 @@ export interface WarrantSummary {
   }[]
   by_vote_code: {
     vote_code: WarrantVoteCode
+    allocation: number
+    expenses: number
+    balance: number
+    count: number
+  }[]
+  by_department_vote_activity: {
+    department: string
+    vote_code: string
+    vote_activity: string
     allocation: number
     expenses: number
     balance: number
@@ -739,8 +934,12 @@ export interface PurchaseOrder extends BaseEntity {
   approved_at?: string
   notes?: string
   kkm_contract_number?: string
-  manual_supplier_name?: string
+  manual_supplier_name?: string;
+  manual_supplier_address?: string;
   sq_suppliers?: string[]
+  program_name?: string;
+  workflow_id?: string;
+  current_step?: number;
 }
 
 export interface PurchaseOrderWithRelations extends PurchaseOrder {
@@ -893,11 +1092,30 @@ export interface ProcurementStats {
   total_value: number
   pending_orders: number
   completed_orders: number
+  total_items?: number
   by_status: Record<string, number>
   by_category: Record<string, number>
   by_department: Record<string, number>
   by_vote_code: Record<string, number>
+  items_breakdown?: Record<string, number>
+  department_breakdown?: DepartmentBreakdownItem[]
 }
+
+export interface DepartmentBreakdownItem {
+  department: string
+  vote_codes: {
+    code: string
+    total_orders: number
+    total_items: number
+    activities?: {
+      code: string
+      total_orders: number
+      total_items: number
+    }[]
+  }[]
+}
+
+
 
 // =====================================================
 // DISTRIBUTION TYPES
@@ -1423,8 +1641,9 @@ export interface ProcurementFilter {
   search?: string
   status?: POStatus | 'all'
   supplier_id?: string
-  po_type?: POType | 'all'
+  po_type?: POType | 'all' | 'po_only'
   vote_code?: string
+  vote_activity?: string
   category?: string
   department?: string
   date_from?: string
@@ -1465,19 +1684,21 @@ export interface DrugFormData {
 export interface PurchaseOrderFormData {
   po_type?: POType
   supplier_id?: string // Made optional for Manual PO
-  manual_supplier_name?: string
+  manual_supplier_name?: string;
+  manual_supplier_address?: string;
   sq_suppliers?: string[]
   budget_id?: string
-  vote_code: string // Required: 080702 or 990102
-  vote_activity: string // Required: 27401, 27499, 27404, 27403, 27402, 27501
-  category: string // Required: drug, non_drug, non_standard, reagent, vaccine, insulin, hepc, medical_oxygen
-  department: string // Required: department code
+  vote_code?: string // Optional
+  vote_activity?: string // Optional
+  category?: string // Optional
+  department?: string // Optional
   expected_delivery_date?: string
   payment_terms?: string
   delivery_address?: string
   notes?: string
   status?: POStatus
   kkm_contract_number?: string
+  program_name?: string
   items: POItem[]
 }
 

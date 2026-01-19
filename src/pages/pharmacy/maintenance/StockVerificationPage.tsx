@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { ClipboardCheck, Plus, Calendar, AlertTriangle, CheckCircle, Clock } from 'lucide-react'
-import { Table, Badge, Button, Select, Input } from '@/components/ui'
+import { Table, Badge, Button, Select } from '@/components/ui'
 import type { VerificationType, VerificationStatus } from '@/types/pharmacy'
 
 // Mock data for demonstration
@@ -58,13 +58,13 @@ export const StockVerificationPage: React.FC = () => {
   })
 
   const renderStatusBadge = (status: VerificationStatus) => {
-    const map: Record<VerificationStatus, { color: 'success' | 'warning' | 'info' | 'secondary'; label: string; icon: React.ReactNode }> = {
+    const map: Record<VerificationStatus, { color: 'success' | 'warning' | 'info' | 'gray'; label: string; icon: React.ReactNode }> = {
       scheduled: { color: 'info', label: 'Scheduled', icon: <Calendar className="w-3 h-3" /> },
       in_progress: { color: 'warning', label: 'In Progress', icon: <Clock className="w-3 h-3" /> },
       completed: { color: 'success', label: 'Completed', icon: <CheckCircle className="w-3 h-3" /> },
-      cancelled: { color: 'secondary', label: 'Cancelled', icon: <AlertTriangle className="w-3 h-3" /> },
+      cancelled: { color: 'gray', label: 'Cancelled', icon: <AlertTriangle className="w-3 h-3" /> },
     }
-    const cfg = map[status] || { color: 'secondary', label: status, icon: null }
+    const cfg = map[status] || { color: 'gray', label: status, icon: null }
     return (
       <Badge variant={cfg.color} className="flex items-center gap-1">
         {cfg.icon}
@@ -74,12 +74,12 @@ export const StockVerificationPage: React.FC = () => {
   }
 
   const renderTypeBadge = (type: VerificationType) => {
-    const map: Record<VerificationType, { color: 'info' | 'warning' | 'secondary'; label: string }> = {
+    const map: Record<VerificationType, { color: 'info' | 'warning' | 'gray'; label: string }> = {
       full: { color: 'info', label: 'Full Count' },
       cycle: { color: 'warning', label: 'Cycle Count' },
-      spot: { color: 'secondary', label: 'Spot Check' },
+      spot: { color: 'gray', label: 'Spot Check' },
     }
-    const cfg = map[type] || { color: 'secondary', label: type }
+    const cfg = map[type] || { color: 'gray', label: type }
     return <Badge variant={cfg.color}>{cfg.label}</Badge>
   }
 

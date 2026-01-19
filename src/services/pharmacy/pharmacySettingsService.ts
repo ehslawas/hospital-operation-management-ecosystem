@@ -3,14 +3,14 @@
  * Handles configurable settings for pharmacy module (e.g., PO signatures)
  */
 
-import { supabase, isSupabaseConfigured } from '../supabase'
+import { supabase } from '../supabase'
 import type { ApiResponse } from '@/types'
 
 export interface PharmacyPOSignatures {
   // Officer who applies (Pegawai yang Memohon)
   applicantName: string
   applicantPosition: string
-  
+
   // Head of Department (Ketua Bahagian)
   headName: string
   headPosition: string
@@ -23,7 +23,6 @@ const DEFAULT_SIGNATURES: PharmacyPOSignatures = {
   headPosition: 'PEGAWAI FARMASI UF 32',
 }
 
-const STORAGE_KEY = 'pharmacy_po_signatures'
 const SUPABASE_SETTING_KEY = 'pharmacy_po_signatures'
 
 /**
@@ -33,7 +32,7 @@ export async function getPharmacyPOSignatures(
   hospitalId?: string
 ): Promise<ApiResponse<PharmacyPOSignatures>> {
   try {
-    if (isSupabaseConfigured() && hospitalId) {
+    if (hospitalId) {
       // Try to get from Supabase pharmacy_settings table
       const { data, error } = await supabase
         .from('pharmacy_settings')
@@ -47,29 +46,16 @@ export async function getPharmacyPOSignatures(
       }
 
       if (data?.setting_value) {
-        return {
-          data: data.setting_value as PharmacyPOSignatures,
-          error: null,
-        }
-      }
-    }
-
-    // Fallback to localStorage
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored) as PharmacyPOSignatures
+        const val = data.setting_value as Partial<PharmacyPOSignatures>
         return {
           data: {
-            applicantName: parsed.applicantName || DEFAULT_SIGNATURES.applicantName,
-            applicantPosition: parsed.applicantPosition || DEFAULT_SIGNATURES.applicantPosition,
-            headName: parsed.headName || DEFAULT_SIGNATURES.headName,
-            headPosition: parsed.headPosition || DEFAULT_SIGNATURES.headPosition,
+            applicantName: val.applicantName || DEFAULT_SIGNATURES.applicantName,
+            applicantPosition: val.applicantPosition || DEFAULT_SIGNATURES.applicantPosition,
+            headName: val.headName || DEFAULT_SIGNATURES.headName,
+            headPosition: val.headPosition || DEFAULT_SIGNATURES.headPosition,
           },
           error: null,
         }
-      } catch (e) {
-        console.warn('Error parsing stored signatures:', e)
       }
     }
 
@@ -92,7 +78,7 @@ export async function getPharmacyPOSignatures(
  */
 export async function updatePharmacyPOSignatures(
   signatures: Partial<PharmacyPOSignatures>,
-  hospitalId?: string,
+  hospitalId: string,
   userId?: string
 ): Promise<ApiResponse<PharmacyPOSignatures>> {
   try {
@@ -108,36 +94,33 @@ export async function updatePharmacyPOSignatures(
       headPosition: signatures.headPosition ?? current.headPosition,
     }
 
-    if (isSupabaseConfigured() && hospitalId) {
-      // Try to save to Supabase
-      const { data, error } = await supabase
-        .from('pharmacy_settings')
-        .upsert(
-          {
-            setting_key: SUPABASE_SETTING_KEY,
-            setting_value: updated,
-            hospital_id: hospitalId,
-            updated_by: userId,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'hospital_id,setting_key' }
-        )
-        .select('setting_value')
-        .single()
+    // Save to Supabase
+    const { data, error } = await supabase
+      .from('pharmacy_settings')
+      .upsert(
+        {
+          setting_key: SUPABASE_SETTING_KEY,
+          setting_value: updated,
+          hospital_id: hospitalId,
+          updated_by: userId,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'hospital_id,setting_key' }
+      )
+      .select('setting_value')
+      .single()
 
-      if (error) {
-        console.warn('Error saving pharmacy PO signatures to Supabase:', error.message)
-        // Fall through to localStorage
-      } else if (data) {
-        return {
-          data: data.setting_value as PharmacyPOSignatures,
-          error: null,
-        }
-      }
+    if (error) {
+      console.warn('Error saving pharmacy PO signatures to Supabase:', error.message)
+      return { data: updated, error: error.message }
     }
 
-    // Fallback to localStorage
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+    if (data) {
+      return {
+        data: data.setting_value as PharmacyPOSignatures,
+        error: null,
+      }
+    }
 
     return {
       data: updated,
@@ -156,8 +139,7 @@ export async function updatePharmacyPOSignatures(
  * Reset pharmacy PO signature settings to defaults
  */
 export async function resetPharmacyPOSignatures(
-  hospitalId?: string
+  hospitalId: string
 ): Promise<ApiResponse<PharmacyPOSignatures>> {
   return updatePharmacyPOSignatures(DEFAULT_SIGNATURES, hospitalId)
 }
-

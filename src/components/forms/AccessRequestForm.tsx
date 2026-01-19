@@ -7,7 +7,6 @@ import {
   Mail,
   Phone,
   Calendar,
-  MapPin,
   Building2,
   Briefcase,
   Users,
@@ -16,8 +15,10 @@ import {
   CheckCircle,
   Send,
   Lock,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
-import { Button, Input, Select, Textarea, FileUpload } from '@/components/ui'
+import { Button, Input, Select, Textarea, FileUpload, ConfirmationDialog } from '@/components/ui'
 import { accessRequestSchema, type AccessRequestFormData } from '@/lib/validators'
 import { getHospitals, getDepartments, submitAccessRequest } from '@/services/accessRequestService'
 import { useToast } from '@/stores/toastStore'
@@ -49,6 +50,9 @@ export const AccessRequestForm: React.FC<AccessRequestFormProps> = ({
   const [hospitals, setHospitals] = useState<Hospital[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
   const [profilePhoto, setProfilePhoto] = useState<File | null>(null)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [showConfirmation, setShowConfirmation] = useState(false)
   const toast = useToast()
 
   const {
@@ -83,6 +87,34 @@ export const AccessRequestForm: React.FC<AccessRequestFormProps> = ({
   })
 
   const selectedHospitalId = watch('hospitalId')
+  const icNumber = watch('icNumber')
+
+  // Auto-populate Date of Birth and Gender from IC Number
+  useEffect(() => {
+    if (icNumber && icNumber.length === 12 && /^\d{12}$/.test(icNumber)) {
+      const yy = icNumber.substring(0, 2)
+      const mm = icNumber.substring(2, 4)
+      const dd = icNumber.substring(4, 6)
+
+      const currentYear = new Date().getFullYear()
+      const currentYearLast2 = currentYear % 100
+      const yearPrefix = parseInt(yy) <= currentYearLast2 ? '20' : '19'
+      const fullYear = `${yearPrefix}${yy}`
+
+      const formattedDOB = `${fullYear}-${mm}-${dd}`
+
+      // Validate the date before setting
+      const date = new Date(formattedDOB)
+      if (!isNaN(date.getTime())) {
+        setValue('dateOfBirth', formattedDOB)
+      }
+
+      // Auto-populate gender from last digit
+      const lastDigit = parseInt(icNumber.charAt(11))
+      const gender = lastDigit % 2 === 0 ? 'female' : 'male'
+      setValue('gender', gender)
+    }
+  }, [icNumber, setValue])
 
   // Load hospitals on mount
   useEffect(() => {
@@ -221,8 +253,8 @@ export const AccessRequestForm: React.FC<AccessRequestFormProps> = ({
                   isActive
                     ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/30'
                     : isCompleted
-                    ? 'bg-primary-500 text-white'
-                    : 'bg-gray-100 text-gray-400'
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-gray-100 text-gray-400'
                 )}
               >
                 {isCompleted ? (
@@ -260,7 +292,6 @@ export const AccessRequestForm: React.FC<AccessRequestFormProps> = ({
           value={profilePhoto}
           onChange={setProfilePhoto}
           helperText="Upload a professional photo (Required)"
-          required
         />
       </div>
 
@@ -270,7 +301,8 @@ export const AccessRequestForm: React.FC<AccessRequestFormProps> = ({
           label="Full Name (as per IC)"
           placeholder="Enter your full name"
           leftIcon={<User className="w-5 h-5" />}
-          error={errors.fullName?.message}
+          error={!!errors.fullName}
+          errorMessage={errors.fullName?.message}
           required
         />
 
@@ -280,7 +312,8 @@ export const AccessRequestForm: React.FC<AccessRequestFormProps> = ({
           label="Email Address"
           placeholder="Enter your email"
           leftIcon={<Mail className="w-5 h-5" />}
-          error={errors.email?.message}
+          error={!!errors.email}
+          errorMessage={errors.email?.message}
           required
         />
 
@@ -289,7 +322,8 @@ export const AccessRequestForm: React.FC<AccessRequestFormProps> = ({
           label="IC Number"
           placeholder="e.g., 880505145566"
           leftIcon={<User className="w-5 h-5" />}
-          error={errors.icNumber?.message}
+          error={!!errors.icNumber}
+          errorMessage={errors.icNumber?.message}
           helperText="12 digits without dashes"
           required
         />
@@ -299,7 +333,8 @@ export const AccessRequestForm: React.FC<AccessRequestFormProps> = ({
           label="Phone Number"
           placeholder="e.g., 0123456789"
           leftIcon={<Phone className="w-5 h-5" />}
-          error={errors.phoneNumber?.message}
+          error={!!errors.phoneNumber}
+          errorMessage={errors.phoneNumber?.message}
           required
         />
 
@@ -308,7 +343,8 @@ export const AccessRequestForm: React.FC<AccessRequestFormProps> = ({
           type="date"
           label="Date of Birth"
           leftIcon={<Calendar className="w-5 h-5" />}
-          error={errors.dateOfBirth?.message}
+          error={!!errors.dateOfBirth}
+          errorMessage={errors.dateOfBirth?.message}
           required
         />
 
@@ -332,7 +368,8 @@ export const AccessRequestForm: React.FC<AccessRequestFormProps> = ({
         {...register('address')}
         label="Home Address"
         placeholder="Enter your full address"
-        error={errors.address?.message}
+        error={!!errors.address}
+        errorMessage={errors.address?.message}
         required
       />
 
@@ -340,22 +377,52 @@ export const AccessRequestForm: React.FC<AccessRequestFormProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
         <Input
           {...register('password')}
-          type="password"
+          type={showPassword ? 'text' : 'password'}
           label="Password"
           placeholder="Create a strong password"
           leftIcon={<Lock className="w-5 h-5" />}
-          error={errors.password?.message}
+          rightIcon={
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="focus:outline-none transition-colors hover:text-primary-600"
+              tabIndex={-1}
+            >
+              {showPassword ? (
+                <EyeOff className="w-5 h-5" />
+              ) : (
+                <Eye className="w-5 h-5" />
+              )}
+            </button>
+          }
+          error={!!errors.password}
+          errorMessage={errors.password?.message}
           helperText="Min 8 chars, with uppercase, lowercase, number, and special character"
           required
         />
 
         <Input
           {...register('confirmPassword')}
-          type="password"
+          type={showConfirmPassword ? 'text' : 'password'}
           label="Confirm Password"
           placeholder="Re-enter your password"
           leftIcon={<Lock className="w-5 h-5" />}
-          error={errors.confirmPassword?.message}
+          rightIcon={
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="focus:outline-none transition-colors hover:text-primary-600"
+              tabIndex={-1}
+            >
+              {showConfirmPassword ? (
+                <EyeOff className="w-5 h-5" />
+              ) : (
+                <Eye className="w-5 h-5" />
+              )}
+            </button>
+          }
+          error={!!errors.confirmPassword}
+          errorMessage={errors.confirmPassword?.message}
           required
         />
       </div>
@@ -400,10 +467,10 @@ export const AccessRequestForm: React.FC<AccessRequestFormProps> = ({
               !selectedHospitalId
                 ? 'Select a hospital first'
                 : isLoadingDepartments
-                ? 'Loading departments...'
-                : departments.length === 0
-                ? 'No departments available'
-                : 'Select department'
+                  ? 'Loading departments...'
+                  : departments.length === 0
+                    ? 'No departments available'
+                    : 'Select department'
             }
             options={departments.map((d) => ({
               value: d.id,
@@ -416,8 +483,8 @@ export const AccessRequestForm: React.FC<AccessRequestFormProps> = ({
               !selectedHospitalId
                 ? 'Please select a hospital first'
                 : departments.length === 0
-                ? 'This hospital has no active departments. Departments are created based on enabled modules.'
-                : undefined
+                  ? 'This hospital has no active departments. Departments are created based on enabled modules.'
+                  : undefined
             }
           />
         )}
@@ -428,7 +495,8 @@ export const AccessRequestForm: React.FC<AccessRequestFormProps> = ({
         label="Position (Jawatan)"
         placeholder="e.g., Jururawat U29, Pegawai Farmasi U41"
         leftIcon={<Briefcase className="w-5 h-5" />}
-        error={errors.jawatan?.message}
+        error={!!errors.jawatan}
+        errorMessage={errors.jawatan?.message}
         helperText="Include your grade if applicable"
         required
       />
@@ -448,7 +516,8 @@ export const AccessRequestForm: React.FC<AccessRequestFormProps> = ({
           label="Contact Name"
           placeholder="Enter contact name"
           leftIcon={<User className="w-5 h-5" />}
-          error={errors.emergencyContactName?.message}
+          error={!!errors.emergencyContactName}
+          errorMessage={errors.emergencyContactName?.message}
           required
         />
 
@@ -475,7 +544,8 @@ export const AccessRequestForm: React.FC<AccessRequestFormProps> = ({
           label="Phone Number"
           placeholder="e.g., 0123456789"
           leftIcon={<Phone className="w-5 h-5" />}
-          error={errors.emergencyContactPhone?.message}
+          error={!!errors.emergencyContactPhone}
+          errorMessage={errors.emergencyContactPhone?.message}
           required
         />
       </div>
@@ -484,7 +554,8 @@ export const AccessRequestForm: React.FC<AccessRequestFormProps> = ({
         {...register('emergencyContactAddress')}
         label="Address (Optional)"
         placeholder="Enter contact's address"
-        error={errors.emergencyContactAddress?.message}
+        error={!!errors.emergencyContactAddress}
+        errorMessage={errors.emergencyContactAddress?.message}
       />
     </motion.div>
   )
@@ -500,11 +571,14 @@ export const AccessRequestForm: React.FC<AccessRequestFormProps> = ({
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900">Request Access</h2>
-          <p className="text-sm text-gray-500">
-            Fill in your details to request system access
-          </p>
+        <div className="flex items-center gap-4">
+          <img src="/jata-logo.png" alt="Jata Malaysia" className="w-12 h-auto hidden sm:block" />
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">Request Access</h2>
+            <p className="text-sm text-slate-500">
+              Fill in your details to request system access
+            </p>
+          </div>
         </div>
       </div>
 
@@ -536,7 +610,17 @@ export const AccessRequestForm: React.FC<AccessRequestFormProps> = ({
             </Button>
           ) : (
             <Button
-              type="submit"
+              type="button"
+              onClick={async () => {
+                const isValid = await validateStep(3)
+                if (isValid) {
+                  if (!profilePhoto) {
+                    toast.error('Profile Photo Required', 'Please upload a professional photo first.')
+                    return
+                  }
+                  setShowConfirmation(true)
+                }
+              }}
               isLoading={isLoading}
               leftIcon={!isLoading && <Send className="w-4 h-4" />}
             >
@@ -545,6 +629,21 @@ export const AccessRequestForm: React.FC<AccessRequestFormProps> = ({
           )}
         </div>
       </form>
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={showConfirmation}
+        onClose={() => setShowConfirmation(false)}
+        onConfirm={() => {
+          setShowConfirmation(false)
+          handleSubmit(onSubmit)()
+        }}
+        variant="info"
+        title="Confirm Details"
+        message="Are you sure all the details are correct? Once submitted, your request will be reviewed by the hospital administrator."
+        confirmText="Yes, Submit"
+        cancelText="Review Again"
+      />
     </div>
   )
 }

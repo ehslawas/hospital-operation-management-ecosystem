@@ -76,19 +76,19 @@ export const NonDrugInventoryPage: React.FC = () => {
     return itemStatus === 'active' ? (
       <Badge variant="success">Active</Badge>
     ) : (
-      <Badge variant="secondary">Inactive</Badge>
+      <Badge variant="gray">Inactive</Badge>
     )
   }
 
   const renderStockBadge = (stockStatus?: string) => {
-    if (!stockStatus) return <Badge variant="secondary">—</Badge>
-    const map: Record<string, { color: 'success' | 'warning' | 'error' | 'secondary'; label: string }> = {
+    if (!stockStatus) return <Badge variant="gray">—</Badge>
+    const map: Record<string, { color: 'success' | 'warning' | 'error' | 'gray'; label: string }> = {
       in_stock: { color: 'success', label: 'In Stock' },
       low_stock: { color: 'warning', label: 'Low' },
       critical: { color: 'error', label: 'Critical' },
-      out_of_stock: { color: 'secondary', label: 'Out' },
+      out_of_stock: { color: 'gray', label: 'Out' },
     }
-    const cfg = map[stockStatus] || { color: 'secondary', label: stockStatus }
+    const cfg = map[stockStatus] || { color: 'gray', label: stockStatus }
     return <Badge variant={cfg.color}>{cfg.label}</Badge>
   }
 

@@ -62,35 +62,60 @@ export const SYSTEM_ROLES = {
   SYSTEM_ADMIN: 'system_admin',
   HOSPITAL_ADMIN: 'hospital_admin',
 
-  // Pharmacy Roles
-  PHARMACY_DIRECTOR: 'pharmacy_director',
-  PHARMACY_MANAGER: 'pharmacy_manager',
+  // KKM Standard Roles
+  MEDICAL_OFFICER: 'medical_officer',
+  ASSISTANT_MEDICAL_OFFICER: 'assistant_medical_officer',
+  SENIOR_ASSISTANT_MEDICAL_OFFICER: 'senior_assistant_medical_officer',
   PHARMACIST: 'pharmacist',
-  PHARMACY_ASSISTANT: 'pharmacy_assistant',
-  PHARMACY_STOREKEEPER: 'pharmacy_storekeeper',
-  PHARMACY_STAFF: 'pharmacy_staff',
-
-  // Clinical Roles
+  ASSISTANT_PHARMACIST: 'assistant_pharmacist',
+  MATRON: 'matron',
+  SISTER: 'sister',
   NURSE: 'nurse',
-  DOCTOR: 'doctor',
-
-  // General
-  STAFF: 'staff',
+  HOSPITAL_ADMINISTRATOR: 'hospital_administrator',
+  HOSPITAL_DRIVER: 'hospital_driver',
+  GENERAL_SERVICE_ASSISTANT: 'general_service_assistant',
+  RADIOGRAPHER: 'radiographer',
+  MEDICAL_LAB_TECHNICIAN: 'medical_lab_technician',
+  PATHOLOGIST: 'pathologist',
+  PHYSIOTHERAPIST: 'physiotherapist',
+  OCCUPATIONAL_THERAPIST: 'occupational_therapist',
+  HOSPITAL_DIRECTOR: 'hospital_director',
 } as const
 
 // Role Display Names
 export const ROLE_DISPLAY_NAMES: Record<string, string> = {
   [SYSTEM_ROLES.SYSTEM_ADMIN]: 'System Administrator',
-  [SYSTEM_ROLES.HOSPITAL_ADMIN]: 'Hospital Administrator',
-  [SYSTEM_ROLES.PHARMACY_DIRECTOR]: 'Pharmacy Director',
-  [SYSTEM_ROLES.PHARMACY_MANAGER]: 'Pharmacy Manager',
+  [SYSTEM_ROLES.HOSPITAL_ADMIN]: 'Hospital System Administrator',
+  [SYSTEM_ROLES.MEDICAL_OFFICER]: 'Medical Officer',
+  [SYSTEM_ROLES.ASSISTANT_MEDICAL_OFFICER]: 'Assistant Medical Officer',
+  [SYSTEM_ROLES.SENIOR_ASSISTANT_MEDICAL_OFFICER]: 'Senior Assistant Medical Officer',
   [SYSTEM_ROLES.PHARMACIST]: 'Pharmacist',
-  [SYSTEM_ROLES.PHARMACY_ASSISTANT]: 'Pharmacy Assistant',
-  [SYSTEM_ROLES.PHARMACY_STOREKEEPER]: 'Store Keeper',
-  [SYSTEM_ROLES.PHARMACY_STAFF]: 'Pharmacy Staff',
+  [SYSTEM_ROLES.ASSISTANT_PHARMACIST]: 'Assistant Pharmacist',
+  [SYSTEM_ROLES.MATRON]: 'Matron',
+  [SYSTEM_ROLES.SISTER]: 'Sister',
   [SYSTEM_ROLES.NURSE]: 'Nurse',
-  [SYSTEM_ROLES.DOCTOR]: 'Doctor',
-  [SYSTEM_ROLES.STAFF]: 'Staff',
+  [SYSTEM_ROLES.HOSPITAL_ADMINISTRATOR]: 'Hospital Administrator',
+  [SYSTEM_ROLES.HOSPITAL_DRIVER]: 'Hospital Driver',
+  [SYSTEM_ROLES.GENERAL_SERVICE_ASSISTANT]: 'General Service Assistant',
+  [SYSTEM_ROLES.RADIOGRAPHER]: 'Radiographer',
+  [SYSTEM_ROLES.MEDICAL_LAB_TECHNICIAN]: 'Medical Laboratory Technologist',
+  [SYSTEM_ROLES.PATHOLOGIST]: 'Pathologist',
+  [SYSTEM_ROLES.PHYSIOTHERAPIST]: 'Physiotherapist',
+  [SYSTEM_ROLES.OCCUPATIONAL_THERAPIST]: 'Occupational Therapist',
+  [SYSTEM_ROLES.HOSPITAL_DIRECTOR]: 'Hospital Director',
+} as const
+
+// Department Codes
+export const DEPARTMENT_CODES = {
+  HOSPITAL_ADMIN: 'HOSPITAL_ADMIN',
+  PHARMACY_LOGISTICS: 'PHARMACY_LOGISTICS',
+  PHARMACY_SATELLITE: 'PHARMACY_SATELLITE',
+  PHARMACY_SUBSTORE: 'PHARMACY_SUBSTORE',
+  EMERGENCY_TRAUMA: 'EMERGENCY_TRAUMA',
+  GENERAL_WARD: 'GENERAL_WARD',
+  MATERNITY_WARD: 'MATERNITY_WARD',
+  PAEDIATRIC_WARD: 'PAEDIATRIC_WARD',
+  NURSING_UNIT: 'NURSING_UNIT',
 } as const
 
 // Pharmacy Logistics Status Constants
@@ -253,11 +278,14 @@ export const ROUTES = {
   ADMIN_DEPARTMENTS: '/admin/departments',
   ADMIN_ROLES: '/admin/roles',
   ADMIN_PERMISSIONS: '/admin/permissions',
+  ADMIN_MODULES: '/admin/modules',
+  ADMIN_FEATURES: '/admin/features',
+  ADMIN_WORKFLOWS: '/admin/workflows',
   ADMIN_SETTINGS: '/admin/settings',
   ADMIN_AUDIT_LOGS: '/admin/audit-logs',
+  APPROVAL_DASHBOARD: '/approvals',
 
   // System Admin Routes
-  ADMIN_MODULES: '/admin/modules',
   ADMIN_MONITORING: '/admin/monitoring',
   ADMIN_BACKUPS: '/admin/backups',
   ADMIN_ALERTS: '/admin/alerts',
@@ -266,6 +294,7 @@ export const ROUTES = {
   // Hospital Admin Routes
   ADMIN_MEMOS: '/admin/memos',
   ADMIN_MEMO_CREATE: '/admin/memos/create',
+  ADMIN_RUNNING_NUMBERS: '/admin/running-numbers',
   ADMIN_SENSITIVE_DATA_REQUESTS: '/admin/sensitive-data-requests',
   ADMIN_PATIENT_DATABASE: '/admin/patient-database',
   ADMIN_PATIENT_ACCESS_LOGS: '/admin/patient-database/access-logs',
@@ -295,8 +324,15 @@ export const ROUTES = {
 
   // Medical Oxygen
   PHARMACY_OXYGEN: '/pharmacy/oxygen',
-  PHARMACY_OXYGEN_CYLINDERS: '/pharmacy/oxygen/cylinders',
+  PHARMACY_OXYGEN_DASHBOARD: '/pharmacy/oxygen/dashboard',
+  PHARMACY_OXYGEN_INVENTORY: '/pharmacy/oxygen/inventory',
+  PHARMACY_OXYGEN_REQUEST: '/pharmacy/oxygen/request',
   PHARMACY_OXYGEN_CONSUMPTION: '/pharmacy/oxygen/consumption',
+  PHARMACY_OXYGEN_QR_GEN: '/pharmacy/oxygen/tools/qr-gen',
+  PHARMACY_OXYGEN_ISSUE: '/pharmacy/oxygen/issue',
+  PHARMACY_OXYGEN_RETURN: '/pharmacy/oxygen/return',
+  PHARMACY_OXYGEN_SUPPLIER_RETURN: '/pharmacy/oxygen/supplier',
+
 
   // Financial
   PHARMACY_FINANCIAL: '/pharmacy/financial',
@@ -337,7 +373,8 @@ export const ROUTES = {
   PHARMACY_DRUG_CATALOG: '/pharmacy/catalog/drugs',
   PHARMACY_NON_DRUG_CATALOG: '/pharmacy/catalog/non-drugs',
   PHARMACY_SUPPLIER_CATALOG: '/pharmacy/catalog/suppliers',
-  PHARMACY_CONTRACT_CATALOG: '/pharmacy/catalog/contracts',
+  PHARMACY_CONTRACT_DRUGS: '/pharmacy/catalog/contract-drugs',
+  PHARMACY_CONTRACT_NON_DRUGS: '/pharmacy/catalog/contract-non-drugs',
   PHARMACY_HOSPITAL_FACILITY: '/pharmacy/catalog/hospitals',
   PHARMACY_CLINIC_FACILITY: '/pharmacy/catalog/clinics',
 
@@ -507,7 +544,7 @@ export const MODULE_DEFINITIONS = [
   },
   {
     code: SYSTEM_MODULES.LABORATORY,
-    name: 'Laboratory',
+    name: 'Pathologist',
     description: 'Laboratory tests and results management',
     icon: 'FlaskConical',
     category: 'clinical',

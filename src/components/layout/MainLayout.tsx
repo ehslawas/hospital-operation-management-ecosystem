@@ -7,11 +7,12 @@ import { ToastContainer } from '@/components/ui'
 import { useAuthStore } from '@/stores/authStore'
 import { useSidebar } from '@/stores/uiStore'
 import { ROUTES } from '@/lib/constants'
-import { cn } from '@/lib/utils'
+import { useIsMobile } from '@/hooks/use-mobile'
 
 export const MainLayout: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuthStore()
   const { sidebarCollapsed } = useSidebar()
+  const isMobile = useIsMobile(1024)
 
   // Show loading state
   if (isLoading) {
@@ -41,7 +42,7 @@ export const MainLayout: React.FC = () => {
       {/* Main Content - Below header, with sidebar margin */}
       <motion.div
         initial={false}
-        animate={{ marginLeft: sidebarCollapsed ? 80 : 280 }}
+        animate={{ marginLeft: isMobile ? 0 : (sidebarCollapsed ? 80 : 280) }}
         transition={{ duration: 0.2, ease: 'easeInOut' }}
         className="min-h-screen flex flex-col"
         style={{ marginTop: '112px' }}

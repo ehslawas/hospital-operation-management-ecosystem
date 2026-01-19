@@ -16,6 +16,5 @@ export * from './maintenanceService'
 export * from './pharmacyDashboardService'
 export * from './pdfMergeService'
 
-// Mock data
-export * from './mockData'
+
 

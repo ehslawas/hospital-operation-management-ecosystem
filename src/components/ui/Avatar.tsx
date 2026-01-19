@@ -7,6 +7,7 @@ export interface AvatarProps {
   name?: string
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl'
   className?: string
+  alt?: string
 }
 
 const sizes = {
@@ -32,6 +33,7 @@ export const Avatar: React.FC<AvatarProps> = ({
   name,
   size = 'md',
   className,
+  alt,
 }) => {
   const [imgError, setImgError] = React.useState(false)
 
@@ -46,7 +48,7 @@ export const Avatar: React.FC<AvatarProps> = ({
       >
         <img
           src={src}
-          alt={name || 'Avatar'}
+          alt={alt || name || 'Avatar'}
           className="w-full h-full object-cover"
           onError={() => setImgError(true)}
         />

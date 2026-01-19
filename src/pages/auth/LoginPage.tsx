@@ -53,7 +53,7 @@ export const LoginPage: React.FC = () => {
       <div className="hidden lg:flex lg:w-[55%] xl:w-[60%] relative overflow-hidden">
         {/* Background - Dark gradient with subtle pattern */}
         <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" />
-        
+
         {/* Geometric Pattern Overlay */}
         <div className="absolute inset-0 opacity-[0.03]">
           <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
@@ -107,12 +107,16 @@ export const LoginPage: React.FC = () => {
             {/* System Name */}
             <div className="space-y-4">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-1 bg-gradient-to-r from-teal-400 to-cyan-400 rounded-full" />
-                <span className="text-teal-400 text-sm font-semibold tracking-widest uppercase">
-                  Healthcare Management System
+                <div className="px-3 py-1 bg-teal-500/10 border border-teal-500/20 rounded-md">
+                  <span className="text-teal-400 text-xs font-bold tracking-widest uppercase">
+                    v1.0 Release
+                  </span>
+                </div>
+                <span className="text-slate-400 text-sm font-medium tracking-wide">
+                  Next-Gen Healthcare Management
                 </span>
               </div>
-              
+
               <h2 className="text-5xl xl:text-6xl font-bold text-white leading-tight">
                 Hospital Operation
                 <br />
@@ -120,9 +124,9 @@ export const LoginPage: React.FC = () => {
                   Management Ecosystem
                 </span>
               </h2>
-              
+
               <p className="text-lg text-slate-400 max-w-lg leading-relaxed">
-                A comprehensive digital platform designed to streamline hospital operations, 
+                A comprehensive digital platform designed to streamline hospital operations,
                 enhance efficiency, and improve healthcare delivery across Malaysia.
               </p>
             </div>
@@ -157,15 +161,15 @@ export const LoginPage: React.FC = () => {
             className="grid grid-cols-3 gap-8"
           >
             {[
-              { value: '150+', label: 'Healthcare Facilities' },
-              { value: '50K+', label: 'Active Users' },
-              { value: '99.9%', label: 'System Uptime' },
+              { value: 'Modern', label: 'Architecture' },
+              { value: 'Unified', label: 'Ecosystem' },
+              { value: 'Stable', label: 'v1.0 Platform' },
             ].map((stat, index) => (
               <div key={stat.label} className="text-center">
-                <p className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-cyan-400">
+                <p className="text-2xl xl:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-cyan-400">
                   {stat.value}
                 </p>
-                <p className="text-sm text-slate-500 mt-1">{stat.label}</p>
+                <p className="text-xs xl:text-sm text-slate-500 mt-1 uppercase tracking-wider font-semibold">{stat.label}</p>
               </div>
             ))}
           </motion.div>
@@ -185,7 +189,7 @@ export const LoginPage: React.FC = () => {
             <rect width="100%" height="100%" fill="url(#dots)" />
           </svg>
         </div>
-        
+
         {/* Mobile Header */}
         <div className="lg:hidden bg-slate-950 px-6 py-10 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-teal-900/20 to-transparent" />

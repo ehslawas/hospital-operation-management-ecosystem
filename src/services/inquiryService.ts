@@ -1,7 +1,5 @@
-import { supabase, isSupabaseConfigured } from './supabase'
-import { mockInquiries } from './mockData'
+import { supabase } from './supabase'
 import type { Inquiry, InquiryFormData } from '@/types'
-import { generateId } from '@/lib/utils'
 
 export interface SubmitInquiryResult {
   success: boolean
@@ -14,44 +12,22 @@ export interface SubmitInquiryResult {
  */
 export async function submitInquiry(data: InquiryFormData): Promise<SubmitInquiryResult> {
   try {
-    if (isSupabaseConfigured()) {
-      const { data: inquiry, error } = await supabase
-        .from('inquiries')
-        .insert({
-          name: data.name,
-          email: data.email,
-          subject: data.subject,
-          message: data.message,
-          inquiry_type: data.inquiryType,
-          status: 'new',
-        })
-        .select()
-        .single()
-
-      if (error) throw error
-
-      return { success: true, inquiry }
-    } else {
-      // Mock - simulate submission
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      const newInquiry: Inquiry = {
-        id: generateId(),
+    const { data: inquiry, error } = await supabase
+      .from('inquiries')
+      .insert({
         name: data.name,
         email: data.email,
         subject: data.subject,
         message: data.message,
         inquiry_type: data.inquiryType,
         status: 'new',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }
+      })
+      .select()
+      .single()
 
-      // Add to mock data (in memory only)
-      mockInquiries.push(newInquiry)
+    if (error) throw error
 
-      return { success: true, inquiry: newInquiry }
-    }
+    return { success: true, inquiry }
   } catch (error) {
     console.error('Submit inquiry error:', error)
     return {
@@ -65,22 +41,16 @@ export async function submitInquiry(data: InquiryFormData): Promise<SubmitInquir
  * Get all inquiries (for admin)
  */
 export async function getInquiries(): Promise<Inquiry[]> {
-  if (isSupabaseConfigured()) {
-    const { data, error } = await supabase
-      .from('inquiries')
-      .select('*')
-      .order('created_at', { ascending: false })
+  const { data, error } = await supabase
+    .from('inquiries')
+    .select('*')
+    .order('created_at', { ascending: false })
 
-    if (error) {
-      console.error('Get inquiries error:', error)
-      return []
-    }
-
-    return data
-  } else {
-    return [...mockInquiries].sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    )
+  if (error) {
+    console.error('Get inquiries error:', error)
+    return []
   }
+
+  return data
 }
 

@@ -1,17 +1,18 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { MetricsCard } from '@/features/emergency/components/MetricsCard';
 import { ActiveDeliveriesBoard } from '../components/ActiveDeliveriesBoard';
 import { MotherDetailsModal } from '../components/MotherDetailsModal';
+import { PharmacyLogisticsWidget } from '@/features/pharmacy-logistics/components/PharmacyLogisticsWidget';
 import type { Mother } from '../types/Maternity';
 import { mockMothers, mockMaternityBeds, calculateMaternityStats } from '../services/mockMaternityData';
 
 export default function MaternityDashboard() {
-  const [mothers, setMothers] = useState<Mother[]>(mockMothers);
+  const [mothers] = useState<Mother[]>(mockMothers);
   const [selectedMother, setSelectedMother] = useState<Mother | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
-  
+
   // Update current time every minute
   useEffect(() => {
     const timer = setInterval(() => {
@@ -19,14 +20,14 @@ export default function MaternityDashboard() {
     }, 60000);
     return () => clearInterval(timer);
   }, []);
-  
+
   const stats = calculateMaternityStats(mothers, mockMaternityBeds);
   const bedOccupancy = Math.round(((stats.totalBeds - stats.availableBeds) / stats.totalBeds) * 100);
-  
+
   const handleMotherClick = (mother: Mother) => {
     setSelectedMother(mother);
   };
-  
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -47,7 +48,7 @@ export default function MaternityDashboard() {
           </div>
         </div>
       </div>
-      
+
       {/* Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <MetricsCard
@@ -61,7 +62,7 @@ export default function MaternityDashboard() {
             </svg>
           }
         />
-        
+
         <MetricsCard
           title="In Labour"
           value={stats.inLabour}
@@ -73,7 +74,7 @@ export default function MaternityDashboard() {
             </svg>
           }
         />
-        
+
         <MetricsCard
           title="Deliveries Today"
           value={stats.deliveriesToday}
@@ -85,7 +86,7 @@ export default function MaternityDashboard() {
             </svg>
           }
         />
-        
+
         <MetricsCard
           title="High Risk Cases"
           value={stats.highRiskCases}
@@ -98,7 +99,7 @@ export default function MaternityDashboard() {
           }
         />
       </div>
-      
+
       {/* Quick Stats */}
       <div className="grid md:grid-cols-2 gap-6">
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200/60 p-6">
@@ -113,7 +114,7 @@ export default function MaternityDashboard() {
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
               </svg>
             </div>
-            
+
             <div className="pt-4 border-t border-slate-200">
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
@@ -132,7 +133,7 @@ export default function MaternityDashboard() {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200/60 p-6">
           <h3 className="text-lg font-bold text-slate-900 mb-4">Bed Occupancy</h3>
           <div className="flex items-center justify-between mb-4">
@@ -146,7 +147,7 @@ export default function MaternityDashboard() {
             </div>
           </div>
           <div className="h-4 bg-slate-200 rounded-full overflow-hidden">
-            <div 
+            <div
               className="h-full bg-gradient-to-r from-pink-500 to-rose-500"
               style={{ width: `${bedOccupancy}%` }}
             />
@@ -157,7 +158,10 @@ export default function MaternityDashboard() {
           </div>
         </div>
       </div>
-      
+
+      {/* Shared Logistics Widget (Permission-aware) */}
+      <PharmacyLogisticsWidget />
+
       {/* Ward Breakdown */}
       <div className="bg-white rounded-2xl shadow-lg border border-slate-200/60 p-6">
         <h2 className="text-xl font-bold text-slate-900 mb-4">Ward Breakdown</h2>
@@ -171,7 +175,7 @@ export default function MaternityDashboard() {
             const occupied = ward.beds.filter(b => b.status === 'occupied').length;
             const total = ward.beds.length;
             const percentage = Math.round((occupied / total) * 100);
-            
+
             return (
               <div key={ward.name} className="text-center">
                 <div className={`${ward.color} text-white rounded-xl p-4 mb-2`}>
@@ -184,10 +188,10 @@ export default function MaternityDashboard() {
           })}
         </div>
       </div>
-      
+
       {/* Active Deliveries Board */}
       <ActiveDeliveriesBoard mothers={mothers} onMotherClick={handleMotherClick} />
-      
+
       {/* Mother Details Modal */}
       {selectedMother && (
         <MotherDetailsModal

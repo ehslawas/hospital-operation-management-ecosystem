@@ -3,10 +3,9 @@
  * Handles non-drug catalog operations with full CRUD functionality
  */
 
-import { supabase, isSupabaseConfigured } from '../supabase'
+import { supabase } from '../supabase'
 import type { ApiResponse, PaginatedResponse } from '@/types'
-import type { NonDrug, NonDrugWithRelations, NonDrugCategory, Supplier } from '@/types/pharmacy'
-import { mockNonDrugs, mockNonDrugCategories, mockSuppliers } from './mockData'
+import type { NonDrug, NonDrugWithRelations, Supplier } from '@/types/pharmacy'
 import { getNonDrugCategories } from './inventoryService'
 
 // Small helper to safely handle UUID fields coming from imports/forms.
@@ -45,55 +44,36 @@ export async function getNonDrugCatalogKPIs(
   hospitalId: string
 ): Promise<ApiResponse<NonDrugCatalogKPIs>> {
   try {
-    const supabaseConfigured = isSupabaseConfigured()
+    // Total
+    const { count: total, error: totalError } = await supabase
+      .from('non_drugs')
+      .select('*', { count: 'exact', head: true })
+      .eq('hospital_id', hospitalId)
 
-    if (supabaseConfigured) {
-      // Use real data from Supabase when configured
-      // Total
-      const { count: total, error: totalError } = await supabase
-        .from('non_drugs')
-        .select('*', { count: 'exact', head: true })
-        .eq('hospital_id', hospitalId)
+    if (totalError) throw totalError
 
-      if (totalError) throw totalError
+    // Active
+    const { count: active, error: activeError } = await supabase
+      .from('non_drugs')
+      .select('*', { count: 'exact', head: true })
+      .eq('hospital_id', hospitalId)
+      .eq('status', 'active')
 
-      // Active
-      const { count: active, error: activeError } = await supabase
-        .from('non_drugs')
-        .select('*', { count: 'exact', head: true })
-        .eq('hospital_id', hospitalId)
-        .eq('status', 'active')
+    if (activeError) throw activeError
 
-      if (activeError) throw activeError
+    // Inactive
+    const { count: inactive, error: inactiveError } = await supabase
+      .from('non_drugs')
+      .select('*', { count: 'exact', head: true })
+      .eq('hospital_id', hospitalId)
+      .eq('status', 'inactive')
 
-      // Inactive
-      const { count: inactive, error: inactiveError } = await supabase
-        .from('non_drugs')
-        .select('*', { count: 'exact', head: true })
-        .eq('hospital_id', hospitalId)
-        .eq('status', 'inactive')
-
-      if (inactiveError) throw inactiveError
-
-      const kpis: NonDrugCatalogKPIs = {
-        total: total || 0,
-        active: active || 0,
-        inactive: inactive || 0,
-      }
-
-      return { data: kpis, error: null }
-    }
-
-    // Fallback to mock data when Supabase is not configured
-    const mockDataIds = ['nd-001', 'nd-002', 'nd-003', 'nd-004', 'nd-005', 'nd-006', 'nd-007', 'nd-008', 'nd-009', 'nd-010', 'nd-011']
-    const nonDrugs = mockNonDrugs.filter(
-      (d) => d.hospital_id === hospitalId && !mockDataIds.includes(d.id)
-    )
+    if (inactiveError) throw inactiveError
 
     const kpis: NonDrugCatalogKPIs = {
-      total: nonDrugs.length,
-      active: nonDrugs.filter((d) => d.status === 'active').length,
-      inactive: nonDrugs.filter((d) => d.status === 'inactive').length,
+      total: total || 0,
+      active: active || 0,
+      inactive: inactive || 0,
     }
 
     return { data: kpis, error: null }
@@ -116,138 +96,64 @@ export async function getNonDrugCatalog(
   pageSize: number = 20
 ): Promise<ApiResponse<PaginatedResponse<NonDrugWithRelations>>> {
   try {
-    const supabaseConfigured = isSupabaseConfigured()
-    console.log('[getNonDrugCatalog] Supabase configured:', supabaseConfigured, 'hospitalId:', hospitalId)
-
-    if (supabaseConfigured) {
-      // Build query
-      let query = supabase
-        .from('non_drugs')
-        .select('*', { count: 'exact' })
-        .eq('hospital_id', hospitalId)
-
-      // Apply filters
-      if (filter?.search) {
-        const search = filter.search.trim()
-        if (search) {
-          query = query.or(`item_code.ilike.%${search}%,item_name.ilike.%${search}%,sku.ilike.%${search}%,pku.ilike.%${search}%`)
-        }
-      }
-
-      if (filter?.category_id) {
-        query = query.eq('category_id', filter.category_id)
-      }
-
-      if (filter?.supplier_id) {
-        query = query.eq('supplier_id', filter.supplier_id)
-      }
-
-      if (filter?.procurement_vote) {
-        query = query.eq('procurement_vote', filter.procurement_vote)
-      }
-
-      if (filter?.status) {
-        query = query.eq('status', filter.status)
-      }
-
-      // Order alphabetically by item_name (then by code) so list shows A → Z
-      query = query
-        .order('item_name', { ascending: true })
-        .order('item_code', { ascending: true })
-
-      // Pagination
-      const { data: nonDrugsData, error, count } = await query
-        .range((page - 1) * pageSize, page * pageSize - 1)
-
-      if (error) throw error
-
-      let nonDrugs = (nonDrugsData || []) as NonDrug[]
-
-      // Get categories and suppliers for relations
-      const categoriesResult = await getNonDrugCategories()
-      const categoriesList = categoriesResult.data || []
-
-      // Get suppliers
-      const { data: suppliersData } = await supabase
-        .from('suppliers')
-        .select('*')
-        .eq('hospital_id', hospitalId)
-      const suppliersList = (suppliersData || []) as Supplier[]
-
-      // Enrich with relations
-      const nonDrugsWithRelations: NonDrugWithRelations[] = nonDrugs.map(item => {
-        const category = categoriesList.find(c => c.id === item.category_id)
-        const supplier = suppliersList.find(s => s.id === item.supplier_id)
-
-        return {
-          ...item,
-          category,
-          supplier,
-        }
-      })
-
-      const total = count || nonDrugsWithRelations.length
-      const totalPages = Math.ceil(total / pageSize)
-
-      return {
-        data: {
-          data: nonDrugsWithRelations,
-          total,
-          page,
-          pageSize,
-          totalPages,
-        },
-        error: null,
-      }
-    }
-
-    // Fallback to mock data - filter out ALL initial mock data items (nd-001 through nd-011 and beyond)
-    // Only show items that were actually created by users (not from initial mock data)
-    const mockDataIds = ['nd-001', 'nd-002', 'nd-003', 'nd-004', 'nd-005', 'nd-006', 'nd-007', 'nd-008', 'nd-009', 'nd-010', 'nd-011']
-    const actualNonDrugs = mockNonDrugs.filter(d =>
-      d.hospital_id === hospitalId && !mockDataIds.includes(d.id)
-    )
-
-    console.log('getNonDrugCatalog called with hospitalId:', hospitalId)
-    console.log('Total items (excluding mock):', actualNonDrugs.length)
-
-    let nonDrugs = [...actualNonDrugs]
+    // Build query
+    let query = supabase
+      .from('non_drugs')
+      .select('*', { count: 'exact' })
+      .eq('hospital_id', hospitalId)
 
     // Apply filters
     if (filter?.search) {
-      const search = filter.search.toLowerCase()
-      nonDrugs = nonDrugs.filter(d =>
-        d.item_code.toLowerCase().includes(search) ||
-        d.item_name.toLowerCase().includes(search) ||
-        d.sku?.toLowerCase().includes(search) ||
-        d.pku?.toLowerCase().includes(search)
-      )
+      const search = filter.search.trim()
+      if (search) {
+        query = query.or(`item_code.ilike.%${search}%,item_name.ilike.%${search}%,sku.ilike.%${search}%,pku.ilike.%${search}%`)
+      }
     }
 
     if (filter?.category_id) {
-      nonDrugs = nonDrugs.filter(d => d.category_id === filter.category_id)
+      query = query.eq('category_id', filter.category_id)
     }
 
     if (filter?.supplier_id) {
-      nonDrugs = nonDrugs.filter(d => d.supplier_id === filter.supplier_id)
+      query = query.eq('supplier_id', filter.supplier_id)
     }
 
     if (filter?.procurement_vote) {
-      nonDrugs = nonDrugs.filter(d => d.procurement_vote === filter.procurement_vote)
+      query = query.eq('procurement_vote', filter.procurement_vote)
     }
 
     if (filter?.status) {
-      nonDrugs = nonDrugs.filter(d => d.status === filter.status)
+      query = query.eq('status', filter.status)
     }
 
-    // Get categories (excluding mock data)
+    // Order alphabetically by item_name (then by code)
+    query = query
+      .order('item_name', { ascending: true })
+      .order('item_code', { ascending: true })
+
+    // Pagination
+    const { data: nonDrugsData, error, count } = await query
+      .range((page - 1) * pageSize, page * pageSize - 1)
+
+    if (error) throw error
+
+    let nonDrugs = (nonDrugsData || []) as NonDrug[]
+
+    // Get categories and suppliers for relations
     const categoriesResult = await getNonDrugCategories()
     const categoriesList = categoriesResult.data || []
+
+    // Get suppliers
+    const { data: suppliersData } = await supabase
+      .from('suppliers')
+      .select('*')
+      .eq('hospital_id', hospitalId)
+    const suppliersList = (suppliersData || []) as Supplier[]
 
     // Enrich with relations
     const nonDrugsWithRelations: NonDrugWithRelations[] = nonDrugs.map(item => {
       const category = categoriesList.find(c => c.id === item.category_id)
-      const supplier = mockSuppliers.find(s => s.id === item.supplier_id)
+      const supplier = suppliersList.find(s => s.id === item.supplier_id)
 
       return {
         ...item,
@@ -256,14 +162,12 @@ export async function getNonDrugCatalog(
       }
     })
 
-    const total = nonDrugsWithRelations.length
+    const total = count || nonDrugsWithRelations.length
     const totalPages = Math.ceil(total / pageSize)
-    const start = (page - 1) * pageSize
-    const data = nonDrugsWithRelations.slice(start, start + pageSize)
 
     return {
       data: {
-        data,
+        data: nonDrugsWithRelations,
         total,
         page,
         pageSize,
@@ -293,61 +197,29 @@ export async function searchNonDrugs(
       return { data: [], error: null }
     }
 
-    if (isSupabaseConfigured()) {
-      const { data: nonDrugs, error } = await supabase
-        .from('non_drugs')
-        .select('*')
-        .eq('hospital_id', hospitalId)
-        .or(`item_code.ilike.%${query}%,item_name.ilike.%${query}%,sku.ilike.%${query}%,pku.ilike.%${query}%`)
-        .limit(limit)
+    const { data: nonDrugs, error } = await supabase
+      .from('non_drugs')
+      .select('*')
+      .eq('hospital_id', hospitalId)
+      .or(`item_code.ilike.%${query}%,item_name.ilike.%${query}%,sku.ilike.%${query}%,pku.ilike.%${query}%`)
+      .limit(limit)
 
-      if (error) throw error
+    if (error) throw error
 
-      // Get categories and suppliers
-      const categoriesResult = await getNonDrugCategories()
-      const categoriesList = categoriesResult.data || []
-
-      const { data: suppliersData } = await supabase
-        .from('suppliers')
-        .select('*')
-        .eq('hospital_id', hospitalId)
-      const suppliersList = (suppliersData || []) as Supplier[]
-
-      // Enrich with relations
-      const nonDrugsWithRelations: NonDrugWithRelations[] = (nonDrugs || []).map(item => {
-        const category = categoriesList.find(c => c.id === item.category_id)
-        const supplier = suppliersList.find(s => s.id === item.supplier_id)
-
-        return {
-          ...item,
-          category,
-          supplier,
-        }
-      })
-
-      return { data: nonDrugsWithRelations, error: null }
-    }
-
-    // Fallback to mock data
-    const mockDataIds = ['nd-001', 'nd-002', 'nd-003', 'nd-004', 'nd-005', 'nd-006', 'nd-007', 'nd-008', 'nd-009', 'nd-010', 'nd-011']
-    const search = query.toLowerCase()
-    let nonDrugs = mockNonDrugs.filter(d =>
-      d.hospital_id === hospitalId &&
-      !mockDataIds.includes(d.id) &&
-      (d.item_code.toLowerCase().includes(search) ||
-        d.item_name.toLowerCase().includes(search) ||
-        d.sku?.toLowerCase().includes(search) ||
-        d.pku?.toLowerCase().includes(search))
-    )
-
-    // Get categories (excluding mock data)
+    // Get categories and suppliers
     const categoriesResult = await getNonDrugCategories()
     const categoriesList = categoriesResult.data || []
 
+    const { data: suppliersData } = await supabase
+      .from('suppliers')
+      .select('*')
+      .eq('hospital_id', hospitalId)
+    const suppliersList = (suppliersData || []) as Supplier[]
+
     // Enrich with relations
-    const nonDrugsWithRelations: NonDrugWithRelations[] = nonDrugs.slice(0, limit).map(item => {
+    const nonDrugsWithRelations: NonDrugWithRelations[] = (nonDrugs || []).map(item => {
       const category = categoriesList.find(c => c.id === item.category_id)
-      const supplier = mockSuppliers.find(s => s.id === item.supplier_id)
+      const supplier = suppliersList.find(s => s.id === item.supplier_id)
 
       return {
         ...item,
@@ -355,7 +227,6 @@ export async function searchNonDrugs(
         supplier,
       }
     })
-
     return { data: nonDrugsWithRelations, error: null }
   } catch (error) {
     console.error('Error searching non-drugs:', error)
@@ -371,19 +242,28 @@ export async function searchNonDrugs(
  */
 export async function getNonDrugById(nonDrugId: string): Promise<ApiResponse<NonDrugWithRelations>> {
   try {
-    const nonDrug = mockNonDrugs.find(d => d.id === nonDrugId)
+    const { data, error } = await supabase
+      .from('non_drugs')
+      .select('*')
+      .eq('id', nonDrugId)
+      .maybeSingle()
 
-    if (!nonDrug) {
-      return { data: null, error: 'Non-drug item not found' }
-    }
+    if (error) throw error
+    if (!data) return { data: null, error: 'Non-drug item not found' }
 
     const categoriesResult = await getNonDrugCategories()
     const categoriesList = categoriesResult.data || []
-    const category = categoriesList.find(c => c.id === nonDrug.category_id)
-    const supplier = mockSuppliers.find(s => s.id === nonDrug.supplier_id)
+    const category = categoriesList.find(c => c.id === data.category_id)
+
+    const { data: supplierData } = await supabase
+      .from('suppliers')
+      .select('*')
+      .eq('id', data.supplier_id)
+      .maybeSingle()
+    const supplier = supplierData as Supplier | null
 
     const nonDrugWithRelations: NonDrugWithRelations = {
-      ...nonDrug,
+      ...(data as NonDrug),
       category,
       supplier,
     }
@@ -401,25 +281,37 @@ export async function getNonDrugById(nonDrugId: string): Promise<ApiResponse<Non
 /**
  * Create new non-drug
  */
+// Helper to normalise procurement vote to allowed values or null
+function normalizeProcurementVote(value: any): 'appl' | 'cc' | 'dp' | 'lp' | null {
+  if (!value && value !== 0) return null
+  const v = String(value).trim().toLowerCase()
+  if (!v) return null
+
+  const allowed: ('appl' | 'cc' | 'dp' | 'lp')[] = ['appl', 'cc', 'dp', 'lp']
+  if (allowed.includes(v as any)) {
+    return v as any
+  }
+
+  console.warn('[procurement_vote] Invalid value, setting to null:', value)
+  return null
+}
+
+// Helper to normalize status
+function normalizeStatus(value: any): 'active' | 'inactive' {
+  if (!value) return 'active'
+  const v = String(value).trim().toLowerCase()
+  return v === 'inactive' ? 'inactive' : 'active'
+}
+
 export async function createNonDrug(
   hospitalId: string,
   nonDrugData: Partial<NonDrug>
 ): Promise<ApiResponse<NonDrugWithRelations>> {
   try {
-    const supabaseConfigured = isSupabaseConfigured()
-    console.log('[createNonDrug] ========== START ==========')
-    console.log('[createNonDrug] Supabase configured:', supabaseConfigured)
-    console.log('[createNonDrug] hospitalId:', hospitalId)
-    console.log('[createNonDrug] item_code:', nonDrugData.item_code)
-    console.log('[createNonDrug] item_name:', nonDrugData.item_name)
-
     const insertData: any = {
       hospital_id: hospitalId,
       item_code: nonDrugData.item_code || `ND-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       item_name: nonDrugData.item_name || '',
-      // Ensure UUID fields are valid UUIDs or null to avoid
-      // “invalid input syntax for type uuid” errors when Excel
-      // columns contain names like "Cannula", "Thermometer", etc.
       category_id: sanitizeUuid((nonDrugData as any).category_id),
       unit_of_measure: nonDrugData.unit_of_measure || 'unit',
       min_stock_level: nonDrugData.min_stock_level || 0,
@@ -434,108 +326,47 @@ export async function createNonDrug(
       packaging_description: (nonDrugData as any).packaging_description || null,
     }
 
-    console.log('[createNonDrug] Insert data:', JSON.stringify(insertData, null, 2))
+    const { data, error } = await supabase
+      .from('non_drugs')
+      .insert(insertData)
+      .select()
+      .maybeSingle()
 
-    if (supabaseConfigured) {
-      console.log('[createNonDrug] ✓ Supabase is configured, attempting insert...')
-      try {
-        const { data, error } = await supabase
-          .from('non_drugs')
-          .insert(insertData)
-          .select()
-          .single()
-
-        if (error) {
-          console.error('[createNonDrug] ✗ Supabase INSERT ERROR:', error)
-          console.error('[createNonDrug] Error code:', error.code)
-          console.error('[createNonDrug] Error message:', error.message)
-          console.error('[createNonDrug] Error details:', JSON.stringify(error, null, 2))
-          console.error('[createNonDrug] Error hint:', error.hint)
-          return {
-            data: null,
-            error: `Failed to create non-drug: ${error.message}${error.hint ? ` (${error.hint})` : ''}`,
-          }
-        }
-
-        if (!data) {
-          console.error('[createNonDrug] ✗ No data returned from Supabase insert')
-          return {
-            data: null,
-            error: 'Failed to create non-drug: No data returned from database',
-          }
-        }
-
-        console.log('[createNonDrug] ✓ Successfully inserted into Supabase. ID:', data.id)
-
-        // Get relations
-        const categoriesResult = await getNonDrugCategories()
-        const categoriesList = categoriesResult.data || []
-        const category = categoriesList.find(c => c.id === data.category_id)
-
-        let supplier = null
-        if (data.supplier_id) {
-          const { data: supplierData } = await supabase
-            .from('suppliers')
-            .select('*')
-            .eq('id', data.supplier_id)
-            .single()
-          supplier = supplierData as Supplier | null
-        }
-
-        const nonDrugWithRelations: NonDrugWithRelations = {
-          ...data,
-          category,
-          supplier,
-        }
-
-        console.log('[createNonDrug] Created non-drug in Supabase:', {
-          id: nonDrugWithRelations.id,
-          item_code: nonDrugWithRelations.item_code,
-          hospital_id: nonDrugWithRelations.hospital_id,
-        })
-
-        console.log('[createNonDrug] ========== SUCCESS ==========')
-        return { data: nonDrugWithRelations, error: null }
-      } catch (insertError) {
-        console.error('[createNonDrug] ✗ Exception during Supabase insert:', insertError)
-        return {
-          data: null,
-          error: `Failed to create non-drug: ${insertError instanceof Error ? insertError.message : 'Unknown error'}`,
-        }
+    if (error) {
+      console.error('[createNonDrug] ✗ Supabase INSERT ERROR:', error)
+      return {
+        data: null,
+        error: `Failed to create non-drug: ${error.message}`,
       }
-    } else {
-      console.warn('[createNonDrug] ⚠ Supabase not configured - using mock data')
-      console.warn('[createNonDrug] Check your .env file for VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY')
     }
 
-    // Fallback to mock data
-    const newId = `nondrug-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    const newNonDrug: NonDrug = {
-      id: newId,
-      ...insertData,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+    if (!data) {
+      return {
+        data: null,
+        error: 'Failed to create non-drug: No data returned from database',
+      }
     }
 
+    // Get relations
     const categoriesResult = await getNonDrugCategories()
     const categoriesList = categoriesResult.data || []
-    const category = categoriesList.find(c => c.id === newNonDrug.category_id)
-    const supplier = mockSuppliers.find(s => s.id === newNonDrug.supplier_id)
+    const category = categoriesList.find(c => c.id === data.category_id)
+
+    let supplier = null
+    if (data.supplier_id) {
+      const { data: supplierData } = await supabase
+        .from('suppliers')
+        .select('*')
+        .eq('id', data.supplier_id)
+        .maybeSingle()
+      supplier = supplierData as Supplier | null
+    }
 
     const nonDrugWithRelations: NonDrugWithRelations = {
-      ...newNonDrug,
+      ...(data as NonDrug),
       category,
       supplier,
     }
-
-    mockNonDrugs.push(nonDrugWithRelations)
-
-    console.log('[createNonDrug] Created non-drug (MOCK - not saved to Supabase):', {
-      id: nonDrugWithRelations.id,
-      item_code: nonDrugWithRelations.item_code,
-    })
-    console.log('[createNonDrug] ⚠ WARNING: Item was saved to mock data, not Supabase!')
-    console.log('[createNonDrug] ========== END (MOCK) ==========')
 
     return { data: nonDrugWithRelations, error: null }
   } catch (error) {
@@ -567,71 +398,35 @@ export async function updateNonDrug(
         : undefined,
     }
 
-    if (isSupabaseConfigured()) {
-      const { data, error } = await supabase
-        .from('non_drugs')
-        .update(updateData)
-        .eq('id', nonDrugId)
-        .select()
-        .single()
+    const { data, error } = await supabase
+      .from('non_drugs')
+      .update(updateData)
+      .eq('id', nonDrugId)
+      .select()
+      .maybeSingle()
 
-      if (error) throw error
+    if (error) throw error
+    if (!data) return { data: null, error: 'Non-drug item not found' }
 
-      // Get relations
-      const categoriesResult = await getNonDrugCategories()
-      const categoriesList = categoriesResult.data || []
-      const category = categoriesList.find(c => c.id === data.category_id)
-
-      let supplier = null
-      if (data.supplier_id) {
-        const { data: supplierData } = await supabase
-          .from('suppliers')
-          .select('*')
-          .eq('id', data.supplier_id)
-          .single()
-        supplier = supplierData as Supplier | null
-      }
-
-      const nonDrugWithRelations: NonDrugWithRelations = {
-        ...data,
-        category,
-        supplier,
-      }
-
-      console.log('Updated non-drug in Supabase:', nonDrugId)
-      return { data: nonDrugWithRelations, error: null }
-    }
-
-    // Fallback to mock data
-    const nonDrug = mockNonDrugs.find(d => d.id === nonDrugId)
-
-    if (!nonDrug) {
-      return { data: null, error: 'Non-drug item not found' }
-    }
-
-    const updatedNonDrug: NonDrug = {
-      ...nonDrug,
-      ...nonDrugData,
-      packaging_description: (nonDrugData as any).packaging_description !== undefined
-        ? (nonDrugData as any).packaging_description
-        : (nonDrug as any).packaging_description,
-      updated_at: new Date().toISOString(),
-    }
-
+    // Get relations
     const categoriesResult = await getNonDrugCategories()
     const categoriesList = categoriesResult.data || []
-    const category = categoriesList.find(c => c.id === updatedNonDrug.category_id)
-    const supplier = mockSuppliers.find(s => s.id === updatedNonDrug.supplier_id)
+    const category = categoriesList.find(c => c.id === data.category_id)
 
-    const nonDrugWithRelations: NonDrugWithRelations = {
-      ...updatedNonDrug,
-      category,
-      supplier,
+    let supplier = null
+    if (data.supplier_id) {
+      const { data: supplierData } = await supabase
+        .from('suppliers')
+        .select('*')
+        .eq('id', data.supplier_id)
+        .maybeSingle()
+      supplier = supplierData as Supplier | null
     }
 
-    const index = mockNonDrugs.findIndex(d => d.id === nonDrugId)
-    if (index !== -1) {
-      mockNonDrugs[index] = nonDrugWithRelations
+    const nonDrugWithRelations: NonDrugWithRelations = {
+      ...(data as NonDrug),
+      category,
+      supplier,
     }
 
     return { data: nonDrugWithRelations, error: null }
@@ -650,59 +445,32 @@ export async function updateNonDrug(
 export async function deleteNonDrug(nonDrugId: string): Promise<ApiResponse<void>> {
   try {
     console.log('deleteNonDrug called with ID:', nonDrugId)
-    console.log('Supabase configured:', isSupabaseConfigured())
 
-    if (isSupabaseConfigured()) {
-      // First check if item exists
-      const { data: existing, error: checkError } = await supabase
-        .from('non_drugs')
-        .select('id, item_code, item_name')
-        .eq('id', nonDrugId)
-        .single()
+    // First check if item exists
+    const { data: existing, error: checkError } = await supabase
+      .from('non_drugs')
+      .select('id, item_code, item_name')
+      .eq('id', nonDrugId)
+      .maybeSingle()
 
-      if (checkError && checkError.code !== 'PGRST116') {
-        console.error('Error checking non-drug existence:', checkError)
-        throw checkError
-      }
-
-      if (!existing) {
-        console.warn('Non-drug not found in Supabase:', nonDrugId)
-        return { data: null, error: 'Non-drug item not found' }
-      }
-
-      console.log('Deleting from Supabase:', { id: existing.id, code: existing.item_code, name: existing.item_name })
-
-      const { error } = await supabase
-        .from('non_drugs')
-        .delete()
-        .eq('id', nonDrugId)
-
-      if (error) {
-        console.error('Supabase delete error:', error)
-        throw error
-      }
-
-      console.log('Successfully deleted non-drug from Supabase:', nonDrugId)
-      return { data: undefined, error: null }
+    if (checkError) {
+      console.error('Error checking non-drug existence:', checkError)
+      throw checkError
     }
 
-    // Fallback to mock data
-    console.log('Using mock data (Supabase not configured)')
-    const index = mockNonDrugs.findIndex(d => d.id === nonDrugId)
-
-    if (index === -1) {
-      console.warn('Non-drug not found in mock data:', nonDrugId)
+    if (!existing) {
       return { data: null, error: 'Non-drug item not found' }
     }
 
-    const deleted = mockNonDrugs[index]
-    mockNonDrugs.splice(index, 1)
-    console.log('Deleted non-drug (mock):', {
-      id: deleted.id,
-      code: deleted.item_code,
-      name: deleted.item_name,
-      remaining: mockNonDrugs.length
-    })
+    const { error } = await supabase
+      .from('non_drugs')
+      .delete()
+      .eq('id', nonDrugId)
+
+    if (error) {
+      console.error('Supabase delete error:', error)
+      throw error
+    }
 
     return { data: undefined, error: null }
   } catch (error) {
@@ -780,15 +548,8 @@ export async function batchImportNonDrugs(
   onProgress?: (info: { processed: number; total: number; success: number; failed: number }) => void
 ): Promise<ApiResponse<{ success: number; errors: string[] }>> {
   try {
-    const supabaseConfigured = isSupabaseConfigured()
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'NOT SET'
-    const hasAnonKey = !!(import.meta.env.VITE_SUPABASE_ANON_KEY && import.meta.env.VITE_SUPABASE_ANON_KEY !== 'placeholder-key')
-
     console.log('='.repeat(60))
-    console.log('[batchImportNonDrugs] DIAGNOSTICS:')
-    console.log('[batchImportNonDrugs] Supabase URL:', supabaseUrl !== 'NOT SET' ? `${supabaseUrl.substring(0, 30)}...` : 'NOT SET')
-    console.log('[batchImportNonDrugs] Supabase Anon Key:', hasAnonKey ? 'SET' : 'NOT SET')
-    console.log('[batchImportNonDrugs] Supabase configured:', supabaseConfigured)
+    console.log('[batchImportNonDrugs] Starting import:')
     console.log('[batchImportNonDrugs] Hospital ID:', hospitalId)
     console.log('[batchImportNonDrugs] Total items to import:', nonDrugs.length)
     console.log('='.repeat(60))
@@ -797,22 +558,17 @@ export async function batchImportNonDrugs(
 
     // Filter out undefined/null entries and empty objects
     const validNonDrugs = nonDrugs.filter(
-      (item, index) => item != null && typeof item === 'object' && Object.keys(item).length > 0
+      (item) => item != null && typeof item === 'object' && Object.keys(item).length > 0
     )
     console.log('Valid items after filtering:', validNonDrugs.length)
 
     const totalItems = validNonDrugs.length
 
-    // Track duplicate item codes within this upload
-    const seenItemCodes = new Set<string>()
-
     // Invalid item codes and names to filter out
     const invalidItemCodes = ['APPL', 'CC', 'DP', 'LP', 'CONTRACT', 'ITEM CODE', 'ITEM_CODE', 'NON-DRUG NAME', 'SKU', 'PKU', 'CATEGORY', 'SUPPLIER', 'PROCUREMENT VOTE', 'STATUS', 'PRICE', 'ACTIONS']
-    const invalidNamePatterns = ['each', 'pack of', 'contract', 'non-drug name', 'item name', 'drug name']
 
-    // Preload existing non-drugs for this hospital to avoid per-row GETs
-    let existingByCode: Map<string, { id: string }> | null = null
-    if (supabaseConfigured && totalItems > 0) {
+    // Preload existing non-drugs
+    if (totalItems > 0) {
       try {
         const allCodes = Array.from(
           new Set(
@@ -822,11 +578,10 @@ export async function batchImportNonDrugs(
           )
         )
 
-        existingByCode = new Map()
         const chunkSize = 500
         for (let start = 0; start < allCodes.length; start += chunkSize) {
           const chunk = allCodes.slice(start, start + chunkSize)
-          const { data, error } = await supabase
+          const { error } = await supabase
             .from('non_drugs')
             .select('id, item_code')
             .eq('hospital_id', hospitalId)
@@ -837,19 +592,7 @@ export async function batchImportNonDrugs(
             errors.push(`Failed to check existing non-drug items for some codes: ${error.message}`)
             break
           }
-
-          ; (data || []).forEach((row: any) => {
-            if (!row || !row.item_code || !row.id) return
-            const code = String(row.item_code).trim().toUpperCase()
-            existingByCode!.set(code, { id: row.id })
-          })
         }
-
-        console.log(
-          '[batchImportNonDrugs] Preloaded existing non-drugs for hospital:',
-          existingByCode.size,
-          'codes'
-        )
       } catch (preloadError) {
         console.error('[batchImportNonDrugs] Exception while preloading existing items:', preloadError)
       }
@@ -865,129 +608,71 @@ export async function batchImportNonDrugs(
       })
     }
 
-    for (let i = 0; i < validNonDrugs.length; i++) {
-      const nonDrugData = validNonDrugs[i]
+    // Process in chunks for batch upsert
+    const chunkSize = 50
+    for (let i = 0; i < validNonDrugs.length; i += chunkSize) {
+      const chunk = validNonDrugs.slice(i, i + chunkSize)
+      const upsertCandidates: any[] = []
 
-      // Safety check - skip if still undefined/null
-      if (!nonDrugData || typeof nonDrugData !== 'object') {
-        errors.push(`Row ${i + 2}: Invalid data entry`)
-        continue
+      for (let j = 0; j < chunk.length; j++) {
+        const nonDrugData = chunk[j]
+        const rowIndex = i + j
+
+        if (!nonDrugData || typeof nonDrugData !== 'object') {
+          errors.push(`Row ${rowIndex + 2}: Invalid data entry`)
+          continue
+        }
+
+        if (!nonDrugData.item_code || !nonDrugData.item_name) {
+          errors.push(`Row ${rowIndex + 2}: Missing required fields (Item Code or Non-Drug Name)`)
+          continue
+        }
+
+        const itemCode = String(nonDrugData.item_code).trim().toUpperCase()
+
+        if (invalidItemCodes.includes(itemCode)) {
+          errors.push(`Row ${rowIndex + 2}: Invalid item code "${nonDrugData.item_code}"`)
+          continue
+        }
+
+        // Apply standardizations
+        const preparedNonDrug = {
+          hospital_id: hospitalId,
+          item_code: itemCode,
+          item_name: nonDrugData.item_name.trim(),
+          category_id: nonDrugData.category_id || null,
+          supplier_id: nonDrugData.supplier_id || null,
+          reorder_level: parseInt(String(nonDrugData.reorder_level || 0)) || 0,
+          price: parseFloat(String(nonDrugData.price || 0)) || 0,
+          status: normalizeStatus(nonDrugData.status || 'active'),
+          notes: nonDrugData.notes || '',
+          packaging_description: nonDrugData.packaging_description || '',
+          procurement_vote: normalizeProcurementVote(nonDrugData.procurement_vote || ''),
+          updated_at: new Date().toISOString()
+        }
+
+        upsertCandidates.push(preparedNonDrug)
       }
 
-      // Validate required fields
-      if (!nonDrugData.item_code || !nonDrugData.item_name) {
-        errors.push(`Row ${i + 2}: Missing required fields (Item Code or Non-Drug Name)`)
-        continue
-      }
+      if (upsertCandidates.length > 0) {
+        const { error: upsertError } = await supabase
+          .from('non_drugs')
+          .upsert(upsertCandidates, {
+            onConflict: 'hospital_id,item_code',
+            ignoreDuplicates: false
+          })
 
-      // STRICT VALIDATION: Filter out invalid item codes and names
-      const itemCode = String(nonDrugData.item_code).trim().toUpperCase()
-      const itemName = String(nonDrugData.item_name).trim().toLowerCase()
-
-      // Check if item code is invalid (header, label, etc.)
-      if (invalidItemCodes.includes(itemCode)) {
-        errors.push(`Row ${i + 2}: Invalid item code "${nonDrugData.item_code}" (appears to be a header or label, not a product code)`)
-        continue
-      }
-
-      // Check if item name is invalid (generic text, header, etc.)
-      let isInvalidName = false
-      for (const pattern of invalidNamePatterns) {
-        if (itemName === pattern || itemName.startsWith(pattern + ' ') || itemName === pattern) {
-          isInvalidName = true
-          break
+        if (upsertError) {
+          console.error('[batchImportNonDrugs] Chunk upsert error:', upsertError)
+          errors.push(`Chunk starting at row ${i + 2}: Bulk upload failed - ${upsertError.message}`)
+        } else {
+          successCount += upsertCandidates.length
         }
       }
 
-      if (isInvalidName) {
-        errors.push(`Row ${i + 2}: Invalid item name "${nonDrugData.item_name}" (appears to be generic text or header, not a product name)`)
-        continue
-      }
-
-      // Additional validation: item code should be at least 3 characters
-      if (itemCode.length < 3) {
-        errors.push(`Row ${i + 2}: Item code "${nonDrugData.item_code}" is too short (minimum 3 characters)`)
-        continue
-      }
-
-      // Additional validation: item name should be at least 5 characters
-      if (itemName.length < 5) {
-        errors.push(`Row ${i + 2}: Item name "${nonDrugData.item_name}" is too short (minimum 5 characters)`)
-        continue
-      }
-
-      // Reject if name is just a number
-      if (/^\d+$/.test(itemName)) {
-        errors.push(`Row ${i + 2}: Item name "${nonDrugData.item_name}" is invalid (cannot be just a number)`)
-        continue
-      }
-
-      // Check for duplicates within the same upload file
-      if (seenItemCodes.has(itemCode)) {
-        errors.push(
-          `Row ${i + 2}: Duplicate item code "${nonDrugData.item_code}" in this upload. This row was skipped to prevent multiple records for the same code.`
-        )
-        continue
-      }
-      seenItemCodes.add(itemCode)
-
-      // Check if non-drug already exists
-      let existing: { id: string } | null = null
-      if (supabaseConfigured) {
-        if (existingByCode) {
-          existing = existingByCode.get(itemCode) || null
-        }
-      } else {
-        const found = mockNonDrugs.find(
-          d => d.item_code === nonDrugData.item_code && d.hospital_id === hospitalId
-        )
-        existing = found ? { id: found.id } : null
-      }
-
-      if (existing) {
-        // Update existing
-        try {
-          console.log(`[batchImportNonDrugs] Updating existing item ${existing.id} (${nonDrugData.item_code})`)
-          const updateResult = await updateNonDrug(existing.id, {
-            ...nonDrugData,
-            hospital_id: hospitalId,
-          } as any)
-          if (updateResult.error) {
-            console.error(`[batchImportNonDrugs] Update error for row ${i + 2}:`, updateResult.error)
-            errors.push(`Row ${i + 2}: ${updateResult.error}`)
-          } else {
-            console.log(`[batchImportNonDrugs] Successfully updated item ${existing.id}`)
-            successCount++
-          }
-        } catch (error) {
-          console.error(`[batchImportNonDrugs] Exception updating row ${i + 2}:`, error)
-          errors.push(`Row ${i + 2}: Failed to update - ${error instanceof Error ? error.message : 'Unknown error'}`)
-        }
-      } else {
-        // Create new
-        try {
-          console.log(`[batchImportNonDrugs] Creating new item: ${nonDrugData.item_code} - ${nonDrugData.item_name}`)
-          const createResult = await createNonDrug(hospitalId, {
-            ...nonDrugData,
-          } as any)
-          if (createResult.error) {
-            console.error(`[batchImportNonDrugs] Create error for row ${i + 2}:`, createResult.error)
-            errors.push(`Row ${i + 2}: ${createResult.error}`)
-          } else {
-            console.log(`[batchImportNonDrugs] Successfully created item:`, createResult.data?.id)
-            successCount++
-          }
-        } catch (error) {
-          console.error(`[batchImportNonDrugs] Exception creating row ${i + 2}:`, error)
-          errors.push(`Row ${i + 2}: Failed to create - ${error instanceof Error ? error.message : 'Unknown error'}`)
-        }
-      }
-
-      // Per-row progress callback
       if (onProgress) {
-        const processed = i + 1
         onProgress({
-          processed,
+          processed: Math.min(i + chunkSize, validNonDrugs.length),
           total: totalItems,
           success: successCount,
           failed: errors.length,
@@ -996,8 +681,6 @@ export async function batchImportNonDrugs(
     }
 
     console.log('Import complete. Success:', successCount, 'Errors:', errors.length)
-    console.log('Total items in mockNonDrugs array:', mockNonDrugs.length)
-    console.log('Items with matching hospital_id:', mockNonDrugs.filter(d => d.hospital_id === hospitalId).length)
 
     return {
       data: { success: successCount, errors },

@@ -58,8 +58,15 @@ export const departmentSchema = z.object({
     .string({ required_error: required })
     .min(2, 'Department name must be at least 2 characters')
     .max(100, 'Department name is too long'),
+  phone: z.string().optional().or(z.literal('')),
+  email: z.string().email('Invalid email address').optional().or(z.literal('')),
   description: z.string().max(500, 'Description is too long').optional(),
   head_of_department_id: z.string().optional(),
+  hospital_id: z.string({ required_error: required }).min(1, required),
+  status: z.enum(['active', 'inactive']),
+  kkm_unit_code: z.string().max(50, 'KKM unit code is too long').optional().or(z.literal('')),
+  location: z.string().max(200, 'Location is too long').optional().or(z.literal('')),
+  unit_type: z.enum(['clinical', 'clinical_support', 'non_clinical', 'admin']).optional(),
 })
 
 export type DepartmentFormData = z.infer<typeof departmentSchema>

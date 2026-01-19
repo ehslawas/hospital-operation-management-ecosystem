@@ -1,10 +1,4 @@
-/**
- * Contract Catalog Service
- * Handles CRUD operations and batch import for Contract Catalog
- * Similar to Drug and Non-Drug catalog services
- */
-
-import { supabase, isSupabaseConfigured } from '@/services/supabase'
+import { supabase } from '@/services/supabase'
 import type { ApiResponse } from '@/types'
 import type { Contract, ContractWithRelations, ContractCatalogKPIs, ContractCatalogFilter } from '@/types/pharmacy'
 
@@ -20,34 +14,6 @@ export async function getContracts(
   filter?: ContractCatalogFilter
 ): Promise<ApiResponse<ContractWithRelations[]>> {
   try {
-    if (!isSupabaseConfigured()) {
-      // Local development fallback
-      const localData = localStorage.getItem(`contracts_${hospitalId}`)
-      const contracts: ContractWithRelations[] = localData ? JSON.parse(localData) : []
-
-      let filtered = contracts
-
-      if (filter?.search) {
-        const searchLower = filter.search.toLowerCase()
-        filtered = filtered.filter(
-          c =>
-            c.item_name?.toLowerCase().includes(searchLower) ||
-            c.contract_number?.toLowerCase().includes(searchLower) ||
-            c.supplier_name?.toLowerCase().includes(searchLower)
-        )
-      }
-
-      if (filter?.status && filter.status !== 'all') {
-        filtered = filtered.filter(c => c.status === filter.status)
-      }
-
-      if (filter?.supplier_name) {
-        filtered = filtered.filter(c => c.supplier_name === filter.supplier_name)
-      }
-
-      return { data: filtered, error: null }
-    }
-
     // Build Supabase query
     // Note: Simplified select to avoid relationship errors
     // uploaded_file join removed as it's optional and may not have FK relationship yet
@@ -121,24 +87,6 @@ export async function getContractById(
   contractId: string
 ): Promise<ApiResponse<ContractWithRelations>> {
   try {
-    if (!isSupabaseConfigured()) {
-      // Local development fallback
-      const allHospitals = Object.keys(localStorage)
-        .filter(key => key.startsWith('contracts_'))
-        .map(key => localStorage.getItem(key))
-        .filter(Boolean)
-
-      for (const data of allHospitals) {
-        const contracts: ContractWithRelations[] = JSON.parse(data!)
-        const contract = contracts.find(c => c.id === contractId)
-        if (contract) {
-          return { data: contract, error: null }
-        }
-      }
-
-      return { data: null, error: 'Contract not found' }
-    }
-
     const { data, error } = await supabase
       .from('contracts')
       .select('*')
@@ -175,19 +123,6 @@ export async function createContract(
       updated_at: new Date().toISOString(),
     }
 
-    if (!isSupabaseConfigured()) {
-      // Local development fallback
-      const localData = localStorage.getItem(`contracts_${hospitalId}`)
-      const contracts: Contract[] = localData ? JSON.parse(localData) : []
-      const contract: Contract = {
-        ...newContract,
-        id: `contract-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      } as Contract
-      contracts.push(contract)
-      localStorage.setItem(`contracts_${hospitalId}`, JSON.stringify(contracts))
-      return { data: contract, error: null }
-    }
-
     const { data, error } = await supabase
       .from('contracts')
       .insert(newContract)
@@ -220,26 +155,6 @@ export async function updateContract(
       updated_at: new Date().toISOString(),
     }
 
-    if (!isSupabaseConfigured()) {
-      // Local development fallback
-      const allHospitals = Object.keys(localStorage).filter(key => key.startsWith('contracts_'))
-
-      for (const key of allHospitals) {
-        const data = localStorage.getItem(key)
-        if (data) {
-          const contracts: Contract[] = JSON.parse(data)
-          const index = contracts.findIndex(c => c.id === contractId)
-          if (index !== -1) {
-            contracts[index] = { ...contracts[index], ...updates }
-            localStorage.setItem(key, JSON.stringify(contracts))
-            return { data: contracts[index], error: null }
-          }
-        }
-      }
-
-      return { data: null, error: 'Contract not found' }
-    }
-
     const { data, error } = await supabase
       .from('contracts')
       .update(updates)
@@ -265,25 +180,6 @@ export async function updateContract(
  */
 export async function deleteContract(contractId: string): Promise<ApiResponse<void>> {
   try {
-    if (!isSupabaseConfigured()) {
-      // Local development fallback
-      const allHospitals = Object.keys(localStorage).filter(key => key.startsWith('contracts_'))
-
-      for (const key of allHospitals) {
-        const data = localStorage.getItem(key)
-        if (data) {
-          const contracts: Contract[] = JSON.parse(data)
-          const filtered = contracts.filter(c => c.id !== contractId)
-          if (filtered.length < contracts.length) {
-            localStorage.setItem(key, JSON.stringify(filtered))
-            return { data: null, error: null }
-          }
-        }
-      }
-
-      return { data: null, error: 'Contract not found' }
-    }
-
     const { error } = await supabase.from('contracts').delete().eq('id', contractId)
 
     if (error) {
@@ -304,12 +200,6 @@ export async function deleteContract(contractId: string): Promise<ApiResponse<vo
  */
 export async function deleteAllContracts(hospitalId: string): Promise<ApiResponse<{ deleted: number }>> {
   try {
-    if (!isSupabaseConfigured()) {
-      // Local development fallback
-      localStorage.removeItem(`contracts_${hospitalId}`)
-      return { data: { deleted: 0 }, error: null }
-    }
-
     // First, count existing contracts
     const { data: existing, error: countError } = await supabase
       .from('contracts')
@@ -455,6 +345,81 @@ export function calculateMatchScore(str1: string, str2: string): number {
 }
 
 /**
+ * Helper to parse various date formats
+ */
+export function parseContractDate(dateValue: any): string | null {
+  if (!dateValue) return null
+
+  const dateStr = String(dateValue).trim()
+
+  // Handle Excel date numbers
+  if (!isNaN(Number(dateStr)) && Number(dateStr) > 25569) {
+    const excelDate = new Date((Number(dateStr) - 25569) * 86400 * 1000)
+    if (!isNaN(excelDate.getTime())) {
+      return excelDate.toISOString().split('T')[0]
+    }
+  }
+
+  // Try parsing common date formats
+  const dateFormats = [
+    /^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/,
+    /^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})$/,
+    /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/,
+    /^(\d{4})-(\d{1,2})-(\d{1,2})$/,
+    /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/,
+  ]
+
+  const monthNames: Record<string, number> = {
+    jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+    jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
+    januari: 0, februari: 1, mac: 2, april: 3, mei: 4, jun_my: 5,
+    julai: 6, ogos: 7, september: 8, oktober: 9, november: 10, disember: 11
+  }
+
+  for (const format of dateFormats) {
+    const match = dateStr.match(format)
+    if (match) {
+      try {
+        let day: number, month: number, year: number
+
+        if (format.source.includes('[A-Za-z]')) {
+          day = parseInt(match[1], 10)
+          const monthName = match[2].toLowerCase().substring(0, 3)
+          month = monthNames[monthName] ?? -1
+          year = parseInt(match[3], 10)
+        } else if (format.source.includes('(\\d{4})') && match[3].length === 4) {
+          day = parseInt(match[1], 10)
+          month = parseInt(match[2], 10) - 1
+          year = parseInt(match[3], 10)
+        } else {
+          year = parseInt(match[1], 10)
+          month = parseInt(match[2], 10) - 1
+          day = parseInt(match[3], 10)
+        }
+
+        if (month >= 0 && day >= 1 && day <= 31 && year >= 1900 && year <= 2100) {
+          const date = new Date(year, month, day)
+          if (!isNaN(date.getTime()) && date.getFullYear() === year && date.getMonth() === month && date.getDate() === day) {
+            return date.toISOString().split('T')[0]
+          }
+        }
+      } catch (e) {
+        // Continue
+      }
+    }
+  }
+
+  try {
+    const parsed = new Date(dateStr)
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString().split('T')[0]
+    }
+  } catch { }
+
+  return null
+}
+
+/**
  * Find a contract by drug name (fuzzy match)
  */
 export async function findContractByDrugName(
@@ -471,26 +436,6 @@ export async function findContractByDrugName(
 
     // Fallback if no term
     if (!broadSearchTerm) return { data: null, error: null }
-
-    if (!isSupabaseConfigured()) {
-      const localData = localStorage.getItem(`contracts_${hospitalId}`)
-      const contracts: ContractWithRelations[] = localData ? JSON.parse(localData) : []
-
-      const candidates = contracts.filter(c => c.status === 'active')
-      if (candidates.length === 0) return { data: null, error: null }
-
-      let bestMatch: ContractWithRelations | null = null
-      let bestScore = 0
-
-      for (const contract of candidates) {
-        const score = calculateMatchScore(drugName, contract.item_name)
-        if (score > bestScore && score > 0.4) {
-          bestScore = score
-          bestMatch = contract
-        }
-      }
-      return { data: bestMatch, error: null }
-    }
 
     // Supabase DB Search
     const { data, error } = await supabase
@@ -535,15 +480,6 @@ export async function findContractByNumber(
 
     const normalizedNumber = contractNumber.toUpperCase().trim()
 
-    if (!isSupabaseConfigured()) {
-      const localData = localStorage.getItem(`contracts_${hospitalId}`)
-      const contracts: ContractWithRelations[] = localData ? JSON.parse(localData) : []
-      const match = contracts.find(c =>
-        (c.contract_number || '').toUpperCase().trim() === normalizedNumber
-      )
-      return { data: match || null, error: null }
-    }
-
     const { data, error } = await supabase
       .from('contracts')
       .select('*')
@@ -576,10 +512,8 @@ export async function batchImportContracts(
   replaceExisting: boolean = false
 ): Promise<ApiResponse<{ success: number; errors: string[]; replaced: boolean }>> {
   try {
-    const supabaseConfigured = isSupabaseConfigured()
     console.log('='.repeat(60))
-    console.log('[batchImportContracts] DIAGNOSTICS:')
-    console.log('[batchImportContracts] Supabase configured:', supabaseConfigured)
+    console.log('[batchImportContracts] Starting import:')
     console.log('[batchImportContracts] Hospital ID:', hospitalId)
     console.log('[batchImportContracts] Total items to import:', contracts.length)
     console.log('[batchImportContracts] Replace existing:', replaceExisting)
@@ -641,18 +575,21 @@ export async function batchImportContracts(
     }
 
     // Preload existing contracts to avoid duplicates
-    let existingByNumber: Map<string, { id: string }> | null = null
-    if (supabaseConfigured && totalItems > 0) {
+    let existingByCompositeKey: Map<string, { id: string }> | null = null
+    if (totalItems > 0) {
       const { data: existing } = await supabase
         .from('contracts')
-        .select('id, contract_number')
+        .select('id, contract_number, item_name')
         .eq('hospital_id', hospitalId)
 
       if (existing) {
-        existingByNumber = new Map(
-          existing.map(c => [c.contract_number?.trim().toUpperCase() || '', { id: c.id }])
+        existingByCompositeKey = new Map(
+          existing.map(c => {
+            const compositeKey = `${c.contract_number?.trim().toUpperCase()}|${c.item_name?.trim().toLowerCase()}`
+            return [compositeKey, { id: c.id }]
+          })
         )
-        console.log('[batchImportContracts] Preloaded existing contracts:', existingByNumber.size)
+        console.log('[batchImportContracts] Preloaded existing contracts:', existingByCompositeKey.size)
       }
     }
 
@@ -702,15 +639,16 @@ export async function batchImportContracts(
       }
 
       // Check for duplicates in current upload - skip duplicates within the same batch
-      // If we've already processed this contract number in this batch, skip it
-      // (we'll process only the first occurrence)
-      if (processedInBatch.has(contractNumber)) {
-        continue // Skip duplicate in same batch
+      // Use composite key: Contract Number + Item Name
+      const compositeKey = `${contractNumber}|${itemName}`
+
+      if (processedInBatch.has(compositeKey)) {
+        continue // Skip exact duplicate in same batch
       }
 
       // Mark as seen and processed
       seenContractNumbers.add(contractNumber)
-      processedInBatch.add(contractNumber)
+      processedInBatch.add(compositeKey)
 
       // Check for invalid item names
       if (invalidItemNames.includes(itemName)) {
@@ -728,91 +666,6 @@ export async function batchImportContracts(
         continue
       }
 
-      // Helper function to parse various date formats (DD-Mon-YYYY, DD/MM/YYYY, YYYY-MM-DD, etc.)
-      const parseContractDate = (dateValue: any): string | null => {
-        if (!dateValue) return null
-
-        const dateStr = String(dateValue).trim()
-
-        // Handle Excel date numbers (Excel stores dates as numbers)
-        if (!isNaN(Number(dateStr)) && Number(dateStr) > 25569) {
-          // Excel date (days since Jan 1, 1900)
-          const excelDate = new Date((Number(dateStr) - 25569) * 86400 * 1000)
-          if (!isNaN(excelDate.getTime())) {
-            return excelDate.toISOString().split('T')[0]
-          }
-        }
-
-        // Try parsing common date formats
-        const dateFormats = [
-          // DD-Mon-YYYY (e.g., "2-Sep-2025", "24-Oct-2025")
-          /^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/,
-          // DD Mon YYYY (e.g., "2 Sep 2025")
-          /^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})$/,
-          // DD/MM/YYYY
-          /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/,
-          // YYYY-MM-DD
-          /^(\d{4})-(\d{1,2})-(\d{1,2})$/,
-          // DD.MM.YYYY
-          /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/,
-        ]
-
-        const monthNames: Record<string, number> = {
-          jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
-          jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
-          januari: 0, februari: 1, mac: 2, april: 3, mei: 4, jun: 5,
-          julai: 6, ogos: 7, september: 8, oktober: 9, november: 10, disember: 11
-        }
-
-        for (const format of dateFormats) {
-          const match = dateStr.match(format)
-          if (match) {
-            try {
-              let day: number, month: number, year: number
-
-              if (format.source.includes('[A-Za-z]')) {
-                // DD-Mon-YYYY or DD Mon YYYY format
-                day = parseInt(match[1], 10)
-                const monthName = match[2].toLowerCase().substring(0, 3)
-                month = monthNames[monthName] ?? -1
-                year = parseInt(match[3], 10)
-              } else if (format.source.includes('(\\d{4})') && match[3].length === 4) {
-                // DD/MM/YYYY or DD.MM.YYYY format
-                day = parseInt(match[1], 10)
-                month = parseInt(match[2], 10) - 1
-                year = parseInt(match[3], 10)
-              } else {
-                // YYYY-MM-DD format
-                year = parseInt(match[1], 10)
-                month = parseInt(match[2], 10) - 1
-                day = parseInt(match[3], 10)
-              }
-
-              if (month >= 0 && day >= 1 && day <= 31 && year >= 1900 && year <= 2100) {
-                const date = new Date(year, month, day)
-                if (!isNaN(date.getTime()) && date.getFullYear() === year && date.getMonth() === month && date.getDate() === day) {
-                  return date.toISOString().split('T')[0]
-                }
-              }
-            } catch (e) {
-              // Continue to next format
-            }
-          }
-        }
-
-        // Fallback: try standard Date parsing
-        try {
-          const parsed = new Date(dateStr)
-          if (!isNaN(parsed.getTime())) {
-            return parsed.toISOString().split('T')[0]
-          }
-        } catch {
-          // Return null if all parsing attempts fail
-        }
-
-        return null
-      }
-
       // Validate dates
       let startDate: string | undefined
       let endDate: string | undefined
@@ -823,7 +676,6 @@ export async function batchImportContracts(
           startDate = parsed
         } else {
           errors.push(`Row ${i + 2}: Invalid start date format "${contractData.start_date}". Expected format: DD-Mon-YYYY (e.g., 2-Sep-2025)`)
-          // Don't continue - allow the row to be imported with invalid date
           startDate = undefined
         }
       }
@@ -834,7 +686,6 @@ export async function batchImportContracts(
           endDate = parsed
         } else {
           errors.push(`Row ${i + 2}: Invalid end date format "${contractData.end_date}". Expected format: DD-Mon-YYYY (e.g., 1-Sep-2028)`)
-          // Don't continue - allow the row to be imported with invalid date
           endDate = undefined
         }
       }
@@ -846,35 +697,28 @@ export async function batchImportContracts(
       }
 
       // Determine status based on dates
-      // Valid status values per database constraint: 'active', 'expired', 'terminated', 'pending'
       let status: 'active' | 'expired' | 'terminated' | 'pending' = 'active'
 
-      // Normalize incoming status value to match database constraint
       if (contractData.status) {
         const normalizedStatus = String(contractData.status).trim().toLowerCase()
         if (['active', 'expired', 'terminated', 'pending'].includes(normalizedStatus)) {
           status = normalizedStatus as 'active' | 'expired' | 'terminated' | 'pending'
         } else {
-          // Map invalid status values to valid ones
           if (['expiring', 'expiring_soon'].includes(normalizedStatus)) {
-            status = 'active' // Contracts expiring soon are still active
+            status = 'active'
           } else if (['inactive', 'cancelled', 'canceled'].includes(normalizedStatus)) {
-            status = 'terminated' // Map inactive/cancelled to terminated
+            status = 'terminated'
           }
-          // Otherwise, keep default 'active'
         }
       }
 
-      // Auto-determine status based on dates (only if status wasn't explicitly set)
+      // Auto-determine status based on dates
       if (endDate && (!contractData.status || !['active', 'expired', 'terminated', 'pending'].includes(String(contractData.status).trim().toLowerCase()))) {
         const now = new Date()
         const end = new Date(endDate)
-        const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
-
         if (end < now) {
           status = 'expired'
         } else {
-          // Contracts expiring soon are still 'active' (not 'expiring' which doesn't exist in constraint)
           status = 'active'
         }
       }
@@ -887,7 +731,7 @@ export async function batchImportContracts(
         hospital_id: hospitalId,
         item_name: contractData.item_name,
         item_code: contractData.item_code,
-        contract_number: contractData.contract_number,
+        contract_number: contractNumber,
         contract_type: contractData.contract_type,
         supplier_id: contractData.supplier_id,
         supplier_name: contractData.supplier_name,
@@ -896,7 +740,6 @@ export async function batchImportContracts(
         unit: contractData.unit,
         unit_price: contractData.unit_price
           ? (() => {
-            // Handle price with "RM" prefix or commas (e.g., "RM 107.40" or "1,107.40")
             const priceStr = String(contractData.unit_price).trim().replace(/^RM\s*/i, '').replace(/,/g, '')
             const price = parseFloat(priceStr)
             return isNaN(price) ? undefined : price
@@ -911,108 +754,62 @@ export async function batchImportContracts(
         document_url: contractData.document_url,
       }
 
-      // Check for existing contract (for local storage or for id lookup)
-      const existingContract = existingByNumber?.get(contractNumber)
-
       try {
-        if (!supabaseConfigured) {
-          // Local storage fallback
-          const localData = localStorage.getItem(`contracts_${hospitalId}`)
-          const existingContracts: Contract[] = localData ? JSON.parse(localData) : []
+        // Supabase database - Use upsert pattern to handle duplicates
+        const { data: existingData, error: queryError } = await supabase
+          .from('contracts')
+          .select('id')
+          .eq('hospital_id', hospitalId)
+          .eq('contract_number', contractNumber)
+          .eq('item_name', contractData.item_name)
+          .maybeSingle()
 
-          if (existingContract || existingContracts.some(c => c.contract_number === contractNumber)) {
-            // Update existing
-            const index = existingContracts.findIndex(c => c.contract_number === contractNumber)
-            if (index !== -1) {
-              existingContracts[index] = { ...existingContracts[index], ...newContract, updated_at: new Date().toISOString() }
-            }
-            localStorage.setItem(`contracts_${hospitalId}`, JSON.stringify(existingContracts))
-          } else {
-            // Create new
-            const contract: Contract = {
-              ...newContract,
-              id: `contract-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            } as Contract
-            existingContracts.push(contract)
-            localStorage.setItem(`contracts_${hospitalId}`, JSON.stringify(existingContracts))
-          }
-          successCount++
-        } else {
-          // Supabase database - Use upsert pattern to handle duplicates
-          // Check if contract already exists (in DB or in current batch)
-          const { data: existingData, error: queryError } = await supabase
+        if (queryError && queryError.code !== 'PGRST116') {
+          errors.push(`Row ${i + 2}: Failed to check existing contract - ${queryError.message}`)
+          continue
+        }
+
+        const contractToSave = {
+          ...newContract,
+          updated_at: new Date().toISOString(),
+          ...(existingData ? {} : { created_at: new Date().toISOString() })
+        }
+
+        if (existingData) {
+          const { error: updateError } = await supabase
             .from('contracts')
-            .select('id')
-            .eq('hospital_id', hospitalId)
-            .eq('contract_number', contractNumber)
-            .maybeSingle()
+            .update(contractToSave)
+            .eq('id', existingData.id)
 
-          if (queryError && queryError.code !== 'PGRST116') { // PGRST116 = no rows returned
-            errors.push(`Row ${i + 2}: Failed to check existing contract - ${queryError.message}`)
-            continue
+          if (updateError) {
+            errors.push(`Row ${i + 2}: Failed to update - ${updateError.message}`)
+          } else {
+            successCount++
           }
+        } else {
+          const { error: insertError } = await supabase
+            .from('contracts')
+            .insert(contractToSave)
 
-          const contractToSave = {
-            ...newContract,
-            updated_at: new Date().toISOString(),
-            ...(existingData ? {} : { created_at: new Date().toISOString() })
-          }
+          if (insertError) {
+            if (insertError.code === '23505' || insertError.message?.includes('duplicate key')) {
+              const { error: updateError } = await supabase
+                .from('contracts')
+                .update(contractToSave)
+                .eq('hospital_id', hospitalId)
+                .eq('contract_number', contractNumber)
+                .eq('item_name', contractData.item_name)
 
-          if (existingData) {
-            // Update existing contract
-            const { error: updateError } = await supabase
-              .from('contracts')
-              .update(contractToSave)
-              .eq('id', existingData.id)
-
-            if (updateError) {
-              errors.push(`Row ${i + 2}: Failed to update - ${updateError.message}`)
+              if (updateError) {
+                errors.push(`Row ${i + 2}: Failed to upsert (duplicate key conflict) - ${updateError.message}`)
+              } else {
+                successCount++
+              }
             } else {
-              successCount++
+              errors.push(`Row ${i + 2}: Failed to insert - ${insertError.message}`)
             }
           } else {
-            // Insert new contract - handle duplicate key errors
-            const { error: insertError } = await supabase
-              .from('contracts')
-              .insert(contractToSave)
-
-            if (insertError) {
-              // If duplicate key error (23505), try to update instead
-              if (insertError.code === '23505' || insertError.message?.includes('duplicate key') || insertError.message?.includes('contracts_hospital_id_contract_number_key')) {
-                // Contract was inserted between our check and insert (race condition)
-                // Update instead
-                const { error: updateError } = await supabase
-                  .from('contracts')
-                  .update(contractToSave)
-                  .eq('hospital_id', hospitalId)
-                  .eq('contract_number', contractNumber)
-
-                if (updateError) {
-                  errors.push(`Row ${i + 2}: Failed to upsert (duplicate key conflict) - ${updateError.message}`)
-                } else {
-                  successCount++
-                }
-              } else {
-                errors.push(`Row ${i + 2}: Failed to insert - ${insertError.message}`)
-              }
-            } else {
-              successCount++
-              // Update local cache for subsequent checks in the same batch
-              if (existingByNumber) {
-                const { data: inserted } = await supabase
-                  .from('contracts')
-                  .select('id, contract_number')
-                  .eq('hospital_id', hospitalId)
-                  .eq('contract_number', contractNumber)
-                  .maybeSingle()
-
-                if (inserted) {
-                  existingByNumber.set(contractNumber, { id: inserted.id })
-                }
-              }
-            }
+            successCount++
           }
         }
       } catch (err) {
@@ -1020,7 +817,6 @@ export async function batchImportContracts(
         errors.push(`Row ${i + 2}: Exception - ${msg}`)
       }
 
-      // Report progress
       if (onProgress) {
         onProgress({
           processed: i + 1,

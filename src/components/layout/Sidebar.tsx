@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
-import { useMenus, useMenusLoading, useMenuStore } from '@/stores/menuStore'
+import { useMenus, useMenusLoading, useMenuStore, useIsMenusInitialized } from '@/stores/menuStore'
 import { useSidebar } from '@/stores/uiStore'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { Avatar, LoadingOverlay } from '@/components/ui'
@@ -20,27 +20,65 @@ export const Sidebar: React.FC = () => {
   const { sidebarCollapsed, sidebarOpen, toggleSidebar } = useSidebar()
   const isMobile = useIsMobile(1024)
 
-  // Auto-fetch menus on mount if empty but user logged in (Fix for refresh issue)
+
+  // Debug menus
   useEffect(() => {
-    if (user?.id && menus.length === 0 && !menusLoading && !menusError) {
-      console.log('[Sidebar] Menus empty, triggering auto-fetch for user:', user.id)
+    if (menus.length > 0) {
+      console.log('[Sidebar] Current Menus Logic Path:')
+      console.table(menus.map(m => ({
+        label: m.label,
+        path: m.path,
+        hasChildren: m.children && m.children.length > 0,
+        isHeader: !!m.isHeader
+      })))
+
+      // Also log the first level of children for the header
+      if (menus[0].children) {
+        console.log('[Sidebar] Header Children:')
+        console.table(menus[0].children.map(m => ({
+          label: m.label,
+          path: m.path,
+          hasChildren: m.children && m.children.length > 0
+        })))
+      }
+    }
+  }, [menus])
+
+  // Auto-fetch menus on mount if empty but user logged in AND Supabase session is ready
+  const supabaseSessionReady = useAuthStore((state) => state.supabaseSessionReady)
+  const menusInitialized = useIsMenusInitialized()
+
+  useEffect(() => {
+    // CRITICAL: Wait for Supabase session to be verified before fetching menus
+    // This prevents the race condition where we try to fetch menus before auth.uid() is available
+    if (!supabaseSessionReady) {
+      console.log('[Sidebar] Waiting for Supabase session to be verified...')
+      return
+    }
+
+    if (user?.id && !menusInitialized && !menusLoading && !menusError) {
+      console.log('[Sidebar] Supabase session ready, triggering initial menu fetch')
 
       // Determine department context based on user's role
       const roleCode = user.role?.role_code
       let deptContext: string | undefined = undefined
 
-      if (roleCode && [
-        'pharmacy_director', 'pharmacy_manager', 'pharmacist',
-        'pharmacy_assistant', 'pharmacy_storekeeper', 'pharmacy_staff'
-      ].includes(roleCode)) {
-        deptContext = 'pharmacy_logistics'
-      } else if (roleCode === 'hospital_admin' || roleCode === 'system_admin') {
-        deptContext = 'hospital_admin'
+      // Simple, robust context determination
+      if (roleCode) {
+        const r = roleCode.toLowerCase()
+        if (r === 'pharmacist' || r === 'assistant_pharmacist') {
+          deptContext = 'pharmacy_logistics'
+        } else if (r === 'hospital_admin' || r === 'system_admin') {
+          deptContext = 'hospital_admin'
+        }
       }
 
-      useMenuStore.getState().fetchMenus(user.id, { departmentCode: deptContext })
+      useMenuStore.getState().fetchMenus(user.id, {
+        departmentCode: deptContext,
+        user: user
+      })
     }
-  }, [user?.id, menus.length, menusLoading, menusError, user?.role?.role_code])
+  }, [user?.id, menus.length, menusLoading, menusError, supabaseSessionReady])
 
   const handleLogout = async () => {
     console.log('Logout clicked')
@@ -107,16 +145,19 @@ export const Sidebar: React.FC = () => {
     const expanded = hasChildren && isExpanded(item.id)
     const hasActive = hasActiveChild(item)
 
+    // Indentation based on depth (though wrapper handles most, precise padding helps)
+    // Indentation based on depth (though wrapper handles most, precise padding helps)
+
     if (item.isHeader) {
       return (
         <div key={item.id} className="mb-6">
           <div className={cn(
             'flex items-center gap-3 px-3 py-3 rounded-2xl text-base font-semibold tracking-tight transition-all duration-300',
-            'text-primary-900 bg-gradient-to-r from-primary-50 to-transparent border border-primary-100/50 shadow-sm',
+            'text-royal-blue bg-gradient-to-r from-blue-50/50 via-white/50 to-transparent border border-blue-100/50 shadow-sm glass',
             sidebarCollapsed && 'justify-center border-none bg-none shadow-none px-0'
           )}>
-            <div className="p-2 rounded-xl bg-white shadow-sm border border-primary-100">
-              <Icon className="w-5 h-5 text-primary-600" />
+            <div className="p-2 rounded-xl bg-white shadow-sm border border-blue-100">
+              <Icon className="w-5 h-5 text-royal-blue" />
             </div>
             {!sidebarCollapsed && (
               <span className="flex-1 truncate">{item.label}</span>
@@ -142,14 +183,17 @@ export const Sidebar: React.FC = () => {
           <button
             onClick={() => toggleExpanded(item.id)}
             className={cn(
-              'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors',
+              'w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm font-medium transition-all duration-200 group',
               isActive || hasActive
-                ? 'text-primary-700 bg-primary-50'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100',
+                ? 'text-royal-blue bg-gradient-to-r from-blue-50 to-blue-50/20 border border-blue-100/50 shadow-sm'
+                : 'text-slate-600 hover:text-royal-blue hover:bg-slate-50 border border-transparent',
               sidebarCollapsed && 'justify-center'
             )}
           >
-            <Icon className="w-5 h-5 flex-shrink-0" />
+            <Icon className={cn(
+              "w-5 h-5 flex-shrink-0 transition-colors",
+              isActive || hasActive ? "text-royal-blue" : "text-slate-400 group-hover:text-royal-blue"
+            )} />
             {!sidebarCollapsed && (
               <>
                 <span className="flex-1 text-left">{item.label}</span>
@@ -157,7 +201,10 @@ export const Sidebar: React.FC = () => {
                   animate={{ rotate: expanded ? 180 : 0 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <ChevronDown className="w-4 h-4 flex-shrink-0" />
+                  <ChevronDown className={cn(
+                    "w-4 h-4 flex-shrink-0 transition-colors",
+                    isActive || hasActive ? "text-royal-blue" : "text-slate-400 group-hover:text-royal-blue"
+                  )} />
                 </motion.div>
               </>
             )}
@@ -173,7 +220,7 @@ export const Sidebar: React.FC = () => {
                   transition={{ duration: 0.2, ease: 'easeInOut' }}
                   className="overflow-hidden"
                 >
-                  <div className="ml-4 mt-1 space-y-1 border-l-2 border-gray-100 pl-3">
+                  <div className="ml-4 mt-1 space-y-1 border-l-2 border-slate-100 pl-3">
                     {item.children?.map((child) => renderNavItem(child, depth + 1))}
                   </div>
                 </motion.div>
@@ -188,17 +235,21 @@ export const Sidebar: React.FC = () => {
       <NavLink
         key={item.id}
         to={item.path}
+        onClick={() => console.log('[Sidebar] Navigating to:', item.path, 'Label:', item.label)}
         className={({ isActive }) =>
           cn(
-            'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors',
+            'flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm font-medium transition-all duration-200 group',
             isActive
-              ? 'text-primary-700 bg-primary-100'
-              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100',
+              ? 'text-royal-blue bg-gradient-to-r from-blue-50 to-blue-50/20 border border-blue-100/50 shadow-sm font-semibold'
+              : 'text-slate-600 hover:text-royal-blue hover:bg-slate-50 border border-transparent',
             sidebarCollapsed && !isMobile && 'justify-center'
           )
         }
       >
-        <Icon className="w-5 h-5 flex-shrink-0" />
+        <Icon className={cn(
+          "w-5 h-5 flex-shrink-0 transition-colors",
+          isActive ? "text-royal-blue" : "text-slate-400 group-hover:text-royal-blue"
+        )} />
         {(!sidebarCollapsed || isMobile) && <span>{item.label}</span>}
       </NavLink>
     )
@@ -211,7 +262,7 @@ export const Sidebar: React.FC = () => {
         animate={{ width: sidebarCollapsed ? 80 : 280 }}
         transition={{ duration: 0.2, ease: 'easeInOut' }}
         className={cn(
-          'fixed left-0 bg-white border-r border-gray-200 no-print',
+          'fixed left-0 glass-sidebar no-print',
           'flex flex-col z-30'
         )}
         style={{ top: '112px', height: 'calc(100vh - 112px)' }}
@@ -297,10 +348,14 @@ const SidebarContent = ({
         </div>
       ) : menusError ? (
         <div className="p-4 text-center">
-          <p className="text-sm text-red-500 font-medium mb-2">Error loading menus</p>
+          <p className="text-sm text-red-500 font-medium mb-2">
+            Error loading menus
+          </p>
           <p className="text-xs text-gray-500 mb-4">{menusError}</p>
           <button
-            onClick={() => window.location.reload()}
+            onClick={() => {
+              useMenuStore.getState().fetchMenus(user?.id, { user })
+            }}
             className="text-xs bg-primary-50 text-primary-600 px-3 py-1.5 rounded-lg hover:bg-primary-100 transition-colors"
           >
             Retry Loading
@@ -310,8 +365,8 @@ const SidebarContent = ({
         <div className="text-center py-8 px-4">
           <p className="text-gray-500 text-sm mb-2 font-medium">No menus available</p>
           <div className="text-[10px] text-gray-400 bg-gray-50 p-2 rounded-lg break-all">
-            <p>Role: {user?.role?.role_code || user?.role_id}</p>
-            <p>Dept: {user?.department?.department_code || user?.department_id}</p>
+            <p>Role: {user?.role?.role_name || user?.role?.role_code}</p>
+            <p>Dept: {user?.department?.department_name || user?.department?.department_code}</p>
           </div>
           <button
             onClick={() => window.location.reload()}

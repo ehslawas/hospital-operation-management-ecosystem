@@ -7,7 +7,7 @@
  * - Account was created but Auth account creation failed
  */
 
-import { supabase, isSupabaseConfigured } from './supabase'
+import { supabase } from './supabase'
 import { checkAuthUserExists, fixMissingAuthAccount, updateAuthUserPassword } from './authUserService'
 import { getAccessRequestById } from './accessRequestManagementService'
 import { decryptPassword } from '@/lib/encryptionUtils'
@@ -33,10 +33,6 @@ export async function diagnoseUserAccount(
   userIdOrEmail: string
 ): Promise<{ success: boolean; diagnostic?: UserAccountDiagnostic; error?: string }> {
   try {
-    if (!isSupabaseConfigured()) {
-      return { success: false, error: 'Supabase not configured' }
-    }
-
     // Get user from database
     const { data: user, error: userError } = await supabase
       .from('users')
@@ -88,10 +84,10 @@ export async function diagnoseUserAccount(
         email: user.email,
         employeeId: user.employee_id,
         authAccountExists: authCheck.exists,
-        authUserId: authCheck.userId,
+        authUserId: authCheck.userId || undefined,
         hasAccessRequest: !!hasAccessRequest,
         accessRequestId: hasAccessRequest ? accessRequests[0].id : undefined,
-        hasEncryptedPassword,
+        hasEncryptedPassword: !!hasEncryptedPassword,
         canFix,
         fixMethod,
       },
@@ -113,10 +109,6 @@ export async function fixUserAccount(
   newPassword?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    if (!isSupabaseConfigured()) {
-      return { success: false, error: 'Supabase not configured' }
-    }
-
     // Get user
     const { data: user, error: userError } = await supabase
       .from('users')
@@ -140,7 +132,7 @@ export async function fixUserAccount(
       return {
         success: false,
         error: 'Cannot fix this account automatically. The encrypted password is no longer available. ' +
-               'Please reset the password manually using the password reset function.',
+          'Please reset the password manually using the password reset function.',
       }
     }
 
@@ -149,7 +141,7 @@ export async function fixUserAccount(
     if (newPassword) {
       // Use provided password
       passwordToUse = newPassword
-    } else if (diag.hasEncryptedPassword && diag.accessRequestId) {
+    } else if (diag.accessRequestId) {
       // Try to get password from access request
       const request = await getAccessRequestById(diag.accessRequestId)
       if (request && request.password_encrypted) {

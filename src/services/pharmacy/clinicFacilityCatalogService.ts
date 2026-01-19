@@ -4,7 +4,7 @@
  * Data sourced from Ministry of Health Malaysia (MOH)
  */
 
-import { supabase, isSupabaseConfigured } from '@/services/supabase'
+import { supabase } from '@/services/supabase'
 import type { ApiResponse } from '@/types'
 import type {
   ClinicFacility,
@@ -25,39 +25,6 @@ export async function getClinicFacilities(
   filter?: ClinicFacilityCatalogFilter
 ): Promise<ApiResponse<ClinicFacilityWithRelations[]>> {
   try {
-    if (!isSupabaseConfigured()) {
-      // Local development fallback - use localStorage
-      const localData = localStorage.getItem(`clinic_facilities_${hospitalId}`)
-      const facilities: ClinicFacilityWithRelations[] = localData ? JSON.parse(localData) : []
-      
-      let filtered = facilities
-      
-      if (filter?.search) {
-        const searchLower = filter.search.toLowerCase()
-        filtered = filtered.filter(
-          f =>
-            f.name?.toLowerCase().includes(searchLower) ||
-            f.address?.toLowerCase().includes(searchLower) ||
-            f.city?.toLowerCase().includes(searchLower) ||
-            f.state?.toLowerCase().includes(searchLower)
-        )
-      }
-      
-      if (filter?.state && filter.state !== 'all') {
-        filtered = filtered.filter(f => f.state === filter.state)
-      }
-      
-      if (filter?.city && filter.city !== 'all') {
-        filtered = filtered.filter(f => f.city === filter.city)
-      }
-      
-      if (filter?.status && filter.status !== 'all') {
-        filtered = filtered.filter(f => f.status === filter.status)
-      }
-      
-      return { data: filtered, error: null }
-    }
-
     // Build Supabase query
     let query = supabase
       .from('clinic_facilities')
@@ -73,7 +40,7 @@ export async function getClinicFacilities(
         .replace(/_/g, '\\_')  // Escape _ wildcard
         .replace(/'/g, "''")   // Escape single quotes for SQL
       const searchPattern = `%${searchTerm}%`
-      
+
       query = query.or(
         `name.ilike.${searchPattern},address.ilike.${searchPattern},city.ilike.${searchPattern},state.ilike.${searchPattern}`
       )
@@ -111,19 +78,6 @@ export async function getClinicFacilities(
  */
 export async function getClinicFacilityById(id: string): Promise<ApiResponse<ClinicFacilityWithRelations>> {
   try {
-    if (!isSupabaseConfigured()) {
-      // Local fallback
-      const allKeys = Object.keys(localStorage).filter(key => key.startsWith('clinic_facilities_'))
-      for (const key of allKeys) {
-        const facilities: ClinicFacilityWithRelations[] = JSON.parse(localStorage.getItem(key) || '[]')
-        const facility = facilities.find(f => f.id === id)
-        if (facility) {
-          return { data: facility, error: null }
-        }
-      }
-      return { data: null, error: 'Clinic facility not found' }
-    }
-
     const { data, error } = await supabase
       .from('clinic_facilities')
       .select('*')
@@ -157,24 +111,6 @@ export async function createClinicFacility(
       status: facility.status || 'active',
     }
 
-    if (!isSupabaseConfigured()) {
-      // Local fallback
-      const id = `clinic_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      const created: ClinicFacility = {
-        ...newFacility,
-        id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }
-
-      const localData = localStorage.getItem(`clinic_facilities_${hospitalId}`)
-      const facilities: ClinicFacility[] = localData ? JSON.parse(localData) : []
-      facilities.push(created)
-      localStorage.setItem(`clinic_facilities_${hospitalId}`, JSON.stringify(facilities))
-
-      return { data: created, error: null }
-    }
-
     const { data, error } = await supabase
       .from('clinic_facilities')
       .insert([newFacility])
@@ -202,25 +138,6 @@ export async function updateClinicFacility(
   facility: Partial<Omit<ClinicFacility, 'id' | 'hospital_id' | 'created_at' | 'updated_at'>>
 ): Promise<ApiResponse<ClinicFacility>> {
   try {
-    if (!isSupabaseConfigured()) {
-      // Local fallback
-      const allKeys = Object.keys(localStorage).filter(key => key.startsWith('clinic_facilities_'))
-      for (const key of allKeys) {
-        const facilities: ClinicFacility[] = JSON.parse(localStorage.getItem(key) || '[]')
-        const index = facilities.findIndex(f => f.id === id)
-        if (index !== -1) {
-          facilities[index] = {
-            ...facilities[index],
-            ...facility,
-            updated_at: new Date().toISOString(),
-          }
-          localStorage.setItem(key, JSON.stringify(facilities))
-          return { data: facilities[index], error: null }
-        }
-      }
-      return { data: null, error: 'Clinic facility not found' }
-    }
-
     const { data, error } = await supabase
       .from('clinic_facilities')
       .update({
@@ -249,20 +166,6 @@ export async function updateClinicFacility(
  */
 export async function deleteClinicFacility(id: string): Promise<ApiResponse<void>> {
   try {
-    if (!isSupabaseConfigured()) {
-      // Local fallback
-      const allKeys = Object.keys(localStorage).filter(key => key.startsWith('clinic_facilities_'))
-      for (const key of allKeys) {
-        const facilities: ClinicFacility[] = JSON.parse(localStorage.getItem(key) || '[]')
-        const filtered = facilities.filter(f => f.id !== id)
-        if (filtered.length !== facilities.length) {
-          localStorage.setItem(key, JSON.stringify(filtered))
-          return { data: undefined, error: null }
-        }
-      }
-      return { data: null, error: 'Clinic facility not found' }
-    }
-
     const { error } = await supabase.from('clinic_facilities').delete().eq('id', id)
 
     if (error) {
@@ -286,7 +189,7 @@ export async function getClinicFacilityKPIs(
 ): Promise<ApiResponse<ClinicFacilityCatalogKPIs>> {
   try {
     const result = await getClinicFacilities(hospitalId)
-    
+
     if (!result.data) {
       return {
         data: {
@@ -346,7 +249,7 @@ export async function exportClinicFacilities(
 ): Promise<ApiResponse<Blob>> {
   try {
     const result = await getClinicFacilities(hospitalId, filter)
-    
+
     if (!result.data) {
       return { data: null, error: result.error || 'Failed to fetch clinic facilities' }
     }
@@ -381,8 +284,6 @@ export async function exportClinicFacilities(
 
 /**
  * Fetch clinics from MOH website
- * Scrapes data from: https://www.moh.gov.my/index.php/pages/view/4378?mid=1451
- * The MOH page shows clinics organized by state with links to detailed pages
  */
 export async function fetchClinicsFromMOH(): Promise<ApiResponse<Array<{
   name: string
@@ -403,7 +304,7 @@ export async function fetchClinicsFromMOH(): Promise<ApiResponse<Array<{
 
     // Use CORS proxy to fetch the MOH website (browser CORS limitation)
     const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(MOH_URL)}`
-    
+
     try {
       const response = await fetch(proxyUrl)
       if (!response.ok) {
@@ -411,33 +312,23 @@ export async function fetchClinicsFromMOH(): Promise<ApiResponse<Array<{
       }
 
       const html = await response.text()
-      
-      // Parse HTML to extract clinic data
       const parser = new DOMParser()
       const doc = parser.parseFromString(html, 'text/html')
-      
-      // The MOH page has state sections with clinic links
-      // We need to find all state sections and extract clinic information
-      
-      // Look for state headings (h3, h4, or strong tags with state names)
-      const stateSections = doc.querySelectorAll('h3, h4, strong')
-      
+
       const malaysianStates = [
         'Johor', 'Kedah', 'Kelantan', 'Melaka', 'Malacca', 'Negeri Sembilan',
         'Pahang', 'Pulau Pinang', 'Penang', 'Perak', 'Perlis', 'Sabah',
         'Sarawak', 'Selangor', 'Terengganu', 'Kuala Lumpur', 'Labuan', 'Putrajaya',
         'WP Kuala Lumpur', 'WP Labuan', 'WP Putrajaya'
       ]
-      
+
+      const stateSections = doc.querySelectorAll('h3, h4, strong')
       stateSections.forEach(section => {
         const text = section.textContent?.trim() || ''
-        
-        // Find if this is a state heading
         let currentState = ''
         for (const state of malaysianStates) {
           if (text.includes(state)) {
             currentState = state
-            // Normalize state names
             if (state === 'WP Kuala Lumpur' || state === 'Kuala Lumpur') currentState = 'Kuala Lumpur'
             else if (state === 'WP Labuan' || state === 'Labuan') currentState = 'Labuan'
             else if (state === 'WP Putrajaya' || state === 'Putrajaya') currentState = 'Putrajaya'
@@ -446,43 +337,32 @@ export async function fetchClinicsFromMOH(): Promise<ApiResponse<Array<{
             break
           }
         }
-        
+
         if (!currentState) return
-        
-        // Find the next sibling element that might contain clinic links
+
         let nextElement: Element | null = section.nextElementSibling
-        
-        // Look for lists or paragraphs with clinic information
         while (nextElement && nextElement.tagName !== 'H3' && nextElement.tagName !== 'H4' && !nextElement.querySelector('strong')) {
-          // Check for links that might be clinic pages
           const links = nextElement.querySelectorAll('a[href*="store_view"]')
-          
           links.forEach(link => {
             const clinicName = link.textContent?.trim() || ''
             const href = link.getAttribute('href') || ''
-            
-            // Extract MOH ID from href if available
             const mohIdMatch = href.match(/store_view[^/]*\/(\d+)/)
             const mohId = mohIdMatch ? mohIdMatch[1] : undefined
-            
+
             if (clinicName && clinicName.length > 3) {
-              // Try to extract city from clinic name or surrounding text
               const parentText = nextElement?.textContent || ''
-              
-              // Simple heuristics to extract city
               let city = ''
               const cityPatterns = /(?:di|at|Bandar|Kota)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/i
               const cityMatch = parentText.match(cityPatterns)
               if (cityMatch) {
                 city = cityMatch[1]
               } else {
-                // If no city found, try to extract from clinic name
                 const nameParts = clinicName.split(',')
                 if (nameParts.length > 1) {
                   city = nameParts[nameParts.length - 1].trim()
                 }
               }
-              
+
               hospitals.push({
                 name: clinicName,
                 address: '',
@@ -492,27 +372,20 @@ export async function fetchClinicsFromMOH(): Promise<ApiResponse<Array<{
               })
             }
           })
-          
           nextElement = nextElement.nextElementSibling
         }
       })
-      
-      // Alternative approach: Look for table structures
+
       if (hospitals.length === 0) {
         const tables = doc.querySelectorAll('table')
-        
         for (const table of Array.from(tables)) {
           const rows = table.querySelectorAll('tr')
-          
           for (let i = 1; i < rows.length; i++) {
             const row = rows[i]
             const cells = row.querySelectorAll('td')
-            
             if (cells.length >= 2) {
               const nameCell = cells[0]?.textContent?.trim()
               const addressCell = cells[1]?.textContent?.trim()
-              
-              // Try to extract state from table or row
               const rowText = row.textContent || ''
               let currentState = ''
               for (const state of malaysianStates) {
@@ -526,15 +399,13 @@ export async function fetchClinicsFromMOH(): Promise<ApiResponse<Array<{
                   break
                 }
               }
-              
+
               if (nameCell && nameCell.length > 3) {
-                // Extract city from address or name
                 let city = ''
                 const cityMatch = (addressCell || nameCell).match(/Bandar\s+([A-Z][a-z]+)|Kota\s+([A-Z][a-z]+)|([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?),/i)
                 if (cityMatch) {
                   city = cityMatch[1] || cityMatch[2] || cityMatch[3] || ''
                 }
-                
                 hospitals.push({
                   name: nameCell,
                   address: addressCell || '',
@@ -548,21 +419,10 @@ export async function fetchClinicsFromMOH(): Promise<ApiResponse<Array<{
         }
       }
 
-      if (hospitals.length === 0) {
-        return {
-          data: [],
-          error: 'No clinics found on MOH website. The website structure may have changed or there was an error parsing the data.',
-        }
-      }
-
       return { data: hospitals, error: null }
     } catch (fetchError) {
-      // If CORS proxy fails, provide helpful error message
       console.error('Error fetching from MOH website:', fetchError)
-      return {
-        data: [],
-        error: `Failed to fetch from MOH website. This might be due to CORS restrictions. Consider implementing a server-side proxy or using a different data source. Original error: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`,
-      }
+      return { data: [], error: `Failed to fetch from MOH website: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}` }
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to fetch from MOH website'
@@ -579,17 +439,12 @@ export async function importClinicsFromMOH(
   onProgress?: (info: { processed: number; total: number; success: number; failed: number }) => void
 ): Promise<ApiResponse<{ success: number; failed: number; errors: string[] }>> {
   try {
-    // Fetch clinics from MOH
     const fetchResult = await fetchClinicsFromMOH()
-    
+
     if (!fetchResult.data || fetchResult.data.length === 0) {
-      return {
-        data: null,
-        error: fetchResult.error || 'No clinics found to import',
-      }
+      return { data: null, error: fetchResult.error || 'No clinics found to import' }
     }
 
-    // Import clinics
     let success = 0
     let failed = 0
     const errors: string[] = []
@@ -597,63 +452,46 @@ export async function importClinicsFromMOH(
     for (let i = 0; i < fetchResult.data.length; i++) {
       try {
         const clinic = fetchResult.data[i]
-        
-        // Check if clinic already exists (by name or moh_id)
         let exists = false
-        
-        if (!isSupabaseConfigured()) {
-          // Local fallback - check existing facilities
-          const localData = localStorage.getItem(`clinic_facilities_${hospitalId}`)
-          const existingFacilities: ClinicFacilityWithRelations[] = localData ? JSON.parse(localData) : []
-          exists = existingFacilities.some(
-            f => f.name.toLowerCase() === clinic.name.toLowerCase() ||
-                 (f.moh_id && clinic.moh_id && f.moh_id === clinic.moh_id)
-          )
-        } else {
-          // Query by exact name match to avoid search query issues with special characters
-          const { data: existingData, error: queryError } = await supabase
+
+        const { data: existingData, error: queryError } = await supabase
+          .from('clinic_facilities')
+          .select('id, name, moh_id')
+          .eq('hospital_id', hospitalId)
+          .eq('name', clinic.name)
+          .limit(1)
+
+        if (!queryError && (!existingData || existingData.length === 0)) {
+          const { data: caseInsensitiveData } = await supabase
             .from('clinic_facilities')
             .select('id, name, moh_id')
             .eq('hospital_id', hospitalId)
-            .eq('name', clinic.name) // Try exact match first
+            .ilike('name', clinic.name.replace(/'/g, "''"))
             .limit(1)
-          
-          // If exact match doesn't find it, try case-insensitive match
-          if (!queryError && (!existingData || existingData.length === 0)) {
-            const { data: caseInsensitiveData } = await supabase
-              .from('clinic_facilities')
-              .select('id, name, moh_id')
-              .eq('hospital_id', hospitalId)
-              .ilike('name', clinic.name.replace(/'/g, "''")) // Escape apostrophes for ilike
-              .limit(1)
-            
-            if (caseInsensitiveData && caseInsensitiveData.length > 0) {
-              exists = true
-            }
-          }
-          
-          if (!queryError && existingData && existingData.length > 0) {
+
+          if (caseInsensitiveData && caseInsensitiveData.length > 0) {
             exists = true
-          }
-          
-          // Also check by moh_id if name check didn't find it
-          if (!exists && clinic.moh_id) {
-            const { data: mohIdData } = await supabase
-              .from('clinic_facilities')
-              .select('id')
-              .eq('hospital_id', hospitalId)
-              .eq('moh_id', clinic.moh_id)
-              .limit(1)
-            
-            exists = !!(mohIdData && mohIdData.length > 0)
           }
         }
 
+        if (!queryError && existingData && existingData.length > 0) {
+          exists = true
+        }
+
+        if (!exists && clinic.moh_id) {
+          const { data: mohIdData } = await supabase
+            .from('clinic_facilities')
+            .select('id')
+            .eq('hospital_id', hospitalId)
+            .eq('moh_id', clinic.moh_id)
+            .limit(1)
+
+          exists = !!(mohIdData && mohIdData.length > 0)
+        }
+
         if (exists) {
-          // Skip if already exists
           success++
         } else {
-          // Create new clinic facility
           const result = await createClinicFacility(hospitalId, {
             name: clinic.name,
             address: clinic.address,
@@ -678,33 +516,18 @@ export async function importClinicsFromMOH(
       } catch (error) {
         failed++
         const clinic = fetchResult.data[i]
-        errors.push(
-          `Clinic "${clinic.name}": ${error instanceof Error ? error.message : 'Unknown error'}`
-        )
+        errors.push(`Clinic "${clinic.name}": ${error instanceof Error ? error.message : 'Unknown error'}`)
       }
 
       if (onProgress) {
-        onProgress({
-          processed: i + 1,
-          total: fetchResult.data.length,
-          success,
-          failed,
-        })
+        onProgress({ processed: i + 1, total: fetchResult.data.length, success, failed })
       }
     }
 
-    return {
-      data: {
-        success,
-        failed,
-        errors: errors.slice(0, 100), // Limit errors to first 100
-      },
-      error: null,
-    }
+    return { data: { success, failed, errors: errors.slice(0, 100) }, error: null }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to import from MOH website'
     console.error('Error in importClinicsFromMOH:', error)
     return { data: null, error: message }
   }
 }
-

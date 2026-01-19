@@ -1,15 +1,29 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import { motion } from 'framer-motion'
-import { Search, RefreshCw, Download, Filter, Calendar, User, FileText, Eye } from 'lucide-react'
-import { Button, Table, Pagination, Input, Select, Badge, LoadingOverlay, Modal } from '@/components/ui'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  Search,
+  RefreshCw,
+  Download,
+  Filter,
+  Calendar,
+  FileText,
+  Eye,
+  Activity,
+  ShieldAlert,
+  Database
+} from 'lucide-react'
+import { Button, Table, Pagination, Badge, LoadingOverlay, Modal, Input } from '@/components/ui'
+import { AdminPageLayout, AdminStatsGrid, AdminFilterBar, StatItem } from '@/components/admin'
 import { getAuditLogs, exportAuditLogsToCSV, getAuditLogModules, getAuditLogActions } from '@/services/auditLogService'
 import { useToastStore } from '@/stores/toastStore'
-import { ROUTES, DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from '@/lib/constants'
+import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '@/lib/constants'
 import { formatDateTime } from '@/lib/utils'
 import type { AuditLogWithRelations, SortConfig } from '@/types'
 
 export const AuditLogPage: React.FC = () => {
   const { error: showError, success: showSuccess } = useToastStore()
+
+  // State
   const [logs, setLogs] = useState<AuditLogWithRelations[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isExporting, setIsExporting] = useState(false)
@@ -18,31 +32,37 @@ export const AuditLogPage: React.FC = () => {
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [search, setSearch] = useState('')
+
+  // Filters
   const [moduleFilter, setModuleFilter] = useState<string>('all')
   const [actionFilter, setActionFilter] = useState<string>('all')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
+
   const [sortConfig, setSortConfig] = useState<SortConfig | undefined>({ key: 'created_at', direction: 'desc' })
   const [availableModules, setAvailableModules] = useState<string[]>([])
   const [availableActions, setAvailableActions] = useState<string[]>([])
-  const [showFilters, setShowFilters] = useState(false)
+
+  // Detail Modal
   const [selectedLog, setSelectedLog] = useState<AuditLogWithRelations | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
 
+  // Fetch Metadata
   useEffect(() => {
-    fetchModulesAndActions()
+    const fetchMeta = async () => {
+      try {
+        const [modules, actions] = await Promise.all([getAuditLogModules(), getAuditLogActions()])
+        setAvailableModules(modules)
+        setAvailableActions(actions)
+      } catch (error) {
+        console.error('Error fetching metadata:', error)
+      }
+    }
+    fetchMeta()
   }, [])
 
-  const fetchModulesAndActions = async () => {
-    try {
-      const [modules, actions] = await Promise.all([getAuditLogModules(), getAuditLogActions()])
-      setAvailableModules(modules)
-      setAvailableActions(actions)
-    } catch (error) {
-      console.error('Error fetching modules and actions:', error)
-    }
-  }
-
+  // Fetch Logs
   const fetchLogs = useCallback(async () => {
     setIsLoading(true)
     try {
@@ -61,16 +81,47 @@ export const AuditLogPage: React.FC = () => {
       setTotal(result.total)
       setTotalPages(result.totalPages)
     } catch (error) {
-      showError('Error', 'Failed to load audit logs. Please try again.')
+      showError('Error', 'Failed to load audit logs')
       console.error('Failed to fetch audit logs:', error)
     } finally {
       setIsLoading(false)
     }
-  }, [currentPage, pageSize, search, moduleFilter, actionFilter, startDate, endDate, sortConfig])
+  }, [currentPage, pageSize, search, moduleFilter, actionFilter, startDate, endDate, sortConfig, showError])
 
   useEffect(() => {
     fetchLogs()
   }, [fetchLogs])
+
+  // Stats
+  const stats: StatItem[] = useMemo(() => {
+    return [
+      {
+        label: 'Total Logs',
+        value: total,
+        icon: Database,
+        color: 'blue'
+      },
+      {
+        label: 'Modules',
+        value: availableModules.length,
+        icon: Activity,
+        color: 'indigo'
+      },
+      {
+        label: 'Actions',
+        value: availableActions.length,
+        icon: FileText,
+        color: 'emerald'
+      },
+      {
+        label: 'Security Events',
+        value: 'Monitored',
+        icon: ShieldAlert,
+        color: 'slate',
+        description: 'System activity tracking'
+      }
+    ]
+  }, [total, availableModules, availableActions])
 
   const handleExport = async () => {
     setIsExporting(true)
@@ -84,7 +135,6 @@ export const AuditLogPage: React.FC = () => {
         sort: sortConfig,
       })
 
-      // Download CSV
       const blob = new Blob([csvContent], { type: 'text/csv' })
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -98,7 +148,6 @@ export const AuditLogPage: React.FC = () => {
       showSuccess('Success', 'Audit logs exported successfully')
     } catch (error) {
       showError('Error', 'Failed to export audit logs')
-      console.error('Error exporting audit logs:', error)
     } finally {
       setIsExporting(false)
     }
@@ -106,37 +155,30 @@ export const AuditLogPage: React.FC = () => {
 
   const getActionColor = (action: string) => {
     switch (action.toLowerCase()) {
-      case 'create':
-        return 'success'
-      case 'update':
-        return 'info'
-      case 'delete':
-        return 'error'
-      case 'approve':
-        return 'success'
-      case 'reject':
-        return 'error'
-      case 'login':
-        return 'info'
-      default:
-        return 'gray'
+      case 'create': return 'success'
+      case 'update': return 'info'
+      case 'delete': return 'error'
+      case 'approve': return 'success'
+      case 'reject': return 'error'
+      case 'login': return 'info'
+      default: return 'gray'
     }
   }
 
   const columns = [
     {
       key: 'created_at',
-      label: 'Date & Time',
+      label: 'Timestamp',
       sortable: true,
       render: (_: unknown, row: AuditLogWithRelations) => (
-        <span className="text-sm text-slate-700">{formatDateTime(row.created_at)}</span>
+        <span className="text-sm font-mono text-slate-600">{formatDateTime(row.created_at)}</span>
       ),
     },
     {
       key: 'user',
       label: 'User',
       render: (_: unknown, row: AuditLogWithRelations) => (
-        <div>
+        <div className="space-y-0.5">
           <div className="font-medium text-slate-900">{row.user?.full_name || 'Unknown'}</div>
           <div className="text-xs text-slate-500">{row.user?.email || 'N/A'}</div>
         </div>
@@ -157,33 +199,25 @@ export const AuditLogPage: React.FC = () => {
       label: 'Module',
       sortable: true,
       render: (_: unknown, row: AuditLogWithRelations) => (
-        <span className="text-sm text-slate-700 capitalize">{row.module}</span>
+        <Badge variant="gray" className="capitalize">
+          {row.module}
+        </Badge>
       ),
     },
     {
-      key: 'entity_type',
+      key: 'entity',
       label: 'Entity',
       render: (_: unknown, row: AuditLogWithRelations) => (
-        <div>
-          {row.entity_type && (
-            <span className="text-sm text-slate-700 capitalize">{row.entity_type}</span>
-          )}
-          {row.entity_id && (
-            <div className="text-xs text-slate-500 font-mono">{row.entity_id.slice(0, 8)}...</div>
-          )}
+        <div className="text-sm text-slate-600">
+          {row.entity_type && <span className="capitalize">{row.entity_type}</span>}
+          {row.entity_id && <span className="text-slate-400 mx-1">#</span>}
+          {row.entity_id && <span className="font-mono text-xs">{row.entity_id.slice(0, 8)}</span>}
         </div>
       ),
     },
     {
-      key: 'ip_address',
-      label: 'IP Address',
-      render: (_: unknown, row: AuditLogWithRelations) => (
-        <span className="text-sm text-slate-500 font-mono">{row.ip_address || 'N/A'}</span>
-      ),
-    },
-    {
       key: 'actions',
-      label: 'Actions',
+      label: '',
       render: (_: unknown, row: AuditLogWithRelations) => (
         <Button
           variant="ghost"
@@ -193,243 +227,225 @@ export const AuditLogPage: React.FC = () => {
             setSelectedLog(row)
             setShowDetailModal(true)
           }}
-          leftIcon={<Eye className="w-4 h-4" />}
+          className="h-8 w-8 p-0 text-slate-500 hover:text-indigo-600"
         >
-          View
+          <Eye className="w-4 h-4" />
         </Button>
       ),
-      className: 'w-24',
+      className: 'w-16',
     },
   ]
 
+  const headerActions = (
+    <div className="flex items-center gap-3">
+      <Button
+        variant="outline"
+        onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+        leftIcon={<Filter className="w-4 h-4" />}
+        className={showAdvancedFilters ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : ''}
+      >
+        Filters
+      </Button>
+      <Button
+        variant="outline"
+        onClick={handleExport}
+        isLoading={isExporting}
+        leftIcon={<Download className="w-4 h-4" />}
+      >
+        Export
+      </Button>
+      <Button
+        variant="ghost"
+        onClick={fetchLogs}
+        disabled={isLoading}
+        className="text-slate-500 hover:bg-slate-100"
+        title="Refresh"
+      >
+        <RefreshCw className={isLoading ? 'animate-spin w-5 h-5' : 'w-5 h-5'} />
+      </Button>
+    </div>
+  )
+
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="pb-4">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Audit Logs</h1>
-            <p className="text-sm text-slate-600 mt-1">View system activity and changes</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              onClick={() => setShowFilters(!showFilters)}
-              leftIcon={<Filter className="w-5 h-5" />}
-            >
-              Filters
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleExport}
-              isLoading={isExporting}
-              leftIcon={<Download className="w-5 h-5" />}
-            >
-              Export CSV
-            </Button>
-          </div>
+    <AdminPageLayout
+      title="Audit Logs"
+      description="Track and monitor system activities, changes, and security events"
+      icon={Activity}
+      breadcrumbs={[{ label: 'Audit Logs' }]}
+      actions={headerActions}
+    >
+      <div className="space-y-6">
+        <AdminStatsGrid stats={stats} isLoading={isLoading} />
+
+        <div className="space-y-4">
+          <AdminFilterBar
+            searchValue={search}
+            onSearchChange={(val) => {
+              setSearch(val)
+              setCurrentPage(1)
+            }}
+            searchPlaceholder="Search logs..."
+            filters={[
+              {
+                key: 'module',
+                label: 'Module',
+                value: moduleFilter,
+                onChange: setModuleFilter,
+                options: availableModules.map(m => ({ value: m, label: m.charAt(0).toUpperCase() + m.slice(1) }))
+              },
+              {
+                key: 'action',
+                label: 'Action',
+                value: actionFilter,
+                onChange: setActionFilter,
+                options: availableActions.map(a => ({ value: a, label: a.charAt(0).toUpperCase() + a.slice(1) }))
+              }
+            ]}
+            onReset={() => {
+              setSearch('')
+              setModuleFilter('all')
+              setActionFilter('all')
+              setStartDate('')
+              setEndDate('')
+              setCurrentPage(1)
+            }}
+          />
+
+          <AnimatePresence>
+            {showAdvancedFilters && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm"
+              >
+                <div className="flex items-end gap-4">
+                  <div className="w-1/4">
+                    <label className="text-sm font-medium text-slate-700 mb-1 block">Start Date</label>
+                    <Input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                    />
+                  </div>
+                  <div className="w-1/4">
+                    <label className="text-sm font-medium text-slate-700 mb-1 block">End Date</label>
+                    <Input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
-        {/* Search */}
-        <div className="flex items-center gap-4 mb-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <Input
-              placeholder="Search by action, module, or entity..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value)
-                setCurrentPage(1)
-              }}
-              className="pl-10"
-            />
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+            <h3 className="text-sm font-semibold text-slate-700">System Activity</h3>
+            <span className="text-xs text-slate-500">
+              Showing {logs.length} of {total} records
+            </span>
           </div>
-          <Button variant="outline" onClick={fetchLogs} leftIcon={<RefreshCw className="w-4 h-4" />}>
-            Refresh
-          </Button>
-        </div>
 
-        {/* Filters Panel */}
-        {showFilters && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4"
-          >
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Select
-                value={moduleFilter}
-                onChange={(e) => {
-                  setModuleFilter(e.target.value)
-                  setCurrentPage(1)
-                }}
-                label="Module"
-              >
-                <option value="all">All Modules</option>
-                {availableModules.map((module) => (
-                  <option key={module} value={module}>
-                    {module.charAt(0).toUpperCase() + module.slice(1)}
-                  </option>
-                ))}
-              </Select>
-              <Select
-                value={actionFilter}
-                onChange={(e) => {
-                  setActionFilter(e.target.value)
-                  setCurrentPage(1)
-                }}
-                label="Action"
-              >
-                <option value="all">All Actions</option>
-                {availableActions.map((action) => (
-                  <option key={action} value={action}>
-                    {action.charAt(0).toUpperCase() + action.slice(1)}
-                  </option>
-                ))}
-              </Select>
-              <Input
-                type="date"
-                label="Start Date"
-                value={startDate}
-                onChange={(e) => {
-                  setStartDate(e.target.value)
-                  setCurrentPage(1)
-                }}
-              />
-              <Input
-                type="date"
-                label="End Date"
-                value={endDate}
-                onChange={(e) => {
-                  setEndDate(e.target.value)
-                  setCurrentPage(1)
-                }}
-              />
-            </div>
-          </motion.div>
-        )}
-      </div>
-
-      {/* Table */}
-      <div className="flex-1 overflow-auto bg-white">
-        <div className="p-6">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="relative">
+            {isLoading && <LoadingOverlay message="Loading logs..." />}
             <Table
               data={logs}
               columns={columns}
               sortConfig={sortConfig}
               onSort={(key) => {
-                setSortConfig((prev) => {
-                  if (prev?.key === key) {
-                    return prev.direction === 'asc'
-                      ? { key, direction: 'desc' }
-                      : undefined
-                  }
-                  return { key, direction: 'asc' }
-                })
+                setSortConfig(prev => prev?.key === key
+                  ? (prev.direction === 'asc' ? { key, direction: 'desc' } : undefined)
+                  : { key, direction: 'asc' })
               }}
               isLoading={isLoading}
-              emptyMessage="No audit logs found"
+              onRowClick={(row) => {
+                setSelectedLog(row)
+                setShowDetailModal(true)
+              }}
+              emptyMessage="No audit logs found matching your criteria."
             />
+          </div>
+
+          <div className="border-t border-slate-100 bg-slate-50/30 p-4">
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
               pageSize={pageSize}
               total={total}
               onPageChange={setCurrentPage}
-              onPageSizeChange={(newSize) => {
-                setPageSize(newSize)
-                setCurrentPage(1)
-              }}
+              onPageSizeChange={setPageSize}
               pageSizeOptions={PAGE_SIZE_OPTIONS}
             />
           </div>
         </div>
       </div>
 
-      {/* Detail Modal */}
       <Modal
         isOpen={showDetailModal}
-        onClose={() => {
-          setShowDetailModal(false)
-          setSelectedLog(null)
-        }}
-        title="Audit Log Details"
+        onClose={() => setShowDetailModal(false)}
+        title="Log Details"
         size="lg"
       >
         {selectedLog && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-6">
               <div>
-                <p className="text-sm text-slate-500">Date & Time</p>
-                <p className="font-medium text-slate-900">{formatDateTime(selectedLog.created_at)}</p>
+                <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1">Timestamp</p>
+                <p className="text-slate-900">{formatDateTime(selectedLog.created_at)}</p>
               </div>
               <div>
-                <p className="text-sm text-slate-500">User</p>
-                <p className="font-medium text-slate-900">
-                  {selectedLog.user?.full_name || 'Unknown'} ({selectedLog.user?.email || 'N/A'})
+                <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1">Action</p>
+                <Badge variant={getActionColor(selectedLog.action)}>{selectedLog.action}</Badge>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1">User</p>
+                <div className="text-slate-900 font-medium">{selectedLog.user?.full_name}</div>
+                <div className="text-slate-500 text-sm">{selectedLog.user?.email}</div>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1">Module</p>
+                <p className="text-slate-900 capitalize">{selectedLog.module}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1">IP Address</p>
+                <p className="font-mono text-slate-700 bg-slate-100 px-2 py-1 rounded inline-block text-sm">
+                  {selectedLog.ip_address || 'N/A'}
                 </p>
               </div>
-              <div>
-                <p className="text-sm text-slate-500">Action</p>
-                <Badge variant={getActionColor(selectedLog.action)} className="capitalize">
-                  {selectedLog.action}
-                </Badge>
-              </div>
-              <div>
-                <p className="text-sm text-slate-500">Module</p>
-                <p className="font-medium text-slate-900 capitalize">{selectedLog.module}</p>
-              </div>
-              {selectedLog.entity_type && (
-                <div>
-                  <p className="text-sm text-slate-500">Entity Type</p>
-                  <p className="font-medium text-slate-900 capitalize">{selectedLog.entity_type}</p>
-                </div>
-              )}
-              {selectedLog.entity_id && (
-                <div>
-                  <p className="text-sm text-slate-500">Entity ID</p>
-                  <p className="font-medium text-slate-900 font-mono text-sm">{selectedLog.entity_id}</p>
-                </div>
-              )}
-              {selectedLog.ip_address && (
-                <div>
-                  <p className="text-sm text-slate-500">IP Address</p>
-                  <p className="font-medium text-slate-900 font-mono">{selectedLog.ip_address}</p>
-                </div>
-              )}
-              {selectedLog.user_agent && (
-                <div className="col-span-2">
-                  <p className="text-sm text-slate-500">User Agent</p>
-                  <p className="font-medium text-slate-900 text-sm">{selectedLog.user_agent}</p>
-                </div>
-              )}
             </div>
 
-            {selectedLog.old_values && Object.keys(selectedLog.old_values).length > 0 && (
-              <div>
-                <p className="text-sm text-slate-500 mb-2">Old Values</p>
-                <pre className="bg-slate-50 p-3 rounded-lg text-sm overflow-x-auto">
-                  {JSON.stringify(selectedLog.old_values, null, 2)}
-                </pre>
-              </div>
-            )}
-
-            {selectedLog.new_values && Object.keys(selectedLog.new_values).length > 0 && (
-              <div>
-                <p className="text-sm text-slate-500 mb-2">New Values</p>
-                <pre className="bg-slate-50 p-3 rounded-lg text-sm overflow-x-auto">
-                  {JSON.stringify(selectedLog.new_values, null, 2)}
-                </pre>
+            {(selectedLog.old_values || selectedLog.new_values) && (
+              <div className="border-t border-slate-100 pt-4">
+                <h4 className="font-medium text-slate-900 mb-3">Changes</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  {selectedLog.old_values && (
+                    <div>
+                      <p className="text-xs text-slate-500 mb-1">Old Values</p>
+                      <pre className="text-xs bg-rose-50 text-rose-800 p-3 rounded-lg overflow-x-auto border border-rose-100">
+                        {JSON.stringify(selectedLog.old_values, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+                  {selectedLog.new_values && (
+                    <div>
+                      <p className="text-xs text-slate-500 mb-1">New Values</p>
+                      <pre className="text-xs bg-emerald-50 text-emerald-800 p-3 rounded-lg overflow-x-auto border border-emerald-100">
+                        {JSON.stringify(selectedLog.new_values, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
         )}
       </Modal>
-    </div>
+    </AdminPageLayout>
   )
 }
 
 export default AuditLogPage
-

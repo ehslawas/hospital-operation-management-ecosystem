@@ -3,7 +3,7 @@
  * Handles password changes for authenticated users
  */
 
-import { supabase, isSupabaseConfigured } from './supabase'
+import { supabase } from './supabase'
 
 export interface ChangePasswordResult {
   success: boolean
@@ -18,10 +18,6 @@ export async function changePassword(
   newPassword: string
 ): Promise<ChangePasswordResult> {
   try {
-    if (!isSupabaseConfigured()) {
-      return { success: false, error: 'Supabase is not configured' }
-    }
-
     // Validate password strength
     if (newPassword.length < 8) {
       return { success: false, error: 'Password must be at least 8 characters long' }
@@ -29,7 +25,7 @@ export async function changePassword(
 
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
-    
+
     if (userError || !user) {
       return { success: false, error: 'You must be logged in to change your password' }
     }
@@ -73,10 +69,6 @@ export async function changePassword(
  */
 export async function requestPasswordReset(email: string): Promise<ChangePasswordResult> {
   try {
-    if (!isSupabaseConfigured()) {
-      return { success: false, error: 'Supabase is not configured' }
-    }
-
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
     })
