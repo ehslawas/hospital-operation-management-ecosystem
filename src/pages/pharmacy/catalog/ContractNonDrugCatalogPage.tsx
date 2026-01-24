@@ -12,7 +12,7 @@ import { Button, Badge, Table, TableHeader, TableRow, TableCell, TableBody, Pagi
 import { FinancialPageLayout } from '@/components/pharmacy/financial/FinancialPageLayout'
 import { ExcelImport } from '@/components/pharmacy/ExcelImport'
 import { useToastStore } from '@/stores/toastStore'
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
 import {
     getContractNonDrugs,
     getContractNonDrugKPIs,
@@ -24,6 +24,7 @@ import { motion } from 'framer-motion'
 
 export const ContractNonDrugCatalogPage: React.FC = () => {
     const { user } = useAuthStore()
+    const isSessionReady = useIsSessionReady()
     const { success: showSuccess, error: showError } = useToastStore()
 
     // State
@@ -53,11 +54,11 @@ export const ContractNonDrugCatalogPage: React.FC = () => {
 
     // Load data
     useEffect(() => {
-        if (user?.hospital_id) {
+        if (isSessionReady && user?.hospital_id) {
             loadContracts()
             loadKPIs()
         }
-    }, [user?.hospital_id, searchQuery, statusFilter])
+    }, [isSessionReady, user?.hospital_id, searchQuery, statusFilter])
 
     const loadContracts = async () => {
         if (!user?.hospital_id) return

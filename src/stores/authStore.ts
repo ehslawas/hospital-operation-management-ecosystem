@@ -57,6 +57,7 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: true,
           isLoading: false,
           sessionExpiresAt: expiresAt,
+          supabaseSessionReady: true, // FIX: Set session ready on login to prevent menu loading hang after logout→re-login
         })
 
         // Menu loading is now handled by Sidebar component to prevent race conditions
@@ -154,6 +155,7 @@ export const useAuthStore = create<AuthState>()(
         isAuthenticated: state.isAuthenticated,
         sessionExpiresAt: state.sessionExpiresAt,
         activeRoleCode: state.activeRoleCode,
+        // supabaseSessionReady: state.supabaseSessionReady, // DO NOT PERSIST: Must define fresh on reload to prevent race conditions
       }),
     }
   )
@@ -163,4 +165,18 @@ export const useAuthStore = create<AuthState>()(
 export const useUser = () => useAuthStore((state) => state.user)
 export const useIsAuthenticated = () => useAuthStore((state) => state.isAuthenticated)
 export const useAuthLoading = () => useAuthStore((state) => state.isLoading)
+export const useIsSessionReady = () => useAuthStore((state) =>
+  state.isAuthenticated &&
+  state.supabaseSessionReady &&
+  !!state.user?.hospital_id &&
+  !state.isLoading
+)
 
+// NEW: Safe user hospital ID getter that never returns undefined
+// Use this in components to avoid "user?.hospital_id" checks everywhere
+export const useHospitalId = () => {
+  const user = useAuthStore((state) => state.user)
+  const isReady = useIsSessionReady()
+  // Return null if not ready, actual ID otherwise
+  return isReady ? user?.hospital_id : null
+}

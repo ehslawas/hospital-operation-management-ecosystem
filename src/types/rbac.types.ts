@@ -115,6 +115,7 @@ export interface ActionType {
     type_name: string;
     type_code: string;
     description: string | null;
+    module: string; // 'pharmacy' | 'admin' | 'clinical'
     created_at: Date;
 }
 
@@ -136,6 +137,7 @@ export interface ApprovalWorkflowStep {
     approver_role_id: string | null;
     approver_department_id: string | null;
     approver_user_id: string | null;
+    is_requester_department: boolean;
     is_required: boolean;
     can_reject: boolean;
     created_at: Date;
@@ -277,6 +279,40 @@ export interface ApprovalWorkflowFormData {
         is_required: boolean;
         can_reject: boolean;
     }[];
+}
+
+export interface ActionTypeOption {
+    id: string;
+    type_code: string;
+    type_name: string;
+    description: string;
+    module: string; // 'pharmacy' | 'admin' | 'clinical'
+}
+
+export interface WorkflowFormData {
+    workflow_name: string;
+    action_type_id: string;
+    description: string;
+    is_active: boolean;
+    conditions: ConditionFormData[];
+    steps: StepFormData[];
+}
+
+export interface ConditionFormData {
+    field_name: string;
+    operator: ConditionOperator;
+    field_value: string;
+}
+
+export interface StepFormData {
+    id?: string;
+    step_order: number;
+    approver_role_id?: string;
+    approver_department_id?: string;
+    approver_user_id?: string;
+    is_requester_department?: boolean;
+    is_required: boolean;
+    can_reject: boolean;
 }
 
 // ============================================

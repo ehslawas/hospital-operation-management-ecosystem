@@ -311,6 +311,7 @@ export const ROUTES = {
   // Pharmacy Logistics Routes
   PHARMACY: '/pharmacy',
   PHARMACY_DASHBOARD: '/pharmacy/dashboard',
+  PHARMACY_TEMPERATURE_MONITORING: '/pharmacy/temperature-monitoring',
 
   // Inventory Management
   PHARMACY_INVENTORY: '/pharmacy/inventory',
@@ -445,7 +446,7 @@ export const SYSTEM_MODULES = {
 
   // Clinical Modules
   EMERGENCY_TRAUMA: 'emergency_trauma',
-  LABORATORY: 'laboratory',
+  LABORATORY: 'pathology',
   OPERATION_THEATER: 'operation_theater',
   CSSU_CSSD: 'cssu_cssd',
   RADIOLOGY: 'radiology',
@@ -543,7 +544,7 @@ export const MODULE_DEFINITIONS = [
     category: 'clinical',
   },
   {
-    code: SYSTEM_MODULES.LABORATORY,
+    code: 'pathology',
     name: 'Pathologist',
     description: 'Laboratory tests and results management',
     icon: 'FlaskConical',

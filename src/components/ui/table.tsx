@@ -217,10 +217,11 @@ interface TableCellProps {
   className?: string;
   align?: 'left' | 'center' | 'right';
   colSpan?: number;
+  rowSpan?: number;
   as?: 'td' | 'th';
 }
 
-export function TableCell({ children, className = '', align = 'left', colSpan, as = 'td' }: TableCellProps) {
+export function TableCell({ children, className = '', align = 'left', colSpan, rowSpan, as = 'td' }: TableCellProps) {
   const alignClass = align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left';
 
   if (as === 'th') {
@@ -228,6 +229,7 @@ export function TableCell({ children, className = '', align = 'left', colSpan, a
       <th
         className={`px-6 py-4 text-sm font-bold text-gray-700 tracking-wide uppercase ${alignClass} ${className}`}
         colSpan={colSpan}
+        rowSpan={rowSpan}
       >
         {children}
       </th>
@@ -238,6 +240,7 @@ export function TableCell({ children, className = '', align = 'left', colSpan, a
     <td
       className={`px-6 py-4 text-sm text-gray-700 ${alignClass} ${className}`}
       colSpan={colSpan}
+      rowSpan={rowSpan}
     >
       {children}
     </td>

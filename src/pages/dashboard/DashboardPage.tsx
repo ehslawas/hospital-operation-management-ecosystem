@@ -3,6 +3,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { SYSTEM_ROLES, SYSTEM_MODULES } from '@/lib/constants'
 import { HospitalAdminDashboard } from './HospitalAdminDashboard'
 import { SystemAdminDashboard } from './SystemAdminDashboard'
+import { GenericDepartmentDashboard } from './GenericDepartmentDashboard'
 import { LoadingOverlay } from '@/components/ui'
 import { useLocation } from 'react-router-dom'
 
@@ -17,6 +18,7 @@ const MaternityDashboard = lazy(() => import('@/features/maternity/routes/Matern
 const PaediatricDashboard = lazy(() => import('@/features/paediatric/routes/PaediatricDashboard'))
 const FrontDeskDashboard = lazy(() => import('@/features/front-desk/routes/FrontDeskDashboard'))
 const OfficeAdminDashboard = lazy(() => import('@/features/office-admin/routes/OfficeAdminDashboard'))
+const PharmacySubStoreDashboard = lazy(() => import('@/features/pharmacy-substore/routes/PharmacySubStoreDashboard'))
 
 
 /**
@@ -55,8 +57,8 @@ export const DashboardPage: React.FC = () => {
 
   // Route based on Department Code
   if (departmentCode) {
-    // Normalize to lowercase for consistent matching
-    const normalizedDeptCode = departmentCode.toLowerCase()
+    // Normalize to lowercase and snake_case for consistent matching
+    const normalizedDeptCode = departmentCode.toLowerCase().replace(/\s+/g, '_')
     console.log('[DashboardPage] Normalized dept code:', normalizedDeptCode)
 
     return (
@@ -93,43 +95,39 @@ export const DashboardPage: React.FC = () => {
             case SYSTEM_MODULES.HOSPITAL_OFFICE:
               return <OfficeAdminDashboard />
 
+            // Clinical & Support Modules - route to Generic Dashboard
+            // These departments have active users but no specialized module yet
+            case SYSTEM_MODULES.KLINIK_PAKAR:
+            case SYSTEM_MODULES.CSSU_CSSD:
+            case SYSTEM_MODULES.OPERATION_THEATER:
+            case SYSTEM_MODULES.DRIVER_ROOM:
+              return <GenericDepartmentDashboard />
+
+            // Pharmacy substores
+            case SYSTEM_MODULES.PHARMACY_SUBSTORE:
+            case 'pharmacy_satellite': // Database has PHARMACY_SATELLITE
+              return <PharmacySubStoreDashboard />
+
             default:
-              // For other departments, if role is pharmacy-related, show pharmacy dashboard
+              // For pharmacy-related roles in any department, show pharmacy dashboard
               if ([
                 SYSTEM_ROLES.PHARMACIST,
                 SYSTEM_ROLES.ASSISTANT_PHARMACIST,
               ].includes(roleCode as any)) {
                 return <PharmacyLogisticsDashboard />
               }
-              // Fallback for unmatched department
-              return <DashboardFallback />
+              // Generic fallback dashboard for all other departments
+              // This ensures every user gets a professional dashboard experience
+              return <GenericDepartmentDashboard />
           }
         })()}
       </Suspense>
     )
   }
 
-  // Final fallback - show message for users without assigned role/department
-  return <DashboardFallback />
+  // Final fallback - show generic dashboard for users without department
+  return <GenericDepartmentDashboard />
 }
 
-/**
- * Fallback UI for users without an assigned module dashboard
- */
-const DashboardFallback: React.FC = () => (
-  <div className="flex items-center justify-center h-full p-6">
-    <div className="text-center max-w-md">
-      <h2 className="text-2xl font-bold text-slate-900 mb-2">
-        Welcome to your Dashboard
-      </h2>
-      <p className="text-slate-600 mb-4">
-        Your account is active, but no specific dashboard has been assigned for your department or role yet.
-      </p>
-      <p className="text-sm text-slate-500">
-        Please contact your system administrator to assign the appropriate department and dashboard access.
-      </p>
-    </div>
-  </div>
-)
-
 export default DashboardPage
+

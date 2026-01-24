@@ -25,7 +25,7 @@ import { Button, Input, Select, Badge, Pagination, Modal, Spinner } from '@/comp
 import { FinancialPageLayout } from '@/components/pharmacy/financial/FinancialPageLayout'
 import { PDFUpload } from '@/components/ui/PDFUpload'
 import { useToastStore } from '@/stores/toastStore'
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
 import type { Supplier, SupplierType } from '@/types/pharmacy'
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants'
 import {
@@ -399,6 +399,7 @@ const SupplierFormModal: React.FC<SupplierFormModalProps> = ({ isOpen, onClose, 
 
 export const SupplierCatalogPage: React.FC = () => {
   const { user } = useAuthStore()
+  const isSessionReady = useIsSessionReady()
   const { success: showSuccess, error: showError } = useToastStore()
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
@@ -416,14 +417,16 @@ export const SupplierCatalogPage: React.FC = () => {
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null)
 
   useEffect(() => {
-    loadSuppliers()
-  }, [user?.hospital_id, page, pageSize, search, typeFilter, statusFilter])
+    if (isSessionReady && user?.hospital_id) {
+      loadSuppliers()
+    }
+  }, [isSessionReady, user?.hospital_id, page, pageSize, search, typeFilter, statusFilter])
 
   const loadSuppliers = async () => {
     setIsLoading(true)
     try {
       const filter: SupplierFilter = { search: search || undefined, supplier_type: typeFilter as any || undefined, status: statusFilter as any || undefined }
-      const res = await getSuppliers(filter, page, pageSize)
+      const res = await getSuppliers(user?.hospital_id, page, pageSize, filter)
       if (res.data) {
         setSuppliers(res.data.data)
         setTotal(res.data.total)
@@ -432,14 +435,36 @@ export const SupplierCatalogPage: React.FC = () => {
   }
 
   const handleSave = async (data: Partial<Supplier>, files: any) => {
-    try {
-      if (selectedSupplier) await updateSupplier(selectedSupplier.id, data, files.accountDoc, files.mofCert, files.bumiputeraCert)
-      else await createSupplier(data, files.accountDoc, files.mofCert, files.bumiputeraCert)
-      showSuccess('Success', 'Supplier saved successfully')
-      loadSuppliers()
-      setShowAddModal(false)
-      setShowEditModal(false)
-    } catch (e) { showError('Error', 'Failed to save supplier') }
+    // TODO: Handle file uploads to Supabase storage
+    // For now, we'll just save the supplier data without file uploads
+    // Files: files.accountDoc, files.mofCert, files.bumiputeraCert
+
+    console.log('handleSave called with data:', data)
+    console.log('selectedSupplier:', selectedSupplier)
+    console.log('user?.hospital_id:', user?.hospital_id)
+
+    let result
+    if (selectedSupplier) {
+      console.log('Updating supplier:', selectedSupplier.id)
+      result = await updateSupplier(selectedSupplier.id, data)
+    } else {
+      console.log('Creating new supplier with hospitalId:', user?.hospital_id || null)
+      result = await createSupplier(user?.hospital_id || null, data)
+    }
+
+    console.log('Result:', result)
+
+    if (result.error) {
+      console.error('Save failed with error:', result.error)
+      showError('Error', result.error)
+      throw new Error(result.error)
+    }
+
+    console.log('Save successful!')
+    showSuccess('Success', 'Supplier saved successfully')
+    loadSuppliers()
+    setShowAddModal(false)
+    setShowEditModal(false)
   }
 
 

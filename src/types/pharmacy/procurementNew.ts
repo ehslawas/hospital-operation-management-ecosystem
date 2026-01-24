@@ -11,14 +11,14 @@ export interface LPO extends BaseEntity {
     lpo_number: string
     document_date: string
     document_url?: string
-    status: 'draft' | 'generated' | 'uploaded' | 'archived'
+    status: 'draft' | 'generated' | 'uploaded' | 'sent' | 'verified' | 'archived'
     created_by?: string
 }
 
 export interface LPOWithRelations extends LPO {
     purchase_order?: PurchaseOrderWithRelations
     created_by_user?: User
-    tracking_items?: OrderTracking[]
+    tracking_items?: OrderTracking[] | { count: number }[]
     receiving_records?: Receiving[]
     payment?: Payment
     lou?: LOU
@@ -91,6 +91,7 @@ export interface ReceivingItem extends BaseEntity {
 
     batch_number?: string
     expiry_date?: string
+    storage_location?: string
     qr_code?: string
 
     is_fully_received: boolean
@@ -159,4 +160,41 @@ export interface LOU extends BaseEntity {
     email_sent_at?: string
     email_sent_to?: string
     status: 'pending' | 'generated' | 'sent' | 'acknowledged'
+}
+
+// =====================================================
+// LPO EXTRACTION TYPES
+// =====================================================
+
+
+export interface ExtractedLPOItem {
+    itemCode?: string
+    itemName: string
+    quantity: number
+    unitPrice: number
+    amount: number
+}
+
+export interface ExtractedLPOData {
+    documentNumber: string       // e.g., "CO260000000028505"
+    documentDate: string        // e.g., "2026-01-09"
+    supplierName: string        // e.g., "LF MERU SDN BHD"
+    supplierAddress?: string
+    contractNumber?: string     // e.g., "KKM.S.400-10/3/3101-20"
+    ptjCode?: string            // e.g., "42152701"
+    voteCode?: string           // e.g., "080702"
+    voteActivity?: string       // e.g., "27401"
+    documentControlNumber?: string // No. Dokumen Kawalan
+    items: ExtractedLPOItem[]
+    totalAmount: number
+    confidence: number          // Extraction confidence 0-100
+    rawText?: string           // Original extracted text for debugging
+}
+
+export interface LPOMatchResult {
+    extractedData: ExtractedLPOData
+    matchedPO?: PurchaseOrderWithRelations
+    confidenceScore: number
+    matchReasons: string[]
+    alternativePOs?: PurchaseOrderWithRelations[]
 }

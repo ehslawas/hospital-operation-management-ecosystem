@@ -10,12 +10,13 @@ import { ROUTES } from '@/lib/constants'
 import { useIsMobile } from '@/hooks/use-mobile'
 
 export const MainLayout: React.FC = () => {
-  const { isAuthenticated, isLoading } = useAuthStore()
+  const { isAuthenticated, isLoading, supabaseSessionReady, user } = useAuthStore()
   const { sidebarCollapsed } = useSidebar()
   const isMobile = useIsMobile(1024)
 
   // Show loading state
-  if (isLoading) {
+  // Secondary gate: Defense in depth in case ProtectedRoute is bypassed or race condition occurs
+  if (isLoading || !supabaseSessionReady || !user?.hospital_id) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">

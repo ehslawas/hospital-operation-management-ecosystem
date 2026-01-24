@@ -6,7 +6,7 @@
 import { supabase } from '../supabase'
 import type { ApiResponse, PaginatedResponse } from '@/types'
 import type {
-  DrugWithRelations,
+
   DrugCategory,
   NonDrugWithRelations,
   NonDrugCategory,
@@ -419,7 +419,9 @@ export async function getAllBatches(
  * Get items near expiry
  */
 export async function getNearExpiryItems(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   hospitalId: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   daysThreshold: number = 30
 ): Promise<ApiResponse<ExpiryItem[]>> {
   try {
@@ -443,6 +445,7 @@ export async function getNearExpiryItems(
  * Get expired items
  */
 export async function getExpiredItems(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   hospitalId: string
 ): Promise<ApiResponse<ExpiryItem[]>> {
   try {
@@ -465,7 +468,9 @@ export async function getExpiredItems(
  * Get slow moving items
  */
 export async function getSlowMovingItems(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   hospitalId: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   daysSinceMovement: number = 90
 ): Promise<ApiResponse<SlowMovingItem[]>> {
   try {
@@ -487,7 +492,9 @@ export async function getSlowMovingItems(
  * Get stock level summary for all items
  */
 export async function getStockLevelSummary(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   hospitalId: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   filter?: InventoryFilter
 ): Promise<ApiResponse<StockLevelSummary[]>> {
   try {

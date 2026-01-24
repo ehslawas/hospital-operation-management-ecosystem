@@ -16,14 +16,28 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const location = useLocation()
   const { isAuthenticated, isLoading, user, activeRoleCode } = useAuthStore()
 
-  // Show loading while checking auth
+  // COMPREHENSIVE SESSION GATE
+  // Gate 1: Auth state still loading from storage
   if (isLoading) {
     return <LoadingOverlay fullScreen message="Loading..." />
   }
 
-  // Redirect to login if not authenticated
+  // Gate 2: Not authenticated - redirect to login
   if (!isAuthenticated) {
     return <Navigate to={ROUTES.LOGIN} state={{ from: location }} replace />
+  }
+
+  // Gate 3: Supabase session not yet verified (async background check)
+  // This prevents the race condition where pages render before auth.uid() is confirmed
+  const { supabaseSessionReady } = useAuthStore.getState()
+  if (!supabaseSessionReady) {
+    return <LoadingOverlay fullScreen message="Verifying session..." />
+  }
+
+  // Gate 4: User data not fully hydrated (critical for all pages)
+  // Most pages need hospital_id immediately
+  if (!user?.hospital_id) {
+    return <LoadingOverlay fullScreen message="Loading user data..." />
   }
 
   // Check role-based access

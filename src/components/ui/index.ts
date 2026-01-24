@@ -15,6 +15,7 @@ export type { AutoExpandingTextareaProps } from './AutoExpandingTextarea'
 export { Modal } from './Modal'
 export type { ModalProps } from './Modal'
 
+export { Toaster, toast } from './toaster'
 export { ToastContainer } from './Toast'
 
 export { Spinner, LoadingOverlay } from './Spinner'

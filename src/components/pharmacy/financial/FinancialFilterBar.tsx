@@ -29,6 +29,7 @@ interface FinancialFilterBarProps {
 
     // Actions
     onReset?: () => void
+    actions?: React.ReactNode
     className?: string
 }
 
@@ -41,6 +42,7 @@ export const FinancialFilterBar: React.FC<FinancialFilterBarProps> = ({
     years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i),
     filters = [],
     onReset,
+    actions,
     className = '',
 }) => {
     return (
@@ -108,6 +110,13 @@ export const FinancialFilterBar: React.FC<FinancialFilterBarProps> = ({
                         >
                             <RotateCcw className="w-4 h-4" />
                         </Button>
+                    )}
+
+                    {/* Additional Actions */}
+                    {actions && (
+                        <div className="flex items-center gap-2 pl-2 border-l border-slate-200 ml-1">
+                            {actions}
+                        </div>
                     )}
                 </div>
             </div>

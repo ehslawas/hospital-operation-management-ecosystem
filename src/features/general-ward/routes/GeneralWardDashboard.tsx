@@ -5,11 +5,12 @@ import { MetricsCard } from '@/features/emergency/components/MetricsCard';
 import { WardCensusBoard } from '../components/WardCensusBoard';
 import { PatientCareModal } from '../components/PatientCareModal';
 import { PharmacyLogisticsWidget } from '@/features/pharmacy-logistics/components/PharmacyLogisticsWidget';
-import type { WardPatient } from '../types/Ward';
-import { mockWardPatients, mockWardBeds, calculateWardStats } from '../services/mockWardData';
+import type { WardPatient, WardBed } from '../types/Ward';
+import { calculateWardStats } from '../utils/wardUtils';
 
 export default function GeneralWardDashboard() {
-  const [patients, setPatients] = useState<WardPatient[]>(mockWardPatients);
+  const [patients, setPatients] = useState<WardPatient[]>([]);
+  const [beds, setBeds] = useState<WardBed[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<WardPatient | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -21,7 +22,7 @@ export default function GeneralWardDashboard() {
     return () => clearInterval(timer);
   }, []);
 
-  const stats = calculateWardStats(patients, mockWardBeds);
+  const stats = calculateWardStats(patients, beds);
 
   const handlePatientClick = (patient: WardPatient) => {
     setSelectedPatient(patient);

@@ -8,7 +8,7 @@ import { MainLayout } from '@/components/layout'
 import { LoadingOverlay } from '@/components/ui'
 import { ProtectedRoute } from './ProtectedRoute'
 import { ROUTES, SYSTEM_ROLES } from '@/lib/constants'
-import { AuthProvider } from '@/hooks/useAuth'
+
 
 // Lazy load pages
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'))
@@ -98,6 +98,7 @@ const ContractCatalogPage = lazy(() => import('@/pages/pharmacy/catalog/Contract
 const ContractNonDrugCatalogPage = lazy(() => import('@/pages/pharmacy/catalog/ContractNonDrugCatalogPage'))
 const ReagentsCatalogPage = lazy(() => import('@/pages/pharmacy/catalog/ReagentsCatalogPage'))
 const HospitalFacilityCatalogPage = lazy(() => import('@/pages/pharmacy/catalog/HospitalFacilityCatalogPage'))
+const TemperatureMonitoringPage = lazy(() => import('@/pages/pharmacy/temperature/TemperatureMonitoringPage'))
 const ClinicFacilityCatalogPage = lazy(() => import('@/pages/pharmacy/catalog/ClinicFacilityCatalogPage'))
 const ApplDrugCatalogPage = lazy(() => import('@/pages/pharmacy/catalog/ApplDrugCatalogPage'))
 const ApplNonDrugCatalogPage = lazy(() => import('@/pages/pharmacy/catalog/ApplNonDrugCatalogPage'))
@@ -138,9 +139,7 @@ const router = createBrowserRouter(
       path: '/',
       element: (
         <ProtectedRoute>
-          <AuthProvider>
-            <MainLayout />
-          </AuthProvider>
+          <MainLayout />
         </ProtectedRoute>
       ),
       children: [
@@ -1097,6 +1096,19 @@ const router = createBrowserRouter(
             ]}>
               <Suspense fallback={<PageLoader />}>
                 <NonDrugCatalogPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: 'pharmacy/temperature-monitoring',
+          element: (
+            <ProtectedRoute allowedRoles={[
+              SYSTEM_ROLES.PHARMACIST,
+              SYSTEM_ROLES.ASSISTANT_PHARMACIST,
+            ]}>
+              <Suspense fallback={<PageLoader />}>
+                <TemperatureMonitoringPage />
               </Suspense>
             </ProtectedRoute>
           ),

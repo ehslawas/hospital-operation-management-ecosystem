@@ -9,7 +9,7 @@ import {
     ArrowRight,
     ClipboardList
 } from 'lucide-react'
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
 import {
     Card,
     Button,
@@ -41,6 +41,7 @@ import { useToast } from '@/stores/toastStore'
 const InventoryDashboard: React.FC = () => {
     const { user } = useAuthStore()
     const hospitalId = user?.hospital_id
+    const isSessionReady = useIsSessionReady()
     const navigate = useNavigate()
     const toast = useToast()
 
@@ -82,8 +83,9 @@ const InventoryDashboard: React.FC = () => {
     }
 
     useEffect(() => {
+        if (!isSessionReady || !hospitalId) return
         void loadData()
-    }, [hospitalId, statusFilter, sizeFilter, searchQuery])
+    }, [isSessionReady, hospitalId, statusFilter, sizeFilter, searchQuery])
 
     const viewHistory = async (cylinder: OxygenCylinderInventoryWithRelations) => {
         setSelectedCylinder(cylinder)
@@ -229,7 +231,7 @@ const InventoryDashboard: React.FC = () => {
 
                     <Button
                         variant="ghost"
-                        size="icon"
+                        size="sm"
                         onClick={() => loadData()}
                         className="h-10 w-10 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-xl"
                         title="Sync Data"

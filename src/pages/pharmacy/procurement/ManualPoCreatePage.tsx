@@ -6,7 +6,7 @@ import {
     Calculator, Wallet, TrendingUp, AlertCircle, Package
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
 import { Button, Input, Spinner, ConfirmationDialog, AutoExpandingTextarea } from '@/components/ui'
 import { FinancialPageLayout } from '@/components/pharmacy/financial/FinancialPageLayout'
@@ -37,6 +37,7 @@ export const ManualPoCreatePage: React.FC = () => {
     const isEdit = mode === 'edit' && !!poId
 
     const { user } = useAuthStore()
+    const isSessionReady = useIsSessionReady()
     const { success: showSuccess, error: showError } = useToastStore()
     const hospitalId = user?.hospital_id
     const userId = user?.id
@@ -86,7 +87,7 @@ export const ManualPoCreatePage: React.FC = () => {
     }, [])
 
     useEffect(() => {
-        if (!hospitalId) return
+        if (!isSessionReady || !hospitalId) return
         const loadSuppliers = async () => {
             const res = await getActiveSuppliers(hospitalId)
             if (res.data) setSuppliers(res.data)
@@ -146,7 +147,7 @@ export const ManualPoCreatePage: React.FC = () => {
             }
             void loadPo()
         }
-    }, [hospitalId, isEdit, poId])
+    }, [isSessionReady, hospitalId, isEdit, poId])
 
     const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -178,7 +179,7 @@ export const ManualPoCreatePage: React.FC = () => {
 
     // Load Warrant Summary when financial filters change
     useEffect(() => {
-        if (!hospitalId) return
+        if (!isSessionReady || !hospitalId) return
 
         const refreshWarrant = async () => {
             const finalVoteCode = isOthersVoteCode ? manualVoteCode : formData.vote_code
@@ -209,6 +210,7 @@ export const ManualPoCreatePage: React.FC = () => {
 
         void refreshWarrant()
     }, [
+        isSessionReady,
         hospitalId,
         formData.vote_code, formData.vote_activity, formData.department, formData.category,
         manualVoteCode, manualVoteActivity, manualDepartment, manualCategory,
@@ -738,7 +740,7 @@ export const ManualPoCreatePage: React.FC = () => {
                                     <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center w-12">#</th>
                                     <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Item Name & Description</th>
                                     <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-40">Price (MYR)</th>
-                                    <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-24">Qty</th>
+                                    <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-32">Qty</th>
                                     <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right w-40">Total</th>
                                     <th className="px-4 py-3 w-12"></th>
                                 </tr>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Printer, ShoppingCart, Edit2, Trash2, CheckCircle, FileCheck, Settings, XCircle, AlertTriangle, Plus } from 'lucide-react'
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
 import { JATA_LOGO_BASE64 } from '@/constants/logo';
 import { Button, Spinner, Badge, ConfirmationDialog, Modal, Input } from '@/components/ui'
@@ -9,9 +9,11 @@ import { getPurchaseOrderById, rejectPurchaseOrder, deletePurchaseOrder, submitP
 import { findContractByNumber } from '@/services/pharmacy/contractCatalogService'
 import { supabase } from '@/services/supabase'
 import { getWarrants, getWarrantSummary } from '@/services/pharmacy/warrantService'
-import { getPharmacyPOSignatures, updatePharmacyPOSignatures, type PharmacyPOSignatures } from '@/services/pharmacy/pharmacySettingsService'
+import { getPharmacyPOSignatures, updatePharmacyPOSignatures, type PharmacyPOSignatures, AUTHORIZED_SIGNATURE_DEPARTMENTS, DEPT_CODE_MAPPING } from '@/services/pharmacy/pharmacySettingsService'
 import { mergePOWithSupplierDocs, openPdfForPrint, cleanupPdfUrl } from '@/services/pharmacy/pdfMergeService'
+import { canUserApprovePurchaseOrder } from '@/services/approvalRouteService'
 import type { PurchaseOrderWithRelations, PurchaseOrderItem, ContractWithRelations } from '@/types/pharmacy'
+import { ReallocateAllocationModal } from '@/components/pharmacy/procurement/modals/ReallocateAllocationModal'
 import { BudgetDebug } from '@/components/shared/BudgetDebug'
 import { ROUTES, SYSTEM_ROLES } from '@/lib/constants'
 
@@ -20,6 +22,7 @@ export const PurchaseOrderDetailPage: React.FC = () => {
   const navigate = useNavigate()
   const { user, activeRoleCode } = useAuthStore()
   const { success: showSuccess, error: showError } = useToastStore()
+  const isSessionReady = useIsSessionReady()
   const hospitalId = user?.hospital_id
   const userRole = activeRoleCode || user?.role?.role_code
 
@@ -42,6 +45,8 @@ export const PurchaseOrderDetailPage: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isApproving, setIsApproving] = useState(false)
+  const [canApprove, setCanApprove] = useState(false)
+  const [isAuthLoading, setIsAuthLoading] = useState(false)
 
   const [showSubmitDialog, setShowSubmitDialog] = useState(false)
   const [showApproveDialog, setShowApproveDialog] = useState(false)
@@ -49,6 +54,7 @@ export const PurchaseOrderDetailPage: React.FC = () => {
   const [isSending, setIsSending] = useState(false)
 
   const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [showReallocateModal, setShowReallocateModal] = useState(false)
   const [isSavingSettings, setIsSavingSettings] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
   const printContentRef = useRef<HTMLDivElement>(null)
@@ -64,10 +70,31 @@ export const PurchaseOrderDetailPage: React.FC = () => {
 
   // Load signature settings
   useEffect(() => {
-    if (!hospitalId) return
+    if (!isSessionReady || !hospitalId) return
 
     const loadSignatures = async () => {
-      const result = await getPharmacyPOSignatures(hospitalId)
+      // 1. If Order has snapshot, use it directly (immutable history)
+      if (order?.signature_snapshot) {
+        setSignatures(order.signature_snapshot)
+        setTempSignatures(order.signature_snapshot)
+        return
+      }
+
+      // 2. Determine Department context
+      let deptId = 'pharmacy_logistics'; // Default owner
+
+      if (order?.department) {
+        // Viewing existing PO -> use PO's department to see what it *should* look like
+        deptId = DEPT_CODE_MAPPING[order.department] || order.department
+      } else if (user?.department?.department_code) {
+        // Creating New -> use User's department
+        deptId = user.department.department_code
+      } else if (user?.department?.department_name) {
+        // Match by name if code missing
+        deptId = DEPT_CODE_MAPPING[user.department.department_name] || user.department.department_name
+      }
+
+      const result = await getPharmacyPOSignatures(hospitalId, deptId)
       if (result.data) {
         setSignatures(result.data)
         setTempSignatures(result.data)
@@ -75,11 +102,11 @@ export const PurchaseOrderDetailPage: React.FC = () => {
     }
 
     void loadSignatures()
-  }, [hospitalId])
+  }, [isSessionReady, hospitalId, order, user])
 
   // Load contract details if KKM contract
   useEffect(() => {
-    if (!order || !hospitalId || order.vote_code !== '080702' || !order.kkm_contract_number) return
+    if (!isSessionReady || !order || !hospitalId || order.vote_code !== '080702' || !order.kkm_contract_number) return
 
     const loadContract = async () => {
       console.log('Fetching contract for:', order.kkm_contract_number, 'Hospital:', hospitalId)
@@ -90,7 +117,7 @@ export const PurchaseOrderDetailPage: React.FC = () => {
       }
     }
     void loadContract()
-  }, [order?.id, order?.vote_code, order?.kkm_contract_number, hospitalId])
+  }, [isSessionReady, order?.id, order?.vote_code, order?.kkm_contract_number, hospitalId])
 
   console.log('Current state - Order:', order?.po_number, 'KKM:', order?.kkm_contract_number, 'Contract:', contract)
 
@@ -104,9 +131,47 @@ export const PurchaseOrderDetailPage: React.FC = () => {
 
     setIsSavingSettings(true)
     try {
-      const result = await updatePharmacyPOSignatures(tempSignatures, hospitalId, user.id)
+      // Determine which department we are updating (Must match DEPT alignment logic in loadSignatures useEffect)
+      let targetDeptId = 'pharmacy_logistics';
+
+      if (order?.department) {
+        // Viewing existing PO -> typically we want to update the settings for the department this PO belongs to
+        targetDeptId = DEPT_CODE_MAPPING[order.department] || order.department
+      } else if (user?.department?.department_code) {
+        targetDeptId = user.department.department_code
+      } else if (user?.department?.department_name) {
+        targetDeptId = DEPT_CODE_MAPPING[user.department.department_name] || user.department.department_name
+      }
+
+      const result = await updatePharmacyPOSignatures(tempSignatures, hospitalId, user.id, targetDeptId)
       if (result.data) {
         setSignatures(result.data)
+
+        // If we are currently viewing an order, update its snapshot too so it persists for this document
+        if (order?.id) {
+          try {
+            const { data: updatedPO, error: poUpdateError } = await supabase
+              .from('pharmacy_purchase_orders')
+              .update({
+                signature_snapshot: {
+                  ...result.data,
+                  capturedAt: new Date().toISOString(),
+                  capturedFromDepartment: targetDeptId,
+                  manuallyUpdated: true
+                }
+              })
+              .eq('id', order.id)
+              .select('*')
+              .single()
+
+            if (!poUpdateError && updatedPO) {
+              setOrder(prev => prev ? { ...prev, ...updatedPO } : prev)
+            }
+          } catch (poErr) {
+            console.error('Error updating PO signature snapshot:', poErr)
+          }
+        }
+
         setShowSettingsModal(false)
         showSuccess('Settings Updated', 'Signature settings have been saved successfully.')
       } else {
@@ -120,203 +185,221 @@ export const PurchaseOrderDetailPage: React.FC = () => {
     }
   }
 
-  useEffect(() => {
-    if (!id || !hospitalId) return
 
-    const loadOrder = async () => {
-      setIsLoading(true)
-      try {
-        const result = await getPurchaseOrderById(id)
-        if (result.error) {
-          showError('Error', result.error)
-          navigate(ROUTES.PHARMACY_PO)
-          return
+
+  const loadOrder = async () => {
+    if (!id || !hospitalId) return
+    setIsLoading(true)
+    try {
+      const result = await getPurchaseOrderById(id)
+      if (result.error) {
+        showError('Error', result.error)
+        navigate(ROUTES.PHARMACY_PO)
+        return
+      }
+
+      if (result.data) {
+        setOrder(result.data)
+
+        // Check workflow authorization if pending_approval
+        if (result.data.status === 'pending_approval' && user?.id) {
+          setIsAuthLoading(true)
+          try {
+            const authResult = await canUserApprovePurchaseOrder(user.id, result.data.id)
+            setCanApprove(authResult.canApprove)
+          } catch (err) {
+            console.error('Error checking approval authorization:', err)
+            setCanApprove(false)
+          } finally {
+            setIsAuthLoading(false)
+          }
+        } else {
+          setCanApprove(false)
         }
 
-        if (result.data) {
-          setOrder(result.data)
+        // Load balance from warrants
 
-          // Load balance from warrants
+        // Load balance from warrants with running balance logic
+        if (result.data.vote_code && result.data.vote_activity && result.data.department) {
+          try {
+            // 1. Get Warrants (Allocations)
+            const { data: wData } = await supabase
+              .from('pharmacy_warrants')
+              .select('*')
+              .eq('hospital_id', hospitalId)
+              .eq('vote_code', result.data.vote_code)
+              .eq('vote_activity', result.data.vote_activity)
+              .eq('department', result.data.department)
 
-          // Load balance from warrants with running balance logic
-          if (result.data.vote_code && result.data.vote_activity && result.data.department) {
+            const totalAlloc = (wData || []).reduce((sum, w) => sum + Number(w.amount), 0)
+
+            // 2. Fetch all previous POs for the same vote/activity AND department
+            // Use direct PO query instead of sync-dependent expense tables for immediate accuracy
+            const currentYear = new Date(result.data.order_date).getFullYear()
+            const { data: relatedPOs, error: poError } = await supabase
+              .from('pharmacy_purchase_orders')
+              .select('id, total_amount, po_number, created_at')
+              .eq('hospital_id', hospitalId)
+              .eq('vote_code', result.data.vote_code)
+              .eq('vote_activity', result.data.vote_activity)
+              .eq('department', result.data.department)
+              .gte('order_date', `${currentYear}-01-01`)
+              .lte('order_date', `${currentYear}-12-31`)
+              .neq('status', 'cancelled')
+
+            let previousSpending = 0
+            if (!poError && relatedPOs) {
+              const currentPONumber = result.data.po_number
+              const currentCreatedAt = result.data.created_at
+
+              relatedPOs.forEach(p => {
+                // Exclude self
+                if (p.id === result.data.id) return
+
+                // Determine if this PO happened before current one
+                let isBefore = false
+                if (p.po_number && currentPONumber) {
+                  isBefore = p.po_number < currentPONumber
+                } else if (p.created_at && currentCreatedAt) {
+                  isBefore = new Date(p.created_at) < new Date(currentCreatedAt)
+                }
+
+                if (isBefore) {
+                  previousSpending += Number(p.total_amount || 0)
+                }
+              })
+            }
+
+            // 3. Calculate Balance Before
+            const balanceBefore = totalAlloc - previousSpending
+            setBalance(balanceBefore)
+
+          } catch (error) {
+            console.error('Error loading running balance:', error)
+          }
+        }
+
+        // Load item details from Supabase
+        const itemsWithDetails = await Promise.all(
+          (result.data.items || []).map(async (item: PurchaseOrderItem) => {
             try {
-              // 1. Get Warrants (Allocations)
-              const { data: wData } = await supabase
-                .from('pharmacy_warrants')
-                .select('*')
-                .eq('hospital_id', hospitalId)
-                .eq('vote_code', result.data.vote_code)
-                .eq('vote_activity', result.data.vote_activity)
-                .eq('department', result.data.department)
-
-              const totalAlloc = (wData || []).reduce((sum, w) => sum + Number(w.amount), 0)
-
-              // 2. Fetch all previous POs for the same vote/activity AND department
-              // Use direct PO query instead of sync-dependent expense tables for immediate accuracy
-              const currentYear = new Date(result.data.order_date).getFullYear()
-              const { data: relatedPOs, error: poError } = await supabase
-                .from('pharmacy_purchase_orders')
-                .select('id, total_amount, po_number, created_at')
-                .eq('hospital_id', hospitalId)
-                .eq('vote_code', result.data.vote_code)
-                .eq('vote_activity', result.data.vote_activity)
-                .eq('department', result.data.department)
-                .gte('order_date', `${currentYear}-01-01`)
-                .lte('order_date', `${currentYear}-12-31`)
-                .neq('status', 'cancelled')
-
-              let previousSpending = 0
-              if (!poError && relatedPOs) {
-                const currentPONumber = result.data.po_number
-                const currentCreatedAt = result.data.created_at
-
-                relatedPOs.forEach(p => {
-                  // Exclude self
-                  if (p.id === result.data.id) return
-
-                  // Determine if this PO happened before current one
-                  let isBefore = false
-                  if (p.po_number && currentPONumber) {
-                    isBefore = p.po_number < currentPONumber
-                  } else if (p.created_at && currentCreatedAt) {
-                    isBefore = new Date(p.created_at) < new Date(currentCreatedAt)
-                  }
-
-                  if (isBefore) {
-                    previousSpending += Number(p.total_amount || 0)
-                  }
-                })
+              if (item.item_type === 'manual') {
+                return item
               }
 
-              // 3. Calculate Balance Before
-              const balanceBefore = totalAlloc - previousSpending
-              setBalance(balanceBefore)
+              // Check if this is an APPL PO
+              const isAppl = result.data.vote_code === '990102' &&
+                ['27401', '27499'].includes(result.data.vote_activity)
 
-            } catch (error) {
-              console.error('Error loading running balance:', error)
-            }
-          }
+              if (item.item_type === 'drug') {
+                let resolvedItem = null;
 
-          // Load item details from Supabase
-          const itemsWithDetails = await Promise.all(
-            (result.data.items || []).map(async (item: PurchaseOrderItem) => {
-              try {
-                if (item.item_type === 'manual') {
-                  return item
+                // Strategy: Try the expected catalog first, then fallback to users regular catalog
+                // This handles legacy POs that might have used standard items before strict mapping
+
+                if (isAppl) {
+                  // Try APPL first
+                  const { data: applDrug } = await supabase
+                    .from('appl_drugs')
+                    .select('item_name, item_code')
+                    .eq('id', item.item_id)
+                    .maybeSingle()
+
+                  if (applDrug) {
+                    resolvedItem = {
+                      item_name: applDrug.item_name,
+                      item_code: applDrug.item_code
+                    }
+                  }
                 }
 
-                // Check if this is an APPL PO
-                const isAppl = result.data.vote_code === '990102' &&
-                  ['27401', '27499'].includes(result.data.vote_activity)
+                // If not APPL or APPL lookup failed (legacy item), try standard drug catalog
+                if (!resolvedItem) {
+                  const { data: drug } = await supabase
+                    .from('drugs')
+                    .select('drug_name, drug_code')
+                    .eq('id', item.item_id)
+                    .maybeSingle()
 
-                if (item.item_type === 'drug') {
-                  let resolvedItem = null;
-
-                  // Strategy: Try the expected catalog first, then fallback to users regular catalog
-                  // This handles legacy POs that might have used standard items before strict mapping
-
-                  if (isAppl) {
-                    // Try APPL first
-                    const { data: applDrug } = await supabase
-                      .from('appl_drugs')
-                      .select('item_name, item_code')
-                      .eq('id', item.item_id)
-                      .single()
-
-                    if (applDrug) {
-                      resolvedItem = {
-                        item_name: applDrug.item_name,
-                        item_code: applDrug.item_code
-                      }
+                  if (drug) {
+                    resolvedItem = {
+                      item_name: drug.drug_name,
+                      item_code: drug.drug_code
                     }
-                  }
-
-                  // If not APPL or APPL lookup failed (legacy item), try standard drug catalog
-                  if (!resolvedItem) {
-                    const { data: drug } = await supabase
-                      .from('drugs')
-                      .select('drug_name, drug_code')
-                      .eq('id', item.item_id)
-                      .single()
-
-                    if (drug) {
-                      resolvedItem = {
-                        item_name: drug.drug_name,
-                        item_code: drug.drug_code
-                      }
-                    }
-                  }
-
-                  return {
-                    ...item,
-                    item_name: resolvedItem?.item_name || 'Unknown Drug',
-                    item_code: resolvedItem?.item_code || item.item_id,
-                  }
-                } else {
-                  // Non-Drug Lookup Logic
-                  let resolvedItem = null;
-
-                  if (isAppl) {
-                    // Try APPL Non-Drug first
-                    const { data: applNonDrug } = await supabase
-                      .from('appl_non_drugs')
-                      .select('item_name, item_code')
-                      .eq('id', item.item_id)
-                      .single()
-
-                    if (applNonDrug) {
-                      resolvedItem = {
-                        item_name: applNonDrug.item_name,
-                        item_code: applNonDrug.item_code
-                      }
-                    }
-                  }
-
-                  // Fallback to standard non-drugs
-                  if (!resolvedItem) {
-                    const { data: nonDrug } = await supabase
-                      .from('non_drugs')
-                      .select('item_name, item_code')
-                      .eq('id', item.item_id)
-                      .single()
-
-                    if (nonDrug) {
-                      resolvedItem = {
-                        item_name: nonDrug.item_name,
-                        item_code: nonDrug.item_code
-                      }
-                    }
-                  }
-
-                  return {
-                    ...item,
-                    item_name: resolvedItem?.item_name || 'Unknown Item',
-                    item_code: resolvedItem?.item_code || item.item_id,
                   }
                 }
-              } catch (error) {
-                console.error('Error loading item details:', error)
+
                 return {
                   ...item,
-                  item_name: 'Unknown Item',
-                  item_code: item.item_id,
+                  item_name: resolvedItem?.item_name || 'Unknown Drug',
+                  item_code: resolvedItem?.item_code || item.item_id,
+                }
+              } else {
+                // Non-Drug Lookup Logic
+                let resolvedItem = null;
+
+                if (isAppl) {
+                  // Try APPL Non-Drug first
+                  const { data: applNonDrug } = await supabase
+                    .from('appl_non_drugs')
+                    .select('item_name, item_code')
+                    .eq('id', item.item_id)
+                    .maybeSingle()
+
+                  if (applNonDrug) {
+                    resolvedItem = {
+                      item_name: applNonDrug.item_name,
+                      item_code: applNonDrug.item_code
+                    }
+                  }
+                }
+
+                // Fallback to standard non-drugs
+                if (!resolvedItem) {
+                  const { data: nonDrug } = await supabase
+                    .from('non_drugs')
+                    .select('item_name, item_code')
+                    .eq('id', item.item_id)
+                    .maybeSingle()
+
+                  if (nonDrug) {
+                    resolvedItem = {
+                      item_name: nonDrug.item_name,
+                      item_code: nonDrug.item_code
+                    }
+                  }
+                }
+
+                return {
+                  ...item,
+                  item_name: resolvedItem?.item_name || 'Unknown Item',
+                  item_code: resolvedItem?.item_code || item.item_id,
                 }
               }
-            })
-          )
-          setItems(itemsWithDetails)
-        }
-      } catch (error) {
-        console.error('Error loading purchase order:', error)
-        showError('Error', 'Failed to load purchase order')
-      } finally {
-        setIsLoading(false)
+            } catch (error) {
+              console.error('Error loading item details:', error)
+              return {
+                ...item,
+                item_name: 'Unknown Item',
+                item_code: item.item_id,
+              }
+            }
+          })
+        )
+        setItems(itemsWithDetails)
       }
+    } catch (error) {
+      console.error('Error loading purchase order:', error)
+      showError('Error', 'Failed to load purchase order')
+    } finally {
+      setIsLoading(false)
     }
+  }
 
+  useEffect(() => {
+    if (!isSessionReady || !id || !hospitalId) return
     void loadOrder()
-  }, [id, hospitalId, navigate, showError])
+  }, [isSessionReady, id, hospitalId, navigate, showError, setOrder, setBalance, setItems, setIsLoading])
 
   const handlePrint = async () => {
     if (!order || !printContentRef.current) {
@@ -801,7 +884,7 @@ export const PurchaseOrderDetailPage: React.FC = () => {
   );
 
   const renderPage1Content = () => (
-    <div className="page bg-white border-2 border-gray-800 shadow-lg relative" style={{ fontFamily: "'Times New Roman', serif", width: '210mm', minHeight: '297mm', height: '297mm', maxWidth: '100%', margin: '0 auto', boxSizing: 'border-box', overflow: 'hidden', padding: '0 0 240px 0' }}>
+    <div className="page bg-white border-2 border-gray-800 shadow-lg relative" style={{ fontFamily: "'Times New Roman', serif", width: '210mm', minHeight: '297mm', maxWidth: '100%', margin: '0 auto', boxSizing: 'border-box', padding: '0 0 270px 0' }}>
       {renderWatermark()}
       {/* Government Document Header */}
       <div className="border-b-2 border-gray-800 bg-white py-2 px-8">
@@ -873,7 +956,19 @@ export const PurchaseOrderDetailPage: React.FC = () => {
                     <p className="text-sm font-bold text-gray-900">{order.po_number}</p>
                   </div>
                   <div className="border-b border-gray-400 pb-1">
-                    <label className="text-xs font-bold text-gray-600 uppercase block mb-0.5">Kod Undi / Vote Code</label>
+                    <div className="flex justify-between items-center mb-0.5">
+                      <label className="text-xs font-bold text-gray-600 uppercase block">Kod Undi / Vote Code</label>
+                      {isPharmacyLogistic && (
+                        <button
+                          onClick={() => setShowReallocateModal(true)}
+                          className="text-blue-600 hover:text-blue-800 p-0.5 rounded no-print flex items-center gap-1 text-[10px]"
+                          title="Edit Allocation"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                          Edit Allocation
+                        </button>
+                      )}
+                    </div>
                     <p className="text-sm font-semibold text-gray-900">{order.vote_code || '—'}</p>
                   </div>
                   <div className="border-b border-gray-400 pb-1">
@@ -1017,7 +1112,8 @@ export const PurchaseOrderDetailPage: React.FC = () => {
       </div>
 
       {/* Financial Summary and Signature */}
-      <div className="px-8 py-4 bg-white border-t-2 border-gray-800" style={{ position: 'absolute', bottom: '65px', left: 0, width: '100%', height: '175px' }}>
+      {/* Financial Summary and Signature */}
+      <div className="px-8 py-4 bg-white border-t-2 border-gray-800" style={{ position: 'absolute', bottom: '95px', left: 0, width: '100%', height: '175px' }}>
         <div className="flex gap-6 h-full items-end">
           {/* Left - Signature (no box) */}
           <div className="w-[55%] flex flex-col justify-end items-center pb-2">
@@ -1067,7 +1163,7 @@ export const PurchaseOrderDetailPage: React.FC = () => {
       </div>
 
       {/* Document Footer */}
-      <div className="px-8 py-3 bg-gray-100 border-t-2 border-gray-800" style={{ position: 'absolute', bottom: 0, left: 0, width: '100%' }}>
+      <div className="px-8 py-3 bg-gray-100 border-t-2 border-gray-800" style={{ position: 'absolute', bottom: '30px', left: 0, width: '100%' }}>
         <div className="text-center">
           <p className="text-xs font-semibold text-gray-700">
             Dokumen Rasmi Kerajaan Malaysia / Official Government Document of Malaysia
@@ -1081,10 +1177,10 @@ export const PurchaseOrderDetailPage: React.FC = () => {
   );
 
   const renderPage2Content = () => (
-    <div className="page bg-white border-2 border-gray-800 shadow-lg relative" style={{ fontFamily: "'Times New Roman', serif", width: '210mm', minHeight: '297mm', height: '297mm', maxWidth: '100%', margin: '0 auto', boxSizing: 'border-box', overflow: 'hidden', padding: '0 0 65px 0' }}>
+    <div className="page bg-white border-2 border-gray-800 shadow-lg relative" style={{ fontFamily: "'Times New Roman', serif", width: '210mm', minHeight: '297mm', maxWidth: '100%', margin: '0 auto', boxSizing: 'border-box', padding: '0 0 95px 0' }}>
       {renderWatermark()}
       {/* Section 3: Supplier Details */}
-      <div className="px-8 py-1 border-b-2 border-gray-800">
+      <div className="px-8 pt-24 pb-1 border-b-2 border-gray-800">
         <div className="flex justify-center">
           <table className="w-full max-w-4xl border-collapse border-2 border-gray-800">
             <tbody>
@@ -1193,20 +1289,20 @@ export const PurchaseOrderDetailPage: React.FC = () => {
           <span className="text-sm font-bold">5.</span>
           <p className="text-sm font-bold text-gray-900" style={{ lineHeight: '1.3' }}>Akaun Ketua Bahagian.</p>
         </div>
-        <div className="ml-8 mb-4 space-y-2">
+        <div className="ml-8 mb-2 space-y-1">
           <div className="flex gap-2">
             <span className="text-sm">(i)</span>
-            <p className="text-sm" style={{ lineHeight: '1.5' }}>Adalah disahkan pembelian ini telah dimasukan dalam cadangan anggaran Belanjawan tahunan.</p>
+            <p className="text-sm" style={{ lineHeight: '1.4' }}>Adalah disahkan pembelian ini telah dimasukan dalam cadangan anggaran Belanjawan tahunan.</p>
           </div>
           <div className="flex gap-2">
             <span className="text-sm">(ii)</span>
-            <p className="text-sm" style={{ lineHeight: '1.5' }}>Pembelian ini adalah diperlukan.</p>
+            <p className="text-sm" style={{ lineHeight: '1.4' }}>Pembelian ini adalah diperlukan.</p>
           </div>
         </div>
 
         {/* Head of Department Signature */}
-        <div className="flex justify-between items-start mb-6">
-          <div className="pt-8 pl-4">
+        <div className="flex justify-between items-start mb-2">
+          <div className="pt-4 pl-4">
             <div className="flex gap-2">
               <span className="text-sm font-bold">Tarikh :</span>
               <span className="text-sm font-bold font-serif">{formatDateMalay(order.order_date)}</span>
@@ -1221,11 +1317,11 @@ export const PurchaseOrderDetailPage: React.FC = () => {
         </div>
 
         {/* Approval Text */}
-        <p className="text-sm font-bold text-center mb-6">Permohonan diluluskan/tidak diluluskan</p>
+        <p className="text-sm font-bold text-center mb-2">Permohonan diluluskan/tidak diluluskan</p>
 
         {/* Director Approval Signature */}
         <div className="flex justify-between items-start">
-          <div className="pt-8 pl-4">
+          <div className="pt-4 pl-4">
             <div className="flex gap-2">
               <span className="text-sm font-bold">Tarikh :</span>
               <span className="inline-block min-w-[150px] border-b border-black"></span>
@@ -1240,21 +1336,21 @@ export const PurchaseOrderDetailPage: React.FC = () => {
       </div>
 
       {/* Section 6: Finance Department Use - UNTUK KEGUNAAN BAHAGIAN KEWANGAN */}
-      <div className="px-8 py-4 border-b-2 border-gray-800">
-        <p className="text-sm font-bold text-gray-900 text-center uppercase mb-6" style={{ lineHeight: '1.3' }}>
+      <div className="px-8 py-2 border-b-2 border-gray-800">
+        <p className="text-sm font-bold text-gray-900 text-center uppercase mb-2" style={{ lineHeight: '1.2' }}>
           UNTUK KEGUNAAN BAHAGIAN KEWANGAN
         </p>
 
-        <div className="flex justify-between items-end min-h-[100px]">
-          <div className="space-y-2 mb-4">
-            <p className="text-sm font-bold mb-2">6. Kerani Kewangan</p>
-            <div className="ml-8 space-y-2">
-              <p className="text-sm" style={{ lineHeight: '1.5' }}>(iii) Sila Keluarkan Pesanan Kerajaan</p>
-              <p className="text-sm" style={{ lineHeight: '1.5' }}>(iv) Sila dapatkan Sebut harga.</p>
+        <div className="flex justify-between items-end min-h-[60px]">
+          <div className="space-y-1 mb-2">
+            <p className="text-sm font-bold mb-1">6. Kerani Kewangan</p>
+            <div className="ml-8 space-y-1">
+              <p className="text-sm" style={{ lineHeight: '1.4' }}>(iii) Sila Keluarkan Pesanan Kerajaan</p>
+              <p className="text-sm" style={{ lineHeight: '1.4' }}>(iv) Sila dapatkan Sebut harga.</p>
             </div>
           </div>
 
-          <div className="text-right mb-4">
+          <div className="text-right mb-2">
             <div className="inline-block min-w-[250px] border-b border-dotted border-black mb-1"></div>
             <p className="text-sm font-bold mb-1">(Bahagian Kewangan)</p>
             <p className="text-sm font-bold">B.P. Pengarah Hospital Daerah, Lawas.</p>
@@ -1277,7 +1373,8 @@ export const PurchaseOrderDetailPage: React.FC = () => {
       </div>
 
       {/* Footer */}
-      <div className="px-8 py-3 bg-gray-100 border-t-2 border-gray-800" style={{ position: 'absolute', bottom: 0, left: 0, width: '100%' }}>
+      {/* Footer */}
+      <div className="px-8 py-3 bg-gray-100 border-t-2 border-gray-800" style={{ position: 'absolute', bottom: '30px', left: 0, width: '100%' }}>
         <div className="text-center">
           <p className="text-xs font-semibold text-gray-700">
             Dokumen Rasmi Kerajaan Malaysia / Official Government Document of Malaysia
@@ -1332,7 +1429,7 @@ export const PurchaseOrderDetailPage: React.FC = () => {
   .page {
     width: 210mm!important;
     min-height: 297mm!important;
-    padding: 10mm!important;
+    padding: 10mm 10mm 75mm 10mm!important;
     margin: 0!important;
     position: relative;
     box-sizing: border-box;
@@ -1438,13 +1535,14 @@ export const PurchaseOrderDetailPage: React.FC = () => {
               </Button>
             )}
 
-            {order.status === 'pending_approval' && isPharmacyLogistic && (
+            {order.status === 'pending_approval' && (canApprove || userRole === 'system_admin') && (
               <Button
                 onClick={() => setShowApproveDialog(true)}
                 variant="primary"
                 size="sm"
                 className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 shadow-sm"
-                disabled={isApproving}
+                disabled={isApproving || isAuthLoading}
+                isLoading={isApproving || isAuthLoading}
               >
                 {isApproving ? <Spinner size="sm" /> : <FileCheck className="w-4 h-4" />}
                 {isApproving ? 'Approving...' : 'Approve PO'}
@@ -1478,7 +1576,7 @@ export const PurchaseOrderDetailPage: React.FC = () => {
             )}
 
             {/* Cancel/Reject Button - Draft, Pending & Approved */}
-            {(order.status === 'draft' || order.status === 'pending_approval') && (
+            {(order.status === 'draft' || order.status === 'pending_approval' || order.status === 'approved') && (
               <Button
                 onClick={() => setShowCancelDialog(true)}
                 variant="outline"
@@ -1537,15 +1635,21 @@ export const PurchaseOrderDetailPage: React.FC = () => {
                 Create LPO Document
               </Button>
             )}
-            <Button
-              onClick={handleOpenSettings}
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2"
-              title="Configure PO Signatures"
-            >
-              <Settings className="w-4 h-4" />
-            </Button>
+            {(userRole === SYSTEM_ROLES.SYSTEM_ADMIN ||
+              userRole === SYSTEM_ROLES.HOSPITAL_ADMIN ||
+              isPharmacyLogistic ||
+              (user?.department?.department_code && AUTHORIZED_SIGNATURE_DEPARTMENTS.includes(user.department.department_code)) ||
+              (user?.department?.department_name && AUTHORIZED_SIGNATURE_DEPARTMENTS.includes(user.department.department_name))) && (
+                <Button
+                  onClick={handleOpenSettings}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2 border-slate-300 hover:bg-slate-100"
+                  title="Configure PO Signatures"
+                >
+                  <Settings className="w-4 h-4 text-slate-600" />
+                </Button>
+              )}
           </div>
         </div>
 
@@ -1712,7 +1816,8 @@ export const PurchaseOrderDetailPage: React.FC = () => {
       <Modal
         isOpen={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
-        title="PO Signature Settings"
+        title={`PO Signature Settings ${user?.department?.department_name ? `(${user.department.department_name})` : ''}`}
+        size="lg"
       >
         <div className="space-y-6">
           <div className="space-y-4">
@@ -1758,7 +1863,29 @@ export const PurchaseOrderDetailPage: React.FC = () => {
             </Button>
           </div>
         </div>
-      </Modal>
+      </Modal >
+
+      {/* Reallocate Allocation Modal */}
+      {
+        order && (
+          <ReallocateAllocationModal
+            isOpen={showReallocateModal}
+            onClose={() => setShowReallocateModal(false)}
+            onSuccess={() => {
+              loadOrder()
+              // Optional: Re-fetch warrants or other data if needed
+              // But loadOrder should refresh the displayed vote_code which is the main thing
+            }}
+            poId={order.id}
+            currentData={{
+              vote_code: order.vote_code || '',
+              vote_activity: order.vote_activity || '',
+              department: order.department || '',
+              category: order.category || ''
+            }}
+          />
+        )
+      }
     </>
   )
 }

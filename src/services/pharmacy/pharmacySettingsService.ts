@@ -25,21 +25,57 @@ const DEFAULT_SIGNATURES: PharmacyPOSignatures = {
 
 const SUPABASE_SETTING_KEY = 'pharmacy_po_signatures'
 
+export const AUTHORIZED_SIGNATURE_DEPARTMENTS = [
+  'pharmacy_logistics',
+  'Pharmacy Logistic',
+  'pharmacy',
+  'Pharmacy',
+  'PHARMACY',
+  'pathology',
+  'Pathology',
+  'PATHOLOGY',
+  'hospital_admin',
+  'Hospital Administrator'
+]
+
+export const DEPT_CODE_MAPPING: Record<string, string> = {
+  'Pharmacy Logistic': 'pharmacy_logistics',
+  'Pharmacy': 'pharmacy',
+  'PHARMACY': 'pharmacy',
+  'pharmacy': 'pharmacy',
+  'Pathology': 'pathology',
+  'PATHOLOGY': 'pathology',
+  'pathology': 'pathology',
+  'Hospital Administrator': 'hospital_admin'
+}
+
 /**
  * Get pharmacy PO signature settings
  */
 export async function getPharmacyPOSignatures(
-  hospitalId?: string
+  hospitalId?: string,
+  departmentId?: string
 ): Promise<ApiResponse<PharmacyPOSignatures>> {
   try {
     if (hospitalId) {
+      // Normalize department ID if possible
+      const normalizedDeptId = departmentId && DEPT_CODE_MAPPING[departmentId] ? DEPT_CODE_MAPPING[departmentId] : departmentId
+
       // Try to get from Supabase pharmacy_settings table
-      const { data, error } = await supabase
+      let query = supabase
         .from('pharmacy_settings')
         .select('setting_value')
         .eq('setting_key', SUPABASE_SETTING_KEY)
         .eq('hospital_id', hospitalId)
-        .maybeSingle()
+
+      if (normalizedDeptId) {
+        query = query.eq('department_id', normalizedDeptId)
+      } else {
+        // Fallback to pharmacy logistics if no department specified (backward compatibility)
+        query = query.or(`department_id.is.null,department_id.eq.pharmacy_logistics`)
+      }
+
+      const { data, error } = await query.maybeSingle()
 
       if (error && error.code !== 'PGRST116') {
         console.warn('Error fetching pharmacy PO signatures from Supabase:', error.message)
@@ -79,11 +115,15 @@ export async function getPharmacyPOSignatures(
 export async function updatePharmacyPOSignatures(
   signatures: Partial<PharmacyPOSignatures>,
   hospitalId: string,
-  userId?: string
+  userId?: string,
+  departmentId?: string
 ): Promise<ApiResponse<PharmacyPOSignatures>> {
   try {
+    // Normalize department ID
+    const normalizedDeptId = departmentId && DEPT_CODE_MAPPING[departmentId] ? DEPT_CODE_MAPPING[departmentId] : (departmentId || 'pharmacy_logistics')
+
     // Get current signatures
-    const currentResult = await getPharmacyPOSignatures(hospitalId)
+    const currentResult = await getPharmacyPOSignatures(hospitalId, normalizedDeptId)
     const current = currentResult.data || DEFAULT_SIGNATURES
 
     // Merge with updates
@@ -102,10 +142,12 @@ export async function updatePharmacyPOSignatures(
           setting_key: SUPABASE_SETTING_KEY,
           setting_value: updated,
           hospital_id: hospitalId,
+          department_id: normalizedDeptId,
           updated_by: userId,
           updated_at: new Date().toISOString(),
         },
-        { onConflict: 'hospital_id,setting_key' }
+        // We dropped the old constraint and added a new one including department_id
+        { onConflict: 'hospital_id,setting_key,department_id' }
       )
       .select('setting_value')
       .single()

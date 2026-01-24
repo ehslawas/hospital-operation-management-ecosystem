@@ -15,7 +15,7 @@ import {
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
 import { Spinner, Button, Badge, Modal } from '@/components/ui'
 import { useToastStore } from '@/stores/toastStore'
 import { FinancialPageLayout } from '@/components/pharmacy/financial/FinancialPageLayout'
@@ -61,6 +61,7 @@ export const WarrantPage: React.FC = () => {
   const { user } = useAuthStore()
   const { success: showSuccess, error: showError } = useToastStore()
   const hospitalId = user?.hospital_id
+  const isSessionReady = useIsSessionReady()
 
   // State
   const [warrants, setWarrants] = useState<Warrant[]>([])
@@ -130,7 +131,7 @@ export const WarrantPage: React.FC = () => {
 
   // Load data
   useEffect(() => {
-    if (!hospitalId) return
+    if (!isSessionReady || !hospitalId) return
 
     const loadData = async () => {
       setIsLoading(true)
@@ -168,7 +169,7 @@ export const WarrantPage: React.FC = () => {
     }
 
     void loadData()
-  }, [hospitalId, selectedYear, filterCategory, filterDepartment])
+  }, [isSessionReady, hospitalId, selectedYear, filterCategory, filterDepartment])
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-MY', {

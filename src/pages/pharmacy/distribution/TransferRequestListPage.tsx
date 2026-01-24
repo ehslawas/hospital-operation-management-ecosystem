@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { AlertTriangle, Truck, Search, Filter, ChevronLeft, ChevronRight, Plus, ArrowRightLeft } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
 import { Table, Spinner, Input, Badge, Select, Button } from '@/components/ui'
 import { getTransferRequests, getPendingTransfersCount } from '@/services/pharmacy/distributionService'
 import type { TransferRequestWithRelations, TransferFilter, TransferStatus, TransferType } from '@/types/pharmacy'
@@ -12,6 +12,7 @@ export const TransferRequestListPage: React.FC = () => {
   const navigate = useNavigate()
   const { user } = useAuthStore()
   const hospitalId = user?.hospital_id
+  const isSessionReady = useIsSessionReady()
 
   const [transfers, setTransfers] = useState<TransferRequestWithRelations[]>([])
   const [pendingCounts, setPendingCounts] = useState({ incoming: 0, outgoing: 0 })
@@ -31,7 +32,7 @@ export const TransferRequestListPage: React.FC = () => {
 
   // Load pending counts
   useEffect(() => {
-    if (!hospitalId) return
+    if (!isSessionReady || !hospitalId) return
     const loadCounts = async () => {
       const res = await getPendingTransfersCount(hospitalId)
       if (res.data) {
@@ -39,11 +40,11 @@ export const TransferRequestListPage: React.FC = () => {
       }
     }
     void loadCounts()
-  }, [hospitalId])
+  }, [isSessionReady, hospitalId])
 
   // Load transfers with filters
   const loadTransfers = useCallback(async () => {
-    if (!hospitalId) return
+    if (!isSessionReady || !hospitalId) return
 
     setIsLoading(true)
     setError(null)
@@ -66,7 +67,7 @@ export const TransferRequestListPage: React.FC = () => {
     }
 
     setIsLoading(false)
-  }, [hospitalId, search, statusFilter, typeFilter, page])
+  }, [isSessionReady, hospitalId, search, statusFilter, typeFilter, page])
 
   useEffect(() => {
     void loadTransfers()

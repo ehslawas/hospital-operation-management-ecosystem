@@ -46,15 +46,15 @@ export const louService = {
         return data as LOU[]
     },
 
-    // Generate LOU Letter (Returns Mock URL)
+    // Generate LOU Letter
     async generateLOULetter(id: string): Promise<LOU> {
         // Implementation would normally generate PDF here
-        const mockUrl = `https://placeholder-pdf.com/lou-letter/${id}.pdf`
+        const pdfUrl = ''
 
         const { data, error } = await supabase
             .from(TABLE_NAME)
             .update({
-                lou_letter_url: mockUrl,
+                lou_letter_url: pdfUrl,
                 status: 'generated',
                 updated_at: new Date().toISOString()
             })
@@ -66,15 +66,15 @@ export const louService = {
         return data
     },
 
-    // Merge Documents (Returns Mock URL for combined package)
+    // Merge Documents
     async mergeLOUDocuments(id: string): Promise<LOU> {
         // Implementation would merge LOU + LPO + DO/Invoice
-        const mockMergedUrl = `https://placeholder-pdf.com/lou-package/${id}.pdf`
+        const mergedUrl = ''
 
         const { data, error } = await supabase
             .from(TABLE_NAME)
             .update({
-                merged_pdf_url: mockMergedUrl,
+                merged_pdf_url: mergedUrl,
                 updated_at: new Date().toISOString()
             })
             .eq('id', id)

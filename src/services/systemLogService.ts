@@ -1,14 +1,12 @@
 // System Log Service - For System Admin to view logs from all hospitals
 import { supabase } from './supabase'
 import type {
-  HospitalLog,
   HospitalLogWithRelations,
   HospitalLogCategory,
   HospitalLogSeverity,
   PaginatedResponse,
   SortConfig,
   Hospital,
-  User,
 } from '@/types'
 // System Log Service - For System Admin to view logs from all hospitals
 

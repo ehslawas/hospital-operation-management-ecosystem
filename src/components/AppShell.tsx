@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import SidebarNav from '@/components/SidebarNav';
@@ -16,26 +16,26 @@ function getSessionInfo(): SessionInfo {
 	if (typeof document === 'undefined') {
 		return { roles: [], user: 'Guest', department: 'General' };
 	}
-	
+
 	const roles = (document.cookie
 		.split('; ')
 		.find(row => row.startsWith('roles='))?.split('=')[1] || '')
 		.split(',')
 		.map((r) => r.trim())
 		.filter(Boolean);
-	
+
 	const user = decodeURIComponent(
 		document.cookie
 			.split('; ')
 			.find(row => row.startsWith('user='))?.split('=')[1] || 'Guest'
 	);
-	
+
 	const department = decodeURIComponent(
 		document.cookie
 			.split('; ')
 			.find(row => row.startsWith('department='))?.split('=')[1] || 'General'
 	);
-	
+
 	return { roles, user, department };
 }
 
@@ -44,27 +44,27 @@ export function AppShell({ children }: { children: ReactNode }) {
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 	const [mounted, setMounted] = useState(false);
-	
+
 	useEffect(() => {
 		setSessionInfo(getSessionInfo());
 		setMounted(true);
 	}, []);
-	
-	const { roles, user, department } = sessionInfo;
-	const initial = (user || 'G').trim().charAt(0).toUpperCase();
-	
+
+	const { user, department } = sessionInfo;
+	// const initial = (user || 'G').trim().charAt(0).toUpperCase(); // Unused
+
 	return (
 		<div className="h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20" suppressHydrationWarning>
 			{/* Mobile Menu Overlay with fade animation */}
 			{mobileMenuOpen && (
-				<div 
-					className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden animate-fade-in" 
+				<div
+					className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden animate-fade-in"
 					onClick={() => setMobileMenuOpen(false)}
 					suppressHydrationWarning
 				/>
 			)}
-			
-    		{/* Sidebar with slide animation */}
+
+			{/* Sidebar with slide animation */}
 			<aside className={`fixed left-0 top-0 h-screen border-r border-slate-200/60 bg-white/95 backdrop-blur-xl supports-[backdrop-filter]:bg-white/90 z-50 shadow-2xl shadow-slate-900/5 transition-all duration-300 ease-in-out ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 ${sidebarCollapsed ? 'w-20 lg:w-20' : 'w-full xs:w-64 sm:w-72 lg:w-72'}`} suppressHydrationWarning>
 				<div className="h-full flex flex-col overflow-y-auto" suppressHydrationWarning>
 					{/* Modern Header with Gradient */}
@@ -73,7 +73,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 							<div className="flex items-center justify-center animate-scale-in">
 								<span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm text-white shadow-lg ring-1 ring-white/20 transition-transform hover:scale-110">
 									<svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-										<path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+										<path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
 									</svg>
 								</span>
 							</div>
@@ -81,7 +81,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 							<div className="flex items-center gap-3 animate-slide-in-left">
 								<span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm text-white shadow-lg ring-1 ring-white/20 transition-transform hover:scale-110">
 									<svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-										<path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+										<path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
 									</svg>
 								</span>
 								<div className="text-white">
@@ -93,8 +93,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 					</div>
 					{/* Collapsible toggle for desktop */}
 					<div className="hidden lg:flex items-center justify-end px-2 py-1">
-						<button 
-							onClick={() => setSidebarCollapsed(!sidebarCollapsed)} 
+						<button
+							onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
 							className="touch-target p-2 rounded-lg hover:bg-gray-100 transition-all duration-200 hover:scale-110 active:scale-95"
 							title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
 							aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -110,12 +110,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 						<div className="space-y-3">
 							{!sidebarCollapsed && (
 								<div className="flex gap-2 text-xs animate-fade-in">
-									<Link href="/dev/login?role=pharmacy_logistics" className="text-slate-500 hover:text-blue-600 transition-all duration-200 font-medium hover:scale-105" suppressHydrationWarning>Grant logistics</Link>
+									<Link to="/dev/login?role=pharmacy_logistics" className="text-slate-500 hover:text-blue-600 transition-all duration-200 font-medium hover:scale-105" suppressHydrationWarning>Grant logistics</Link>
 									<span className="text-slate-300">·</span>
-									<Link href="/dev/login?role=admin" className="text-slate-500 hover:text-blue-600 transition-all duration-200 font-medium hover:scale-105" suppressHydrationWarning>Grant admin</Link>
+									<Link to="/dev/login?role=admin" className="text-slate-500 hover:text-blue-600 transition-all duration-200 font-medium hover:scale-105" suppressHydrationWarning>Grant admin</Link>
 								</div>
 							)}
-							<button 
+							<button
 								onClick={() => {
 									// Clear localStorage
 									try {
@@ -142,7 +142,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 					<div className="flex items-center justify-between w-full">
 						<div className="flex items-center gap-4">
 							{/* Mobile Menu Button */}
-							<button 
+							<button
 								onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
 								className="lg:hidden touch-target p-2 rounded-lg hover:bg-gray-100 transition-all duration-200 hover:scale-110 active:scale-95"
 								aria-label="Toggle mobile menu"
@@ -158,21 +158,21 @@ export function AppShell({ children }: { children: ReactNode }) {
 						<div className="flex items-center gap-2 md:gap-4">
 							{/* Modern Search - Hidden on very small screens */}
 							<div className="relative hidden md:block">
-								<input 
-									className="min-h-[44px] w-40 lg:w-64 rounded-xl border border-slate-200/60 bg-white/80 backdrop-blur-sm px-4 py-2.5 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300 transition-all duration-200 shadow-sm hover:shadow-md" 
-									placeholder="Search..." 
+								<input
+									className="min-h-[44px] w-40 lg:w-64 rounded-xl border border-slate-200/60 bg-white/80 backdrop-blur-sm px-4 py-2.5 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300 transition-all duration-200 shadow-sm hover:shadow-md"
+									placeholder="Search..."
 									aria-label="Search"
-									suppressHydrationWarning 
+									suppressHydrationWarning
 								/>
 								<svg className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
 								</svg>
 							</div>
 							<ClientOnly>
-							<div className="hidden xl:flex items-center gap-3 animate-fade-in">
-								<span className="rounded-full bg-gradient-to-r from-blue-100 to-indigo-100 px-3 py-1.5 text-xs font-semibold text-blue-800 border border-blue-200/50 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-105">{user}</span>
-								<span className="rounded-full bg-gradient-to-r from-emerald-100 to-teal-100 px-3 py-1.5 text-xs font-semibold text-emerald-800 border border-emerald-200/50 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-105">{department}</span>
-							</div>
+								<div className="hidden xl:flex items-center gap-3 animate-fade-in">
+									<span className="rounded-full bg-gradient-to-r from-blue-100 to-indigo-100 px-3 py-1.5 text-xs font-semibold text-blue-800 border border-blue-200/50 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-105">{user}</span>
+									<span className="rounded-full bg-gradient-to-r from-emerald-100 to-teal-100 px-3 py-1.5 text-xs font-semibold text-emerald-800 border border-emerald-200/50 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-105">{department}</span>
+								</div>
 							</ClientOnly>
 							<div className="h-8 w-8 md:h-9 md:w-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg ring-2 ring-white/50 hover:scale-110 transition-transform duration-200 cursor-pointer" suppressHydrationWarning />
 						</div>

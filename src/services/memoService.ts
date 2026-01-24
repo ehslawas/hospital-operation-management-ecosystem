@@ -1,5 +1,6 @@
 import { supabase } from '@/services/supabase'
 import { Memo, MemoStatus, MemoType, MemoPriority, MemoWithRelations } from '@/types'
+import { checkApprovalNeeded, createApprovalRequest } from './approvalService'
 
 export interface CreateMemoParams {
   hospital_id: string
@@ -57,15 +58,57 @@ export const createMemo = async (params: CreateMemoParams): Promise<{ data: Memo
   const { data: userData } = await supabase.auth.getUser()
   if (!userData.user) throw new Error('Not authenticated')
 
+  // 1. Check Approval Needed
+  const { checkApprovalNeeded, createApprovalRequest } = await import('./approvalService');
+  // Dynamic import to avoid circular dependency if any, though likely fine as static. 
+  // Using static import at top is better. I will add it to top imports.
+
+  const requestData = {
+    ...params,
+    requester_id: userData.user.id,
+    department_id: userData.user.user_metadata?.department_id
+  };
+
+  const { needs_approval, workflow_id } = await checkApprovalNeeded('memo_publish', requestData);
+
+  // 2. Determine Initial Status
+  const initialStatus: MemoStatus = needs_approval ? 'pending_approval' : 'published';
+
   const { data, error } = await supabase
     .from('memos')
     .insert({
       ...params,
       created_by: userData.user.id,
-      status: 'pending_approval' // Default status
+      status: initialStatus,
+      published_at: initialStatus === 'published' ? new Date().toISOString() : null
     })
     .select()
     .single()
+
+  if (error) return { data: null, error };
+
+  // 3. Create Approval Request if needed
+  if (needs_approval && workflow_id && data) {
+    await createApprovalRequest(
+      workflow_id,
+      userData.user.id,
+      requestData,
+      'memo',
+      data.id
+    );
+
+    // Log submission
+    await supabase.from('approval_logs').insert({
+      entity_type: 'memo',
+      entity_id: data.id,
+      workflow_id: workflow_id,
+      step_order: 0,
+      action: 'submitted',
+      approved_by: userData.user.id,
+      notes: 'Memo submitted for publication approval',
+      created_at: new Date().toISOString()
+    });
+  }
 
   return { data, error }
 }

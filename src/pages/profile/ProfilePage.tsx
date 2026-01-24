@@ -5,12 +5,14 @@ import { Avatar, Badge, Modal } from '@/components/ui'
 import { useToast } from '@/stores/toastStore'
 import { useAuthStore } from '@/stores/authStore'
 import { ChangePasswordForm } from '@/components/forms/ChangePasswordForm'
+import { ProfileEditModal } from '@/components/forms/ProfileEditModal'
 import { formatDate } from '@/lib/utils'
 
 const ProfilePage: React.FC = () => {
   const { user } = useAuthStore()
   const toast = useToast()
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false)
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false)
 
   if (!user) {
     return (
@@ -47,7 +49,7 @@ const ProfilePage: React.FC = () => {
               </Badge>
             </div>
             <p className="text-gray-600 mb-4">{user.role?.role_name || 'No role assigned'}</p>
-            
+
             <div className="flex gap-3">
               <button
                 onClick={() => setShowChangePasswordModal(true)}
@@ -55,6 +57,17 @@ const ProfilePage: React.FC = () => {
               >
                 <Lock className="w-4 h-4" />
                 Change Password
+              </button>
+              <button
+                onClick={() => setShowEditProfileModal(true)}
+                className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+              >
+                <div className="w-4 h-4 flex items-center justify-center">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </div>
+                Edit Profile
               </button>
             </div>
           </div>
@@ -181,6 +194,12 @@ const ProfilePage: React.FC = () => {
           onCancel={() => setShowChangePasswordModal(false)}
         />
       </Modal>
+
+      {/* Edit Profile Modal */}
+      <ProfileEditModal
+        isOpen={showEditProfileModal}
+        onClose={() => setShowEditProfileModal(false)}
+      />
     </div>
   )
 }

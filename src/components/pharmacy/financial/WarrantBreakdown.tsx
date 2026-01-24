@@ -138,27 +138,53 @@ export const WarrantBreakdown: React.FC<WarrantBreakdownProps> = ({
                     <h3 className="font-semibold text-slate-800">Department Allocation</h3>
                 </div>
 
-                <div className="space-y-4">
-                    {summary.by_department.map((item) => (
-                        <div key={item.department} className="relative">
-                            <div className="flex items-center justify-between mb-1 text-sm">
-                                <div className="flex items-center gap-2">
-                                    <span className={`w-2 h-2 rounded-full ${DEPARTMENT_COLORS[item.department].split(' ')[0].replace('bg-', 'bg-')}`} />
-                                    <span className="font-medium text-slate-700">{getDepartmentLabel(item.department)}</span>
-                                </div>
-                                <div className="flex items-center gap-4">
-                                    <span className="text-slate-500 text-xs">{item.count} warrants</span>
-                                    <span className="font-bold text-slate-900">{currencyFormatter(item.allocation)}</span>
-                                </div>
-                            </div>
-                            <div className="w-full bg-slate-100 rounded-full h-2">
-                                <div
-                                    className={`h-full rounded-full ${DEPARTMENT_COLORS[item.department].split(' ')[0]}`}
-                                    style={{ width: `${Math.min((item.allocation / (summary.total_allocation || 1)) * 100, 100)}%` }}
-                                />
-                            </div>
-                        </div>
-                    ))}
+                {/* Department Breakdown Table */}
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                        <thead>
+                            <tr className="text-xs text-slate-500 border-b border-slate-100">
+                                <th className="pb-3 font-medium pl-2">Department</th>
+                                <th className="pb-3 font-medium text-right">Count</th>
+                                <th className="pb-3 font-medium text-right">Allocated</th>
+                                <th className="pb-3 font-medium text-right text-orange-600">Liabilities</th>
+                                <th className="pb-3 font-medium text-right text-blue-600">Net Expenses</th>
+                                <th className="pb-3 font-medium text-right">Total Used</th>
+                                <th className="pb-3 font-medium text-right">Balance</th>
+                                <th className="pb-3 font-medium w-32 text-center">Utilization</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                            {summary.by_department.map((item) => (
+                                <tr key={item.department} className="group hover:bg-slate-50/50 transition-colors">
+                                    <td className="py-3 pl-2">
+                                        <div className="flex items-center gap-3">
+                                            <span className={`w-2 h-2 rounded-full ${DEPARTMENT_COLORS[item.department].split(' ')[0]}`} />
+                                            <span className="font-medium text-slate-700">{getDepartmentLabel(item.department)}</span>
+                                        </div>
+                                    </td>
+                                    <td className="py-3 text-right text-slate-500 font-mono text-xs">{item.count}</td>
+                                    <td className="py-3 text-right font-medium text-slate-900">{currencyFormatter(item.allocation)}</td>
+                                    <td className="py-3 text-right font-medium text-orange-600">{currencyFormatter(item.liabilities)}</td>
+                                    <td className="py-3 text-right font-medium text-blue-600">{currencyFormatter(item.net_expenses)}</td>
+                                    <td className="py-3 text-right font-medium text-rose-600">{currencyFormatter(item.expenses)}</td>
+                                    <td className="py-3 text-right font-medium text-emerald-600">{currencyFormatter(item.balance)}</td>
+                                    <td className="py-3 px-4">
+                                        <div className="flex items-center gap-2 justify-end">
+                                            <div className="w-16 bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                                                <div
+                                                    className={`h-full rounded-full ${DEPARTMENT_COLORS[item.department].split(' ')[0]}`}
+                                                    style={{ width: `${item.allocation > 0 ? Math.min((item.expenses / item.allocation) * 100, 100) : 0}%` }}
+                                                />
+                                            </div>
+                                            <span className="text-[10px] text-slate-400 font-mono w-8 text-right">
+                                                {item.allocation > 0 ? ((item.expenses / item.allocation) * 100).toFixed(0) : '0'}%
+                                            </span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
             </motion.div>
         </div>

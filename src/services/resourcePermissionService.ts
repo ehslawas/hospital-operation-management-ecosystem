@@ -72,7 +72,8 @@ export async function getVisibleResources(
         if (userError || !user) return []
 
         // System Admins see everything
-        if (user.roles?.role_code === 'system_admin') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((user.roles as any)?.role_code === 'system_admin') {
             let query = supabase.from('resource_permissions').select('*')
             if (module) query = query.eq('module', module)
             const { data } = await query

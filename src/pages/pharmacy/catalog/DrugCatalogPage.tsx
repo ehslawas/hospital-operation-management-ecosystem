@@ -4,7 +4,7 @@ import { Search, Plus, Download, Edit, Trash2, FileUp, Package, Pill, CheckCircl
 import { Button, Input, Select, Badge, Table, TableHeader, TableRow, TableCell, TableBody, Pagination, Modal, Spinner, ConfirmationDialog } from '@/components/ui'
 import { FinancialPageLayout } from '@/components/pharmacy/financial/FinancialPageLayout'
 import { useToastStore } from '@/stores/toastStore'
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
 import { formatCurrency } from '@/lib/utils'
 import {
   getDrugCatalogKPIs,
@@ -225,6 +225,7 @@ const DrugFormModal: React.FC<DrugFormModalProps> = ({
 
 export const DrugCatalogPage: React.FC = () => {
   const { user } = useAuthStore()
+  const isSessionReady = useIsSessionReady()
   const { success: showSuccess, error: showError } = useToastStore()
 
   const [kpis, setKpis] = useState({ total: 0, active: 0, inactive: 0 })
@@ -252,11 +253,11 @@ export const DrugCatalogPage: React.FC = () => {
   const [selectedItem, setSelectedItem] = useState<DrugWithRelations | null>(null)
 
   useEffect(() => {
-    if (user?.hospital_id) {
+    if (isSessionReady && user?.hospital_id) {
       loadData()
       loadMetadata()
     }
-  }, [user?.hospital_id, page, pageSize, search, categoryFilter, supplierFilter, voteFilter])
+  }, [isSessionReady, user?.hospital_id, page, pageSize, search, categoryFilter, supplierFilter, voteFilter])
 
   const loadMetadata = async () => {
     const cats = await getDrugCategories()

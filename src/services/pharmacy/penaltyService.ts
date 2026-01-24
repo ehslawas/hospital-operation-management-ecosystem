@@ -121,5 +121,17 @@ export const penaltyService = {
 
         if (error) throw error
         return data
+        if (error) throw error
+        return data
+    },
+
+    // Delete penalties by LPO ID
+    async deletePenaltiesByLPO(lpoId: string): Promise<void> {
+        const { error } = await supabase
+            .from(TABLE_NAME)
+            .delete()
+            .eq('lpo_id', lpoId)
+
+        if (error) throw error
     }
 }

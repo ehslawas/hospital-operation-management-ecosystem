@@ -40,9 +40,9 @@ export async function getUsers(params: GetUsersParams = {}): Promise<PaginatedRe
         .from('users')
         .select(`
           *,
-          role:roles!role_id(*),
-          department:departments!department_id(*),
-          hospital:hospitals!hospital_id(*)
+          role:roles!role_id(id, role_name, role_code),
+          department:departments!department_id(id, department_name, department_code),
+          hospital:hospitals!hospital_id(id, hospital_name)
         `, { count: 'exact' })
 
       // Apply filters
@@ -59,29 +59,33 @@ export async function getUsers(params: GetUsersParams = {}): Promise<PaginatedRe
         query = query.eq('status', status)
       }
 
-      // Handle system admin exclusion with timeout protection
+      // Handle system admin exclusion with cached role ID
       if (excludeSystemAdmins) {
-        // Query the role ID for system_admin with timeout
-        try {
-          const roleQuery = supabase
-            .from('roles')
-            .select('id')
-            .eq('role_code', 'system_admin')
-            .single()
+        // Use cached ID if available
+        if ((globalThis as any)._systemAdminRoleId) {
+          query = query.neq('role_id', (globalThis as any)._systemAdminRoleId)
+        } else {
+          try {
+            const roleQuery = supabase
+              .from('roles')
+              .select('id')
+              .eq('role_code', 'system_admin')
+              .single()
 
-          const { data: adminRole } = await Promise.race([
-            roleQuery,
-            new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('Admin role query timed out')), 10000)
-            )
-          ]) as any
+            const { data: adminRole } = await Promise.race([
+              roleQuery,
+              new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Admin role query timed out')), 5000)
+              )
+            ]) as any
 
-          if (adminRole) {
-            query = query.neq('role_id', adminRole.id)
+            if (adminRole) {
+              (globalThis as any)._systemAdminRoleId = adminRole.id
+              query = query.neq('role_id', adminRole.id)
+            }
+          } catch (roleErr) {
+            console.warn('[UserService] Failed to get system_admin role ID, skipping exclusion:', roleErr)
           }
-        } catch (roleErr) {
-          console.warn('[UserService] Failed to get system_admin role ID, skipping exclusion:', roleErr)
-          // Continue without exclusion rather than blocking the entire request
         }
       }
 
@@ -135,7 +139,8 @@ export async function getUsers(params: GetUsersParams = {}): Promise<PaginatedRe
  */
 export async function getUserById(userId: string): Promise<UserWithRelations | null> {
   try {
-    const { data, error } = await supabase
+
+    const query = supabase
       .from('users')
       .select(`
         *,
@@ -146,6 +151,11 @@ export async function getUserById(userId: string): Promise<UserWithRelations | n
       `)
       .eq('id', userId)
       .single()
+
+    const { data, error } = await Promise.race([
+      query,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('User query timed out')), 10000))
+    ]) as any
 
     if (error) throw error
     return data as UserWithRelations
@@ -184,7 +194,7 @@ function generateTemporaryPassword(): string {
 /**
  * Create new user
  */
-export async function createUser(userData: Partial<User>): Promise<UserWithRelations> {
+export async function createUser(userData: Partial<User>, password?: string): Promise<UserWithRelations> {
   try {
     // Create user in database first
     const { data, error } = await supabase
@@ -202,7 +212,7 @@ export async function createUser(userData: Partial<User>): Promise<UserWithRelat
 
     // Create Supabase Auth user if email is provided
     if (data.email) {
-      const tempPassword = generateTemporaryPassword()
+      const tempPassword = password || generateTemporaryPassword()
       const { success: authSuccess, error: authError, authUserId } = await createAuthUser(
         data.email,
         tempPassword,

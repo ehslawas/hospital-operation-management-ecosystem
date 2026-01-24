@@ -1,931 +1,1063 @@
 import { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, Button, Input, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Badge, LoadingOverlay, ConfirmationDialog } from '@/components/ui'
-import { useAuthStore } from '@/stores/authStore'
-import { useToastStore } from '@/stores/toastStore'
+import { FinancialFilterBar } from '@/components/pharmacy/financial/FinancialFilterBar'
+import { Pagination } from '@/components/ui/Pagination'
+import { FinancialPageLayout } from '@/components/pharmacy/financial/FinancialPageLayout'
+import { Card } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/Table'
+import { Badge } from '@/components/ui/Badge'
+import { Spinner } from '@/components/ui/Spinner'
+import {
+    FileText,
+    Upload,
+    Download,
+    CheckCircle2,
+    Clock,
+    AlertTriangle,
+    Truck,
+    FileCheck,
+    CheckCircle,
+    Trash2,
+    Pencil,
+    Loader2
+} from 'lucide-react'
 import { lpoService } from '@/services/pharmacy/lpoService'
-import { supabase } from '@/services/supabase'
-import { LPOWithRelations } from '@/types/pharmacy/procurementNew'
-import { FileText, Download, Search, Send, Clock, Plus, Upload, CheckCircle2 } from 'lucide-react'
-import { PurchaseOrderWithRelations } from '@/types/pharmacy'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui'
+import { orderTrackingService } from '@/services/pharmacy/orderTrackingService'
+import { extractLPODeliveryDate } from '@/utils/lpoDateExtractor'
 import { extractLPODataFromPDF } from '@/utils/pdfExtractor'
+import { useAuthStore } from '@/stores/authStore'
+import { useToast } from '@/stores/toastStore'
+import { PurchaseOrderWithRelations } from '@/types/pharmacy'
+import { LPOWithRelations } from '@/types/pharmacy/procurementNew'
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs'
+import { LPOComparisonModal } from '@/components/pharmacy/procurement/modals/LPOComparisonModal'
+import { BulkLPOUpload } from '@/components/pharmacy/procurement/BulkLPOUpload'
+import { POItemsModal } from '@/components/pharmacy/procurement/modals/POItemsModal'
 
-export default function LPOManagementPage() {
-    const [lpos, setLpos] = useState<LPOWithRelations[]>([])
-    const [pendingPOs, setPendingPOs] = useState<PurchaseOrderWithRelations[]>([])
-    const [isLoading, setIsLoading] = useState(true)
-    const [searchTerm, setSearchTerm] = useState('')
-    const { user } = useAuthStore()
-    const hospitalId = user?.hospital_id
-    const { success: showSuccess, error: showError } = useToastStore()
-    const [isSending, setIsSending] = useState(false)
-    const [showSendDialog, setShowSendDialog] = useState(false)
-    const [selectedLpo, setSelectedLpo] = useState<LPOWithRelations | null>(null)
-    const [activeTab, setActiveTab] = useState('pending-pos')
-    const [lpoDrafts, setLpoDrafts] = useState<Record<string, { lpo_number: string, document_date: string, file?: File, document_url?: string }>>({})
-    const [isProcessingBulk, setIsProcessingBulk] = useState(false)
-    const [page, setPage] = useState(1)
-    const [totalItems, setTotalItems] = useState(0)
-    const pageSize = 10
 
-    const handleDraftChange = async (poId: string, field: string, value: any) => {
-        setLpoDrafts(prev => ({
-            ...prev,
-            [poId]: {
-                ...(prev[poId] || { lpo_number: '', document_date: '' }),
-                [field]: value
+// Mock ConfirmationDialog prop fix for custom content
+// Since ConfirmationDialog content is typically text, we might need a custom modal or utilize 'children' if supported.
+// Looking at ConfirmationDialog.tsx, it supports 'children'.
+
+const VerificationDialog = ({
+    isOpen,
+    onClose,
+    onConfirm,
+    lpoNumber,
+    isLoading,
+    initialDate,
+    confidence = 0,
+    isValidDate = false
+}: {
+    isOpen: boolean
+    onClose: () => void
+    onConfirm: (date: string) => void
+    lpoNumber: string
+    isLoading: boolean
+    initialDate?: string
+    confidence?: number
+    isValidDate?: boolean
+}) => {
+    const [date, setDate] = useState(initialDate || '')
+
+    // Update local state if initialDate changes (e.g. after OCR finishes if dialog already open context)
+    useEffect(() => {
+        if (initialDate) setDate(initialDate)
+    }, [initialDate])
+
+    const handleSubmit = () => {
+        if (date) onConfirm(date)
+    }
+
+    // Determine confidence display
+    const getConfidenceDisplay = () => {
+        if (!initialDate || !isValidDate) {
+            return {
+                text: 'Not Detected',
+                className: 'text-red-600 bg-red-50 border-red-200',
+                icon: <AlertTriangle className="w-3 h-3" />
             }
-        }))
-
-        // Auto-save metadata change to Supabase (Draft)
-        if (field === 'lpo_number' || field === 'document_date') {
-            try {
-                const currentDraft = {
-                    ...(lpoDrafts[poId] || { lpo_number: '', document_date: '' }),
-                    [field]: value
-                }
-
-                if (currentDraft.lpo_number) {
-                    await lpoService.upsertLPODraft({
-                        po_id: poId,
-                        lpo_number: currentDraft.lpo_number,
-                        document_date: currentDraft.document_date || new Date().toISOString().split('T')[0],
-                        hospital_id: hospitalId!
-                    })
-                }
-            } catch (err) {
-                console.error('Failed to auto-save draft:', err)
+        }
+        if (confidence >= 70) {
+            return {
+                text: 'Auto-Detected',
+                className: 'text-green-600 bg-green-50 border-green-200',
+                icon: <CheckCircle2 className="w-3 h-3" />
             }
+        }
+        return {
+            text: 'Low Confidence',
+            className: 'text-amber-600 bg-amber-50 border-amber-200',
+            icon: <AlertTriangle className="w-3 h-3" />
         }
     }
 
-    const handleLocalPreview = (file: File) => {
-        const url = URL.createObjectURL(file);
-        window.open(url, '_blank');
-    };
+    const confidenceDisplay = getConfidenceDisplay()
+
+    return (
+        <ConfirmationDialog
+            isOpen={isOpen}
+            onConfirm={handleSubmit}
+            onClose={onClose}
+            title="Verify LPO & Start Tracking"
+            message={`Please confirm the 'Tarikh Serahan' (Delivery Date) for LPO #${lpoNumber}.`}
+            variant="info"
+            confirmText="Verify & Start Tracking"
+            isLoading={isLoading}
+        >
+            <div className="mt-4">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Tarikh Serahan (On or Before)
+                </label>
+                <div className="relative">
+                    <input
+                        type="date"
+                        required
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
+                    />
+                    <div className="absolute right-8 top-1/2 -translate-y-1/2">
+                        <span className={`text-xs px-1.5 py-0.5 rounded border flex items-center gap-1 ${confidenceDisplay.className}`}>
+                            {confidenceDisplay.icon} {confidenceDisplay.text}
+                        </span>
+                    </div>
+                </div>
+                {!initialDate || !isValidDate ? (
+                    <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" />
+                        Could not reliably detect date from document. Please enter manually.
+                    </p>
+                ) : confidence < 70 ? (
+                    <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" />
+                        Low OCR confidence ({Math.round(confidence)}%). Please verify the date is correct.
+                    </p>
+                ) : (
+                    <p className="text-xs text-slate-500 mt-2">
+                        We automatically scanned the document for this date. Please verify it is correct.
+                    </p>
+                )}
+            </div>
+        </ConfirmationDialog>
+    )
+}
+
+const RenameLPODialog = ({
+    isOpen,
+    onClose,
+    onConfirm,
+    lpoNumber,
+    isLoading
+}: {
+    isOpen: boolean
+    onClose: () => void
+    onConfirm: (newNumber: string) => void
+    lpoNumber: string
+    isLoading: boolean
+}) => {
+    const [newNumber, setNewNumber] = useState(lpoNumber)
 
     useEffect(() => {
-        loadData(page)
-    }, [hospitalId, page])
+        setNewNumber(lpoNumber)
+    }, [lpoNumber, isOpen])
 
-    const loadData = async (currentPage = page) => {
+    return (
+        <ConfirmationDialog
+            isOpen={isOpen}
+            onClose={onClose}
+            onConfirm={() => onConfirm(newNumber)}
+            title="Rename LPO"
+            message="Enter the correct LPO number below."
+            variant="info"
+            confirmText="Save Changes"
+            isLoading={isLoading}
+        >
+            <div className="mt-4">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                    LPO Number
+                </label>
+                <input
+                    type="text"
+                    required
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={newNumber}
+                    onChange={(e) => setNewNumber(e.target.value)}
+                    placeholder="e.g. LPO-123456"
+                />
+                <p className="text-xs text-slate-500 mt-2">
+                    This will update the LPO record.
+                </p>
+            </div>
+        </ConfirmationDialog>
+    )
+}
+
+export default function LPOManagementPage() {
+    const { user } = useAuthStore()
+    const { success, error: toastError } = useToast()
+
+    // State
+    const [activeTab, setActiveTab] = useState<'pending' | 'approved'>('pending')
+    const [isLoading, setIsLoading] = useState(true)
+    const [pendingPOs, setPendingPOs] = useState<PurchaseOrderWithRelations[]>([])
+    const [allPendingPOs, setAllPendingPOs] = useState<PurchaseOrderWithRelations[]>([])
+    const [totalPending, setTotalPending] = useState(0)
+
+    // Approved LPO State
+    const [approvedLPOs, setApprovedLPOs] = useState<LPOWithRelations[]>([])
+    const [totalApproved, setTotalApproved] = useState(0)
+    const [page, setPage] = useState(1)
+    const [pageSize, setPageSize] = useState(10)
+    const [pendingPage, setPendingPage] = useState(1)
+    const [pendingPageSize, setPendingPageSize] = useState(10)
+    const [approvedFilterStatus, setApprovedFilterStatus] = useState<'all' | 'verified' | 'unverified'>('all')
+    const [searchQuery, setSearchQuery] = useState('')
+    const [selectedPOForItems, setSelectedPOForItems] = useState<PurchaseOrderWithRelations | null>(null)
+
+    // Order Tracking Modal State
+    const [selectedLpoForSend, setSelectedLpoForSend] = useState<LPOWithRelations | null>(null)
+    const [isSending, setIsSending] = useState(false)
+    const [showSendDialog, setShowSendDialog] = useState(false)
+
+    // Verification Modal State
+    const [selectedLpoForVerify, setSelectedLpoForVerify] = useState<LPOWithRelations | null>(null)
+    const [showVerifyDialog, setShowVerifyDialog] = useState(false)
+    const [isVerifying, setIsVerifying] = useState(false)
+    const [isAnalyzing, setIsAnalyzing] = useState(false)
+
+    // Rename State
+    const [selectedLpoForRename, setSelectedLpoForRename] = useState<LPOWithRelations | null>(null)
+    const [showRenameDialog, setShowRenameDialog] = useState(false)
+    const [isRenaming, setIsRenaming] = useState(false)
+
+
+    const [detectedDate, setDetectedDate] = useState<string>('')
+    const [detectedConfidence, setDetectedConfidence] = useState<number>(0)
+    const [detectedIsValid, setDetectedIsValid] = useState<boolean>(false)
+    const [isSyncing, setIsSyncing] = useState(false)
+    const [isFixingDates, setIsFixingDates] = useState(false)
+
+    // Deletion State
+    const [selectedLpoForDelete, setSelectedLpoForDelete] = useState<LPOWithRelations | null>(null)
+    const [isDeleting, setIsDeleting] = useState(false)
+    const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+
+    // Comparison Modal State
+    const [comparisonData, setComparisonData] = useState<{ url: string; poId: string; lpoNumber: string } | null>(null)
+    const [showBulkUpload, setShowBulkUpload] = useState(false)
+
+    // Initial Data Fetch
+    useEffect(() => {
+        fetchData()
+    }, [user?.hospital_id, activeTab, page, pageSize, pendingPage, pendingPageSize, approvedFilterStatus])
+
+    // Search Debounce
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            fetchData()
+        }, 500)
+        return () => clearTimeout(timer)
+    }, [searchQuery])
+
+    const fetchData = async () => {
+        if (!user?.hospital_id) return
+
+        setIsLoading(true)
         try {
-            if (!hospitalId) return
-            setIsLoading(true)
-            const [lpoData, poData] = await Promise.all([
-                lpoService.getAllLPOs(hospitalId),
-                lpoService.getPendingPOs(hospitalId, currentPage, pageSize)
-            ])
-            setLpos(lpoData)
-            setPendingPOs(poData.data)
-            setTotalItems(poData.total)
+            // Fetch based on active tab to optimize
+            if (activeTab === 'pending') {
+                const pendingRes = await lpoService.getPendingLPOs(user.hospital_id, pendingPage, pendingPageSize, searchQuery)
+                setPendingPOs(pendingRes.data)
+                setTotalPending(pendingRes.total)
 
-            // Populate drafts from database
-            const newDrafts: Record<string, any> = {}
-            poData.data.forEach(po => {
-                const lpo = Array.isArray((po as any).lpo) ? (po as any).lpo[0] : (po as any).lpo
-                if (lpo) {
-                    newDrafts[po.id] = {
-                        lpo_number: lpo.lpo_number,
-                        document_date: lpo.document_date,
-                        document_url: lpo.document_url
-                    }
-                }
-            })
-            setLpoDrafts(prev => ({ ...prev, ...newDrafts }))
-        } catch (error) {
-            console.error('Error loading LPO data:', error)
+                // For bulk upload matching, we need a larger set of pending POs
+                const allPendingRes = await lpoService.getPendingLPOs(user.hospital_id, 1, 2000)
+                setAllPendingPOs(allPendingRes.data)
+
+                // Also update approved count for KPI correctness (light fetch)
+                const approvedRes = await lpoService.getApprovedLPOs(user.hospital_id, 1, 1)
+                setTotalApproved(approvedRes.total)
+            } else {
+                const approvedRes = await lpoService.getApprovedLPOs(
+                    user.hospital_id,
+                    page,
+                    pageSize,
+                    approvedFilterStatus,
+                    searchQuery
+                )
+                setApprovedLPOs(approvedRes.data)
+                setTotalApproved(approvedRes.total)
+
+                // Update pending count for KPI
+                const pendingRes = await lpoService.getPendingLPOs(user.hospital_id, 1, 1000)
+                setTotalPending(pendingRes.total)
+            }
+        } catch (err) {
+            console.error('Error fetching LPO data:', err)
+            toastError('Failed to load LPO data')
         } finally {
             setIsLoading(false)
         }
     }
 
-    const handleGeneratePdf = async (lpoId: string) => {
-        // Logic to open generation modal or trigger generation
-        console.log('Generate PDF for', lpoId)
-        // For now just navigate to a detail/preview page or open modal
+    const handleSearchChange = (val: string) => {
+        setSearchQuery(val)
+        setPage(1) // Reset page on search
+        setPendingPage(1)
     }
 
-    const sortPONumbers = (a: string, b: string) => {
-        if (!a || !b) return 0
-        const partsA = a.split('-')
-        const partsB = b.split('-')
-
-        // Handle PO-2026-0001 format
-        if (partsA.length === 3 && partsB.length === 3) {
-            // Compare years first
-            if (partsA[1] !== partsB[1]) return partsB[1].localeCompare(partsA[1])
-            // Compare sequence numerically
-            return partsA[2].localeCompare(partsB[2])
-        }
-        return a.localeCompare(b)
+    const handleFilterChange = (val: string) => {
+        setApprovedFilterStatus(val as any)
+        setPage(1)
+        setPendingPage(1)
     }
 
-    const filteredLpos = lpos
-        .filter(lpo =>
-            lpo.lpo_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            lpo.purchase_order?.po_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            lpo.purchase_order?.supplier?.company_name.toLowerCase().includes(searchTerm.toLowerCase()) || ''
-        )
-        .sort((a, b) => sortPONumbers(a.purchase_order?.po_number || '', b.purchase_order?.po_number || ''))
+    // Handle LPO Verification (Trigger Tracking)
+    const handleVerifyClick = async (lpo: LPOWithRelations) => {
+        // Automatic Verification if date exists
+        if (lpo.document_url && (lpo.document_date || lpo.created_at)) {
+            // Use existing date (prioritize document_date, else created_at as fallback/safety though logic uses doc_date usually)
+            // Actually, if we have document_date, we just send. The service will pick it up.
 
-    const filteredPendingPOs = pendingPOs
-        .filter(po =>
-            po.po_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            po.supplier?.company_name.toLowerCase().includes(searchTerm.toLowerCase()) || ''
-        )
-        .sort((a, b) => sortPONumbers(a.po_number, b.po_number))
-
-    const getStatusBadge = (status: string) => {
-        switch (status) {
-            case 'generated': return <Badge variant="success">Generated</Badge>
-            case 'uploaded': return <Badge variant="info">Uploaded</Badge>
-            case 'draft': return <Badge variant="gray">Draft</Badge>
-            default: return <Badge variant="gray">{status}</Badge>
-        }
-    }
-
-    const onSendClick = (lpo: LPOWithRelations) => {
-        setSelectedLpo(lpo)
-        setShowSendDialog(true)
-    }
-
-    const handleSendToSupplier = async () => {
-        if (!selectedLpo) return
-
-        try {
-            setIsSending(true)
-            await lpoService.sendLPO(selectedLpo.id)
-            showSuccess('LPO Sent', 'The LPO has been sent to the supplier and tracking has been initialized.')
-            setShowSendDialog(false)
-            loadData() // Refresh list
-        } catch (error) {
-            console.error('Error sending LPO:', error)
-            showError('Error', 'Failed to send LPO')
-        } finally {
-            setIsSending(false)
-            setSelectedLpo(null)
-        }
-    }
-
-    const formatDate = (dateString: string) => {
-        if (!dateString) return 'N/A'
-        return new Date(dateString).toLocaleDateString('en-GB')
-    }
-
-    const handleBulkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = e.target.files
-        if (!files || files.length === 0 || !pendingPOs.length) return
-
-        try {
-            setIsProcessingBulk(true)
-            let matchedCount = 0
-            const usedPoIds = new Set<string>()
-
-            // Fetch a larger set of pending POs for matching (avoid pagination limits)
-            const { data: allPending } = await lpoService.getPendingPOs(hospitalId!, 1, 100);
-            const matchingPool = allPending || [];
-
-            // 1. Fetch missing names for the matching pool (Solve NO_NAME issue)
-            const poItemsToFetch = matchingPool.flatMap(po => (po as any).items || []);
-            const drugIds = [...new Set(poItemsToFetch.filter((it: any) => it.item_type === 'drug' && it.item_id && !it.item_name).map((it: any) => it.item_id))];
-            const nonDrugIds = [...new Set(poItemsToFetch.filter((it: any) => it.item_type === 'non_drug' && it.item_id && !it.item_name).map((it: any) => it.item_id))];
-
-            const [drugsData, nonDrugsData] = await Promise.all([
-                drugIds.length > 0 ? supabase.from('drugs').select('id, drug_name').in('id', drugIds) : { data: [] },
-                nonDrugIds.length > 0 ? supabase.from('non_drugs').select('id, item_name').in('id', nonDrugIds) : { data: [] }
-            ]);
-
-            const drugNameMap = new Map((drugsData.data || []).map((d: any) => [d.id, d.drug_name]));
-            const nonDrugNameMap = new Map((nonDrugsData.data || []).map((nd: any) => [nd.id, nd.item_name]));
-
-            // DIAGNOSTIC: Fetch ALL POs to see why some are missing from the matchingPool
-            const { data: allEver } = await supabase
-                .from('pharmacy_purchase_orders')
-                .select('po_number, status, total_amount, lpo:pharmacy_lpo(status)')
-                .eq('hospital_id', hospitalId);
-
-            console.log('[DEEP-DIAGNOSTIC] All POs in DB (Count: ' + (allEver?.length || 0) + '):');
-            allEver?.forEach(p => {
-                const lpoStatus = Array.isArray(p.lpo) ? p.lpo[0]?.status : (p.lpo as any)?.status || 'NONE';
-                console.log(`- ${p.po_number}: PO=${p.status}, LPO=${lpoStatus}, Amt=$${p.total_amount}`);
-            });
-
-            console.log('Bulk processing started for', files.length, 'files');
-            console.log('[MATCHING-V2] Total POs available in pool:', matchingPool.length);
-            matchingPool.forEach((po) => {
-                const items = (po as any).items || [];
-                const names = items.map((it: any) => {
-                    if (it.item_name) return it.item_name;
-                    if (it.item_type === 'drug') return drugNameMap.get(it.item_id) || 'UNKNOWN_DRUG';
-                    if (it.item_type === 'non_drug') return nonDrugNameMap.get(it.item_id) || 'UNKNOWN_NON_DRUG';
-                    return 'NO_NAME';
-                }).join(', ');
-                console.log(`[Diagnostic] PO ${po.po_number}: $${po.total_amount || 0}, Items: ${names}`);
-            });
-            console.log('-------------------------------------------');
-
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i]
+            if (confirm(`Verify LPO ${lpo.lpo_number} and start tracking? \n(Using Document Date: ${lpo.document_date || 'Today'})`)) {
+                setIsVerifying(true)
                 try {
-                    const extracted = await extractLPODataFromPDF(file)
-                    console.log(`[Matching] Processing ${file.name}:`, extracted);
-
-                    let bestMatchPoId = ''
-                    let bestScore = 0
-
-                    matchingPool.forEach(po => {
-                        // Skip if this PO was already perfectly matched by a previous file in this loop
-                        if (usedPoIds.has(po.id)) return
-
-                        let score = 0
-                        const details: string[] = []
-
-                        // ... (poHint logic remains) ...
-                        if (extracted.poHint) {
-                            const poNum = po.po_number.toUpperCase()
-                            const hint = extracted.poHint.toUpperCase()
-
-                            if (poNum.includes(hint) || hint.includes(poNum)) {
-                                score += 100
-                                details.push('Direct PO Match (+100)')
-                            }
-                        }
-
-                        // 0.1 Numeric Stem Match
-                        const poNumericStem = po.po_number.split('-').pop(); // e.g., "0033" from "PO-2026-0033"
-                        if (poNumericStem) {
-                            const lpoNum = extracted.lpoNumber || '';
-                            const poHint = extracted.poHint || '';
-                            const stemRegex = new RegExp(`(?<!\\d)${poNumericStem}(?!\\d)`);
-
-                            if (stemRegex.test(lpoNum) || stemRegex.test(poHint)) {
-                                if (!details.some(d => d.includes('Direct PO Match'))) {
-                                    score += 40
-                                    details.push('Numeric Stem Match (+40)')
-                                }
-                            }
-                        }
-
-                        // 1. Match by Supplier Name
-                        const normalizeSupplier = (name: string) => {
-                            return (name || '').toLowerCase()
-                                .replace(/\b(sdn|bhd|corp|inc|limited|ltd|co|enterprise|trading|resources|global)\b/g, '')
-                                .replace(/[^\w\s]/g, '')
-                                .trim();
-                        }
-
-                        const poSupplierRaw = po.supplier?.company_name || po.manual_supplier_name || ''
-                        const poSupplierNormalized = normalizeSupplier(poSupplierRaw)
-                        const extractedSupplierNormalized = normalizeSupplier(extracted.supplierHint || '')
-
-                        if (poSupplierNormalized && extractedSupplierNormalized) {
-                            const poTokens = poSupplierNormalized.split(/\s+/).filter(t => t.length > 2)
-                            const extTokens = extractedSupplierNormalized.split(/\s+/).filter(t => t.length > 2)
-
-                            const hasOverlap = poTokens.some(pt => extTokens.includes(pt)) || extTokens.some(et => poTokens.includes(et))
-
-                            if (poSupplierNormalized.includes(extractedSupplierNormalized) || extractedSupplierNormalized.includes(poSupplierNormalized) || hasOverlap) {
-                                score += 60
-                                details.push('Supplier Match (+60)')
-                            }
-                        }
-
-                        // 2. Match by Total Amount with Tolerance
-                        const poAmount = po.total_amount || 0
-                        const diff = Math.abs((extracted.totalAmount || 0) - poAmount);
-                        if (extracted.totalAmount && diff < 0.101) {
-                            score += 80 // Increased from 60
-                            details.push('Amount Match (+80)')
-                        } else if (extracted.totalAmount && diff > (poAmount * 0.05 + 1)) {
-                            // Significant amount mismatch penalty
-                            score -= 100
-                            details.push(`Amount Mismatch (${diff.toFixed(2)}, -100)`)
-                        }
-
-                        // 3. Match by Partial PO Number (Suffix/Stem match)
-                        const poNumberDigits = po.po_number.replace(/\D/g, '')
-                        const extractedLPONumberDigits = (extracted.lpoNumber || '').replace(/\D/g, '')
-                        const poSuffix = poNumberDigits.slice(-4)
-
-                        if (extractedLPONumberDigits.includes(poSuffix)) {
-                            score += 50
-                            details.push(`PO Suffix Match (${poSuffix}, +50)`)
-                        }
-
-                        // 4. Match by Item Names (Tokenized)
-                        if (extracted.itemHints && extracted.itemHints.length > 0) {
-                            const poItems = (po as any).items || []
-                            let itemMatches = 0
-
-                            poItems.forEach((item: any) => {
-                                const itemName = (
-                                    item.item_name ||
-                                    drugNameMap.get(item.item_id) ||
-                                    nonDrugNameMap.get(item.item_id) ||
-                                    ''
-                                ).toLowerCase()
-
-                                if (!itemName) return
-
-                                // Relaxed token length to 3
-                                const poItemTokens = itemName.split(/\s+/).filter((t: string) => t.length >= 3)
-
-                                const isMatched = extracted.itemHints?.some(hint => {
-                                    const h = hint.toLowerCase()
-                                    if (h.includes(itemName) || itemName.includes(h)) return true
-
-                                    // Complex token matching (must match at least 2 tokens if total tokens > 2)
-                                    if (poItemTokens.length >= 2) {
-                                        const matches = poItemTokens.filter(pt => h.includes(pt)).length
-                                        return matches >= Math.min(2, poItemTokens.length)
-                                    }
-
-                                    return poItemTokens.some((pt: string) => h.includes(pt))
-                                })
-
-                                if (isMatched) {
-                                    itemMatches++
-                                }
-                            })
-
-                            if (itemMatches > 0) {
-                                const itemScore = Math.min(itemMatches * 25, 100)
-                                score += itemScore
-                                details.push(`Items Match (${itemMatches} items, +${itemScore})`)
-                            }
-                        }
-
-                        // TRACE: specifically for $18 or PO-0015
-                        if (extracted.totalAmount === 18 || po.po_number.includes('0015')) {
-                            console.log(`[TRACE-0015] Checking PO ${po.po_number} ($${po.total_amount}) vs $18 Extracted. Score: ${score}. Details: ${details.join(', ')}`);
-                        }
-
-                        if (score >= 100) {
-                            console.log(`[Matching] HIGH CONFIDENCE: PO ${po.po_number} for ${file.name} - Score: ${score} - ${details.join(', ')}`);
-                        } else if (score > 40) {
-                            console.log(`[Matching] Match: PO ${po.po_number} for ${file.name} - Score: ${score} - ${details.join(', ')}`);
-                        }
-
-                        if (score > bestScore) {
-                            bestScore = score
-                            bestMatchPoId = po.id
-                        }
-                    })
-
-                    console.log(`[Matching] Best match for ${file.name}: PO ID ${bestMatchPoId}, Score ${bestScore}`);
-
-                    if (bestMatchPoId && bestScore >= 40) { // Lowered threshold slightly for tokenized matches
-                        usedPoIds.add(bestMatchPoId)
-
-                        const updatedMeta = {
-                            lpo_number: extracted.lpoNumber || lpoDrafts[bestMatchPoId]?.lpo_number || '',
-                            document_date: extracted.lpoDate || lpoDrafts[bestMatchPoId]?.document_date || '',
-                            file: file
-                        }
-
-                        setLpoDrafts(prev => ({
-                            ...prev,
-                            [bestMatchPoId]: updatedMeta
-                        }))
-
-                        matchedCount++
-
-                        // Save to Supabase immediately (Draft)
-                        if (updatedMeta.lpo_number) {
-                            try {
-                                const lpoRecord = await lpoService.upsertLPODraft({
-                                    po_id: bestMatchPoId,
-                                    lpo_number: updatedMeta.lpo_number,
-                                    document_date: updatedMeta.document_date || new Date().toISOString().split('T')[0],
-                                    hospital_id: hospitalId!
-                                })
-                                // Upload file as well
-                                await lpoService.uploadLPODocument(lpoRecord.id, file)
-                                console.log(`[Matching] Saved and uploaded draft for PO ${bestMatchPoId}`);
-                            } catch (err) {
-                                console.error(`[Matching] Failed to save draft for PO ${bestMatchPoId}:`, err);
-                            }
-                        }
-                    }
+                    await lpoService.sendLPO(lpo.id)
+                    success('LPO verified successfully. Order tracking started.')
+                    fetchData()
                 } catch (err) {
-                    console.error(`Failed to process ${file.name}:`, err)
+                    console.error('Error verifying LPO:', err)
+                    toastError('Failed to verify LPO')
+                } finally {
+                    setIsVerifying(false)
                 }
             }
-
-            loadData() // Refresh to sync everything from DB
-
-            if (matchedCount > 0) {
-                showSuccess('Bulk Detect Success', `Automatically matched ${matchedCount} documents to pending orders. Check the table below.`)
-            } else {
-                showSuccess('Process Complete', 'Documents processed, but no clear matches found. You may need to assign them manually.')
-            }
-        } catch (error) {
-            showError('Bulk Error', 'Failed to process some files')
-        } finally {
-            setIsProcessingBulk(false)
-        }
-    }
-
-    const handleProcessAllMatched = async () => {
-        const matchedIds = Object.keys(lpoDrafts).filter(id => lpoDrafts[id].lpo_number && (lpoDrafts[id].file || lpoDrafts[id].document_url))
-        if (matchedIds.length === 0) {
-            showError('No Matched Files', 'Please upload and match PDFs first.')
             return
         }
 
-        try {
-            setIsLoading(true)
-            let successCount = 0
-            console.log(`Bulk processing ${matchedIds.length} matched LPOs...`);
+        // Fallback to manual dialog if something is weird
+        setSelectedLpoForVerify(lpo)
+        setDetectedDate('') // Reset
+        setDetectedConfidence(0)
+        setDetectedIsValid(false)
 
-            for (const poId of matchedIds) {
-                const draft = lpoDrafts[poId]
-                const po = pendingPOs.find(p => p.id === poId)
-                if (!draft || !po) continue
+        // Start Analysis
+        if (lpo.document_url) {
+            setIsAnalyzing(true)
+            success('Scanning LPO document for delivery date...')
 
-                try {
-                    let currentLpoId = ''
-                    const existingLpo = Array.isArray((po as any).lpo) ? (po as any).lpo[0] : (po as any).lpo
-
-                    if (existingLpo) {
-                        currentLpoId = existingLpo.id
-                    } else {
-                        // 1. Create LPO
-                        const lpo = await lpoService.createLPO({
-                            po_id: poId,
-                            lpo_number: draft.lpo_number,
-                            document_date: draft.document_date || new Date().toISOString().split('T')[0],
-                            hospital_id: hospitalId!
-                        })
-                        currentLpoId = lpo.id
-                    }
-
-                    // 2. Upload Document if local file exists
-                    if (draft.file) {
-                        await lpoService.uploadLPODocument(currentLpoId, draft.file)
-                    }
-
-                    // 3. Send (Initialize Tracking)
-                    await lpoService.sendLPO(currentLpoId)
-
-                    // Clear this draft from state
-                    setLpoDrafts(prev => {
-                        const { [poId]: _, ...rest } = prev
-                        return rest
-                    })
-                    successCount++
-                } catch (err) {
-                    console.error(`Failed to process PO ${po.po_number}:`, err)
+            try {
+                const result = await extractLPODeliveryDate(lpo.document_url)
+                if (result.date && result.isValid) {
+                    setDetectedDate(result.date)
+                    setDetectedConfidence(result.confidence)
+                    setDetectedIsValid(result.isValid)
+                    success(`Date detected with ${Math.round(result.confidence)}% confidence`)
+                } else {
+                    // No valid date found - will show warning in dialog
+                    setDetectedConfidence(result.confidence)
+                    setDetectedIsValid(false)
                 }
+            } catch (e) {
+                console.error("OCR Failed", e)
+            } finally {
+                setIsAnalyzing(false)
             }
+        }
 
-            showSuccess('Bulk Processing Complete', `Successfully processed ${successCount} LPOs.`)
-            loadData()
-        } catch (error) {
-            console.error('Bulk processing error:', error)
-            showError('Error', 'Bulk processing failed')
+        setShowVerifyDialog(true)
+    }
+
+    const handleConfirmVerify = async (date: string) => {
+        if (!selectedLpoForVerify) return
+
+        setIsVerifying(true)
+        try {
+            await lpoService.sendLPO(selectedLpoForVerify.id, date)
+            success('LPO verified successfully. Order tracking started.')
+            setShowVerifyDialog(false)
+            fetchData()
+        } catch (err) {
+            console.error('Error verifying LPO:', err)
+            toastError('Failed to verify LPO')
         } finally {
-            setIsLoading(false)
+            setIsVerifying(false)
+            setSelectedLpoForVerify(null)
         }
     }
 
+    const handleRenameClick = (lpo: LPOWithRelations) => {
+        setSelectedLpoForRename(lpo)
+        setShowRenameDialog(true)
+    }
+
+    const handleConfirmRename = async (newNumber: string) => {
+        if (!selectedLpoForRename) return
+        if (!newNumber.trim()) {
+            toastError("LPO Number cannot be empty")
+            return
+        }
+
+        setIsRenaming(true)
+        try {
+            await lpoService.renameLPO(selectedLpoForRename.id, newNumber.trim())
+            success('LPO renamed successfully')
+            setShowRenameDialog(false)
+            fetchData()
+        } catch (err: any) {
+            console.error('Error renaming LPO:', err)
+            toastError(err.message || 'Failed to rename LPO')
+        } finally {
+            setIsRenaming(false)
+            setSelectedLpoForRename(null)
+        }
+    }
+
+    // Initialize send (not used in new flow but kept for manual triggering if needed)
+    const handleSendToSupplier = async () => {
+        if (!selectedLpoForSend) return
+        setIsSending(true)
+        try {
+            await lpoService.sendLPO(selectedLpoForSend.id)
+            success('LPO sent to supplier successfully')
+            setShowSendDialog(false)
+            fetchData()
+        } catch (err) {
+            console.error('Error sending LPO:', err)
+            toastError('Failed to send LPO')
+        } finally {
+            setIsSending(false)
+            setSelectedLpoForSend(null)
+        }
+    }
+
+    // Handle LPO Deletion (Reset)
+    const handleDeleteLPO = async () => {
+        if (!selectedLpoForDelete) return
+        setIsDeleting(true)
+        try {
+            await lpoService.deleteLPO(selectedLpoForDelete.id)
+            success('LPO removed successfully. PO is now pending again.')
+            setShowDeleteDialog(false)
+            fetchData()
+            fetchData()
+        } catch (err: any) {
+            console.error('Error deleting LPO:', err)
+            toastError(`Failed to remove LPO: ${err.message || 'Unknown error'}`)
+
+        }
+    }
+
+    // Batch Date Sync for Existing LPOs
+    const handleSyncDates = async () => {
+        if (!confirm('This will scan all verified LPOs and update their "Est. Delivery" date based on the document. Continue?')) return
+
+        setIsSyncing(true)
+        let updatedCount = 0
+
+        try {
+            for (const lpo of approvedLPOs) {
+                if (lpo.document_url) {
+                    try {
+                        const { date, rawText } = await extractLPODeliveryDate(lpo.document_url)
+                        if (date) {
+                            await orderTrackingService.updateDeliveryDate(lpo.id, date)
+                            updatedCount++
+                            console.log(`Synced LPO ${lpo.lpo_number}: ${date}`)
+                        } else {
+                            console.log(`No date found for LPO ${lpo.lpo_number}. Raw text snapshot: ${rawText.substring(0, 50)}...`)
+                        }
+                    } catch (e) {
+                        console.error(`Failed to sync date for LPO ${lpo.lpo_number}`, e)
+                    }
+                }
+            }
+
+            if (updatedCount > 0) {
+                success(`Successfully synced dates for ${updatedCount} LPOs.`)
+            } else {
+                toastError('No dates could be extracted. Please check the console for details.')
+            }
+
+            fetchData()
+        } catch (e) {
+            console.error('Batch sync failed', e)
+            toastError('Failed to complete batch sync')
+        } finally {
+            setIsSyncing(false)
+        }
+    }
+
+    // Fix Document Dates - Extracts "Tarikh Dokumen" from PDFs and updates database
+    const handleFixDocumentDates = async () => {
+        if (!confirm('This will scan ALL LPO documents and update the "LPO Date" (Tarikh Dokumen) field based on the actual PDF content. This may take a while. Continue?')) return
+
+        setIsFixingDates(true)
+        let updatedCount = 0
+        let failedCount = 0
+        let processedCount = 0
+
+        try {
+            success('Fetching all verified LPOs...')
+            // Fetch ALL approved LPOs for processing (limit 2000 to be safe)
+            const allLPOsResponse = await lpoService.getApprovedLPOs(
+                user?.hospital_id || '',
+                1,
+                2000,
+                'all'
+            )
+            const paramsLPOs = allLPOsResponse.data
+
+            const totalToProcess = paramsLPOs.length
+            console.log(`Starting batch fix for ${totalToProcess} LPOs...`)
+
+            for (const lpo of paramsLPOs) {
+                processedCount++
+
+                if (!lpo.document_url) {
+                    console.log(`Skipping LPO ${lpo.lpo_number}: No document URL`)
+                    continue
+                }
+
+                try {
+                    // Download PDF and extract data
+                    const response = await fetch(lpo.document_url)
+                    const blob = await response.blob()
+                    const file = new File([blob], `${lpo.lpo_number}.pdf`, { type: 'application/pdf' })
+
+                    const extractedData = await extractLPODataFromPDF(file)
+
+                    if (extractedData.lpoDate) {
+                        // Update document_date in database
+                        await lpoService.updateLPO(lpo.id, { document_date: extractedData.lpoDate })
+                        updatedCount++
+                        console.log(`[${processedCount}/${totalToProcess}] ✓ Fixed LPO ${lpo.lpo_number}: ${lpo.document_date || 'N/A'} → ${extractedData.lpoDate}`)
+                    } else {
+                        failedCount++
+                        console.warn(`[${processedCount}/${totalToProcess}] ✗ No "Tarikh Dokumen" found in LPO ${lpo.lpo_number}`)
+                    }
+                } catch (e) {
+                    failedCount++
+                    console.error(`[${processedCount}/${totalToProcess}] ✗ Failed to process LPO ${lpo.lpo_number}:`, e)
+                }
+            }
+
+            if (updatedCount > 0) {
+                success(`Successfully fixed dates for ${updatedCount} LPOs. ${failedCount > 0 ? `${failedCount} failed.` : ''}`)
+            } else {
+                toastError(`No dates could be extracted. ${failedCount} LPOs failed.`)
+            }
+
+            fetchData() // Refresh view
+        } catch (e) {
+            console.error('Batch date fix failed:', e)
+            toastError('Failed to complete batch date fix')
+        } finally {
+            setIsFixingDates(false)
+        }
+    }
+
+    // Handle View Comparison
+
+
+    const handleViewComparison = (lpo: LPOWithRelations) => {
+        if (!lpo.document_url) {
+            toastError('Document URL is missing')
+            return
+        }
+        setComparisonData({
+            url: lpo.document_url,
+            poId: lpo.po_id,
+            lpoNumber: lpo.lpo_number
+        })
+    }
+
+    // Filter Logic
+    const filteredPending = pendingPOs
+
+    // Approved LPOs are filtered on server-side now
+    const filteredApproved = approvedLPOs
+
+    if (showBulkUpload) {
+        return (
+            <FinancialPageLayout
+                title="Bulk LPO Upload"
+                description="Process multiple LPO documents and match them to purchase orders."
+                breadcrumbs={[
+                    { label: 'Procurement', href: '/pharmacy/procurement' },
+                    { label: 'LPO Management', onClick: () => setShowBulkUpload(false) },
+                    { label: 'Bulk Upload' }
+                ]}
+            >
+                <BulkLPOUpload
+                    pendingPOs={allPendingPOs}
+                    onComplete={() => {
+                        setShowBulkUpload(false)
+                        fetchData()
+                        success('Bulk upload processing complete')
+                    }}
+                    onClose={() => setShowBulkUpload(false)}
+                />
+            </FinancialPageLayout>
+        )
+    }
+
     return (
-        <div className="space-y-6 pt-6 pb-12">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">Letter of Purchase Order (LPO)</h1>
-                    <p className="text-slate-500">Manage and track government LPO documents</p>
-                </div>
-            </div>
-
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="mb-4">
-                    <TabsTrigger value="all-lpos" className="flex items-center gap-2">
-                        <FileText className="w-4 h-4" />
-                        All LPOs
-                    </TabsTrigger>
-                    <TabsTrigger value="pending-pos" className="flex items-center gap-2">
-                        <Clock className="w-4 h-4" />
-                        Pending POs
-                        {totalItems > 0 && (
-                            <Badge variant="primary" className="ml-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px]">
-                                {totalItems}
-                            </Badge>
-                        )}
-                    </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="all-lpos">
-                    <Card>
-                        <CardHeader className="pb-3">
-                            <div className="flex items-center justify-between">
-                                <CardTitle>Recent LPOs</CardTitle>
-                                <div className="relative w-64">
-                                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
-                                    <Input
-                                        placeholder="Search LPO, PO or Supplier..."
-                                        className="pl-8"
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                    />
-                                </div>
+        <FinancialPageLayout
+            title="Letter of Purchase Order (LPO)"
+            description="Manage and track government LPO documents and supplier issuances."
+            breadcrumbs={[
+                { label: 'Procurement', href: '/pharmacy/procurement' },
+                { label: 'LPO Management' }
+            ]}
+        >
+            <div className="space-y-6">
+                {/* KPI Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <Card className="p-6 bg-gradient-to-br from-blue-500 to-blue-600 text-white border-none shadow-lg relative overflow-hidden group">
+                        <div className="absolute right-0 top-0 opacity-10 transform translate-x-1/4 -translate-y-1/4 group-hover:scale-110 transition-transform duration-500">
+                            <FileText size={120} />
+                        </div>
+                        <div className="relative z-10">
+                            <p className="text-blue-100 font-medium mb-1">Total Regular POs</p>
+                            <h3 className="text-4xl font-bold">{totalApproved + totalPending}</h3>
+                            <div className="mt-4 flex items-center gap-2 text-sm bg-white/20 w-fit px-2 py-1 rounded-lg backdrop-blur-sm">
+                                <FileText className="w-4 h-4" />
+                                <span>Excl. Stock Quotations</span>
                             </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="rounded-md border">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>LPO Number</TableHead>
-                                            <TableHead>LPO Date</TableHead>
-                                            <TableHead>PO Reference</TableHead>
-                                            <TableHead>Supplier</TableHead>
-                                            <TableHead>Status</TableHead>
-                                            <TableHead className="text-center">LPO Document</TableHead>
-                                            <TableHead className="text-right">Actions</TableHead>
-                                            <TableHead className="text-right">Send to Supplier</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {isLoading ? (
-                                            <TableRow>
-                                                <TableCell colSpan={6} className="h-24 text-center">Loading...</TableCell>
-                                            </TableRow>
-                                        ) : filteredLpos.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={6} className="h-24 text-center text-slate-500">
-                                                    No LPOs found
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            filteredLpos.map((lpo) => (
-                                                <TableRow key={lpo.id}>
-                                                    <TableCell className="font-medium text-blue-600">{lpo.lpo_number}</TableCell>
-                                                    <TableCell>{formatDate(lpo.document_date)}</TableCell>
-                                                    <TableCell className="font-medium text-slate-700">{lpo.purchase_order?.po_number}</TableCell>
-                                                    <TableCell>{lpo.purchase_order?.supplier?.company_name}</TableCell>
-                                                    <TableCell>{getStatusBadge(lpo.status)}</TableCell>
-                                                    <TableCell className="text-center">
-                                                        <div className="flex justify-center gap-2">
-                                                            {lpo.document_url ? (
-                                                                <Button variant="ghost" size="sm" asChild className="text-blue-600">
-                                                                    <a href={lpo.document_url} target="_blank" rel="noopener noreferrer">
-                                                                        <Download className="w-4 h-4 mr-1" /> View doc
-                                                                    </a>
-                                                                </Button>
-                                                            ) : (
-                                                                <div className="flex flex-col items-center gap-1">
-                                                                    <span className="text-[10px] text-red-500 font-bold uppercase">No Document</span>
-                                                                    <label className="cursor-pointer">
-                                                                        <Input
-                                                                            type="file"
-                                                                            className="hidden"
-                                                                            accept=".pdf"
-                                                                            onChange={(e) => {
-                                                                                const file = e.target.files?.[0]
-                                                                                if (file) {
-                                                                                    lpoService.uploadLPODocument(lpo.id, file)
-                                                                                        .then(() => loadData())
-                                                                                        .catch(err => showError('Upload failed', err.message))
-                                                                                }
-                                                                            }}
-                                                                        />
-                                                                        <div className="flex items-center gap-1 text-[10px] bg-slate-100 px-2 py-1 rounded border border-slate-200 hover:bg-slate-200 transition-colors">
-                                                                            <Plus className="w-3 h-3" /> Upload PDF
-                                                                        </div>
-                                                                    </label>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                        <div className="flex justify-end gap-2">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => handleGeneratePdf(lpo.id)}
-                                                                title="Generate LPO PDF"
-                                                            >
-                                                                <FileText className="w-4 h-4" />
-                                                            </Button>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                        <Button
-                                                            variant="default"
-                                                            size="sm"
-                                                            disabled={!lpo.lpo_number || !lpo.document_date || !lpo.document_url}
-                                                            onClick={() => onSendClick(lpo)}
-                                                            className={`
-                                                                ${(!lpo.lpo_number || !lpo.document_date || !lpo.document_url)
-                                                                    ? 'bg-slate-100 text-slate-400'
-                                                                    : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
-                                                                } transition-all duration-200
-                                                            `}
-                                                            title={(!lpo.lpo_number || !lpo.document_date || !lpo.document_url) ? "Missing LPO details or document" : "Send to Order Tracking"}
-                                                        >
-                                                            <Send className="w-4 h-4 mr-1" />
-                                                            Send
-                                                        </Button>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        </CardContent>
+                        </div>
                     </Card>
-                </TabsContent>
 
-                <TabsContent value="pending-pos">
-                    <Card>
-                        <CardHeader className="pb-3">
-                            <div className="flex items-center justify-between">
-                                <CardTitle>Approved POs Awaiting LPO</CardTitle>
-                                <div className="flex items-center gap-3">
-                                    <div className="flex items-center gap-2">
-                                        <label className="cursor-pointer">
-                                            <Input
-                                                type="file"
-                                                className="hidden"
-                                                multiple
-                                                accept=".pdf"
-                                                onChange={handleBulkUpload}
-                                            />
-                                            <Button variant="outline" size="sm" asChild className="border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100" disabled={isProcessingBulk || totalItems === 0}>
-                                                <span>
-                                                    <Upload className="w-4 h-4 mr-2" />
-                                                    {isProcessingBulk ? 'Processing...' : 'Bulk Upload & Detect'}
-                                                </span>
-                                            </Button>
-                                        </label>
-
-                                        {Object.keys(lpoDrafts).some(id => lpoDrafts[id].lpo_number && (lpoDrafts[id].file || lpoDrafts[id].document_url)) && (
-                                            <Button
-                                                onClick={handleProcessAllMatched}
-                                                className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-300 h-9"
-                                                size="sm"
-                                            >
-                                                <CheckCircle2 className="w-4 h-4" />
-                                                Process All ({Object.keys(lpoDrafts).filter(id => lpoDrafts[id].lpo_number && (lpoDrafts[id].file || lpoDrafts[id].document_url)).length})
-                                            </Button>
-                                        )}
-                                    </div>
-                                    <div className="relative w-64">
-                                        <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
-                                        <Input
-                                            placeholder="Search PO or Supplier..."
-                                            className="pl-8"
-                                            value={searchTerm}
-                                            onChange={(e) => setSearchTerm(e.target.value)}
-                                        />
-                                    </div>
-                                </div>
+                    <Card className="p-6 bg-gradient-to-br from-amber-500 to-amber-600 text-white border-none shadow-lg relative overflow-hidden group">
+                        <div className="absolute right-0 top-0 opacity-10 transform translate-x-1/4 -translate-y-1/4 group-hover:scale-110 transition-transform duration-500">
+                            <Clock size={120} />
+                        </div>
+                        <div className="relative z-10">
+                            <p className="text-amber-100 font-medium mb-1">Pending LPO</p>
+                            <h3 className="text-4xl font-bold">{totalPending}</h3>
+                            <div className="mt-4 flex items-center gap-2 text-sm bg-white/20 w-fit px-2 py-1 rounded-lg backdrop-blur-sm">
+                                <AlertTriangle className="w-4 h-4" />
+                                <span>Awaiting Upload</span>
                             </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="rounded-md border">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>PO Number</TableHead>
-                                            <TableHead>Supplier</TableHead>
-                                            <TableHead>LPO Number</TableHead>
-                                            <TableHead>LPO Date</TableHead>
-                                            <TableHead className="text-center">Upload LPO Document</TableHead>
-                                            <TableHead className="text-right">Actions</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {isLoading ? (
+                        </div>
+                    </Card>
+
+                    <Card className="p-6 bg-gradient-to-br from-violet-500 to-violet-600 text-white border-none shadow-lg relative overflow-hidden group">
+                        <div className="absolute right-0 top-0 opacity-10 transform translate-x-1/4 -translate-y-1/4 group-hover:scale-110 transition-transform duration-500">
+                            <Truck size={120} />
+                        </div>
+                        <div className="relative z-10">
+                            <p className="text-violet-100 font-medium mb-1">Approved & Sent</p>
+                            <h3 className="text-4xl font-bold">{totalApproved}</h3>
+                            <div className="mt-4 flex items-center gap-2 text-sm bg-white/20 w-fit px-2 py-1 rounded-lg backdrop-blur-sm">
+                                <CheckCircle2 className="w-4 h-4" />
+                                <span>In Progress</span>
+                            </div>
+                        </div>
+                    </Card>
+                </div>
+
+                {/* Main Content */}
+                <div className="space-y-6">
+                    {/* Comparison Modal */}
+                    <LPOComparisonModal
+                        isOpen={!!comparisonData}
+                        onClose={() => setComparisonData(null)}
+                        lpoDocumentUrl={comparisonData?.url || ''}
+                        poId={comparisonData?.poId || ''}
+                        lpoNumber={comparisonData?.lpoNumber || ''}
+                    />
+
+                    <POItemsModal
+                        isOpen={!!selectedPOForItems}
+                        onClose={() => setSelectedPOForItems(null)}
+                        po={selectedPOForItems}
+                    />
+
+                    <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="w-full">
+                        <div className="flex justify-between items-center mb-6">
+                            <TabsList className="bg-white/50 backdrop-blur-md p-1 border border-slate-200/60 rounded-xl">
+                                <TabsTrigger value="pending" className="data-[state=active]:bg-white data-[state=active]:text-amber-600 data-[state=active]:shadow-sm rounded-lg px-4 py-2 transition-all">
+                                    <Clock className="w-4 h-4 mr-2" />
+                                    Pending LPO
+                                    <Badge variant="warning" size="sm" className="ml-2 bg-amber-100 text-amber-700 border-none">
+                                        {totalPending}
+                                    </Badge>
+                                </TabsTrigger>
+                                <TabsTrigger value="approved" className="data-[state=active]:bg-white data-[state=active]:text-violet-600 data-[state=active]:shadow-sm rounded-lg px-4 py-2 transition-all">
+                                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                                    Approved LPO
+                                </TabsTrigger>
+                            </TabsList>
+                        </div>
+
+
+                        {/* Search & Actions Bar */}
+                        <div className="mb-6">
+                            <FinancialFilterBar
+                                searchValue={searchQuery}
+                                onSearchChange={handleSearchChange}
+                                searchPlaceholder={activeTab === 'pending' ? "Search Pending POs..." : "Search Approved LPOs..."}
+                                selectedYear={new Date().getFullYear()}
+                                onYearChange={() => { }} // Placeholder if needed
+                                years={[new Date().getFullYear()]} // Placeholder
+                                filters={activeTab === 'approved' ? [{
+                                    key: 'status',
+                                    label: 'Status',
+                                    value: approvedFilterStatus,
+                                    options: [
+                                        { label: 'Verified', value: 'verified' },
+                                        { label: 'Not Verified', value: 'unverified' }
+                                    ],
+                                    onChange: handleFilterChange
+                                }] : []}
+                                actions={
+                                    <>
+                                        <Button
+                                            onClick={() => setShowBulkUpload(true)}
+                                            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-sm gap-2"
+                                        >
+                                            <div className="bg-white/20 p-1 rounded">
+                                                <Upload className="w-4 h-4 text-white" />
+                                            </div>
+                                            Bulk Upload LPOs
+                                        </Button>
+                                        {activeTab === 'approved' && (
+                                            <>
+                                                <Button
+                                                    variant="outline"
+                                                    onClick={handleFixDocumentDates}
+                                                    disabled={isFixingDates}
+                                                    className="border-amber-300 text-amber-600 hover:bg-amber-50"
+                                                >
+                                                    <FileCheck className={`w-4 h-4 mr-2 ${isFixingDates ? 'animate-spin' : ''}`} />
+                                                    {isFixingDates ? 'Fixing...' : 'Fix LPO Dates'}
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    onClick={handleSyncDates}
+                                                    disabled={isSyncing}
+                                                    className="border-slate-300 text-slate-600 hover:bg-slate-50"
+                                                >
+                                                    <Clock className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+                                                    {isSyncing ? 'Syncing...' : 'Sync Dates'}
+                                                </Button>
+                                            </>
+                                        )}
+                                    </>
+                                }
+                            />
+                        </div>
+
+                        {/* PENDING LPOS CONTENT */}
+                        <TabsContent value="pending" className="mt-0 focus-visible:outline-none">
+                            <div className="glass-card rounded-xl overflow-hidden shadow-sm border border-slate-200/60 bg-white/60 backdrop-blur-md">
+                                {isLoading ? (
+                                    <div className="flex items-center justify-center p-12">
+                                        <Spinner size="lg" className="text-amber-500" />
+                                    </div>
+                                ) : (
+                                    <Table>
+                                        <TableHeader className="bg-slate-50/50">
                                             <TableRow>
-                                                <TableCell colSpan={6} className="h-24 text-center">Loading...</TableCell>
+                                                <TableHead className="font-semibold text-slate-600 pl-6">PO Number</TableHead>
+                                                <TableHead className="font-semibold text-slate-600">Supplier</TableHead>
+                                                <TableHead className="font-semibold text-slate-600">LPO Number (Draft)</TableHead>
+                                                <TableHead className="font-semibold text-slate-600">LPO Date</TableHead>
+                                                <TableHead className="font-semibold text-slate-600 text-right pr-6">Action</TableHead>
                                             </TableRow>
-                                        ) : filteredPendingPOs.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={6} className="h-24 text-center text-slate-500">
-                                                    No pending POs found
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            filteredPendingPOs.map((po) => (
-                                                <TableRow key={po.id}>
-                                                    <TableCell className="font-medium">{po.po_number}</TableCell>
-                                                    <TableCell>{po.supplier?.company_name || po.manual_supplier_name || 'N/A'}</TableCell>
-                                                    <TableCell>
-                                                        <Input
-                                                            placeholder="Draft LPO #"
-                                                            value={lpoDrafts[po.id]?.lpo_number || ''}
-                                                            onChange={(e) => handleDraftChange(po.id, 'lpo_number', e.target.value)}
-                                                            className="h-8 text-xs w-32"
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Input
-                                                            type="date"
-                                                            value={lpoDrafts[po.id]?.document_date || ''}
-                                                            onChange={(e) => handleDraftChange(po.id, 'document_date', e.target.value)}
-                                                            className="h-8 text-xs w-36"
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell className="text-center">
-                                                        <div className="flex flex-col items-center gap-2">
-                                                            <label className="cursor-pointer inline-block">
-                                                                <Input
-                                                                    type="file"
-                                                                    className="hidden"
-                                                                    accept=".pdf"
-                                                                    onChange={async (e) => {
-                                                                        const file = e.target.files?.[0]
-                                                                        if (!file) return
-
-                                                                        try {
-                                                                            console.log('Single PDF upload started for PO:', po.id);
-                                                                            const data = await extractLPODataFromPDF(file)
-                                                                            console.log('Extracted data for single upload:', data);
-
-                                                                            const updatedDraft = {
-                                                                                lpo_number: data.lpoNumber || lpoDrafts[po.id]?.lpo_number || '',
-                                                                                document_date: data.lpoDate || lpoDrafts[po.id]?.document_date || '',
-                                                                                file: file
-                                                                            }
-
-                                                                            setLpoDrafts(prev => ({
-                                                                                ...prev,
-                                                                                [po.id]: updatedDraft
-                                                                            }))
-
-                                                                            if (data.lpoNumber) {
-                                                                                showSuccess('Data Extracted', `LPO Number found: ${data.lpoNumber}`)
-
-                                                                                // Save to Supabase (Draft)
-                                                                                const lpoRecord = await lpoService.upsertLPODraft({
-                                                                                    po_id: po.id,
-                                                                                    lpo_number: data.lpoNumber!,
-                                                                                    document_date: data.lpoDate || new Date().toISOString().split('T')[0],
-                                                                                    hospital_id: hospitalId!
-                                                                                })
-                                                                                // Upload file
-                                                                                await lpoService.uploadLPODocument(lpoRecord.id, file)
-                                                                                loadData() // Refresh to sync URL
-                                                                            }
-                                                                        } catch (err: any) {
-                                                                            console.error('Extraction failed:', err)
-                                                                            handleDraftChange(po.id, 'file', file)
-                                                                        }
-                                                                    }}
-                                                                />
-                                                                <div className={`flex items-center gap-1 text-[10px] px-2 py-1 rounded border transition-colors ${(lpoDrafts[po.id]?.file || lpoDrafts[po.id]?.document_url)
-                                                                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                                                                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                                                                    }`}>
-                                                                    <FileText className="w-3 h-3" />
-                                                                    {lpoDrafts[po.id]?.file || lpoDrafts[po.id]?.document_url ? 'Change PDF' : 'Select PDF'}
-                                                                </div>
-                                                            </label>
-                                                            {(lpoDrafts[po.id]?.file || lpoDrafts[po.id]?.document_url) && (
-                                                                <button
-                                                                    onClick={() => {
-                                                                        if (lpoDrafts[po.id]?.file) {
-                                                                            handleLocalPreview(lpoDrafts[po.id]!.file!)
-                                                                        } else if (lpoDrafts[po.id]?.document_url) {
-                                                                            window.open(lpoDrafts[po.id]!.document_url, '_blank')
-                                                                        }
-                                                                    }}
-                                                                    className="text-[10px] text-blue-600 hover:underline font-medium"
-                                                                >
-                                                                    View Uploaded PDF
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                        <Button
-                                                            size="sm"
-                                                            disabled={!lpoDrafts[po.id]?.lpo_number || !lpoDrafts[po.id]?.file}
-                                                            onClick={async () => {
-                                                                const draft = lpoDrafts[po.id]
-                                                                if (!draft?.lpo_number || (!draft?.file && !draft?.document_url)) return
-
-                                                                try {
-                                                                    setIsLoading(true)
-
-                                                                    let currentLpoId = ''
-                                                                    const lpo = Array.isArray((po as any).lpo) ? (po as any).lpo[0] : (po as any).lpo
-
-                                                                    if (lpo) {
-                                                                        currentLpoId = lpo.id
-                                                                    } else {
-                                                                        // 1. Create LPO if not exists
-                                                                        const newLpo = await lpoService.createLPO({
-                                                                            po_id: po.id,
-                                                                            lpo_number: draft.lpo_number,
-                                                                            document_date: draft.document_date || new Date().toISOString().split('T')[0],
-                                                                            hospital_id: hospitalId!
-                                                                        })
-                                                                        currentLpoId = newLpo.id
-                                                                    }
-
-                                                                    // 2. Upload Document if file is selected locally
-                                                                    if (draft.file) {
-                                                                        await lpoService.uploadLPODocument(currentLpoId, draft.file)
-                                                                    }
-
-                                                                    // 3. Send (Initialize Tracking)
-                                                                    await lpoService.sendLPO(currentLpoId)
-
-                                                                    showSuccess('LPO Sent', `LPO ${draft.lpo_number} has been created and sent successfully.`)
-                                                                    loadData()
-                                                                } catch (err: any) {
-                                                                    showError('Fulfillment failed', err.message)
-                                                                } finally {
-                                                                    setIsLoading(false)
-                                                                }
-                                                            }}
-                                                            className={`
-                                                                ${(!lpoDrafts[po.id]?.lpo_number || (!lpoDrafts[po.id]?.file && !lpoDrafts[po.id]?.document_url))
-                                                                    ? 'bg-slate-100 text-slate-400'
-                                                                    : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
-                                                                } transition-all duration-200 flex items-center gap-1
-                                                            `}
-                                                        >
-                                                            <Send className="w-3.5 h-3.5" />
-                                                            Send to Supplier
-                                                        </Button>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {filteredPending.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={5} className="h-40 text-center text-slate-400">
+                                                        No pending LPOs found. All approved POs have LPOs uploaded.
                                                     </TableCell>
                                                 </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
-
-                                {/* Pagination */}
-                                {totalItems > pageSize && (
-                                    <div className="flex items-center justify-between mt-4 border-t pt-4">
-                                        <div className="text-sm text-slate-500">
-                                            Showing {Math.min((page - 1) * pageSize + 1, totalItems)} to {Math.min(page * pageSize, totalItems)} of {totalItems} orders
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => setPage(p => Math.max(1, p - 1))}
-                                                disabled={page === 1}
-                                                className="h-8"
-                                            >
-                                                Previous
-                                            </Button>
-                                            <div className="flex items-center gap-1">
-                                                {Array.from({ length: Math.ceil(totalItems / pageSize) }, (_, i) => i + 1).map((p) => (
-                                                    <Button
-                                                        key={p}
-                                                        variant={page === p ? "default" : "outline"}
-                                                        size="sm"
-                                                        onClick={() => setPage(p)}
-                                                        className={`h-8 w-8 p-0 ${page === p ? 'bg-blue-600' : ''}`}
-                                                    >
-                                                        {p}
-                                                    </Button>
-                                                ))}
-                                            </div>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => setPage(p => p + 1)}
-                                                disabled={page >= Math.ceil(totalItems / pageSize)}
-                                                className="h-8"
-                                            >
-                                                Next
-                                            </Button>
-                                        </div>
-                                    </div>
+                                            ) : (
+                                                filteredPending.map((po) => (
+                                                    <TableRow key={po.id} className="hover:bg-slate-50/50 transition-colors">
+                                                        <TableCell className="font-medium text-slate-900 pl-6">
+                                                            <div
+                                                                className="cursor-pointer hover:text-blue-600 hover:underline transition-all"
+                                                                onClick={() => setSelectedPOForItems(po)}
+                                                            >
+                                                                {po.po_number}
+                                                                <div className="text-xs text-slate-500 mt-0.5 font-normal">
+                                                                    {new Date(po.created_at).toLocaleDateString()}
+                                                                </div>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="font-medium text-slate-700">{po.supplier?.company_name}</div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <span className="text-slate-400 italic text-sm">Draft LPO #</span>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <span className="text-slate-400 italic text-sm">dd/mm/yyyy</span>
+                                                        </TableCell>
+                                                        <TableCell className="text-right pr-6">
+                                                            <span className="text-slate-400 text-xs italic">Upload Disabled</span>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))
+                                            )}
+                                        </TableBody>
+                                    </Table>
                                 )}
                             </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-            </Tabs>
+                            {/* Pagination */}
+                            <div className="mt-4">
+                                <Pagination
+                                    currentPage={pendingPage}
+                                    totalPages={Math.ceil(totalPending / pendingPageSize)}
+                                    pageSize={pendingPageSize}
+                                    total={totalPending}
+                                    onPageChange={setPendingPage}
+                                    onPageSizeChange={(size) => {
+                                        setPendingPageSize(size)
+                                        setPendingPage(1)
+                                    }}
+                                />
+                            </div>
+                        </TabsContent>
 
-            {/* Send Confirmation Dialog */}
-            <ConfirmationDialog
-                isOpen={showSendDialog}
-                onClose={() => {
-                    if (isSending) return
-                    setShowSendDialog(false)
-                    setSelectedLpo(null)
-                }}
-                onConfirm={handleSendToSupplier}
-                title="Send LPO to Supplier"
-                message={`Are you sure you want to send LPO ${selectedLpo?.lpo_number} to ${selectedLpo?.purchase_order?.supplier?.company_name}? This will move the order to the Tracking stage.`}
-                variant="info"
-                confirmText="Send"
-                cancelText="Cancel"
-                isLoading={isSending}
-            />
 
-            {isLoading && <LoadingOverlay />}
-        </div>
+                        {/* APPROVED LPOS CONTENT */}
+                        <TabsContent value="approved" className="mt-0 focus-visible:outline-none">
+                            <div className="glass-card rounded-xl overflow-hidden shadow-sm border border-slate-200/60 bg-white/60 backdrop-blur-md">
+                                {isLoading ? (
+                                    <div className="flex items-center justify-center p-12">
+                                        <Spinner size="lg" className="text-violet-500" />
+                                    </div>
+                                ) : (
+                                    <Table>
+                                        <TableHeader className="bg-slate-50/50">
+                                            <TableRow>
+                                                <TableHead className="font-semibold text-slate-600 pl-6">LPO Number</TableHead>
+                                                <TableHead className="font-semibold text-slate-600">LPO Date</TableHead>
+                                                <TableHead className="font-semibold text-slate-600">PO Number</TableHead>
+                                                <TableHead className="font-semibold text-slate-600">Supplier</TableHead>
+                                                <TableHead className="font-semibold text-slate-600 text-right pr-6">Actions</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {filteredApproved.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={5} className="h-40 text-center text-slate-400">
+                                                        No approved LPOs found.
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : (
+                                                filteredApproved.map((lpo) => (
+                                                    <TableRow key={lpo.id} className="hover:bg-slate-50/50 transition-colors">
+                                                        <TableCell className="font-medium text-slate-900 pl-6">
+                                                            <div className="flex items-center gap-2">
+                                                                <FileCheck className="w-4 h-4 text-emerald-500" />
+                                                                {lpo.lpo_number}
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation()
+                                                                        handleRenameClick(lpo)
+                                                                    }}
+                                                                    className="text-slate-400 hover:text-blue-500 transition-colors ml-1 p-1 rounded-full hover:bg-slate-100"
+                                                                    title="Rename LPO"
+                                                                >
+                                                                    <Pencil className="w-3 h-3" />
+                                                                </button>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-slate-600">
+                                                            {new Date(lpo.document_date || lpo.created_at).toLocaleDateString()}
+                                                        </TableCell>
+                                                        <TableCell className="font-mono text-xs text-slate-500">
+                                                            {lpo.purchase_order?.po_number}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="font-medium text-slate-700">{lpo.purchase_order?.supplier?.company_name}</div>
+                                                        </TableCell>
+                                                        <TableCell className="text-right pr-6">
+                                                            <div className="flex items-center justify-end gap-2">
+                                                                {lpo.document_url && (
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className="h-8 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                                                        onClick={() => handleViewComparison(lpo)}
+                                                                    >
+                                                                        <Download className="w-3.5 h-3.5 mr-1.5" />
+                                                                        View PDF
+                                                                    </Button>
+                                                                )}
+
+                                                                {/* Verification Button or Status indicator */}
+                                                                {(() => {
+                                                                    const statusVerified = (lpo.status === 'sent' || lpo.status === 'verified')
+                                                                    const dbVerified = (lpo as any).verify_tracking === true
+
+                                                                    // Check for tracking items
+                                                                    const items = lpo.tracking_items as any[] || []
+                                                                    const hasTracking = items.length > 0 && (items[0].count > 0 || !!items[0].id)
+
+                                                                    const isFullyVerified = dbVerified || (statusVerified && hasTracking)
+
+                                                                    // Check if this specific LPO is being analyzed
+                                                                    const isScanningThis = isAnalyzing && selectedLpoForVerify?.id === lpo.id
+
+                                                                    if (statusVerified && !isFullyVerified) {
+                                                                        return (
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="sm"
+                                                                                disabled={isAnalyzing}
+                                                                                className="h-8 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-50 border border-amber-200 mr-2"
+                                                                                onClick={() => handleVerifyClick(lpo)}
+                                                                            >
+                                                                                {isScanningThis ? (
+                                                                                    <>
+                                                                                        <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                                                                                        Scanning...
+                                                                                    </>
+                                                                                ) : (
+                                                                                    <>
+                                                                                        <AlertTriangle className="w-3.5 h-3.5 mr-1.5" />
+                                                                                        Retry Verify
+                                                                                    </>
+                                                                                )}
+                                                                            </Button>
+                                                                        )
+                                                                    }
+
+                                                                    if (isFullyVerified) {
+                                                                        return (
+                                                                            <div className="flex items-center text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100 mr-2">
+                                                                                <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
+                                                                                <span className="text-[10px] font-bold uppercase tracking-wider">Verified</span>
+                                                                            </div>
+                                                                        )
+                                                                    }
+
+                                                                    return (
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            disabled={isAnalyzing}
+                                                                            className="h-8 text-xs text-green-600 hover:text-green-700 hover:bg-green-50"
+                                                                            onClick={() => handleVerifyClick(lpo)}
+                                                                        >
+                                                                            {isScanningThis ? (
+                                                                                <>
+                                                                                    <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                                                                                    Scanning...
+                                                                                </>
+                                                                            ) : (
+                                                                                <>
+                                                                                    <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
+                                                                                    Verify
+                                                                                </>
+                                                                            )}
+                                                                        </Button>
+                                                                    )
+                                                                })()}
+
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-8 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                                                                    onClick={() => {
+                                                                        setSelectedLpoForDelete(lpo)
+                                                                        setShowDeleteDialog(true)
+                                                                    }}
+                                                                >
+                                                                    <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                                                                    Remove
+                                                                </Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                )}
+                            </div>
+                            {/* Pagination */}
+                            <div className="mt-4">
+                                <Pagination
+                                    currentPage={page}
+                                    totalPages={Math.ceil(totalApproved / pageSize)}
+                                    pageSize={pageSize}
+                                    total={totalApproved}
+                                    onPageChange={setPage}
+                                    onPageSizeChange={(size) => {
+                                        setPageSize(size)
+                                        setPage(1)
+                                    }}
+                                />
+                            </div>
+                        </TabsContent>
+                    </Tabs>
+                </div>
+
+                <ConfirmationDialog
+                    isOpen={showSendDialog}
+                    onClose={() => !isSending && setShowSendDialog(false)}
+                    onConfirm={handleSendToSupplier}
+                    title="Send LPO to Supplier"
+                    message={`Are you sure you want to send LPO #${selectedLpoForSend?.lpo_number} to the supplier? This will initialize the order tracking process.`}
+                    variant="info"
+                    confirmText="Send LPO"
+                    isLoading={isSending}
+                />
+
+                <ConfirmationDialog
+                    isOpen={showDeleteDialog}
+                    onClose={() => !isDeleting && setShowDeleteDialog(false)}
+                    onConfirm={handleDeleteLPO}
+                    title="Remove LPO Record"
+                    message={`Are you sure you want to remove LPO #${selectedLpoForDelete?.lpo_number}? This will delete the document and return the PO to pending status.`}
+                    variant="danger"
+                    confirmText="Remove LPO"
+                    isLoading={isDeleting}
+                />
+
+                {/* Verification Dialog */}
+                {
+                    selectedLpoForVerify && (
+                        <VerificationDialog
+                            isOpen={showVerifyDialog}
+                            onClose={() => !isVerifying && setShowVerifyDialog(false)}
+                            onConfirm={handleConfirmVerify}
+                            lpoNumber={selectedLpoForVerify.lpo_number}
+                            isLoading={isVerifying}
+                            initialDate={detectedDate}
+                            confidence={detectedConfidence}
+                            isValidDate={detectedIsValid}
+                        />
+                    )
+                }
+
+                {/* Rename Dialog */}
+                {selectedLpoForRename && (
+                    <RenameLPODialog
+                        isOpen={showRenameDialog}
+                        onClose={() => !isRenaming && setShowRenameDialog(false)}
+                        onConfirm={handleConfirmRename}
+                        lpoNumber={selectedLpoForRename.lpo_number}
+                        isLoading={isRenaming}
+                    />
+                )}
+            </div >
+        </FinancialPageLayout >
     )
 }

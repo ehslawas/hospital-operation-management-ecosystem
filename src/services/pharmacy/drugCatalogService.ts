@@ -75,7 +75,7 @@ export async function getDrugCatalog(
   try {
     let query = supabase
       .from('drugs')
-      .select('*, category:pharmacy_drug_categories(*)', { count: 'exact' })
+      .select('*', { count: 'exact' })
       .eq('hospital_id', hospitalId)
 
     // Apply filters
@@ -158,7 +158,7 @@ export async function searchDrugs(
 
     const { data: drugs, error } = await supabase
       .from('drugs')
-      .select('*, category:pharmacy_drug_categories(*), supplier:suppliers(*)')
+      .select('*, supplier:suppliers(*)')
       .eq('hospital_id', hospitalId)
       .or(`drug_code.ilike.%${query}%,drug_name.ilike.%${query}%,generic_name.ilike.%${query}%,brand_name.ilike.%${query}%,sku.ilike.%${query}%,pku.ilike.%${query}%`)
       .limit(limit)
@@ -182,7 +182,7 @@ export async function getDrugById(drugId: string): Promise<ApiResponse<DrugWithR
   try {
     const { data, error } = await supabase
       .from('drugs')
-      .select('*, category:pharmacy_drug_categories(*), supplier:suppliers(*)')
+      .select('*, supplier:suppliers(*)')
       .eq('id', drugId)
       .single()
 
@@ -303,7 +303,7 @@ export async function createDrug(
     const { data, error } = await supabase
       .from('drugs')
       .insert(insertData)
-      .select('*, category:pharmacy_drug_categories(*), supplier:suppliers(*)')
+      .select('*, supplier:suppliers(*)')
       .maybeSingle()
 
     if (error) {
@@ -380,7 +380,7 @@ export async function updateDrug(
       .from('drugs')
       .update(updateData)
       .eq('id', drugId)
-      .select('*, category:pharmacy_drug_categories(*), supplier:suppliers(*)')
+      .select('*, supplier:suppliers(*)')
       .maybeSingle()
 
     if (error) {

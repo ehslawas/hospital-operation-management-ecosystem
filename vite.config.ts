@@ -13,6 +13,11 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true,
+    strictPort: true, // Prevent fallback to other ports which causes CORS issues
+    proxy: {
+      // Proxy configuration removed as OpenRouter supports CORS directly
+
+    },
   },
   preview: {
     port: 3000,

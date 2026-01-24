@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 interface ActionTooltipProps {
-    content: string
+    content: React.ReactNode | string
     children: React.ReactNode
     position?: 'top' | 'bottom' | 'left' | 'right'
 }
@@ -42,12 +42,12 @@ export const ActionTooltip: React.FC<ActionTooltipProps> = ({
                         {content}
                         <div
                             className={`absolute w-2 h-2 bg-slate-900 rotate-45 ${position === 'top'
-                                    ? 'top-full left-1/2 -translate-x-1/2 -translate-y-1/2'
-                                    : position === 'bottom'
-                                        ? 'bottom-full left-1/2 -translate-x-1/2 translate-y-1/2'
-                                        : position === 'left'
-                                            ? 'left-full top-1/2 -translate-x-1/2 -translate-y-1/2'
-                                            : 'right-full top-1/2 translate-x-1/2 -translate-y-1/2'
+                                ? 'top-full left-1/2 -translate-x-1/2 -translate-y-1/2'
+                                : position === 'bottom'
+                                    ? 'bottom-full left-1/2 -translate-x-1/2 translate-y-1/2'
+                                    : position === 'left'
+                                        ? 'left-full top-1/2 -translate-x-1/2 -translate-y-1/2'
+                                        : 'right-full top-1/2 translate-x-1/2 -translate-y-1/2'
                                 }`}
                         />
                     </motion.div>

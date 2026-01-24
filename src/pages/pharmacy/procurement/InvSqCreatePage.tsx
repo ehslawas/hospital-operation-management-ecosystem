@@ -3,11 +3,10 @@ import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
     ShoppingCart, Save, FileText, Trash2, Users, Search,
-    ChevronRight, CheckCircle2, Building2, Store, Eye, X,
-    AlertCircle, FileInput, Filter
+    CheckCircle2, Store, Eye, X, FileInput
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
 import { Button, Input, Spinner, Badge, Select } from '@/components/ui'
 import { FinancialPageLayout } from '@/components/pharmacy/financial/FinancialPageLayout'
@@ -25,6 +24,7 @@ export const InvSqCreatePage: React.FC = () => {
     const isEdit = mode === 'edit' && !!poId
 
     const { user } = useAuthStore()
+    const isSessionReady = useIsSessionReady()
     const { success: showSuccess, error: showError } = useToastStore()
     const hospitalId = user?.hospital_id
     const userId = user?.id
@@ -66,7 +66,7 @@ export const InvSqCreatePage: React.FC = () => {
     }, [])
 
     useEffect(() => {
-        if (!hospitalId) return
+        if (!isSessionReady || !hospitalId) return
         const loadData = async () => {
             const res = await getActiveSuppliers(hospitalId)
             if (res.data) {
@@ -104,11 +104,11 @@ export const InvSqCreatePage: React.FC = () => {
             }
         }
         void loadData()
-    }, [hospitalId, isEdit, poId])
+    }, [isSessionReady, hospitalId, isEdit, poId])
 
     // Search Items Side Effect
     useEffect(() => {
-        if (!hospitalId || !itemSearch.trim()) {
+        if (!isSessionReady || !hospitalId || !itemSearch.trim()) {
             setAllItems([])
             setShowSuggestions(false)
             return
@@ -142,7 +142,7 @@ export const InvSqCreatePage: React.FC = () => {
         }, 300)
 
         return () => clearTimeout(timeout)
-    }, [itemSearch, hospitalId])
+    }, [itemSearch, isSessionReady, hospitalId])
 
     const toggleSupplier = (supplier: Supplier) => {
         if (selectedSuppliers.some(s => s.id === supplier.id)) {
@@ -361,7 +361,7 @@ export const InvSqCreatePage: React.FC = () => {
                                 <Users className="w-5 h-5 text-indigo-500" />
                                 Select Suppliers
                             </h2>
-                            <Badge variant="outline" className="bg-white">
+                            <Badge variant="gray" className="bg-white">
                                 {selectedSuppliers.length} Selected
                             </Badge>
                         </div>
@@ -435,7 +435,7 @@ export const InvSqCreatePage: React.FC = () => {
                                 <ShoppingCart className="w-5 h-5 text-emerald-500" />
                                 Items to Quote
                             </h2>
-                            <Badge variant={formData.items!.length >= 10 ? 'destructive' : 'secondary'}>
+                            <Badge variant={formData.items!.length >= 10 ? 'error' : 'primary'}>
                                 {formData.items?.length || 0}/10 Items
                             </Badge>
                         </div>
@@ -476,7 +476,7 @@ export const InvSqCreatePage: React.FC = () => {
                                                                 {'drug_name' in item ? item.drug_name : item.item_name}
                                                             </div>
                                                             <div className="flex items-center gap-2 mt-0.5">
-                                                                <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-slate-50">
+                                                                <Badge variant="gray" className="text-[10px] h-5 px-1.5 bg-slate-50">
                                                                     {'drug_code' in item ? item.drug_code : item.item_code}
                                                                 </Badge>
                                                                 <span className="text-xs text-slate-400">

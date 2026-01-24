@@ -19,6 +19,7 @@ import { getSensitiveDataRequests, getPendingRequestsCount } from '@/services/se
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
 import { formatDate } from '@/lib/utils'
+import { useIsSessionReady } from '@/stores/authStore'
 import { ROUTES, SENSITIVE_DATA_CATEGORY, SENSITIVE_DATA_REQUEST_STATUS, SENSITIVE_DATA_URGENCY, DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from '@/lib/constants'
 import type { SensitiveDataRequestWithRelations, SensitiveDataRequestStatus, SensitiveDataUrgency, SensitiveDataCategory } from '@/types'
 
@@ -47,6 +48,7 @@ export const SensitiveDataRequestListPage: React.FC = () => {
   const navigate = useNavigate()
   const { user } = useAuthStore()
   const { error: showError } = useToastStore()
+  const isSessionReady = useIsSessionReady()
 
   const [requests, setRequests] = useState<SensitiveDataRequestWithRelations[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -72,7 +74,7 @@ export const SensitiveDataRequestListPage: React.FC = () => {
   const hospitalId = user?.hospital_id || ''
 
   const fetchRequests = useCallback(async () => {
-    if (!hospitalId) return
+    if (!isSessionReady || !hospitalId) return
 
     setIsLoading(true)
     try {
@@ -95,10 +97,10 @@ export const SensitiveDataRequestListPage: React.FC = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [hospitalId, currentPage, pageSize, statusFilter, urgencyFilter, categoryFilter, search, showError])
+  }, [isSessionReady, hospitalId, currentPage, pageSize, statusFilter, urgencyFilter, categoryFilter, search, showError])
 
   const fetchPendingCounts = useCallback(async () => {
-    if (!hospitalId) return
+    if (!isSessionReady || !hospitalId) return
 
     try {
       const counts = await getPendingRequestsCount(hospitalId)
@@ -106,7 +108,7 @@ export const SensitiveDataRequestListPage: React.FC = () => {
     } catch (error) {
       console.error('Failed to fetch pending counts:', error)
     }
-  }, [hospitalId])
+  }, [isSessionReady, hospitalId])
 
   useEffect(() => {
     fetchRequests()

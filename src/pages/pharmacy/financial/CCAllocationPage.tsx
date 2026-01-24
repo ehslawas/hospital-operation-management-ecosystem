@@ -9,7 +9,7 @@ import {
   Download,
   FileDown,
 } from 'lucide-react'
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
 import { Spinner, Button, Badge } from '@/components/ui'
 import { FinancialPageLayout } from '@/components/pharmacy/financial/FinancialPageLayout'
@@ -33,6 +33,7 @@ export const CCAllocationPage: React.FC = () => {
   const { user } = useAuthStore()
   const { success: showSuccess, error: showError } = useToastStore()
   const hospitalId = user?.hospital_id
+  const isSessionReady = useIsSessionReady()
 
   const [summary, setSummary] = useState<CCAllocationSummary | null>(null)
   const [expenses, setExpenses] = useState<CCExpenseWithRelations[]>([])
@@ -52,7 +53,7 @@ export const CCAllocationPage: React.FC = () => {
 
   // Fetch data
   useEffect(() => {
-    if (!hospitalId) return
+    if (!isSessionReady || !hospitalId) return
 
     const fetchData = async () => {
       // Trigger background sync first to ensure data is fresh
@@ -102,7 +103,7 @@ export const CCAllocationPage: React.FC = () => {
     }
 
     void fetchData()
-  }, [hospitalId, selectedYear, filterStatus, filterVoteActivity, filterDepartment])
+  }, [isSessionReady, hospitalId, selectedYear, filterStatus, filterVoteActivity, filterDepartment])
 
   const handleSync = async () => {
     if (!hospitalId) return

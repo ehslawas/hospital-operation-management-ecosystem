@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { AlertTriangle, MapPin, Plus, Thermometer, Building2 } from 'lucide-react'
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
 import { Table, Spinner, Badge, Button } from '@/components/ui'
 import { getStockLocations } from '@/services/pharmacy/inventoryService'
 import type { StockLocation, LocationType, TemperatureRequirement } from '@/types/pharmacy'
@@ -8,13 +8,14 @@ import type { StockLocation, LocationType, TemperatureRequirement } from '@/type
 export const StockLocationPage: React.FC = () => {
   const { user } = useAuthStore()
   const hospitalId = user?.hospital_id
+  const isSessionReady = useIsSessionReady()
 
   const [locations, setLocations] = useState<StockLocation[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!hospitalId) return
+    if (!isSessionReady || !hospitalId) return
 
     const load = async () => {
       setIsLoading(true)
@@ -33,7 +34,7 @@ export const StockLocationPage: React.FC = () => {
     }
 
     void load()
-  }, [hospitalId])
+  }, [isSessionReady, hospitalId])
 
   const renderLocationTypeBadge = (type: LocationType) => {
     const map: Record<LocationType, { color: 'success' | 'warning' | 'error' | 'info' | 'gray'; label: string }> = {

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { DollarSign, TrendingUp, Wallet, PieChart, Calendar, AlertTriangle, FileDown } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
 import { Spinner, Badge, Select } from '@/components/ui'
 import { FinancialPageLayout } from '@/components/pharmacy/financial/FinancialPageLayout'
 import { FinancialStatsGrid } from '@/components/pharmacy/financial/FinancialStatsGrid'
@@ -11,6 +11,7 @@ import type { BudgetSummary, Budget } from '@/types/pharmacy'
 export const BudgetOverviewPage: React.FC = () => {
   const { user } = useAuthStore()
   const hospitalId = user?.hospital_id
+  const isSessionReady = useIsSessionReady()
 
   const [summary, setSummary] = useState<BudgetSummary | null>(null)
   const [budgets, setBudgets] = useState<Budget[]>([])
@@ -19,7 +20,7 @@ export const BudgetOverviewPage: React.FC = () => {
   const [fiscalYear, setFiscalYear] = useState(new Date().getFullYear())
 
   useEffect(() => {
-    if (!hospitalId) return
+    if (!isSessionReady || !hospitalId) return
 
     const load = async () => {
       setIsLoading(true)
@@ -44,7 +45,7 @@ export const BudgetOverviewPage: React.FC = () => {
     }
 
     void load()
-  }, [hospitalId, fiscalYear])
+  }, [isSessionReady, hospitalId, fiscalYear])
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-MY', {

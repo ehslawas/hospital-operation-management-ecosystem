@@ -118,6 +118,29 @@ export async function issueCylindersToDepartment(
     }
 ): Promise<ApiResponse<void>> {
     try {
+        const { checkApprovalNeeded, createApprovalRequest } = await import('../approvalService');
+
+        const requestData = {
+            department_id: data.department_id,
+            request_id: data.request_id,
+            items_count: data.cylinders.length,
+            issuer_id: data.issued_by
+        };
+
+        // 0. Check Approval
+        const { needs_approval, workflow_id } = await checkApprovalNeeded('oxygen_cylinder_issue', requestData);
+
+        if (needs_approval && workflow_id) {
+            await createApprovalRequest(
+                workflow_id,
+                data.issued_by,
+                { ...requestData, cylinders: data.cylinders }, // Store cylinders in request data
+                'oxygen_issuance',
+                data.request_id || `MANUAL-${Date.now()}` // Fallback ID if manual
+            );
+            return { data: { approval_required: true } as any, error: null };
+        }
+
         // 1. Validate cylinders (must be available)
         const { data: validCylinders, error: valError } = await supabase
             .from('pharmacy_oxygen_cylinder_inventory')
@@ -186,7 +209,7 @@ export async function issueCylindersToDepartment(
             }
         }
 
-        return { data: undefined, error: null }
+        return { data: { approval_required: false } as any, error: null }
     } catch (error) {
         console.error('Error issuing cylinders:', error)
         return { data: null, error: error instanceof Error ? error.message : 'Failed to issue' }

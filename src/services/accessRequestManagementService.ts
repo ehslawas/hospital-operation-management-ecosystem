@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { AccessRequest, AccessRequestWithRelations, PaginatedResponse, FilterConfig, SortConfig } from '@/types'
+import type { AccessRequestWithRelations, PaginatedResponse, FilterConfig, SortConfig } from '@/types'
 import { DEFAULT_PAGE_SIZE, SYSTEM_ROLES } from '@/lib/constants'
 import { createAuthUser } from './authUserService'
 import { decryptPassword } from '@/lib/encryptionUtils'
@@ -141,6 +141,7 @@ export async function getAccessRequests(params: GetAccessRequestsParams = {}): P
     page = 1,
     pageSize = DEFAULT_PAGE_SIZE,
     search = '',
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     filters = [],
     sort,
     status,
@@ -589,59 +590,5 @@ export async function rejectAccessRequest(
   }
 }
 
-/**
- * Generate employee ID based on hospital and department
- */
-function generateEmployeeId(hospitalId: string, departmentId: string, sequenceOverride?: number): string {
-  const hospital = getHospitalById(hospitalId)
-  const department = getDepartmentById(departmentId)
 
-  if (!hospital || !department) {
-    return `EMP${Date.now().toString().slice(-6)}`
-  }
-
-  const hospitalCode = hospital.hospital_code
-  const deptCode = department.department_code
-
-  // Use provided sequence number or fall back to mock count
-  const sequenceNum = sequenceOverride !== undefined
-    ? sequenceOverride
-    : (mockUsers.filter(u => u.hospital_id === hospitalId && u.department_id === departmentId).length + 1)
-
-  const sequence = sequenceNum.toString().padStart(3, '0')
-
-  return `${hospitalCode}-${deptCode}-${sequence}`
-}
-
-/**
- * Generate a temporary password for new users
- * In production, this should be more secure and sent via email
- */
-function generateTemporaryPassword(): string {
-  // Generate a secure random password
-  // Format: 12 characters with uppercase, lowercase, numbers, and special characters
-  const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-  const lowercase = 'abcdefghijklmnopqrstuvwxyz'
-  const numbers = '0123456789'
-  const special = '!@#$%^&*'
-  const allChars = uppercase + lowercase + numbers + special
-
-  let password = ''
-  // Ensure at least one of each type
-  password += uppercase[Math.floor(Math.random() * uppercase.length)]
-  password += lowercase[Math.floor(Math.random() * lowercase.length)]
-  password += numbers[Math.floor(Math.random() * numbers.length)]
-  password += special[Math.floor(Math.random() * special.length)]
-
-  // Fill the rest randomly
-  for (let i = password.length; i < 12; i++) {
-    password += allChars[Math.floor(Math.random() * allChars.length)]
-  }
-
-  // Shuffle the password
-  return password
-    .split('')
-    .sort(() => Math.random() - 0.5)
-    .join('')
-}
 

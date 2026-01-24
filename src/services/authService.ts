@@ -1,4 +1,6 @@
-import { supabase } from './supabase'
+import { supabase, createAnonymousClient } from './supabase'
+import { queryClient } from '@/lib/queryClient'
+import { useMenuStore } from '@/stores/menuStore'
 import type { UserWithRelations, User } from '@/types'
 import { MAX_LOGIN_ATTEMPTS, LOCKOUT_DURATION_MINUTES } from '@/lib/constants'
 
@@ -20,21 +22,40 @@ export interface ResetPasswordResult {
 /**
  * Authenticate user with employee ID and password
  */
+// Helper to add timeout to promises
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number = 10000, errorMsg: string = 'Operation timed out'): Promise<T> {
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error(errorMsg)), timeoutMs)
+  )
+  return Promise.race([promise, timeoutPromise]) as Promise<T>
+}
+
+/**
+ * Authenticate user with employee ID and password
+ */
 export async function login(employeeId: string, password: string): Promise<LoginResult> {
   try {
     // First, find user by employee ID using secure RPC (bypasses RLS)
-    const { data, error: userError } = await supabase
-      .rpc('get_user_by_employee_id', { p_employee_id: employeeId })
-      .returns<User>()
-      .single()
-
-    const userData = data as User | null
+    // Add 10s timeout
+    // Use anonymous client to bypass RLS policies that might block unauthenticated users
+    // This is critical for the initial lookup
+    const anonClient = createAnonymousClient()
+    const { data: userData, error: userError } = await withTimeout(
+      anonClient
+        .rpc('get_user_by_employee_id', { p_employee_id: employeeId } as any)
+        .returns<User>()
+        .single()
+        .then(res => ({ data: res.data as User | null, error: res.error })) as Promise<{ data: User | null, error: any }>,
+      20000,
+      'User lookup timed out'
+    )
 
     if (userError || !userData) {
       console.warn('Login lookup failed:', userError)
+      const isTimeout = userError?.message === 'User lookup timed out'
       return {
         success: false,
-        error: 'Invalid employee ID or password',
+        error: isTimeout ? 'System is slow to respond. Please try again.' : 'Invalid employee ID or password',
       }
     }
 
@@ -84,10 +105,15 @@ export async function login(employeeId: string, password: string): Promise<Login
     }
 
     // Authenticate with Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email: userData.email,
-      password,
-    })
+    // Add 15s timeout for auth (can be slower)
+    const { data: authData, error: authError } = await withTimeout(
+      supabase.auth.signInWithPassword({
+        email: userData.email,
+        password,
+      }),
+      30000,
+      'Authentication timed out'
+    )
 
     if (authError || !authData.user) {
       // Log the actual error for debugging
@@ -103,16 +129,28 @@ export async function login(employeeId: string, password: string): Promise<Login
         }
       }
 
+      const isTimeout = authError?.message === 'Authentication timed out'
+      if (isTimeout) {
+        return {
+          success: false,
+          error: 'Connection timed out. Please check your internet and try again.',
+        }
+      }
+
       if (authError?.message?.includes('Invalid login credentials') ||
         authError?.message?.includes('Invalid login') ||
         (authError?.status === 400 && !authError?.message?.includes('Email not confirmed'))) {
 
         // Diagnostic check: verify if auth account exists
-        const { checkAuthUserExists } = await import('./authUserService')
-        const authCheck = await checkAuthUserExists(userData.email)
-        if (!authCheck.exists) {
-          console.error('DIAGNOSTIC: Auth account does not exist for this user!')
-        }
+        // We run this async without awaiting to not block the UI
+        import('./authUserService').then(async ({ checkAuthUserExists }) => {
+          try {
+            const authCheck = await checkAuthUserExists(userData.email)
+            if (!authCheck.exists) {
+              console.error('DIAGNOSTIC: Auth account does not exist for this user!')
+            }
+          } catch (e) { console.error('Diagnostic check failed', e) }
+        })
 
         return {
           success: false,
@@ -125,34 +163,46 @@ export async function login(employeeId: string, password: string): Promise<Login
       const attemptsRemaining = MAX_LOGIN_ATTEMPTS - newAttempts
 
       // Update failed attempts in database
-      if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
-        await supabase
-          .from('users')
-          .update({
-            failed_login_attempts: newAttempts,
-            account_locked_until: new Date(
-              Date.now() + LOCKOUT_DURATION_MINUTES * 60 * 1000
-            ).toISOString(),
-            last_failed_login: new Date().toISOString(),
-          })
-          .eq('id', userData.id)
+      // Add 5s timeout - this is less critical, if it fails we just log it
+      try {
+        if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
+          await withTimeout(
+            supabase
+              .from('users')
+              .update({
+                failed_login_attempts: newAttempts,
+                account_locked_until: new Date(
+                  Date.now() + LOCKOUT_DURATION_MINUTES * 60 * 1000
+                ).toISOString(),
+                last_failed_login: new Date().toISOString(),
+              })
+              .eq('id', userData.id) as unknown as Promise<any>,
+            10000
+          )
 
-        return {
-          success: false,
-          error: 'Too many failed attempts. Account is now locked.',
-          attemptsRemaining: 0,
-          isLocked: true,
-          requiresPasswordReset: true,
+          return {
+            success: false,
+            error: 'Too many failed attempts. Account is now locked.',
+            attemptsRemaining: 0,
+            isLocked: true,
+            requiresPasswordReset: true,
+          }
         }
-      }
 
-      await supabase
-        .from('users')
-        .update({
-          failed_login_attempts: newAttempts,
-          last_failed_login: new Date().toISOString(),
-        })
-        .eq('id', userData.id)
+        await withTimeout(
+          supabase
+            .from('users')
+            .update({
+              failed_login_attempts: newAttempts,
+              last_failed_login: new Date().toISOString(),
+            })
+            .eq('id', userData.id) as unknown as Promise<any>,
+          10000
+        )
+      } catch (updateError) {
+        console.error('Failed to update login attempts:', updateError)
+        // Continue usually, but warn
+      }
 
       return {
         success: false,
@@ -177,26 +227,38 @@ export async function login(employeeId: string, password: string): Promise<Login
     }
 
     // Successful login - reset failed attempts and update last login
-    await supabase
-      .from('users')
-      .update({
-        failed_login_attempts: 0,
-        account_locked_until: null,
-        last_login: new Date().toISOString(),
-      })
-      .eq('id', userData.id)
+    // Fire and forget - Do NOT await this, as it blocks the user login experience
+    // We catch errors in the background to prevent unhandled promise rejections
+    withTimeout(
+      supabase
+        .from('users')
+        .update({
+          failed_login_attempts: 0,
+          account_locked_until: null,
+          last_login: new Date().toISOString(),
+        })
+        .eq('id', userData.id) as unknown as Promise<any>,
+      20000
+    ).catch(e => console.warn('Background update of last login stats failed (non-critical):', e))
 
     // Fetch full user data with relations
-    const { data: fullUser, error: fullUserError } = await supabase
-      .from('users')
-      .select(`
-        *,
-        role:roles!role_id(*),
-        department:departments!department_id(*),
-        hospital:hospitals!hospital_id(*)
-      `)
-      .eq('id', userData.id)
-      .single()
+    // Reduced timeout to 15s - if DB is that slow, better to return basic userData (which we have)
+    // and let the app try to function than to make the user wait 45s
+    const { data: fullUser, error: fullUserError } = await withTimeout(
+      supabase
+        .from('users')
+        .select(`
+          *,
+          role:roles!role_id(*),
+          department:departments!department_id(*),
+          hospital:hospitals!hospital_id(*)
+        `)
+        .eq('id', userData.id)
+        .single()
+        .then(res => ({ data: res.data, error: res.error })) as Promise<{ data: any, error: any }>,
+      15000,
+      'Profile fetch timed out'
+    )
 
     if (fullUserError) {
       console.error('Error fetching full user data:', fullUserError)
@@ -216,8 +278,14 @@ export async function login(employeeId: string, password: string): Promise<Login
       success: true,
       user: fullUser as UserWithRelations,
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Login error:', error)
+    if (error.message?.includes('timed out')) {
+      return {
+        success: false,
+        error: 'System is not responding. Please check your internet connection and try again.'
+      }
+    }
     return {
       success: false,
       error: 'An unexpected error occurred. Please try again.',
@@ -283,6 +351,14 @@ export async function logout(): Promise<void> {
       )
       supabaseKeys.forEach(key => localStorage.removeItem(key))
       sessionStorage.clear()
+
+      // CRITICAL: Clear React Query cache to prevent stale data on re-login
+      queryClient.removeQueries()
+      queryClient.clear()
+
+      // CRITICAL: Clear Menu Store to force re-fetch on next login
+      // This fixes the "No menus available" bug where isInitialized remains true
+      useMenuStore.getState().clearMenus()
     }
   } catch (storageError) {
     console.warn('Error clearing storage:', storageError)

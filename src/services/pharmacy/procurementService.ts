@@ -4,8 +4,14 @@
  */
 
 import { supabase } from '../supabase'
-import { syncSinglePOToCCAllocation } from './ccAllocationService'
+import {
+  checkApprovalNeeded,
+  createApprovalRequest
+} from '@/services/approvalService';
+import { canUserApprovePurchaseOrder } from '@/services/approvalRouteService';
 import { syncSinglePOToAPPLAllocation } from './applAllocationService'
+import { syncSinglePOToCCAllocation } from './ccAllocationService'
+import { getPharmacyPOSignatures, DEPT_CODE_MAPPING } from './pharmacySettingsService'
 import type { ApiResponse, PaginatedResponse } from '@/types'
 import type {
   PurchaseOrder,
@@ -19,6 +25,7 @@ import type {
   OrderTracking,
   ProcurementStats,
 } from '@/types/pharmacy'
+import { getCached, setCache, invalidateCache, CACHE_TTL } from '@/lib/queryCache'
 
 // =====================================================
 // PURCHASE ORDER MANAGEMENT
@@ -33,6 +40,13 @@ import type {
  * Get procurement statistics
  */
 export async function getProcurementStats(hospitalId: string): Promise<ApiResponse<ProcurementStats>> {
+  // Check cache first
+  const cacheKey = `procurement-stats-${hospitalId}`
+  const cached = getCached<ProcurementStats>(cacheKey)
+  if (cached) {
+    return { data: cached, error: null }
+  }
+
   try {
     const currentYear = new Date().getFullYear()
     const startDate = `${currentYear}-01-01`
@@ -43,16 +57,15 @@ export async function getProcurementStats(hospitalId: string): Promise<ApiRespon
     // Filter by current year and relevant vote codes to match Warrant/Allocation logic
     const { data, error } = await supabase
       .from('pharmacy_purchase_orders')
-      .select('id, status, total_amount, category, department, vote_code, vote_activity')
+      .select('id, status, total_amount, category, department, vote_code, vote_activity, po_type')
       .eq('hospital_id', hospitalId)
       .gte('order_date', startDate)
       .lte('order_date', endDate)
-      .in('vote_code', ['080702', '990102'])
       .neq('status', 'cancelled')
 
     if (error) throw error
 
-    const orders = data || []
+    const orders = (data || []) as any[]
     const poIds = orders.map(o => o.id)
 
     let totalItems = 0
@@ -101,16 +114,19 @@ export async function getProcurementStats(hospitalId: string): Promise<ApiRespon
       (applExpenses?.reduce((sum, e) => sum + (e.amount || 0), 0) || 0)
 
     const stats: ProcurementStats = {
-      total_orders: orders.length,
+      total_orders: orders.filter(o => o.po_type !== 'sq').length,
       total_value: totalValue,
-      pending_orders: orders.filter(o => ['draft', 'pending_approval', 'approved', 'sent'].includes(o.status)).length,
+      pending_orders: orders.filter(o => ['draft', 'pending_approval', 'approved', 'sent'].includes(o.status) && o.po_type !== 'sq').length,
       completed_orders: orders.filter(o => ['completed', 'received'].includes(o.status)).length,
       total_items: totalItems,
       items_breakdown: itemsBreakdown,
       by_status: {},
       by_category: {},
       by_department: {},
-      by_vote_code: {}
+      by_vote_code: {},
+      // New breakdown for alignment
+      total_sq: orders.filter(o => o.po_type === 'sq').length,
+      total_regular_po: orders.filter(o => o.po_type !== 'sq').length
     }
 
     // Calculate breakdowns
@@ -186,6 +202,9 @@ export async function getProcurementStats(hospitalId: string): Promise<ApiRespon
     }))
 
     stats.department_breakdown = department_breakdown
+
+    // Cache the stats for 30 seconds
+    setCache(cacheKey, stats, CACHE_TTL.STATS)
 
     return { data: stats, error: null }
 
@@ -418,7 +437,48 @@ export async function getPurchaseOrderById(
       throw error
     }
 
-    return { data: data as unknown as PurchaseOrderWithRelations, error: null }
+    const po = data as unknown as PurchaseOrderWithRelations
+
+    // Resolve item details manually since DB relations are polymorphic/non-explicit
+    if (po.items && po.items.length > 0) {
+      po.items = await Promise.all(
+        po.items.map(async (item) => {
+          if (item.item_type === 'manual') return item
+          try {
+            let resolved = null
+            if (item.item_type === 'drug') {
+              // Try standard drug
+              const { data: drug } = await supabase.from('drugs').select('drug_name, drug_code').eq('id', item.item_id).maybeSingle()
+              if (drug) resolved = { name: drug.drug_name, code: drug.drug_code }
+
+              // Try APPL drug if regular drug failed
+              if (!resolved) {
+                const { data: applDrug } = await supabase.from('appl_drugs').select('item_name, item_code').eq('id', item.item_id).maybeSingle()
+                if (applDrug) resolved = { name: applDrug.item_name, code: applDrug.item_code }
+              }
+            } else if (item.item_type === 'non_drug') {
+              const { data: nonDrug } = await supabase.from('non_drugs').select('item_name, item_code').eq('id', item.item_id).maybeSingle()
+              if (nonDrug) resolved = { name: nonDrug.item_name, code: nonDrug.item_code }
+
+              if (!resolved) {
+                const { data: applNonDrug } = await supabase.from('appl_non_drugs').select('item_name, item_code').eq('id', item.item_id).maybeSingle()
+                if (applNonDrug) resolved = { name: applNonDrug.item_name, code: applNonDrug.item_code }
+              }
+            }
+
+            return {
+              ...item,
+              item_name: item.item_name || resolved?.name || 'Unknown Item',
+              item_code: item.item_code || resolved?.code || item.item_id
+            }
+          } catch (err) {
+            return item
+          }
+        })
+      )
+    }
+
+    return { data: po, error: null }
   } catch (error) {
     console.error('Error fetching purchase order:', error)
     return {
@@ -541,6 +601,9 @@ export async function createPurchaseOrder(
       }
     }
 
+    // Invalidate stats cache after PO creation
+    invalidateCache(`procurement-stats-${hospitalId}`)
+
     return { data: inserted as PurchaseOrder, error: null }
   } catch (error) {
     console.error('Error creating purchase order:', error)
@@ -652,6 +715,9 @@ export async function updatePurchaseOrder(
       console.error('Budget sync error during PO update:', ccSync.error || applSync.error)
     }
 
+    // Invalidate stats cache after PO update
+    invalidateCache(`procurement-stats-${existingPO.hospital_id}`)
+
     return { data: updated as PurchaseOrder, error: null }
   } catch (error) {
     console.error('Error updating purchase order:', error)
@@ -665,70 +731,112 @@ export async function updatePurchaseOrder(
 /**
  * Submit purchase order for approval
  */
-/**
- * Submit purchase order for approval
- */
 export async function submitPurchaseOrder(poId: string, userId: string): Promise<ApiResponse<PurchaseOrder>> {
   try {
     // 1. Get current PO details including department
     const { data: po, error: fetchError } = await supabase
       .from('pharmacy_purchase_orders')
-      .select('*, hospital_id')
+      .select('*, hospital_id, items:pharmacy_purchase_order_items(*)')
       .eq('id', poId)
       .single()
 
     if (fetchError || !po) throw new Error('Purchase Order not found')
 
-    // 2. Determine Workflow (Standard vs Exempt)
-    // For now, default to 'Standard PO Approval' unless department is exempt
-    // We ideally check department.approval_type here, but let's assume standard for now
-
-    const { data: workflow, error: wfError } = await supabase
-      .from('approval_workflows')
-      .select('id')
-      .eq('workflow_name', 'Standard PO Approval')
-      .single()
-
-    if (wfError || !workflow) throw new Error('Approval workflow configuration missing')
-
-    // 3. Update PO status and Workflow state
-    const { data: updated, error } = await supabase
-      .from('pharmacy_purchase_orders')
-      .update({
-        status: 'pending_approval',
-        workflow_id: workflow.id,
-        current_step: 1, // Start at step 1
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', poId)
-      .select()
-      .single()
-
-    if (error) throw error
-
-    // 4. Create Audit Log for Submission
-    const { error: logError } = await supabase
-      .from('approval_logs')
-      .insert({
-        entity_type: 'purchase_order',
-        entity_id: poId,
-        workflow_id: workflow.id,
-        step_order: 0, // 0 = Submission
-        action: 'submitted',
-        approved_by: userId,
-        notes: 'Submitted for approval',
-        created_at: new Date().toISOString()
-      })
-
-    if (logError) console.error('Failed to log approval submission:', logError)
-
-    // Background sync to CC/APPL Allocation if relevant
-    if (updated.hospital_id) {
-      syncSinglePOToCCAllocation(updated.hospital_id, updated.id).catch(console.error)
-      syncSinglePOToAPPLAllocation(updated.hospital_id, updated.id).catch(console.error)
+    // 2. Prepare Request Data for Approval Check
+    const requestData = {
+      amount: po.total_amount,
+      department_id: po.department || po.department_id, // Handle potential schema variations
+      po_type: po.po_type,
+      supplier_id: po.supplier_id,
+      item_count: po.items?.length || 0,
+      is_emergency: false // Could be added to PO schema later
     }
 
-    return { data: updated as PurchaseOrder, error: null }
+    // 3. Determine Action Type
+    const actionType = po.po_type === 'lpo' ? 'lpo_create' : 'purchase_order_create';
+
+    // 4. Check if Approval is Needed
+    const { needs_approval, workflow_id } = await checkApprovalNeeded(actionType, requestData);
+
+    let updatedPO;
+
+    if (needs_approval && workflow_id) {
+      // A. Start Approval Workflow
+
+      // Create Request Record
+      const approvalRequest = await createApprovalRequest(
+        workflow_id,
+        userId,
+        requestData,
+        'purchase_order',
+        poId
+      );
+
+      // Update PO Status
+      const { data: updated, error: updateError } = await supabase
+        .from('pharmacy_purchase_orders')
+        .update({
+          status: 'pending_approval',
+          workflow_id: workflow_id,
+          current_step: 1,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', poId)
+        .select()
+        .single()
+
+      if (updateError) throw updateError
+      updatedPO = updated;
+
+      // Log Submission
+      await supabase.from('approval_logs').insert({
+        entity_type: 'purchase_order',
+        entity_id: poId,
+        workflow_id: workflow_id,
+        step_order: 0,
+        action: 'submitted',
+        approved_by: userId,
+        notes: 'Submitted for approval (Workflow triggered)',
+        created_at: new Date().toISOString()
+      });
+
+    } else {
+      // B. No Approval Needed - Auto Approve
+      const { data: updated, error: updateError } = await supabase
+        .from('pharmacy_purchase_orders')
+        .update({
+          status: 'approved', // Or 'sent' if configured
+          workflow_id: null,
+          approved_by: null, // Auto-approved - null since no user approved
+          approved_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', poId)
+        .select()
+        .single()
+
+      if (updateError) throw updateError
+      updatedPO = updated;
+
+      // Log Auto-Approval
+      await supabase.from('approval_logs').insert({
+        entity_type: 'purchase_order',
+        entity_id: poId,
+        step_order: 0,
+        action: 'auto_approved',
+        approved_by: userId,
+        notes: 'Auto-approved (No workflow matched)',
+        created_at: new Date().toISOString()
+      });
+    }
+
+    // 5. Background Budget Sync
+    if (updatedPO.hospital_id) {
+      syncSinglePOToCCAllocation(updatedPO.hospital_id, updatedPO.id).catch(console.error)
+      syncSinglePOToAPPLAllocation(updatedPO.hospital_id, updatedPO.id).catch(console.error)
+    }
+
+    return { data: updatedPO as PurchaseOrder, error: null }
   } catch (error) {
     console.error('Error submitting purchase order:', error)
     return {
@@ -741,15 +849,18 @@ export async function submitPurchaseOrder(poId: string, userId: string): Promise
 /**
  * Approve purchase order
  */
-/**
- * Approve purchase order
- */
 export async function approvePurchaseOrder(
   poId: string,
   approverId: string
 ): Promise<ApiResponse<PurchaseOrder>> {
   try {
-    // 1. Get current PO details including workflow info
+    // 1. Authorization Check (Workflow Enforcement)
+    const { canApprove, message } = await canUserApprovePurchaseOrder(approverId, poId)
+    if (!canApprove) {
+      throw new Error(message || 'You are not authorized to approve this purchase order.')
+    }
+
+    // 2. Get current PO details including workflow info
     const { data: po, error: fetchError } = await supabase
       .from('pharmacy_purchase_orders')
       .select('*, hospital_id')
@@ -787,6 +898,40 @@ export async function approvePurchaseOrder(
       updatePayload.status = 'approved'
       updatePayload.approved_by = approverId
       updatePayload.approved_at = new Date().toISOString()
+
+      // CAPTURE SIGNATURE SNAPSHOT
+      try {
+        // 1. Get Approver's Department
+        const { data: approver } = await supabase
+          .from('users')
+          .select('department_id, department')
+          .eq('id', approverId)
+          .single()
+
+        let deptId = null
+        if (approver?.department?.department_code) {
+          deptId = approver.department.department_code
+        } else if (po.department) {
+          // Fallback to PO's department if approver deparment unknown
+          deptId = DEPT_CODE_MAPPING[po.department] || po.department
+        }
+
+        // 2. Fetch Signatures for this department
+        if (po.hospital_id) {
+          const sigResult = await getPharmacyPOSignatures(po.hospital_id, deptId || undefined)
+          if (sigResult.data) {
+            updatePayload.signature_snapshot = {
+              ...sigResult.data,
+              capturedAt: new Date().toISOString(),
+              capturedFromDepartment: deptId
+            }
+          }
+        }
+      } catch (sigError) {
+        console.error('Error capturing signature snapshot:', sigError)
+        // Ensure approval proceeds even if snapshot fails
+      }
+
       // If workflow exists, ensure we sit at the last step number or just let it stay
     } else {
       updatePayload.status = 'pending_approval'
@@ -1059,12 +1204,11 @@ export async function getSuppliers(
     // Always show global suppliers (hospital_id IS NULL)
     // If hospitalId is provided, also show hospital-specific suppliers
     // Note: For now, showing all suppliers regardless of hospital_id to ensure global suppliers are visible
-    // TODO: Refine this to properly filter by hospital_id when needed
-    // if (hospitalId) {
-    //   query = query.or(`hospital_id.eq.${hospitalId},hospital_id.is.null`)
-    // } else {
-    //   query = query.is('hospital_id', null)
-    // }
+    if (_hospitalId) {
+      query = query.or(`hospital_id.eq.${_hospitalId},hospital_id.is.null`)
+    } else {
+      query = query.is('hospital_id', null)
+    }
 
     if (filter?.status && filter.status !== 'all') {
       query = query.eq('status', filter.status)
@@ -1276,48 +1420,102 @@ export async function getSupplierStatistics(
 
 /**
  * Create a new supplier
+ * NOTE: Using direct REST API call instead of Supabase JS SDK due to hanging issue
  */
 export async function createSupplier(
   hospitalId: string | null,
   data: Partial<Supplier>
 ): Promise<ApiResponse<Supplier>> {
   try {
-    const insertData: Partial<Supplier> = {
-      supplier_code: data.supplier_code || `SUP-${Date.now().toString(36).toUpperCase()}`,
-      company_name: data.company_name || '',
-      contact_person: data.contact_person || null || undefined,
-      contact_person_phone: data.contact_person_phone || null || undefined,
-      email: data.email || null || undefined,
-      phone: data.phone || null || undefined,
-      address: data.address || null || undefined,
-      registration_number: data.registration_number || null || undefined,
-      bank_account: data.bank_account || null || undefined,
-      bank_name: data.bank_name || null || undefined,
+    console.log('[createSupplier] Starting with hospitalId:', hospitalId)
+    console.log('[createSupplier] Input data:', data)
+
+    const insertData: Record<string, any> = {
+      supplier_code: (data.supplier_code || `SUP-${Date.now().toString(36).toUpperCase()}`).trim(),
+      company_name: (data.company_name || '').trim(),
+      contact_person: data.contact_person?.trim() || null,
+      contact_person_phone: data.contact_person_phone?.trim() || null,
+      email: data.email?.trim() || null,
+      phone: data.phone?.trim() || null,
+      address: data.address?.trim() || null,
+      registration_number: data.registration_number?.trim() || null,
+      bank_account: data.bank_account?.trim() || null,
+      bank_name: data.bank_name?.trim() || null,
       supplier_type: data.supplier_type || 'both',
       status: data.status || 'active',
-      performance_rating: data.performance_rating || null || undefined,
-      notes: data.notes || null || undefined,
-      account_number: data.account_number || null || undefined,
-      account_document_url: data.account_document_url || null || undefined,
-      mof_certificate_url: data.mof_certificate_url || null || undefined,
-      hospital_id: hospitalId || undefined,
-    } as any
-
-    const { data: created, error } = await supabase
-      .from('suppliers')
-      .insert(insertData)
-      .select('*')
-      .single()
-
-    if (error) {
-      console.error('Error creating supplier in Supabase:', error)
-      return {
-        data: null,
-        error: error.message || 'Failed to create supplier',
-      }
+      performance_rating: data.performance_rating || null,
+      notes: data.notes?.trim() || null,
+      account_number: data.account_number?.trim() || null,
+      account_document_url: data.account_document_url || null,
+      mof_certificate_url: data.mof_certificate_url || null,
+      bumiputera_registration_certificate_url: data.bumiputera_registration_certificate_url || null,
+      hospital_id: hospitalId,
     }
 
-    return { data: created as Supplier, error: null }
+    console.log('[createSupplier] Prepared insert data:', insertData)
+
+    // Get Supabase URL and key from environment
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Supabase configuration missing')
+    }
+
+    // Get access token directly from localStorage to avoid SDK hanging
+    // The Supabase SDK stores the session in localStorage with a specific key pattern
+    let accessToken = supabaseKey
+    try {
+      const storageKey = `sb-${new URL(supabaseUrl).hostname.split('.')[0]}-auth-token`
+      const storedSession = localStorage.getItem(storageKey)
+      if (storedSession) {
+        const parsed = JSON.parse(storedSession)
+        accessToken = parsed?.access_token || supabaseKey
+      }
+    } catch (e) {
+      console.warn('[createSupplier] Could not get auth token from storage, using anon key')
+    }
+
+    console.log('[createSupplier] Using direct REST API insert...')
+
+
+    // Use direct REST API call with fetch - this bypasses the Supabase JS SDK hanging issue
+    const response = await fetch(`${supabaseUrl}/rest/v1/suppliers`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${accessToken}`,
+        'Prefer': 'return=representation',
+      },
+      body: JSON.stringify(insertData),
+    })
+
+    console.log('[createSupplier] REST API response status:', response.status)
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('[createSupplier] REST API error:', errorText)
+
+      // Parse error message
+      let errorMessage = 'Failed to create supplier'
+      try {
+        const errorJson = JSON.parse(errorText)
+        errorMessage = errorJson.message || errorJson.error || errorMessage
+      } catch {
+        errorMessage = errorText || errorMessage
+      }
+
+      return { data: null, error: errorMessage }
+    }
+
+    const created = await response.json()
+    console.log('[createSupplier] Created supplier:', created)
+
+    // Response is an array when using Prefer: return=representation
+    const supplierData = Array.isArray(created) ? created[0] : created
+
+    return { data: supplierData as Supplier, error: null }
   } catch (error) {
     console.error('Error creating supplier:', error)
     return {
@@ -1326,6 +1524,7 @@ export async function createSupplier(
     }
   }
 }
+
 
 /**
  * Update supplier
@@ -1339,19 +1538,30 @@ export async function updateSupplier(
       ...data,
     }
 
-    const { data: updated, error } = await supabase
-      .from('suppliers')
-      .update(updateData)
-      .eq('id', supplierId)
-      .select('*')
-      .single()
+    const TIMEOUT_MS = 30000 // 30 seconds - consistent with createSupplier
 
-    if (error) {
-      console.error('Error updating supplier in Supabase:', error)
+    const { error: updateError } = await Promise.race([
+      supabase.from('suppliers').update(updateData).eq('id', supplierId),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Operation timed out')), TIMEOUT_MS))
+    ]) as any
+
+    if (updateError) {
+      console.error('Error updating supplier in Supabase:', updateError)
       return {
         data: null,
-        error: error.message || 'Failed to update supplier',
+        error: updateError.message || 'Failed to update supplier',
       }
+    }
+
+    const { data: updated, error: fetchError } = await supabase
+      .from('suppliers')
+      .select('*')
+      .eq('id', supplierId)
+      .single()
+
+    if (fetchError) {
+      console.warn('[updateSupplier] Fetch error (but update succeeded):', fetchError)
+      return { data: { id: supplierId, ...data } as Supplier, error: null }
     }
 
     return { data: updated as Supplier, error: null }
@@ -1423,6 +1633,107 @@ export async function addTrackingUpdate(
     return {
       data: null,
       error: error instanceof Error ? error.message : 'Failed to add tracking update',
+    }
+  }
+}
+
+/**
+ * Reallocate Purchase Order (Change Warrant Allocation)
+ * Allows changing Vote Code, Activity, Department, and Category for an ALREADY APPROVED PO.
+ * Handles cleanup of old expenses if moving between Vote Codes (e.g. APPL -> CC).
+ */
+export async function reallocatePurchaseOrder(
+  poId: string,
+  userId: string,
+  data: {
+    vote_code: string
+    vote_activity: string
+    department: string
+    category: string
+    budget_id?: string
+  }
+): Promise<ApiResponse<PurchaseOrder>> {
+  try {
+    // 1. Get current PO details to know OLD vote code
+    const { data: oldPO, error: fetchError } = await supabase
+      .from('pharmacy_purchase_orders')
+      .select('id, hospital_id, vote_code, po_number')
+      .eq('id', poId)
+      .single()
+
+    if (fetchError || !oldPO) {
+      return { data: null, error: 'Purchase Order not found' }
+    }
+
+    const hospitalId = oldPO.hospital_id
+
+    // 2. Update the Purchase Order with NEW Allocation
+    const { data: updated, error: updateError } = await supabase
+      .from('pharmacy_purchase_orders')
+      .update({
+        vote_code: data.vote_code,
+        vote_activity: data.vote_activity,
+        department: data.department,
+        category: data.category,
+        budget_id: data.budget_id || null, // Optional
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', poId)
+      .select('*')
+      .single()
+
+    if (updateError) throw updateError
+
+    // 3. CLEANUP: If Vote Code changed type, remove old expense record
+    // If we moved FROM CC (080702) TO something else (e.g. 990102 APPL)
+    if (oldPO.vote_code === '080702' && data.vote_code !== '080702') {
+      const { error: delError } = await supabase
+        .from('pharmacy_cc_expenses')
+        .delete()
+        .eq('po_id', poId)
+        .eq('hospital_id', hospitalId)
+
+      if (delError) console.error('Error cleaning up old CC expense:', delError)
+    }
+
+    // If we moved FROM APPL (990102) TO something else (e.g. 080702 CC)
+    if (oldPO.vote_code === '990102' && data.vote_code !== '990102') {
+      const { error: delError } = await supabase
+        .from('pharmacy_appl_expenses')
+        .delete()
+        .eq('po_id', poId)
+        .eq('hospital_id', hospitalId)
+
+      if (delError) console.error('Error cleaning up old APPL expense:', delError)
+    }
+
+    // 4. SYNC: Trigger syncs for BOTH types to ensure correct state
+    // The sync functions will check the CURRENT vote_code of the PO and act accordingly.
+    // If it's now APPL, APPL trigger will create expense. CC trigger will check info and see it's not CC and exit.
+    // Note: We deliberately call both because we might have switched TO one of them, or stayed in same.
+
+    await Promise.all([
+      syncSinglePOToCCAllocation(hospitalId, poId),
+      syncSinglePOToAPPLAllocation(hospitalId, poId)
+    ])
+
+    // Log the change (Optional, but good for audit)
+    await supabase.from('approval_logs').insert({
+      entity_type: 'purchase_order',
+      entity_id: poId,
+      action: 'reallocated',
+      approved_by: userId,
+      notes: `Reallocated from Vote Code ${oldPO.vote_code} to ${data.vote_code}`,
+      created_at: new Date().toISOString()
+    })
+
+    return { data: updated as PurchaseOrder, error: null }
+
+  } catch (error) {
+    console.error('Error reallocating purchase order:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to reallocate purchase order'
     }
   }
 }

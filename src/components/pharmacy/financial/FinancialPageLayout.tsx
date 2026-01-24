@@ -1,13 +1,12 @@
 import React from 'react'
 import { motion } from 'framer-motion'
-import { ChevronRight, Bell, Info } from 'lucide-react'
-import { Button } from '@/components/ui'
+import { ChevronRight, Info } from 'lucide-react'
 
 interface FinancialPageLayoutProps {
     title: string
     description?: string
     icon?: React.ElementType
-    breadcrumbs?: { label: string; href?: string }[]
+    breadcrumbs?: { label: string; href?: string; onClick?: () => void }[]
     actions?: React.ReactNode
     children: React.ReactNode
     notice?: {
@@ -41,7 +40,8 @@ export const FinancialPageLayout: React.FC<FinancialPageLayoutProps> = ({
                         <React.Fragment key={index}>
                             <ChevronRight className="w-3 h-3 mx-2 text-slate-300" />
                             <span
-                                className={crumb.href ? "hover:text-royal-blue cursor-pointer transition-colors" : "text-royal-blue font-bold"}
+                                className={crumb.href || crumb.onClick ? "hover:text-royal-blue cursor-pointer transition-colors" : "text-royal-blue font-bold"}
+                                onClick={crumb.onClick}
                             >
                                 {crumb.label}
                             </span>

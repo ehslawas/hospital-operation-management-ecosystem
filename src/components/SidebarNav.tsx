@@ -197,6 +197,24 @@ export default function SidebarNav({ collapsed = false }: Props) {
         </>
       )}
 
+      {/* Pathology & Laboratory */}
+      {mounted && (department === 'Pathology' || department === 'Laboratory') && (
+        <>
+          <div className="space-y-1.5">
+            {item('/catalog', <IconBeaker />, 'Catalog', true, 'catalog-lab')}
+            {expandedItems.includes('catalog-lab') && (
+              <div className="ml-2 mt-1.5 space-y-1 border-l-2 border-blue-200/50 pl-3.5">
+                {subItem('/drug-catalog', 'Drug Catalog')}
+                {subItem('/non-drug-catalog', 'Non Drug Catalog')}
+              </div>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            {item('/lab/samples', <IconBeaker />, 'Sample Collection')}
+          </div>
+        </>
+      )}
+
       {/* General Ward */}
       {mounted && department === 'General Ward' && (
         <>

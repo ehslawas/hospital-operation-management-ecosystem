@@ -19,7 +19,7 @@ import {
   Database,
   RefreshCw,
 } from 'lucide-react'
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
 import { Badge, Button, StatCard } from '@/components/ui'
 import { cn, formatDate } from '@/lib/utils'
 import { ROUTES } from '@/lib/constants'
@@ -41,6 +41,7 @@ export const HospitalAdminDashboard: React.FC = () => {
   const { user } = useAuthStore()
   const hospitalName = user?.hospital?.hospital_name || 'Your Hospital'
   const hospitalId = user?.hospital_id || ''
+  const isSessionReady = useIsSessionReady()
 
   const [memoCounts, setMemoCounts] = useState<Record<MemoStatus, number>>({
     draft: 0, pending_approval: 0, approved: 0, rejected: 0, published: 0, archived: 0
@@ -51,7 +52,7 @@ export const HospitalAdminDashboard: React.FC = () => {
   const [healthSummary, setHealthSummary] = useState<HospitalHealthSummary | null>(null)
   const [services, setServices] = useState<ServiceStatus[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  
+
   // KPI Data
   const [totalUsers, setTotalUsers] = useState(0)
   const [activeUsers, setActiveUsers] = useState(0)
@@ -61,8 +62,8 @@ export const HospitalAdminDashboard: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!hospitalId) return
-      
+      if (!isSessionReady || !hospitalId) return
+
       setIsLoading(true)
       try {
         const [memos, sensitive, health, serviceStatus, usersResult, deptsResult, accessRequestsResult] = await Promise.all([
@@ -74,17 +75,17 @@ export const HospitalAdminDashboard: React.FC = () => {
           getDepartments({ hospitalId, pageSize: 1 }), // Just get count
           getAccessRequests({ hospitalId, status: 'pending', pageSize: 1 }), // Just get count
         ])
-        
+
         setMemoCounts(memos)
         setSensitiveDataCounts(sensitive)
         setHealthSummary(health)
         setServices(serviceStatus)
-        
+
         // Set KPI data
         setTotalUsers(usersResult.total)
         setTotalDepartments(deptsResult.total)
         setPendingAccessRequests(accessRequestsResult.total)
-        
+
         // Get active users and departments count properly
         const [activeUsersResult, activeDeptsResult] = await Promise.all([
           getUsers({ hospitalId, status: 'active', pageSize: 1 }),
@@ -100,11 +101,11 @@ export const HospitalAdminDashboard: React.FC = () => {
     }
 
     fetchData()
-    
+
     // Refresh every 60 seconds
     const interval = setInterval(fetchData, 60000)
     return () => clearInterval(interval)
-  }, [hospitalId])
+  }, [isSessionReady, hospitalId])
 
   const pendingMemos = memoCounts.pending_approval
   const pendingSensitiveRequests = sensitiveDataCounts.total
@@ -173,10 +174,10 @@ export const HospitalAdminDashboard: React.FC = () => {
                 </Button>
               )}
               {pendingSensitiveRequests > 0 && (
-                <Button 
-                  variant={sensitiveDataCounts.emergency > 0 ? 'danger' : 'primary'} 
-                  size="sm" 
-                  as={Link} 
+                <Button
+                  variant={sensitiveDataCounts.emergency > 0 ? 'danger' : 'primary'}
+                  size="sm"
+                  as={Link}
                   to={ROUTES.ADMIN_SENSITIVE_DATA_REQUESTS}
                 >
                   Review Data Requests
@@ -196,8 +197,8 @@ export const HospitalAdminDashboard: React.FC = () => {
           className={cn(
             'rounded-xl p-5 border',
             healthSummary.overall_status === 'healthy' ? 'bg-green-50 border-green-200' :
-            healthSummary.overall_status === 'warning' ? 'bg-amber-50 border-amber-200' :
-            'bg-red-50 border-red-200'
+              healthSummary.overall_status === 'warning' ? 'bg-amber-50 border-amber-200' :
+                'bg-red-50 border-red-200'
           )}
         >
           <div className="flex items-center justify-between">
@@ -332,21 +333,21 @@ export const HospitalAdminDashboard: React.FC = () => {
                   className={cn(
                     'flex items-center justify-between p-3 rounded-lg',
                     service.status === 'healthy' ? 'bg-green-50' :
-                    service.status === 'warning' ? 'bg-amber-50' : 'bg-red-50'
+                      service.status === 'warning' ? 'bg-amber-50' : 'bg-red-50'
                   )}
                 >
                   <div className="flex items-center gap-3">
                     <div className={cn(
                       'w-2 h-2 rounded-full',
                       service.status === 'healthy' ? 'bg-green-500' :
-                      service.status === 'warning' ? 'bg-amber-500' : 'bg-red-500'
+                        service.status === 'warning' ? 'bg-amber-500' : 'bg-red-500'
                     )} />
                     <span className="text-sm font-medium text-gray-900">{service.name}</span>
                   </div>
-                  <Badge 
+                  <Badge
                     variant={
                       service.status === 'healthy' ? 'success' :
-                      service.status === 'warning' ? 'warning' : 'error'
+                        service.status === 'warning' ? 'warning' : 'error'
                     }
                     size="sm"
                   >

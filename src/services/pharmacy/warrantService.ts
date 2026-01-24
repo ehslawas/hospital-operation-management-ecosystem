@@ -364,7 +364,7 @@ function calculateWarrantSummary(
 
   // Initialize maps for all groupings
   const categoryMap = new Map<WarrantCategory, { allocation: number; expenses: number; balance: number; count: number }>()
-  const deptMap = new Map<WarrantDepartment, { allocation: number; expenses: number; balance: number; count: number }>()
+  const deptMap = new Map<WarrantDepartment, { allocation: number; expenses: number; liabilities: number; net_expenses: number; balance: number; count: number }>()
   const voteCodeMap = new Map<WarrantVoteCode, { allocation: number; expenses: number; balance: number; count: number }>()
   const detailedMap = new Map<string, { department: string; vote_code: string; vote_activity: string; allocation: number; expenses: number; balance: number; count: number }>()
 
@@ -379,7 +379,7 @@ function calculateWarrantSummary(
     categoryMap.set(w.category, existingCat)
 
     // Department Map
-    const existingDept = deptMap.get(w.department) || { allocation: 0, expenses: 0, balance: 0, count: 0 }
+    const existingDept = deptMap.get(w.department) || { allocation: 0, expenses: 0, liabilities: 0, net_expenses: 0, balance: 0, count: 0 }
     existingDept.allocation += warrantAmount
     existingDept.count += 1
     deptMap.set(w.department, existingDept)
@@ -421,8 +421,14 @@ function calculateWarrantSummary(
     // Department Map
     if (e.department) {
       const dept = e.department as WarrantDepartment
-      const existingDept = deptMap.get(dept) || { allocation: 0, expenses: 0, balance: 0, count: 0 }
+      const existingDept = deptMap.get(dept) || { allocation: 0, expenses: 0, liabilities: 0, net_expenses: 0, balance: 0, count: 0 }
       existingDept.expenses += expenseAmount
+
+      // Calculate Liabilities (Pending/In-Progress)
+      if (['approved', 'sent', 'partial_received'].includes(e.status || '')) {
+        existingDept.liabilities += expenseAmount
+      }
+
       deptMap.set(dept, existingDept)
     }
 
@@ -464,6 +470,7 @@ function calculateWarrantSummary(
     .map(([department, data]) => ({
       department,
       ...data,
+      net_expenses: data.expenses - data.liabilities,
       balance: data.allocation - data.expenses,
     }))
     .sort((a, b) => b.allocation - a.allocation)

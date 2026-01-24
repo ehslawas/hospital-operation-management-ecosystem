@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { AlertTriangle, TrendingDown, DollarSign, Calendar } from 'lucide-react'
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
 import { Table, Spinner, Badge, Select } from '@/components/ui'
 import { getSlowMovingItems } from '@/services/pharmacy/inventoryService'
 import type { SlowMovingItem } from '@/types/pharmacy'
@@ -8,6 +8,7 @@ import type { SlowMovingItem } from '@/types/pharmacy'
 export const SlowMovingPage: React.FC = () => {
   const { user } = useAuthStore()
   const hospitalId = user?.hospital_id
+  const isSessionReady = useIsSessionReady()
 
   const [items, setItems] = useState<SlowMovingItem[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -15,7 +16,7 @@ export const SlowMovingPage: React.FC = () => {
   const [daysSinceMovement, setDaysSinceMovement] = useState(90)
 
   useEffect(() => {
-    if (!hospitalId) return
+    if (!isSessionReady || !hospitalId) return
 
     const load = async () => {
       setIsLoading(true)
@@ -34,7 +35,7 @@ export const SlowMovingPage: React.FC = () => {
     }
 
     void load()
-  }, [hospitalId, daysSinceMovement])
+  }, [isSessionReady, hospitalId, daysSinceMovement])
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-MY', {

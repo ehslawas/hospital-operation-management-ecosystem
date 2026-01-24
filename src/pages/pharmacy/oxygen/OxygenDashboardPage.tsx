@@ -10,7 +10,7 @@ import {
   AirVent,
   Truck
 } from 'lucide-react'
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
 import {
   Badge,
   Button,
@@ -48,6 +48,7 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 export const OxygenDashboardPage: React.FC = () => {
   const { user } = useAuthStore()
   const hospitalId = user?.hospital_id
+  const isSessionReady = useIsSessionReady()
   const toast = useToast()
 
   const [summary, setSummary] = useState<OxygenSummary | null>(null)
@@ -91,7 +92,7 @@ export const OxygenDashboardPage: React.FC = () => {
 
   // Load Request
   const loadData = async () => {
-    if (!hospitalId) return
+    if (!isSessionReady || !hospitalId) return
     setIsLoading(true)
 
     try {
@@ -128,7 +129,7 @@ export const OxygenDashboardPage: React.FC = () => {
 
   useEffect(() => {
     void loadData()
-  }, [hospitalId])
+  }, [isSessionReady, hospitalId])
 
   // -- Event Handlers --
 

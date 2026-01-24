@@ -28,17 +28,17 @@ export const HospitalForm: React.FC<HospitalFormProps> = ({ hospital, onSuccess,
     resolver: zodResolver(hospitalSchema),
     defaultValues: hospital
       ? {
-          hospitalCode: hospital.hospital_code,
-          hospitalName: hospital.hospital_name,
-          address: hospital.address || '',
-          state: hospital.state || '',
-          phone: hospital.phone || '',
-          email: hospital.email || '',
-          status: hospital.status,
-        }
+        hospitalCode: hospital.hospital_code,
+        hospitalName: hospital.hospital_name,
+        address: hospital.address || '',
+        state: hospital.state || '',
+        phone: hospital.phone || '',
+        email: hospital.email || '',
+        status: hospital.status,
+      }
       : {
-          status: HOSPITAL_STATUS.ACTIVE,
-        },
+        status: HOSPITAL_STATUS.ACTIVE,
+      },
   })
 
   const onSubmit = async (data: HospitalFormData) => {
@@ -89,7 +89,8 @@ export const HospitalForm: React.FC<HospitalFormProps> = ({ hospital, onSuccess,
             label="Hospital Code"
             placeholder="Enter hospital code (e.g., HKL)"
             leftIcon={<Hash className="w-5 h-5" />}
-            error={errors.hospitalCode?.message}
+            error={!!errors.hospitalCode}
+            errorMessage={errors.hospitalCode?.message}
             required
             disabled={isEditMode}
           />
@@ -99,7 +100,8 @@ export const HospitalForm: React.FC<HospitalFormProps> = ({ hospital, onSuccess,
             label="Hospital Name"
             placeholder="Enter hospital name"
             leftIcon={<Building2 className="w-5 h-5" />}
-            error={errors.hospitalName?.message}
+            error={!!errors.hospitalName}
+            errorMessage={errors.hospitalName?.message}
             required
           />
 
@@ -108,7 +110,8 @@ export const HospitalForm: React.FC<HospitalFormProps> = ({ hospital, onSuccess,
             label="State"
             placeholder="Enter state (e.g., Sarawak, Selangor)"
             leftIcon={<MapPin className="w-5 h-5" />}
-            error={errors.state?.message}
+            error={!!errors.state}
+            errorMessage={errors.state?.message}
           />
 
           <Input
@@ -116,7 +119,8 @@ export const HospitalForm: React.FC<HospitalFormProps> = ({ hospital, onSuccess,
             label="Phone Number"
             placeholder="Enter phone number"
             leftIcon={<Phone className="w-5 h-5" />}
-            error={errors.phone?.message}
+            error={!!errors.phone}
+            errorMessage={errors.phone?.message}
           />
 
           <Input
@@ -125,7 +129,8 @@ export const HospitalForm: React.FC<HospitalFormProps> = ({ hospital, onSuccess,
             label="Email"
             placeholder="Enter email address"
             leftIcon={<Mail className="w-5 h-5" />}
-            error={errors.email?.message}
+            error={!!errors.email}
+            errorMessage={errors.email?.message}
           />
 
           <Select
@@ -144,7 +149,8 @@ export const HospitalForm: React.FC<HospitalFormProps> = ({ hospital, onSuccess,
           {...register('address')}
           label="Address"
           placeholder="Enter hospital address"
-          error={errors.address?.message}
+          error={!!errors.address}
+          errorMessage={errors.address?.message}
           rows={3}
         />
       </div>

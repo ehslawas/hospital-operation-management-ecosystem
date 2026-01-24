@@ -23,7 +23,7 @@ import { getAllRoles } from '@/services/roleService'
 import { getDepartmentsByHospital } from '@/services/departmentService'
 import { getAllHospitals } from '@/services/hospitalService'
 import { useToastStore } from '@/stores/toastStore'
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
 import { ROUTES, USER_STATUS, DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS, SYSTEM_ROLES } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 import type { UserWithRelations, SortConfig, Role, Department, Hospital, UserStatus } from '@/types'
@@ -32,6 +32,7 @@ export const UserListPage: React.FC = () => {
   const navigate = useNavigate()
   const { error: showError, success: showSuccess, warning: showWarning } = useToastStore()
   const { user } = useAuthStore()
+  const isSessionReady = useIsSessionReady()
   const isHospitalAdmin = user?.role?.role_code === SYSTEM_ROLES.HOSPITAL_ADMIN
   const userHospitalId = user?.hospital_id
 
@@ -168,8 +169,8 @@ export const UserListPage: React.FC = () => {
   }, [currentPage, pageSize, search, statusFilter, roleFilter, departmentFilter, hospitalFilter, sortConfig, isHospitalAdmin, userHospitalId])
 
   useEffect(() => {
-    fetchUsers()
-  }, [fetchUsers])
+    if (isSessionReady) fetchUsers()
+  }, [fetchUsers, isSessionReady])
 
   // Statistics
   const stats: StatItem[] = useMemo(() => {

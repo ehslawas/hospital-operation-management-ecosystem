@@ -21,7 +21,7 @@ export async function getDepartments({
   status,
   hospitalId,
   sort,
-}: GetDepartmentsParams): Promise<PaginatedResponse<DepartmentWithRelations>> {
+}: GetDepartmentsParams = {}): Promise<PaginatedResponse<DepartmentWithRelations>> {
   try {
     // Use explicit foreign key name to avoid ambiguity
     let query = supabase
@@ -165,7 +165,10 @@ export async function getDepartmentById(id: string): Promise<DepartmentWithRelat
       .eq('id', id)
       .single()
 
-    let { data, error } = await query
+    let { data, error } = await Promise.race([
+      query,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Department query timed out')), 10000))
+    ]) as any
 
     // If foreign key relationship fails, try without explicit relationship
     if (error && (error.code === 'PGRST200' || error.message?.includes('Could not find a relationship'))) {
@@ -314,7 +317,10 @@ export async function getAllDepartments(hospitalId?: string): Promise<Department
       query = query.eq('hospital_id', hospitalId)
     }
 
-    const { data, error } = await query
+    const { data, error } = await Promise.race([
+      query,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('All departments query timed out')), 15000))
+    ]) as any
 
     if (error) {
       console.warn('Error fetching departments with relations, trying fallback:', error.message)

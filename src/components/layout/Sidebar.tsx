@@ -56,7 +56,10 @@ export const Sidebar: React.FC = () => {
       return
     }
 
-    if (user?.id && !menusInitialized && !menusLoading && !menusError) {
+    // Fix: Only auto-fetch if NOT initialized and NOT loading
+    // We removed !menusError check so that we don't block retries if error state is cleared elsewhere
+    // but typically if there is an error, we show the error UI instead of auto-fetching loop
+    if (user?.id && !menusInitialized && !menusLoading) {
       console.log('[Sidebar] Supabase session ready, triggering initial menu fetch')
 
       // Determine department context based on user's role
@@ -78,7 +81,7 @@ export const Sidebar: React.FC = () => {
         user: user
       })
     }
-  }, [user?.id, menus.length, menusLoading, menusError, supabaseSessionReady])
+  }, [user?.id, menusInitialized, menusLoading, supabaseSessionReady]) // Fixed: Removed menus.length and menusError to prevent loops
 
   const handleLogout = async () => {
     console.log('Logout clicked')

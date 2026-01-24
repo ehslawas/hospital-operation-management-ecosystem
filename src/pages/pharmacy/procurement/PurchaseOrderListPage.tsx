@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import {
   ShoppingCart, Search, Plus, CheckCircle, XCircle, FileDigit, FileText,
@@ -6,30 +6,38 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
+import { useIsSessionReady } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
 import {
   Table, TableHeader, TableBody, TableRow, TableCell,
   Spinner, Badge, Button, Pagination, ConfirmationDialog
 } from '@/components/ui'
 import { FinancialPageLayout } from '@/components/pharmacy/financial/FinancialPageLayout'
+import { DepartmentBreakdownTable } from '@/components/pharmacy/procurement/DepartmentBreakdownTable'
 import { ActionTooltip } from '@/components/ui/Tooltip'
 import { getPurchaseOrders, getActiveSuppliers, getProcurementStats, approvePurchaseOrder, deletePurchaseOrder } from '@/services/pharmacy/procurementService'
 import { WARRANT_VOTE_CODES, WARRANT_VOTE_ACTIVITIES, WARRANT_DEPARTMENTS } from '@/services/pharmacy/warrantService'
 import type { PurchaseOrderWithRelations, Supplier, ProcurementFilter, POStatus, ProcurementStats } from '@/types/pharmacy'
 import { ROUTES } from '@/lib/constants'
+import { useDebounce } from '@/hooks/useDebounce'
 
 export const PurchaseOrderListPage: React.FC = () => {
   const navigate = useNavigate()
   const { user } = useAuthStore()
   const { success: showSuccess, error: showError } = useToastStore()
   const hospitalId = user?.hospital_id
+  const isSessionReady = useIsSessionReady()
 
   const [orders, setOrders] = useState<PurchaseOrderWithRelations[]>([])
-  const [isLoading, setIsLoading] = useState(false)
+  // Start as true to show loading spinner until session is verified and data is loaded
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // Track if initial data has been loaded (to distinguish from subsequent fetches)
+  const [hasInitialLoad, setHasInitialLoad] = useState(false)
 
   // Filters
   const [search, setSearch] = useState('')
+  const debouncedSearch = useDebounce(search, 300) // Debounce search by 300ms
   const [statusFilter, setStatusFilter] = useState<POStatus | 'all'>('all')
   const [supplierId, setSupplierId] = useState('')
   const [voteCodeFilter, setVoteCodeFilter] = useState('')
@@ -56,14 +64,14 @@ export const PurchaseOrderListPage: React.FC = () => {
   // Load stats once (global KPIs)
   useEffect(() => {
     const loadStats = async () => {
-      if (!hospitalId) return
+      if (!isSessionReady || !hospitalId) return
       const res = await getProcurementStats(hospitalId)
       if (res.data) {
         setStats(res.data)
       }
     }
     void loadStats()
-  }, [hospitalId])
+  }, [isSessionReady, hospitalId])
 
   const kpis = {
     totalOrders: stats?.total_orders || 0,
@@ -71,6 +79,8 @@ export const PurchaseOrderListPage: React.FC = () => {
     pendingOrders: stats?.pending_orders || 0,
     completedOrders: stats?.completed_orders || 0,
     totalItems: stats?.total_items || 0,
+    totalSQ: stats?.total_sq || 0,
+    totalRegularPO: stats?.total_regular_po || 0,
     statusBreakdown: stats?.by_status || {},
     categoryBreakdown: stats?.by_category || {},
     departmentBreakdown: stats?.by_department || {},
@@ -79,13 +89,17 @@ export const PurchaseOrderListPage: React.FC = () => {
 
   // Load orders with filters
   const loadOrders = useCallback(async () => {
-    if (!hospitalId) return
+    // Only fetch if session is ready and we have hospitalId
+    if (!isSessionReady || !hospitalId) {
+      // Don't change loading state here - the effect below handles waiting for session
+      return
+    }
 
     setIsLoading(true)
     setError(null)
 
     const filter: ProcurementFilter = {
-      search: search || undefined,
+      search: debouncedSearch || undefined,
       status: statusFilter === 'all' ? undefined : statusFilter,
       supplier_id: supplierId || undefined,
       po_type: activeTab === 'sq' ? 'sq' : 'po_only', // Filter by tab
@@ -95,23 +109,33 @@ export const PurchaseOrderListPage: React.FC = () => {
       department: departmentFilter || undefined,
     }
 
-    const res = await getPurchaseOrders(hospitalId, filter, page, pageSize, 'po_number', 'desc')
+    try {
+      const res = await getPurchaseOrders(hospitalId, filter, page, pageSize, 'po_number', 'desc')
 
-    if (res.error) {
-      setError(res.error)
+      if (res.error) {
+        setError(res.error)
+        setOrders([])
+      } else if (res.data) {
+        setOrders(res.data.data)
+        setTotalPages(res.data.totalPages)
+        setTotal(res.data.total)
+      }
+    } catch (err) {
+      console.error('[PurchaseOrderListPage] Error loading orders:', err)
+      setError('Failed to load purchase orders')
       setOrders([])
-    } else if (res.data) {
-      setOrders(res.data.data)
-      setTotalPages(res.data.totalPages)
-      setTotal(res.data.total)
+    } finally {
+      setIsLoading(false)
+      setHasInitialLoad(true)
     }
+  }, [isSessionReady, hospitalId, debouncedSearch, statusFilter, supplierId, voteCodeFilter, voteActivityFilter, categoryFilter, departmentFilter, page, pageSize, activeTab])
 
-    setIsLoading(false)
-  }, [hospitalId, search, statusFilter, supplierId, voteCodeFilter, voteActivityFilter, categoryFilter, departmentFilter, page, pageSize, activeTab])
-
+  // Effect to trigger data load when session becomes ready
   useEffect(() => {
-    void loadOrders()
-  }, [loadOrders])
+    if (isSessionReady && hospitalId) {
+      void loadOrders()
+    }
+  }, [isSessionReady, hospitalId, loadOrders])
 
   // Reset selection when data changes
   useEffect(() => {
@@ -276,7 +300,7 @@ export const PurchaseOrderListPage: React.FC = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="relative overflow-hidden bg-gradient-to-br from-blue-500 to-cyan-400 rounded-2xl p-5 text-white shadow-lg group"
+            className="relative overflow-hidden bg-gradient-to-br from-blue-600 to-indigo-500 rounded-2xl p-5 text-white shadow-lg group"
           >
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl group-hover:bg-white/20 transition-colors" />
             <div className="relative z-10">
@@ -284,11 +308,23 @@ export const PurchaseOrderListPage: React.FC = () => {
                 <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
                   <FileText className="w-5 h-5 text-blue-50" />
                 </div>
-                <span className="text-sm font-medium text-blue-50">Total Orders</span>
+                <span className="text-sm font-medium text-blue-50">Total KPI (POs + SQs)</span>
               </div>
               <div className="flex items-end justify-between">
-                <p className="text-3xl font-bold">{kpis.totalOrders}</p>
-                <span className="text-xs text-blue-100 bg-blue-600/30 px-2 py-1 rounded-full">All time</span>
+                <div>
+                  <p className="text-3xl font-bold leading-none">{kpis.totalOrders}</p>
+                  <div className="flex items-center gap-3 mt-2 text-[10px] uppercase tracking-wider font-bold opacity-80">
+                    <span className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-blue-300" />
+                      {kpis.totalRegularPO} Regular
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-indigo-300" />
+                      {kpis.totalSQ} SQ
+                    </span>
+                  </div>
+                </div>
+                <span className="text-xs text-blue-100 bg-blue-700/40 px-2 py-1 rounded-full border border-white/10">Yearly</span>
               </div>
             </div>
           </motion.div>
@@ -362,67 +398,7 @@ export const PurchaseOrderListPage: React.FC = () => {
 
         {/* Department Breakdown */}
         {stats?.department_breakdown && stats.department_breakdown.length > 0 && (
-          <div>
-            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-              Department Breakdown
-              <span className="text-xs font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                By Vote Code
-              </span>
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-              {stats.department_breakdown.map((dept) => (
-                <div key={dept.department} className="glass-card p-6 rounded-2xl border border-slate-100 bg-white/50 hover:shadow-lg transition-all duration-300 w-full">
-                  <h3 className="text-base font-bold text-slate-800 capitalize mb-3 flex items-center gap-2 pb-2 border-b border-slate-100">
-                    <div className="p-1.5 bg-blue-100 rounded-lg">
-                      <Building2 className="w-4 h-4 text-blue-600" />
-                    </div>
-                    {dept.department === 'laboratory_pathology' ? 'Pathologist' : dept.department.replace(/_/g, ' ')}
-                  </h3>
-                  <div className="space-y-4">
-                    {dept.vote_codes.map((vc) => (
-                      <div key={vc.code} className="bg-white/40 rounded-xl border border-slate-100 p-3 shadow-sm">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex flex-col">
-                            <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Vote Code</span>
-                            <span className="font-mono font-bold text-slate-700 leading-none">{vc.code}</span>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full inline-block">
-                              {vc.total_orders} ORDERS
-                            </div>
-                            <div className="text-[10px] text-emerald-600 font-medium mt-0.5 flex items-center justify-end gap-1">
-                              <Package className="w-3 h-3" />
-                              {vc.total_items} Items
-                            </div>
-                          </div>
-                        </div>
-
-                        {vc.activities && vc.activities.length > 0 && (
-                          <div className="mt-2 border-t border-slate-50 pt-2">
-                            <div className="grid grid-cols-3 gap-2 text-[9px] uppercase tracking-wider font-bold text-slate-400 mb-1 px-1">
-                              <span>Activity</span>
-                              <span className="text-center">Orders</span>
-                              <span className="text-right">Items</span>
-                            </div>
-                            <div className="space-y-1">
-                              {vc.activities.map((act) => (
-                                <div key={act.code} className="grid grid-cols-3 gap-2 px-1 py-1 items-center hover:bg-slate-50 rounded transition-colors border-b border-slate-50 last:border-0">
-                                  <span className="text-xs font-mono font-bold text-slate-600">{act.code}</span>
-                                  <span className="text-center text-[11px] font-semibold text-slate-500">{act.total_orders}</span>
-                                  <span className="text-right text-[11px] font-semibold text-slate-500">{act.total_items}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                </div>
-              ))}
-            </div>
-          </div>
+          <DepartmentBreakdownTable data={stats.department_breakdown} />
         )}
 
         <div className="flex flex-col gap-6">
@@ -548,15 +524,15 @@ export const PurchaseOrderListPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Loading */}
-          {isLoading && (
+          {/* Loading - show when fetching OR when waiting for session to be ready */}
+          {(isLoading || (!isSessionReady && !hasInitialLoad)) && (
             <div className="flex items-center justify-center py-16">
               <Spinner size="lg" />
             </div>
           )}
 
           {/* Error */}
-          {!isLoading && error && (
+          {!isLoading && hasInitialLoad && error && (
             <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 shadow-sm animate-in fade-in slide-in-from-top-2">
               <AlertTriangle className="w-5 h-5 mt-0.5 flex-shrink-0" />
               <div>
@@ -566,8 +542,8 @@ export const PurchaseOrderListPage: React.FC = () => {
             </div>
           )}
 
-          {/* Table */}
-          {!isLoading && !error && (
+          {/* Table - only show after initial load is complete */}
+          {!isLoading && hasInitialLoad && !error && (
             <div className="glass-card rounded-2xl overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
                 <Table>

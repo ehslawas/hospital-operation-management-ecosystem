@@ -1,15 +1,7 @@
 import { supabase } from './supabase'
-import type { Role, Permission, PaginatedResponse, SortConfig } from '@/types'
-import { DEFAULT_PAGE_SIZE } from '@/lib/constants'
+import type { Role, Permission } from '@/types'
 
-interface GetRolesParams {
-  page?: number
-  pageSize?: number
-  search?: string
-  isSystemRole?: boolean
-  hospitalId?: string
-  sort?: SortConfig
-}
+
 
 /**
  * Get paginated list of roles
@@ -48,7 +40,10 @@ export async function getAllRoles(): Promise<Role[]> {
  */
 export async function getRoleById(id: string): Promise<Role | null> {
   try {
-    const { data, error } = await supabase.from('roles').select('*').eq('id', id).single()
+    const { data, error } = await Promise.race([
+      supabase.from('roles').select('*').eq('id', id).single(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Role query timed out')), 10000))
+    ]) as any
 
     if (error) {
       console.error('Error fetching role from Supabase:', error)
@@ -67,11 +62,14 @@ export async function getRoleById(id: string): Promise<Role | null> {
 export async function getAllPermissions(): Promise<Permission[]> {
   try {
     // Fetch all modules
-    const { data: modules, error: modError } = await supabase
-      .from('modules')
-      .select('*')
-      .eq('is_active', true)
-      .order('display_order', { ascending: true })
+    const { data: modules, error: modError } = await Promise.race([
+      supabase
+        .from('modules')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Modules query timed out')), 10000))
+    ]) as any
 
     if (modError) throw modError
 
@@ -79,7 +77,7 @@ export async function getAllPermissions(): Promise<Permission[]> {
     // This maintains backward compatibility with the legacy RolePermissionPage UI
     const permissions: Permission[] = []
 
-    modules?.forEach(mod => {
+    modules?.forEach((mod: any) => {
       const actions = ['view', 'create', 'edit', 'delete']
       actions.forEach(action => {
         permissions.push({
@@ -107,10 +105,13 @@ export async function getAllPermissions(): Promise<Permission[]> {
  */
 export async function getRolePermissions(roleId: string): Promise<Permission[]> {
   try {
-    const { data, error } = await supabase
-      .from('role_permissions')
-      .select('*, module:modules(*)')
-      .eq('role_id', roleId)
+    const { data, error } = await Promise.race([
+      supabase
+        .from('role_permissions')
+        .select('*, module:modules(*)')
+        .eq('role_id', roleId),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Role permissions query timed out')), 10000))
+    ]) as any
 
     if (error) {
       console.error('Error fetching role permissions from Supabase:', error)

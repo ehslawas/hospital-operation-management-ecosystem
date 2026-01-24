@@ -201,7 +201,18 @@ export default function ReceivingPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <Label>Delivery Order (DO)</Label>
-                <div className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center text-slate-400 hover:bg-slate-50 transition-colors cursor-pointer">
+                <div
+                  className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center text-slate-400 hover:bg-slate-50 transition-colors cursor-pointer relative"
+                >
+                  <input
+                    type="file"
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) {
+                        alert(`File selected: ${e.target.files[0].name}\n(Note: File upload storage is not yet configured)`)
+                      }
+                    }}
+                  />
                   <Upload className="w-8 h-8 mb-2" />
                   <span className="text-sm">Click to upload DO</span>
                 </div>

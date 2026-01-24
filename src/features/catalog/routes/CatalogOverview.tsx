@@ -32,7 +32,7 @@ export default function CatalogOverview() {
       icon: <IconFile />,
       color: 'from-purple-500 to-pink-600',
       bgColor: 'from-purple-50 to-pink-50',
-      stats: 'Coming Soon',
+      stats: 'Supplier Management',
       features: ['Supplier Profiles', 'Performance Metrics', 'Contact Management', 'Contract Tracking']
     },
     {
@@ -115,7 +115,7 @@ export default function CatalogOverview() {
             >
               {/* Background Gradient */}
               <div className={`absolute inset-0 bg-gradient-to-br ${item.bgColor} opacity-0 group-hover:opacity-100 transition-opacity duration-500`}></div>
-              
+
               {/* Content */}
               <div className="relative p-8">
                 {/* Icon and Title */}

@@ -7,7 +7,7 @@ import {
     Truck,
     CheckCircle2
 } from 'lucide-react'
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
 import {
     Button,
     Input,
@@ -60,6 +60,8 @@ const GOVERNMENT_DEPARTMENTS = [
 
 export const IssueToDepartment: React.FC = () => {
     const { user } = useAuthStore()
+    const hospitalId = user?.hospital_id
+    const isSessionReady = useIsSessionReady()
     const toast = useToast()
     // const [activeTab, setActiveTab] = useState<'requests' | 'manual'>('requests')
 
@@ -101,9 +103,10 @@ export const IssueToDepartment: React.FC = () => {
     })
 
     useEffect(() => {
+        if (!isSessionReady || !hospitalId) return
         loadData()
         loadMasterData()
-    }, [])
+    }, [isSessionReady, hospitalId])
 
     const handleProceedToScan = () => {
         const deptId = selectedRequest ? selectedRequest.department_id : issueForm.department_id

@@ -1,16 +1,16 @@
 import { create } from 'zustand'
-import type { Toast, ToastType } from '@/types'
+import type { Toast } from '@/types'
 import { generateId } from '@/lib/utils'
 import { TOAST_DURATION } from '@/lib/constants'
 
 interface ToastState {
   toasts: Toast[]
-  
+
   // Actions
   addToast: (toast: Omit<Toast, 'id'>) => string
   removeToast: (id: string) => void
   clearToasts: () => void
-  
+
   // Convenience methods
   success: (title: string, message?: string) => string
   error: (title: string, message?: string) => string

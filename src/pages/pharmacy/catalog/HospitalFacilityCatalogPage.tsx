@@ -14,8 +14,6 @@ import {
   MapPin,
   Edit,
   Trash2,
-  CheckCircle2,
-  XCircle,
   RefreshCw,
   Filter,
   Globe,
@@ -24,7 +22,7 @@ import { Button, Input, Select, Modal, Pagination, Table, TableHeader, TableRow,
 import { FinancialPageLayout } from '@/components/pharmacy/financial/FinancialPageLayout'
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants'
 import { useToastStore } from '@/stores/toastStore'
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
 import {
   getHospitalFacilities,
   getHospitalFacilityKPIs,
@@ -235,6 +233,7 @@ const EditModal: React.FC<EditModalProps> = ({ isOpen, onClose, onSave, facility
 
 export const HospitalFacilityCatalogPage: React.FC = () => {
   const { user } = useAuthStore()
+  const isSessionReady = useIsSessionReady()
   const { success: showSuccess, error: showError } = useToastStore()
 
   // State
@@ -279,11 +278,11 @@ export const HospitalFacilityCatalogPage: React.FC = () => {
 
   // Load data
   useEffect(() => {
-    if (user?.hospital_id) {
+    if (isSessionReady && user?.hospital_id) {
       loadFacilities()
       loadKPIs()
     }
-  }, [user?.hospital_id])
+  }, [isSessionReady, user?.hospital_id])
 
   const loadFacilities = async () => {
     if (!user?.hospital_id) return

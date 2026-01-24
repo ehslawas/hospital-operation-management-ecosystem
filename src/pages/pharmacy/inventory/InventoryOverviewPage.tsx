@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { AlertTriangle, Package, Search, ThermometerSun } from 'lucide-react'
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
 import { Table, Spinner, Input, Badge } from '@/components/ui'
 import { getStockLevelSummary } from '@/services/pharmacy/inventoryService'
 import type { StockLevelSummary, InventoryFilter } from '@/types/pharmacy'
@@ -9,6 +9,7 @@ import type { ApiResponse, Column } from '@/types'
 export const InventoryOverviewPage: React.FC = () => {
   const { user } = useAuthStore()
   const hospitalId = user?.hospital_id
+  const isSessionReady = useIsSessionReady()
 
   const [items, setItems] = useState<StockLevelSummary[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -63,7 +64,7 @@ export const InventoryOverviewPage: React.FC = () => {
   ]
 
   useEffect(() => {
-    if (!hospitalId) return
+    if (!isSessionReady || !hospitalId) return
 
     const load = async () => {
       setIsLoading(true)
@@ -92,7 +93,7 @@ export const InventoryOverviewPage: React.FC = () => {
     }
 
     void load()
-  }, [hospitalId, search])
+  }, [isSessionReady, hospitalId, search])
 
   const renderStatusBadge = (status: StockLevelSummary['status']) => {
     const map: Record<

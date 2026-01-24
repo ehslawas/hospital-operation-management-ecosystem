@@ -1,15 +1,12 @@
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
-import { LPOWithRelations } from '@/types/pharmacy/procurementNew'
-// import { LpoDocumentTemplate } from '@/components/procurement/LpoDocumentTemplate' 
-// We can't import React component to use in non-React utility easily without rendering it to DOM.
-// So we'll assume the component is rendered in the UI and passed as an HTMLElement ref.
 
 /**
- * Generates LPO PDF from a rendered HTML element
- * @param element The HTML element containing the LPO document (usually LpoDocumentTemplate)
- * @param lpoNumber The LPO number for filename
+ * Generates PDF from a rendered HTML element
+ * @param element The HTML element containing the document (usually PurchaseOrderTemplate)
+ * @param lpoNumber The LPO/PO number for filename
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function generateLpoPdf(element: HTMLElement, lpoNumber: string): Promise<Blob> {
     try {
         const canvas = await html2canvas(element, {
@@ -23,7 +20,7 @@ export async function generateLpoPdf(element: HTMLElement, lpoNumber: string): P
 
         // A4 dimensions in mm
         const pdfWidth = 210
-        const pdfHeight = 297
+        // const pdfHeight = 297
 
         const pdf = new jsPDF({
             orientation: 'portrait',

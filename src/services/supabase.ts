@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -35,10 +35,11 @@ export const getStorageUrl = (bucket: string, path: string): string => {
 export const uploadFile = async (
   bucket: string,
   path: string,
-  file: File
+  file: File,
+  client: SupabaseClient = supabase
 ): Promise<{ url: string | null; error: string | null }> => {
   try {
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await client.storage
       .from(bucket)
       .upload(path, file, {
         cacheControl: '3600',

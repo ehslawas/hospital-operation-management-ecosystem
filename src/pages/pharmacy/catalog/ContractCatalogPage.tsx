@@ -8,12 +8,14 @@ import {
   Download,
   Trash2,
   FileUp,
+  Edit,
 } from 'lucide-react'
 import { Button, Badge, Table, TableHeader, TableRow, TableCell, TableBody, Pagination, Spinner, ConfirmationDialog } from '@/components/ui'
 import { FinancialPageLayout } from '@/components/pharmacy/financial/FinancialPageLayout'
 import { ExcelImport } from '@/components/pharmacy/ExcelImport'
+import { ContractEditModal } from '@/components/pharmacy/catalog/ContractEditModal'
 import { useToastStore } from '@/stores/toastStore'
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
 import {
   getContracts,
   getContractKPIs,
@@ -26,6 +28,7 @@ import { motion } from 'framer-motion'
 
 export const ContractCatalogPage: React.FC = () => {
   const { user } = useAuthStore()
+  const isSessionReady = useIsSessionReady()
   const { success: showSuccess, error: showError } = useToastStore()
 
   // State
@@ -55,15 +58,16 @@ export const ContractCatalogPage: React.FC = () => {
   const [sortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | undefined>(undefined)
 
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
   const [selectedContract, setSelectedContract] = useState<ContractWithRelations | null>(null)
 
   // Load data
   useEffect(() => {
-    if (user?.hospital_id) {
+    if (isSessionReady && user?.hospital_id) {
       loadContracts()
       loadKPIs()
     }
-  }, [user?.hospital_id])
+  }, [isSessionReady, user?.hospital_id])
 
   // Handle search and filter changes
   useEffect(() => {
@@ -185,6 +189,16 @@ export const ContractCatalogPage: React.FC = () => {
       return res.data
     }
     return { success: 0, errors: ['Import failed'] }
+  }
+
+  const handleEdit = (contract: ContractWithRelations) => {
+    setSelectedContract(contract)
+    setShowEditModal(true)
+  }
+
+  const handleSaveEdit = () => {
+    loadContracts()
+    loadKPIs()
   }
 
   const contractImportFields = [
@@ -313,6 +327,9 @@ export const ContractCatalogPage: React.FC = () => {
                         <Button variant="ghost" size="sm" onClick={(e) => handlePdfClick(e, contract)} className="text-slate-400 hover:text-blue-600 hover:bg-blue-50">
                           <Download className="w-4 h-4" />
                         </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleEdit(contract)} className="text-slate-400 hover:text-blue-600 hover:bg-blue-50">
+                          <Edit className="w-4 h-4" />
+                        </Button>
                         <Button variant="ghost" size="sm" onClick={() => { setSelectedContract(contract); setShowDeleteModal(true); }} className="text-slate-400 hover:text-rose-600 hover:bg-rose-50">
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -348,6 +365,13 @@ export const ContractCatalogPage: React.FC = () => {
         title="Import Drug Contracts"
         description="Upload an Excel file containing pharmaceutical contract data."
         catalogType="contract_drug"
+      />
+
+      <ContractEditModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        contract={selectedContract}
+        onSave={handleSaveEdit}
       />
 
       <ConfirmationDialog

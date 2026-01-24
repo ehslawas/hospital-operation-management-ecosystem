@@ -736,6 +736,8 @@ export interface WarrantSummary {
     department: WarrantDepartment
     allocation: number
     expenses: number
+    liabilities: number
+    net_expenses: number
     balance: number
     count: number
   }[]
@@ -940,6 +942,7 @@ export interface PurchaseOrder extends BaseEntity {
   program_name?: string;
   workflow_id?: string;
   current_step?: number;
+  signature_snapshot?: any;
 }
 
 export interface PurchaseOrderWithRelations extends PurchaseOrder {
@@ -1099,6 +1102,8 @@ export interface ProcurementStats {
   by_vote_code: Record<string, number>
   items_breakdown?: Record<string, number>
   department_breakdown?: DepartmentBreakdownItem[]
+  total_sq?: number
+  total_regular_po?: number
 }
 
 export interface DepartmentBreakdownItem {
@@ -1760,4 +1765,3 @@ export interface UnitCatalogFormData {
   notes?: string | null
   update_reason?: string | null
 }
-

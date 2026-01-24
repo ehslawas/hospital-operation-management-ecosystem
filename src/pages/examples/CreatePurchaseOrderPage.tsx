@@ -30,7 +30,7 @@ export default function CreatePurchaseOrderPage() {
     const createPOMutation = useMutation({
         mutationFn: async (data: PurchaseOrderData) => {
             // Step 1: Check if approval is needed
-            const approvalCheck = await checkApprovalNeeded('purchase_order', {
+            const approvalCheck = await checkApprovalNeeded('purchase_order_create', {
                 amount: data.amount.toString(),
                 item_type: data.item_type,
             });

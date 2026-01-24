@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { AlertTriangle, Pill, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react'
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
 import { Table, TableBody, TableCell, TableHeader, TableRow, Spinner, Input, Badge, Select } from '@/components/ui'
 import { getDrugCatalog as getDrugs } from '@/services/pharmacy/drugCatalogService'
 import { getDrugCategories } from '@/services/pharmacy/inventoryService'
@@ -10,6 +10,7 @@ import type { DrugCatalogFilter } from '@/services/pharmacy/drugCatalogService'
 export const DrugInventoryPage: React.FC = () => {
   const { user } = useAuthStore()
   const hospitalId = user?.hospital_id
+  const isSessionReady = useIsSessionReady()
 
   const [drugs, setDrugs] = useState<DrugWithRelations[]>([])
   const [categories, setCategories] = useState<DrugCategory[]>([])
@@ -40,7 +41,7 @@ export const DrugInventoryPage: React.FC = () => {
 
   // Load drugs with filters
   const loadDrugs = useCallback(async () => {
-    if (!hospitalId) return
+    if (!isSessionReady || !hospitalId) return
 
     setIsLoading(true)
     setError(null)
@@ -63,7 +64,7 @@ export const DrugInventoryPage: React.FC = () => {
     }
 
     setIsLoading(false)
-  }, [hospitalId, search, categoryId, status, page])
+  }, [isSessionReady, hospitalId, search, categoryId, status, page])
 
   useEffect(() => {
     void loadDrugs()

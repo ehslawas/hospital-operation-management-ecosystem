@@ -4,7 +4,7 @@ import { Search, Plus, Download, Edit, Trash2, FileUp, Package, CheckCircle2, XC
 import { Button, Input, Select, Badge, Table, Pagination, Modal, Spinner, ConfirmationDialog, TableHeader, TableRow, TableCell, TableBody } from '@/components/ui'
 import { FinancialPageLayout } from '@/components/pharmacy/financial/FinancialPageLayout'
 import { useToast } from '@/stores/toastStore'
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
 import { formatCurrency } from '@/lib/utils'
 import {
     getApplNonDrugCatalogKPIs,
@@ -135,6 +135,7 @@ const FormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSave, item }) 
 export default function ApplNonDrugCatalogPage() {
     const toasts = useToast()
     const { user } = useAuthStore()
+    const isSessionReady = useIsSessionReady()
 
     const [kpis, setKpis] = useState({ total: 0, active: 0, inactive: 0 })
     const [items, setItems] = useState<ApplNonDrugWithRelations[]>([])
@@ -167,9 +168,11 @@ export default function ApplNonDrugCatalogPage() {
     }, [user?.hospital_id, filter, page])
 
     useEffect(() => {
-        fetchKPIs()
-        fetchItems()
-    }, [fetchKPIs, fetchItems])
+        if (isSessionReady) {
+            fetchKPIs()
+            fetchItems()
+        }
+    }, [isSessionReady, fetchKPIs, fetchItems])
 
     const handleSearch = () => {
         setFilter({ ...filter, search: searchTerm })

@@ -143,7 +143,7 @@ const UnitCatalogFormModal: React.FC<UnitCatalogFormModalProps> = ({
   const [departmentsError, setDepartmentsError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && hospitalId) {
       loadAvailableDepartments()
       loadUsers()
       if (catalog) {

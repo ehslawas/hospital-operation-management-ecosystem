@@ -3,17 +3,17 @@
  * Handles all approval workflow-related API calls
  */
 
-import { supabase } from '../lib/supabase';
+import { supabase } from './supabase';
 import type {
     ActionType,
     ApprovalWorkflow,
     ApprovalWorkflowStep,
     ApprovalCondition,
     ApprovalRequest,
-    ApprovalActionRecord,
     ApprovalRequestWithDetails,
     CheckApprovalNeededResult,
     PendingApprovalForStaff,
+    ApprovalWorkflowWithDetails,
 } from '../types/rbac.types';
 
 // ============================================
@@ -300,8 +300,53 @@ export async function getAllActionTypes(): Promise<ActionType[]> {
         .select('*')
         .order('type_name');
 
-    if (error) throw error;
-    return data || [];
+    if (error) {
+        console.warn('[Approval Service] Error fetching action types, using fallback:', error);
+        return FALLBACK_ACTION_TYPES;
+    }
+
+    // If database is empty, return fallback data
+    if (!data || data.length === 0) {
+        console.warn('[Approval Service] No action types found in DB, using fallback data');
+        return FALLBACK_ACTION_TYPES;
+    }
+
+    return data;
+}
+
+const FALLBACK_ACTION_TYPES: ActionType[] = [
+    // Pharmacy Module
+    { id: '00000000-0000-0000-0000-000000000001', type_code: 'purchase_order_create', type_name: 'Purchase Order Creation', module: 'pharmacy', description: 'Approval required for new Purchase Orders', created_at: new Date() },
+    { id: '00000000-0000-0000-0000-000000000002', type_code: 'purchase_order_high_value', type_name: 'High Value PO (>5k)', module: 'pharmacy', description: 'Additional approval for POs exceeding RM 5,000', created_at: new Date() },
+    { id: '00000000-0000-0000-0000-000000000003', type_code: 'lpo_create', type_name: 'Local Purchase Order (LPO)', module: 'pharmacy', description: 'Approval for LPO creation', created_at: new Date() },
+    { id: '00000000-0000-0000-0000-000000000004', type_code: 'drug_request_approve', type_name: 'Drug Request', module: 'pharmacy', description: 'Approval for department drug requests', created_at: new Date() },
+    { id: '00000000-0000-0000-0000-000000000005', type_code: 'stock_adjustment', type_name: 'Stock Adjustment', module: 'pharmacy', description: 'Approval for stock count adjustments', created_at: new Date() },
+    { id: '00000000-0000-0000-0000-000000000006', type_code: 'supplier_return', type_name: 'Supplier Return', module: 'pharmacy', description: 'Approval to return items to supplier', created_at: new Date() },
+    { id: '00000000-0000-0000-0000-000000000007', type_code: 'oxygen_cylinder_issue', type_name: 'Oxygen Cylinder Issue', module: 'pharmacy', description: 'Approval for oxygen cylinder request', created_at: new Date() },
+
+    // Clinical Module
+    { id: '00000000-0000-0000-0000-000000000008', type_code: 'prescription', type_name: 'Prescription Approval', module: 'clinical', description: 'Approval for restricted medications', created_at: new Date() },
+    { id: '00000000-0000-0000-0000-000000000009', type_code: 'patient_discharge', type_name: 'Patient Discharge', module: 'clinical', description: 'Approval for patient discharge process', created_at: new Date() },
+
+    // Admin Module
+    { id: '00000000-0000-0000-0000-000000000010', type_code: 'memo_publish', type_name: 'Publish Memo', module: 'admin', description: 'Approval to publish official memos', created_at: new Date() },
+    { id: '00000000-0000-0000-0000-000000000011', type_code: 'access_request_approve', type_name: 'Access Request', module: 'admin', description: 'Approval for new user access', created_at: new Date() },
+    { id: '00000000-0000-0000-0000-000000000012', type_code: 'sensitive_data_access', type_name: 'Sensitive Data Access', module: 'admin', description: 'Approval for viewing sensitive logs', created_at: new Date() },
+    { id: '00000000-0000-0000-0000-000000000013', type_code: 'user_role_change', type_name: 'User Role Change', module: 'admin', description: 'Approval to change user role/permissions', created_at: new Date() }
+] as any[];
+
+export async function getActionTypeByCode(code: string): Promise<ActionType | null> {
+    const { data, error } = await supabase
+        .from('action_types')
+        .select('*')
+        .eq('type_code', code)
+        .single();
+
+    if (error) {
+        console.error('[Approval Service] Error getting action type:', error);
+        return null;
+    }
+    return data;
 }
 
 export async function createActionType(actionType: Partial<ActionType>): Promise<ActionType> {
@@ -323,6 +368,21 @@ export async function getAllWorkflows(): Promise<ApprovalWorkflow[]> {
 
     if (error) throw error;
     return data || [];
+}
+
+export async function getWorkflowsWithDetails(): Promise<ApprovalWorkflowWithDetails[]> {
+    const { data, error } = await supabase
+        .from('approval_workflows')
+        .select(`
+            *,
+            action_type:action_types(*),
+            steps:approval_workflow_steps(*),
+            conditions:approval_conditions(*)
+        `)
+        .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data as any || [];
 }
 
 export async function getWorkflowById(id: string): Promise<ApprovalWorkflow | null> {
@@ -387,13 +447,24 @@ export async function deleteWorkflow(id: string): Promise<void> {
 export async function saveWorkflowStep(
     step: Partial<ApprovalWorkflowStep>
 ): Promise<ApprovalWorkflowStep> {
+    // Sanitize step data
+    const payload = { ...step };
+
+    // Remove if false/undefined to maintain backward compatibility if migration didn't run
+    if (!payload.is_requester_department) {
+        delete payload.is_requester_department;
+    }
+
     const { data, error } = await supabase
         .from('approval_workflow_steps')
-        .insert(step)
+        .insert(payload)
         .select()
         .single();
 
-    if (error) throw error;
+    if (error) {
+        console.error('Error saving workflow step:', error);
+        throw error;
+    }
     return data;
 }
 
@@ -434,7 +505,7 @@ export async function saveWorkflowCondition(
 
 export async function deleteWorkflowCondition(id: string): Promise<void> {
     const { error } = await supabase
-        .from('approval_workflow_steps')
+        .from('approval_conditions')
         .delete()
         .eq('id', id);
 
@@ -493,4 +564,15 @@ export async function saveCompleteWorkflow(
     }
 
     return savedWorkflow;
+}
+
+/**
+ * Atomic save of workflow with steps and conditions
+ */
+export async function upsertWorkflowWithStepsAndConditions(
+    workflow: Partial<ApprovalWorkflow>,
+    conditions: Partial<ApprovalCondition>[],
+    steps: Partial<ApprovalWorkflowStep>[]
+): Promise<ApprovalWorkflow> {
+    return saveCompleteWorkflow(workflow, conditions, steps);
 }

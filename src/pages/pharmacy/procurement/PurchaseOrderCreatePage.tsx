@@ -2,11 +2,11 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   ShoppingCart, Plus, Save, AlertCircle,
-  FileText, ChevronDown, Search, ArrowLeft, Trash2, Package
+  FileText, ChevronDown, Search, Trash2, Package
 } from 'lucide-react'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
 import { Button, Input, Spinner, Badge, ConfirmationDialog } from '@/components/ui'
 import { FinancialPageLayout } from '@/components/pharmacy/financial/FinancialPageLayout'
@@ -51,6 +51,7 @@ export const PurchaseOrderCreatePage: React.FC = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const { user } = useAuthStore()
+  const isSessionReady = useIsSessionReady()
   const { success: showSuccess, error: showError } = useToastStore()
   const hospitalId = user?.hospital_id
   const userId = user?.id
@@ -89,7 +90,7 @@ export const PurchaseOrderCreatePage: React.FC = () => {
 
   // Load initial data and existing PO if in edit mode
   useEffect(() => {
-    if (!hospitalId) return
+    if (!isSessionReady || !hospitalId) return
 
     const loadData = async () => {
       setIsLoading(true)
@@ -231,12 +232,12 @@ export const PurchaseOrderCreatePage: React.FC = () => {
     }
 
     void loadData()
-  }, [hospitalId, editMode, poId, navigate, showError])
+  }, [isSessionReady, hospitalId, editMode, poId, navigate, showError])
 
 
   // Auto-mapping for Vote Code 990102 (APPL)
   useEffect(() => {
-    if (formData.vote_code === '990102' && hospitalId) {
+    if (!isSessionReady || formData.vote_code === '990102' && hospitalId) {
       // Auto-set supplier to Pharmaniaga
       const pharmaniagaSupplier = suppliers.find(s =>
         s.company_name.toLowerCase().includes('pharmaniaga')
@@ -250,7 +251,7 @@ export const PurchaseOrderCreatePage: React.FC = () => {
         showSuccess('Auto-filled', 'Supplier set to Pharmaniaga for vote code 990102')
       }
     }
-  }, [formData.vote_code, hospitalId, suppliers, formData.supplier_id])
+  }, [isSessionReady, formData.vote_code, hospitalId, suppliers, formData.supplier_id])
 
   // Auto-mapping for Vote Activity to Category
   useEffect(() => {
@@ -275,7 +276,7 @@ export const PurchaseOrderCreatePage: React.FC = () => {
   // Main item loading effect (Handling both Standard and APPL catalogs)
 
   useEffect(() => {
-    if (!hospitalId || !itemSearch.trim()) {
+    if (!isSessionReady || !hospitalId || !itemSearch.trim()) {
       setAllItems([])
       setShowSuggestions(false)
       return
@@ -359,7 +360,7 @@ export const PurchaseOrderCreatePage: React.FC = () => {
     }, 300)
 
     return () => clearTimeout(timeout)
-  }, [itemSearch, hospitalId, formData.category, formData.vote_code])
+  }, [itemSearch, isSessionReady, hospitalId, formData.category, formData.vote_code])
 
   // Close suggestions when clicking outside
   useEffect(() => {
@@ -380,7 +381,7 @@ export const PurchaseOrderCreatePage: React.FC = () => {
 
   // Calculate balance after purchase
   useEffect(() => {
-    if (!formData.vote_code || !formData.vote_activity || !hospitalId || !formData.department) {
+    if (!isSessionReady || !formData.vote_code || !formData.vote_activity || !hospitalId || !formData.department) {
       setBalanceAfterPurchase(null)
       return
     }
@@ -433,7 +434,7 @@ export const PurchaseOrderCreatePage: React.FC = () => {
     }
 
     void calculateBalance()
-  }, [formData.vote_code, formData.vote_activity, formData.items, warrants, hospitalId, poId, formData.department])
+  }, [isSessionReady, formData.vote_code, formData.vote_activity, formData.items, warrants, hospitalId, poId, formData.department])
 
   // Storage key for auto-save
   const STORAGE_KEY = 'draft_purchase_order'
@@ -479,7 +480,7 @@ export const PurchaseOrderCreatePage: React.FC = () => {
 
   // Bi-directional KKM Sync
   useEffect(() => {
-    if (formData.vote_code !== '080702' || !hospitalId || !formData.kkm_contract_number?.trim()) {
+    if (!isSessionReady || formData.vote_code !== '080702' || !hospitalId || !formData.kkm_contract_number?.trim()) {
       return
     }
 
@@ -543,7 +544,7 @@ export const PurchaseOrderCreatePage: React.FC = () => {
     const timeout = setTimeout(checkContract, 800)
     return () => clearTimeout(timeout)
 
-  }, [formData.kkm_contract_number, formData.vote_code, hospitalId])
+  }, [formData.kkm_contract_number, formData.vote_code, isSessionReady, hospitalId])
 
 
   const handleInputChange = (field: keyof PurchaseOrderFormData, value: any) => {

@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import type { ApprovalRoute, ApprovalLog } from '@/types'
+import { checkUserResourceAccess } from './resourcePermissionService'
 
 /**
  * Get the appropriate approval route for a department
@@ -33,71 +34,93 @@ export async function getApprovalRoute(departmentId: string): Promise<ApprovalRo
 }
 
 /**
- * Check if the current user can approve the next step for an entity
+ * Check if the current user can approve a specific Purchase Order
+ * based on workflow steps and permission matrix.
  */
-export async function canUserApprove(
+export async function canUserApprovePurchaseOrder(
     userId: string,
-    entityType: string,
-    entityId: string,
-    currentStep: number
-): Promise<boolean> {
+    poId: string
+): Promise<{ canApprove: boolean; message?: string }> {
     try {
-        // 1. Get user role
-        const { data: user } = await supabase
+        // 1. Get user details
+        const { data: user, error: userError } = await supabase
             .from('users')
             .select('role_id, department_id, roles(role_code)')
             .eq('id', userId)
             .single()
 
-        if (!user) return false
+        if (userError || !user) return { canApprove: false, message: 'User not found' }
 
-        // System admins can force approve
-        // User roles is an object not array because we used single() but Supabase types might infer array for relations
+        // System Admins have absolute right (Bypass)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const userRole = (user.roles as any)?.role_code
-        if (userRole === 'system_admin') return true
+        if ((user.roles as any)?.role_code === 'system_admin') {
+            return { canApprove: true }
+        }
 
-        // 2. Get the entity's originating department (Assuming entity has department_id)
-        // We need to query the entity table dynamically based on entityType
-        let table = ''
-        if (entityType === 'purchase_requisition') table = 'purchase_requisitions' // Assuming table name
-        else if (entityType === 'purchase_order') table = 'pharmacy_purchase_orders'
-        else return false
-
-        const { data: entity, error: entityError } = await supabase
-            .from(table)
-            .select('department_id') // We renamed department to department_id in robust implementations? Or checks logic
-            // Note: In previous migration, we saw 'department' text column in purchase_orders, 
-            // but ideally it should link to departments table. 
-            // For now, let's assume we can resolve the department ID or the logic adapts.
-            // If the schema uses text department names, we might need a lookup.
-            // Let's assume for this service we're using the IDs as per best practice plan.
-            .eq('id', entityId)
+        // 2. Get PO details
+        const { data: po, error: poError } = await supabase
+            .from('pharmacy_purchase_orders')
+            .select('status, workflow_id, current_step')
+            .eq('id', poId)
             .single()
 
-        // If 'department' column is text, we might need to fetch department by name to get approval_type
-        // But let's assume valid ID integration for the new RBAC system
+        if (poError || !po) return { canApprove: false, message: 'Purchase order not found' }
 
-        // 3. Get the correct route
-        // If we don't have department_id on the entity, we can't route.
-        // For now, fail safe.
-        if (!entity) return false
+        // Only pending_approval status can be approved
+        if (po.status !== 'pending_approval') {
+            return { canApprove: false, message: `PO status is ${po.status}. Only pending approval POs can be approved.` }
+        }
 
-        // Fetch department approval type
-        // If the entity stores department name as string (legacy), we need to handle that.
-        // Assuming we are moving to ID-based. 
+        // PER USER REQUIREMENT: Require workflow
+        if (!po.workflow_id) {
+            return { canApprove: false, message: 'This purchase order has no approval workflow attached.' }
+        }
 
-        // Simplification: Let's assume we pass the departmentId to this function or resolve it cleanly.
-        // For this pivot, let's fetch the routes for the user's role and check if it matches the current step
+        // 3. Check Permission Matrix (can_approve)
+        const hasMatrixPermission = await checkUserResourceAccess(userId, 'purchase_order', 'approve')
+        if (!hasMatrixPermission) {
+            return { canApprove: false, message: 'Your role does not have "Approve" permission in the permission matrix.' }
+        }
 
-        // This part is complex without a standardized entity structure.
-        // Let's implement a simpler check: 
-        // Is there a route step for this user's role at the given step order for the relevant route type?
+        // 4. Check Workflow Step Authorization
+        const { data: currentStep, error: stepError } = await supabase
+            .from('approval_workflow_steps')
+            .select('*')
+            .eq('workflow_id', po.workflow_id)
+            .eq('step_order', po.current_step || 1)
+            .single()
 
-        return true // Placeholder until integration is tighter
+        if (stepError || !currentStep) {
+            return { canApprove: false, message: 'Could not find current workflow step definition.' }
+        }
+
+        // Authorization logic:
+        // Must match EITHER user_id, role_id, OR department_id as defined in the step
+        let authorized = false
+
+        if (currentStep.approver_user_id) {
+            authorized = currentStep.approver_user_id === userId
+        } else if (currentStep.approver_role_id && currentStep.approver_department_id) {
+            // Strictly check both if both defined
+            authorized = currentStep.approver_role_id === user.role_id &&
+                currentStep.approver_department_id === user.department_id
+        } else if (currentStep.approver_role_id) {
+            authorized = currentStep.approver_role_id === user.role_id
+        } else if (currentStep.approver_department_id) {
+            authorized = currentStep.approver_department_id === user.department_id
+        }
+
+        if (!authorized) {
+            return {
+                canApprove: false,
+                message: 'You are not authorized for the current approval step of this workflow.'
+            }
+        }
+
+        return { canApprove: true }
     } catch (error) {
-        console.error('Error checking approval permission:', error)
-        return false
+        console.error('Error checking workflow authorization:', error)
+        return { canApprove: false, message: 'Internal error checking authorization' }
     }
 }
 
