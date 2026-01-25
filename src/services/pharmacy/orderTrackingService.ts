@@ -217,7 +217,8 @@ export const orderTrackingService = {
                      po_number,
                      manual_supplier_name,
                      kkm_contract_number,
-                     supplier:suppliers(company_name, email)
+                     supplier:suppliers(company_name, email),
+                     items:pharmacy_purchase_order_items(item_name)
                  ),
                  tracking_items:pharmacy_order_tracking(*)
              `)
@@ -227,14 +228,16 @@ export const orderTrackingService = {
         if (!data) return { total: 0, overdue: 0, partial: 0, pendingToReceive: 0, allData: [] }
 
         // Filter for LPOs with active tracking items OR verified status (even if no items)
+        // Filter for LPOs with active tracking items OR verified status (even if no items)
         const activeLPOs = data.filter(lpo => {
-            const hasActiveItems = lpo.tracking_items &&
-                lpo.tracking_items.length > 0 &&
-                lpo.tracking_items.some((item: any) => ['pending', 'in_transit', 'overdue'].includes(item.status))
+            // Fix: Include 'delivered' so they don't disappear from the list immediately
+            const hasTrackingItems = lpo.tracking_items && lpo.tracking_items.length > 0
 
+            // We want to show everything that has tracking items, or is verified (waiting to be tracked)
+            // The UI will handle filtering between Active/Delivered
             const isVerifiedOrphan = lpo.status === 'verified'
 
-            return hasActiveItems || isVerifiedOrphan
+            return hasTrackingItems || isVerifiedOrphan
         })
 
         // Real-time calculations

@@ -9,7 +9,8 @@ import {
     ArrowRight,
     Trash2,
     Printer,
-    Edit2
+    Edit2,
+    Package2
 } from 'lucide-react'
 import {
     Badge,
@@ -18,8 +19,15 @@ import {
     Table,
     Modal,
     Select,
-    Input
+    Input,
+    StatCard,
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter
 } from '@/components/ui'
+import { FinancialPageLayout } from '@/components/pharmacy/financial/FinancialPageLayout'
 import { useAuthStore } from '@/stores/authStore'
 import { useToast } from '@/stores/toastStore'
 import {
@@ -194,325 +202,323 @@ export const CylinderRequestPage: React.FC = () => {
     }
 
     return (
-        <div className="p-6 max-w-[1600px] mx-auto space-y-8 animate-in fade-in duration-700">
-            {/* Header Section */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                <div className="space-y-2">
-                    <div className="flex items-center gap-3">
-                        <div className="p-3 bg-blue-600 rounded-2xl shadow-lg shadow-blue-200">
-                            <ClipboardList className="w-8 h-8 text-white" />
-                        </div>
-                        <div>
-                            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Oxygen Requisitions</h1>
-                            <p className="text-slate-500 font-medium flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                Official Departmental Cylinder Requests
-                            </p>
-                        </div>
+        <FinancialPageLayout
+            title="Oxygen Requisitions"
+            description="Manage departmental oxygen cylinder requests and track formal requisitions."
+            icon={ClipboardList}
+            breadcrumbs={[{ label: 'Medical Oxygen', href: '/pharmacy/oxygen' }, { label: 'Department Requests' }]}
+        >
+            <div className="space-y-6">
+                {/* KPI Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <StatCard
+                        title="Total Requests"
+                        value={total}
+                        icon={ClipboardList}
+                        color="primary"
+                        subtitle="All records"
+                    />
+                    <StatCard
+                        title="Pending Approval"
+                        value={requests.filter(r => r.status === 'pending').length}
+                        icon={Clock}
+                        color="warning"
+                        subtitle="Awaiting action"
+                    />
+                    <StatCard
+                        title="Approved"
+                        value={requests.filter(r => r.status === 'approved').length}
+                        icon={CheckCircle2}
+                        color="success"
+                        subtitle="Processed"
+                    />
+                    <StatCard
+                        title="Weekly Growth"
+                        value="12%"
+                        change={12}
+                        icon={TrendingUp}
+                        color="info"
+                        subtitle="Volume increase"
+                    />
+                </div>
+
+                {/* Actions & Filters */}
+                <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div className="w-full md:w-auto flex-1">
+                        {/* Placeholder for potential Search/Filter if needed in future, currently empty as per original functionality, 
+                            but could add 'Search' input if API supports it later. 
+                            Preserving Layout space for consistency with LOU page. */}
+                    </div>
+                    <div>
+                        <Button
+                            onClick={() => {
+                                setEditingRequestId(null)
+                                setDepartmentId('')
+                                setRequestItems([{ id: '1', cylinder_size_id: '', quantity: 1 }])
+                                setIsCreateModalOpen(true)
+                            }}
+                            className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-200 hover:shadow-blue-300 transition-all"
+                        >
+                            <Plus className="w-4 h-4 mr-2" /> Create New Request
+                        </Button>
                     </div>
                 </div>
 
-                <Button
-                    onClick={() => {
-                        setEditingRequestId(null)
-                        setDepartmentId('')
-                        setRequestItems([{ id: '1', cylinder_size_id: '', quantity: 1 }])
-                        setIsCreateModalOpen(true)
-                    }}
-                    className="h-14 px-8 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl shadow-xl shadow-slate-200 transition-all hover:scale-[1.02] active:scale-[0.98] font-bold text-sm"
-                >
-                    <Plus className="w-5 h-5 mr-3" /> Create New Request
-                </Button>
-            </div>
-
-            {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                {[
-                    { label: 'Total Requests', value: total, icon: ClipboardList, color: 'blue' },
-                    { label: 'Pending Approval', value: requests.filter(r => r.status === 'pending').length, icon: Clock, color: 'amber' },
-                    { label: 'Current Approved', value: requests.filter(r => r.status === 'approved').length, icon: CheckCircle2, color: 'emerald' },
-                    { label: 'Weekly Growth', value: '+12%', icon: TrendingUp, color: 'indigo' }
-                ].map((kpi, i) => (
-                    <Card key={i} className="p-6 border-none shadow-sm bg-white hover:shadow-md transition-all group overflow-hidden relative">
-                        <div className={`absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.05] transition-opacity`}>
-                            <kpi.icon className="w-24 h-24" />
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <div className={`p-3 rounded-xl bg-${kpi.color}-50 text-${kpi.color}-600`}>
-                                <kpi.icon className="w-6 h-6" />
-                            </div>
-                            <div>
-                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{kpi.label}</p>
-                                <h3 className="text-2xl font-black text-slate-900">{kpi.value}</h3>
-                            </div>
-                        </div>
-                    </Card>
-                ))}
-            </div>
-
-            {/* Request History */}
-            <Card className="border-none shadow-sm bg-white overflow-hidden rounded-3xl">
-                <div className="p-6 border-b border-slate-50 flex items-center justify-between">
-                    <h2 className="text-lg font-bold text-slate-800 uppercase tracking-wider">Request History</h2>
-                </div>
-                <Table
-                    isLoading={isLoading}
-                    data={requests}
-                    columns={[
-                        {
-                            key: 'request_id',
-                            label: 'Request ID',
-                            render: (val) => <span className="font-mono font-bold text-blue-600">{val}</span>
-                        },
-                        {
-                            key: 'department',
-                            label: 'Department',
-                            render: (val) => <span className="font-semibold text-slate-700">{val?.department_name}</span>
-                        },
-                        {
-                            key: 'requester',
-                            label: 'Requester',
-                            render: (val) => <span className="font-medium text-slate-600">{val?.full_name}</span>
-                        },
-                        {
-                            key: 'items',
-                            label: 'Items',
-                            render: (val: any[]) => (
-                                <div className="flex flex-col gap-1">
-                                    {val.map((item, idx) => (
-                                        <div key={idx} className="text-xs font-medium text-slate-500">
-                                            {item.size?.code}: <span className="text-slate-900">{item.quantity} units</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )
-                        },
-                        {
-                            key: 'created_at',
-                            label: 'Date',
-                            render: (val) => <span className="text-slate-500 text-sm">{formatDate(val)}</span>
-                        },
-                        {
-                            key: 'status',
-                            label: 'Status',
-                            render: (val) => {
-                                const colors = {
-                                    pending: 'amber',
-                                    approved: 'emerald',
-                                    rejected: 'rose',
-                                    completed: 'blue',
-                                    cancelled: 'slate'
-                                }
-                                return (
-                                    <Badge className={`bg-${colors[val as keyof typeof colors] || 'slate'}-50 text-${colors[val as keyof typeof colors] || 'slate'}-600 border-none px-3 py-1 font-bold uppercase text-[10px] tracking-widest`}>
-                                        {val}
-                                    </Badge>
+                {/* Request History */}
+                <div className="glass-card rounded-2xl overflow-hidden shadow-sm">
+                    <Table
+                        isLoading={isLoading}
+                        data={requests}
+                        columns={[
+                            {
+                                key: 'request_id',
+                                label: 'Request ID',
+                                render: (val) => <span className="font-mono font-bold text-blue-600">{val}</span>
+                            },
+                            {
+                                key: 'department',
+                                label: 'Department',
+                                render: (val) => <span className="font-semibold text-slate-700">{val?.department_name}</span>
+                            },
+                            {
+                                key: 'requester',
+                                label: 'Requester',
+                                render: (val) => <span className="font-medium text-slate-600">{val?.full_name}</span>
+                            },
+                            {
+                                key: 'items',
+                                label: 'Items',
+                                render: (val: any[]) => (
+                                    <div className="flex flex-col gap-1">
+                                        {val.map((item, idx) => (
+                                            <div key={idx} className="text-xs font-medium text-slate-500">
+                                                {item.size?.code}: <span className="text-slate-900">{item.quantity} units</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 )
-                            }
-                        },
-                        {
-                            key: 'actions',
-                            label: 'Action',
-                            render: (_, row: OxygenDeptRequestWithRelations) => (
-                                <div className="flex items-center gap-1">
-                                    {row.status === 'pending' && (
+                            },
+                            {
+                                key: 'created_at',
+                                label: 'Date',
+                                render: (val) => <span className="text-slate-500 text-sm">{formatDate(val)}</span>
+                            },
+                            {
+                                key: 'status',
+                                label: 'Status',
+                                render: (val) => {
+                                    const colors = {
+                                        pending: 'warning',
+                                        approved: 'success',
+                                        rejected: 'error',
+                                        completed: 'info',
+                                        cancelled: 'default'
+                                    }
+                                    return (
+                                        <Badge variant={colors[val as keyof typeof colors] as any}>
+                                            {val}
+                                        </Badge>
+                                    )
+                                }
+                            },
+                            {
+                                key: 'actions',
+                                label: 'Action',
+                                className: 'text-right',
+                                render: (_, row: OxygenDeptRequestWithRelations) => (
+                                    <div className="flex items-center justify-end gap-1">
+                                        {row.status === 'pending' && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => handleEdit(row)}
+                                                title="Edit Pending Request"
+                                                className="hover:bg-amber-50 hover:text-amber-600"
+                                            >
+                                                <Edit2 className="w-4 h-4" />
+                                            </Button>
+                                        )}
                                         <Button
                                             variant="ghost"
                                             size="sm"
-                                            onClick={() => handleEdit(row)}
-                                            title="Edit Pending Request"
-                                            className="hover:bg-amber-50 hover:text-amber-600"
+                                            onClick={() => handlePrint(row)}
+                                            title="Print Request (KEW.PS-8)"
+                                            className="hover:bg-indigo-50 hover:text-indigo-600"
                                         >
-                                            <Edit2 className="w-4 h-4" />
+                                            <Printer className="w-4 h-4" />
                                         </Button>
-                                    )}
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => handlePrint(row)}
-                                        title="Print Request (KEW.PS-8)"
-                                        className="hover:bg-indigo-50 hover:text-indigo-600"
-                                    >
-                                        <Printer className="w-4 h-4" />
-                                    </Button>
-                                </div>
-                            )
-                        }
-                    ]}
-                />
-            </Card>
+                                    </div>
+                                )
+                            }
+                        ]}
+                    />
+                </div>
+            </div>
+
 
             {/* Create/Edit Request Modal */}
-            {isCreateModalOpen && (
-                <Modal
-                    isOpen={isCreateModalOpen}
-                    onClose={() => {
-                        setIsCreateModalOpen(false)
-                        setEditingRequestId(null)
-                        setDepartmentId('')
-                        setRequestItems([{ id: '1', cylinder_size_id: '', quantity: 1 }])
-                    }}
-                    title={editingRequestId ? "Edit Requisition Record" : "Official Oxygen Cylinder Request"}
-                    className="max-w-5xl bg-white border border-slate-200 shadow-2xl rounded-2xl overflow-hidden"
-                >
-                    <div className="flex flex-col h-[90vh]">
-                        {/* Formal Official Header */}
-                        <div className="bg-slate-50 p-8 border-b border-slate-200 flex-shrink-0">
-                            <div className="flex justify-between items-start mb-6">
-                                <div>
-                                    <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-1">Medical Gas Requisition</h2>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Standard Operating Procedure: KEW.PS-8 Compliance</p>
-                                </div>
-                                <div className="text-right">
-                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Current Session</div>
-                                    <div className="text-sm font-bold text-slate-800 font-mono tracking-tighter uppercase">{new Date().toDateString()}</div>
+            {/* Create/Edit Request Modal using Dialog Primitive for LOU style */}
+            <Dialog open={isCreateModalOpen} onOpenChange={(open) => !open && setIsCreateModalOpen(false)}>
+                <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col p-0 gap-0 bg-white border-0 shadow-2xl overflow-hidden rounded-[20px]">
+                    <DialogHeader className="px-6 py-5 border-b border-slate-100 flex flex-row justify-between items-start bg-white">
+                        <div className="flex items-start gap-4">
+                            <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg shadow-blue-500/20">
+                                <ClipboardList className="w-6 h-6 text-white" />
+                            </div>
+                            <div>
+                                <DialogTitle className="text-xl font-bold text-slate-900">
+                                    {editingRequestId ? "Edit Request" : "New Oxygen Cylinder Request"}
+                                </DialogTitle>
+                                <div className="flex items-center gap-3 mt-2">
+                                    <Badge variant="info" className="bg-blue-50 text-blue-700 border-blue-200 font-mono text-xs">
+                                        FORM-REQ-01
+                                    </Badge>
+                                    <p className="text-xs text-slate-500">
+                                        Create a formal request for medical oxygen cylinders.
+                                    </p>
                                 </div>
                             </div>
+                        </div>
+                    </DialogHeader>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <Select
-                                    label="Source Department / Unit"
-                                    value={departmentId}
-                                    onChange={(e) => setDepartmentId(e.target.value)}
-                                    options={departments.map(d => ({ value: d.id, label: d.department_name }))}
-                                    className="bg-white border-slate-200"
-                                />
-                                <div className="p-4 bg-white border border-slate-200 rounded-xl">
-                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Official Requester</div>
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full bg-blue-500" />
-                                        <span className="text-sm font-bold text-slate-700">{user?.full_name?.toUpperCase()}</span>
+                    <div className="flex-1 overflow-y-auto bg-slate-50/50 p-6">
+                        <div className="max-w-5xl mx-auto space-y-6">
+
+                            {/* Department & Requester Section */}
+                            <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden p-5">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <Select
+                                        label="Requesting Department"
+                                        value={departmentId}
+                                        onChange={(e) => setDepartmentId(e.target.value)}
+                                        options={departments.map(d => ({ value: d.id, label: d.department_name }))}
+                                        className="bg-white border-slate-200"
+                                        placeholder="Select Department"
+                                    />
+                                    <div className="space-y-1.5">
+                                        <label className="text-sm font-medium text-slate-700">Requester</label>
+                                        <div className="h-10 px-3 bg-white border border-slate-200 rounded-lg flex items-center text-sm text-slate-600 shadow-sm cursor-not-allowed">
+                                            {user?.full_name}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Professional Item Table */}
-                        <div className="flex-1 overflow-y-auto px-8 py-6 custom-scrollbar">
-                            <table className="w-full border-separate border-spacing-y-4">
-                                <thead>
-                                    <tr className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
-                                        <th className="pb-4 text-left font-black">Cylinder Specification</th>
-                                        <th className="pb-4 text-center font-black">Live Availability</th>
-                                        <th className="pb-4 text-center font-black w-32">Qty Required</th>
-                                        <th className="pb-4 text-right font-black w-14"></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {requestItems.map((item) => {
-                                        const balance = balances[item.cylinder_size_id]
-                                        const isLow = balance && balance.available < 5
-                                        return (
-                                            <tr key={item.id} className="group animate-in slide-in-from-top-2 duration-300">
-                                                <td className="align-middle">
-                                                    <Select
-                                                        value={item.cylinder_size_id}
-                                                        onChange={(e) => updateItem(item.id, 'cylinder_size_id', e.target.value)}
-                                                        options={sizes.map(s => ({ value: s.id, label: s.code }))}
-                                                        placeholder="Select Specification"
-                                                        className="border-slate-200 group-hover:border-blue-400 transition-colors bg-white rounded-xl h-14"
-                                                    />
-                                                </td>
-                                                <td className="text-center align-middle px-4">
-                                                    {item.cylinder_size_id ? (
-                                                        <div className={`inline-flex items-center gap-3 px-5 py-3 rounded-2xl border ${isLow ? 'bg-rose-50 border-rose-100 text-rose-700' : 'bg-emerald-50 border-emerald-100 text-emerald-700'} transition-all`}>
-                                                            <div className={`w-2 h-2 rounded-full ${isLow ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
-                                                            <div className="flex flex-col items-start leading-none">
-                                                                <span className="text-[10px] uppercase font-black tracking-widest opacity-60 mb-1">{isLow ? 'Urgent Depleted' : 'Stock In Store'}</span>
-                                                                <span className="text-sm font-black tracking-tighter">{balance?.available || 0} UNITS</span>
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">Awaiting Selection</span>
-                                                    )}
-                                                </td>
-                                                <td className="align-middle">
-                                                    <Input
-                                                        type="number"
-                                                        value={item.quantity}
-                                                        onChange={(e) => updateItem(item.id, 'quantity', parseInt(e.target.value) || 0)}
-                                                        className="text-center h-14 font-black text-slate-800 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50/50 rounded-xl"
-                                                        min={1}
-                                                    />
-                                                </td>
-                                                <td className="text-right align-middle">
+                            {/* Items Section */}
+                            <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
+                                <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/30 flex justify-between items-center">
+                                    <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                                        <Package2 className="w-4 h-4 text-blue-500" />
+                                        Requested Items
+                                    </h3>
+                                </div>
+                                <div className="p-0">
+                                    <table className="w-full">
+                                        <thead className="bg-slate-50/50 border-b border-slate-100">
+                                            <tr>
+                                                <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-1/3">Cylinder Size</th>
+                                                <th className="px-5 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider w-1/3">Stock Status</th>
+                                                <th className="px-5 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider w-32">Quantity</th>
+                                                <th className="px-5 py-3 w-16"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {requestItems.map((item) => {
+                                                const balance = balances[item.cylinder_size_id]
+                                                const isLow = balance && balance.available < 5
+                                                return (
+                                                    <tr key={item.id} className="group hover:bg-slate-50/50 transition-colors">
+                                                        <td className="p-5">
+                                                            <Select
+                                                                value={item.cylinder_size_id}
+                                                                onChange={(e) => updateItem(item.id, 'cylinder_size_id', e.target.value)}
+                                                                options={sizes.map(s => ({ value: s.id, label: s.code }))}
+                                                                placeholder="Select Size"
+                                                                className="w-full"
+                                                            />
+                                                        </td>
+                                                        <td className="p-5 text-center">
+                                                            {item.cylinder_size_id ? (
+                                                                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border ${isLow ? 'bg-amber-50 border-amber-100 text-amber-700' : 'bg-emerald-50 border-emerald-100 text-emerald-700'}`}>
+                                                                    <div className={`w-1.5 h-1.5 rounded-full ${isLow ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                                                                    <span className="text-xs font-semibold">
+                                                                        {balance?.available || 0} Available
+                                                                    </span>
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-xs text-slate-400 italic">Select size first</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="p-5">
+                                                            <Input
+                                                                type="number"
+                                                                value={item.quantity}
+                                                                onChange={(e) => updateItem(item.id, 'quantity', parseInt(e.target.value) || 0)}
+                                                                className="text-center w-24 mx-auto"
+                                                                min={1}
+                                                            />
+                                                        </td>
+                                                        <td className="p-5 text-right">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => handleRemoveItem(item.id)}
+                                                                disabled={requestItems.length === 1}
+                                                                className="text-slate-400 hover:text-red-600 hover:bg-red-50"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </Button>
+                                                        </td>
+                                                    </tr>
+                                                )
+                                            })}
+                                        </tbody>
+                                        {/* Add Item Footer inside the table context or right below */}
+                                        <tfoot className="border-t border-slate-100 bg-slate-50/30">
+                                            <tr>
+                                                <td colSpan={4} className="p-3 text-center">
                                                     <Button
                                                         variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => handleRemoveItem(item.id)}
-                                                        className="h-9 w-9 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all scale-95 group-hover:scale-100"
-                                                        disabled={requestItems.length === 1}
+                                                        onClick={handleAddItem}
+                                                        size="sm"
+                                                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 border border-transparent hover:border-blue-100"
                                                     >
-                                                        <Trash2 className="w-4 h-4" />
+                                                        <Plus className="w-4 h-4 mr-2" /> Add Cylinder Type
                                                     </Button>
                                                 </td>
                                             </tr>
-                                        )
-                                    })}
-
-                                    {/* Add Item Row */}
-                                    <tr>
-                                        <td colSpan={4} className="pt-4">
-                                            <button
-                                                onClick={handleAddItem}
-                                                className="w-full h-14 rounded-2xl border-2 border-dashed border-slate-200 text-slate-400 font-black uppercase text-[10px] tracking-widest hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all flex items-center justify-center gap-2 group"
-                                            >
-                                                <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" /> Add Cylinder Specification
-                                            </button>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {/* Summary / Confirmation Note */}
-                        <div className="px-8 flex items-start gap-3 p-4 bg-slate-50 border-y border-slate-200 flex-shrink-0">
-                            <AlertCircle className="w-5 h-5 text-slate-400 flex-shrink-0" />
-                            <p className="text-[10px] text-slate-500 font-bold leading-relaxed uppercase tracking-wider">
-                                Official Declaration: I hereby confirm that the above requested items are required for departmental use and all information provided is accurate according to current clinical requirements.
-                            </p>
-                        </div>
-
-                        {/* Formal Footer Actions */}
-                        <div className="p-8 border-t border-slate-200 bg-slate-50 flex items-center justify-between flex-shrink-0">
-                            <div className="flex items-center gap-4">
-                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    Total Line Items: <span className="text-slate-900 ml-1">{requestItems.length}</span>
+                                        </tfoot>
+                                    </table>
                                 </div>
-                                <div className="w-1 h-1 rounded-full bg-slate-300" />
-                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    Total Quantity: <span className="text-slate-900 ml-1">{requestItems.reduce((acc, curr) => acc + curr.quantity, 0)}</span>
-                                </div>
-                            </div>
-
-                            <div className="flex gap-4">
-                                <Button
-                                    variant="outline"
-                                    onClick={() => {
-                                        setIsCreateModalOpen(false)
-                                        setEditingRequestId(null)
-                                        setDepartmentId('')
-                                        setRequestItems([{ id: '1', cylinder_size_id: '', quantity: 1 }])
-                                    }}
-                                    className="h-12 px-8 rounded-xl font-black uppercase text-[10px] tracking-widest border-slate-300 bg-white"
-                                    disabled={isCreating}
-                                >
-                                    Cancel Request
-                                </Button>
-                                <Button
-                                    onClick={handleCreateRequest}
-                                    className="h-12 px-8 rounded-xl font-black uppercase text-[10px] tracking-widest bg-blue-600 hover:bg-blue-700 text-white shadow-xl shadow-blue-200 hover:shadow-blue-300 transition-all"
-                                    isLoading={isCreating}
-                                    disabled={isCreating}
-                                >
-                                    {editingRequestId ? 'Update Requisition Record' : 'Submit Official Requisition'} <ArrowRight className="w-4 h-4 ml-2" />
-                                </Button>
                             </div>
                         </div>
                     </div>
-                </Modal>
-            )}
-        </div>
+
+                    <DialogFooter className="p-5 border-t border-slate-100 bg-white flex justify-end gap-3 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
+                        <Button
+                            variant="ghost"
+                            onClick={() => {
+                                setIsCreateModalOpen(false)
+                                setEditingRequestId(null)
+                                setDepartmentId('')
+                                setRequestItems([{ id: '1', cylinder_size_id: '', quantity: 1 }])
+                            }}
+                            className="h-11 px-6 text-slate-500 hover:bg-slate-50"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleCreateRequest}
+                            className="h-11 px-8 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg shadow-blue-500/20 font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]"
+                            isLoading={isCreating}
+                            disabled={isCreating}
+                        >
+                            {editingRequestId ? 'Update Request' : 'Submit Request'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </FinancialPageLayout>
     )
 }
 

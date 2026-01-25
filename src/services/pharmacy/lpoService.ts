@@ -687,5 +687,30 @@ export const lpoService = {
 
         if (deleteError) throw deleteError
         console.log('LPO deleted successfully')
+    },
+
+    // Save Supplier Assessment
+    async saveAssessment(assessment: {
+        lpo_id: string,
+        ratings: Record<string, number>,
+        total_score: number,
+        percentage: number,
+        performance_level: string,
+        assessed_by?: string
+    }): Promise<any> {
+        const { data, error } = await supabase
+            .from('pharmacy_supplier_assessments')
+            .insert({
+                lpo_id: assessment.lpo_id,
+                ratings: assessment.ratings,
+                total_score: assessment.total_score,
+                percentage: assessment.percentage,
+                performance_level: assessment.performance_level
+            })
+            .select()
+            .single()
+
+        if (error) throw error
+        return data
     }
 }

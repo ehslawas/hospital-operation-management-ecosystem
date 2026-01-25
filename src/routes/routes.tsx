@@ -79,8 +79,9 @@ const ReturnFromDepartment = lazy(() => import('@/pages/pharmacy/oxygen/ReturnFr
 const SupplierReturn = lazy(() => import('@/pages/pharmacy/oxygen/SupplierReturn'))
 const OrderTrackingPage = lazy(() => import('@/pages/pharmacy/procurement/OrderTrackingPage'))
 const ReceivingPage = lazy(() => import('@/pages/pharmacy/procurement/ReceivingPage'))
+const ReceivedItemsHistoryPage = lazy(() => import('@/pages/pharmacy/procurement/ReceivedItemsHistoryPage'))
 const PaymentPage = lazy(() => import('@/pages/pharmacy/procurement/PaymentPage'))
-const PenaltyPage = lazy(() => import('@/pages/pharmacy/procurement/PenaltyPage'))
+const PenaltiesPage = lazy(() => import('@/pages/pharmacy/procurement/PenaltiesPage'))
 const LOUManagementPage = lazy(() => import('@/pages/pharmacy/procurement/LOUManagementPage'))
 const TransferRequestListPage = lazy(() => import('@/pages/pharmacy/distribution/TransferRequestListPage'))
 const BudgetOverviewPage = lazy(() => import('@/pages/pharmacy/financial/BudgetOverviewPage'))
@@ -826,6 +827,16 @@ const router = createBrowserRouter(
           ),
         },
         {
+          path: 'pharmacy/procurement/received-items',
+          element: (
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <ReceivedItemsHistoryPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
           path: 'pharmacy/procurement/payments',
           element: (
             <ProtectedRoute>
@@ -840,7 +851,7 @@ const router = createBrowserRouter(
           element: (
             <ProtectedRoute>
               <Suspense fallback={<PageLoader />}>
-                <PenaltyPage />
+                <PenaltiesPage />
               </Suspense>
             </ProtectedRoute>
           ),

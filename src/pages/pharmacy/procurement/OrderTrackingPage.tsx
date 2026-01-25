@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { format } from 'date-fns'
 
+import { useNavigate } from 'react-router-dom'
 import { useToast } from '@/stores/toastStore'
 import { orderTrackingService } from '@/services/pharmacy/orderTrackingService'
 import { getPurchaseOrderById } from '@/services/pharmacy/procurementService'
@@ -84,6 +85,7 @@ const DeliveryProgressCell = ({ items }: { items: any[] }) => {
 // --- Main Page ---
 
 export default function OrderTrackingPage() {
+    const navigate = useNavigate()
     const { error } = useToast()
 
 
@@ -208,9 +210,14 @@ export default function OrderTrackingPage() {
             const ln = lpo.lpo_number || ''
             const pn = po?.po_number || ''
 
+            const hasMatchingItem = po?.items?.some((item: any) =>
+                item.item_name?.toLowerCase().includes(searchTerm.toLowerCase())
+            )
+
             return ln.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 pn.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                sn.toLowerCase().includes(searchTerm.toLowerCase())
+                sn.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                hasMatchingItem
         })
 
         // Sorting by Est. Delivery (Priority: Overdue -> Soonest -> Future -> Delivered/None)
@@ -343,8 +350,7 @@ export default function OrderTrackingPage() {
                             `}
                             onClick={() => {
                                 if (!isDelivered) {
-                                    setSelectedLpoForReceive(lpo)
-                                    setIsDetailedReceiveOpen(true)
+                                    navigate(`/pharmacy/procurement/receiving?lpoId=${lpo.id}`)
                                 }
                             }}
                             disabled={isDelivered}
@@ -479,7 +485,7 @@ export default function OrderTrackingPage() {
                             </Tabs>
 
                             <div className="flex flex-col sm:flex-row items-center gap-3 flex-1 lg:justify-end">
-                                <div className="relative w-full sm:max-w-[300px] group">
+                                <div className="relative w-full sm:max-w-[500px] group">
                                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                                     <input
                                         type="text"

@@ -59,3 +59,5 @@ export { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 export { Label } from './label'
 export { ActionTooltip } from './Tooltip'
 export { OfficialJataNegara } from './OfficialJataNegara'
+export { Checkbox } from './checkbox'
+export { Separator } from './separator'

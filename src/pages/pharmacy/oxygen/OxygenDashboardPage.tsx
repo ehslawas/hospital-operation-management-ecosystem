@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { motion } from 'framer-motion'
 import {
   Wind,
   Plus,
@@ -8,7 +9,12 @@ import {
   AlertCircle,
   Clock,
   AirVent,
-  Truck
+  Truck,
+  ArrowUpRight,
+  ArrowDownRight,
+  ChevronRight,
+  Activity,
+  Search
 } from 'lucide-react'
 import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
 import {
@@ -17,8 +23,7 @@ import {
   Modal,
   Input,
   Select,
-  Table,
-  StatCard
+  Table
 } from '@/components/ui'
 import { QRScanner } from '@/components/medical-oxygen/QRScanner'
 import { useToast } from '@/stores/toastStore'
@@ -43,7 +48,123 @@ import type {
   OxygenSystemSettings
 } from '@/types/pharmacy'
 import type { ApiResponse, PaginatedResponse, Column } from '@/types'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency, formatDate, cn } from '@/lib/utils'
+
+// =====================================================
+// STAT CARD COMPONENT
+// =====================================================
+
+interface StatCardProps {
+  title: string
+  value: string | number
+  change?: number
+  changeLabel?: string
+  icon: React.ElementType
+  color: 'primary' | 'success' | 'warning' | 'error' | 'info' | 'purple'
+  link?: string
+  subtitle?: string
+}
+
+const colorClasses = {
+  primary: {
+    bg: 'bg-gradient-to-br from-teal-500 to-teal-600',
+    light: 'bg-teal-50',
+    icon: 'bg-teal-100 text-teal-600',
+    text: 'text-teal-600',
+    border: 'border-teal-200',
+  },
+  success: {
+    bg: 'bg-gradient-to-br from-emerald-500 to-emerald-600',
+    light: 'bg-emerald-50',
+    icon: 'bg-emerald-100 text-emerald-600',
+    text: 'text-emerald-600',
+    border: 'border-emerald-200',
+  },
+  warning: {
+    bg: 'bg-gradient-to-br from-amber-500 to-amber-600',
+    light: 'bg-amber-50',
+    icon: 'bg-amber-100 text-amber-600',
+    text: 'text-amber-600',
+    border: 'border-amber-200',
+  },
+  error: {
+    bg: 'bg-gradient-to-br from-rose-500 to-rose-600',
+    light: 'bg-rose-50',
+    icon: 'bg-rose-100 text-rose-600',
+    text: 'text-rose-600',
+    border: 'border-rose-200',
+  },
+  info: {
+    bg: 'bg-gradient-to-br from-sky-500 to-sky-600',
+    light: 'bg-sky-50',
+    icon: 'bg-sky-100 text-sky-600',
+    text: 'text-sky-600',
+    border: 'border-sky-200',
+  },
+  purple: {
+    bg: 'bg-gradient-to-br from-violet-500 to-violet-600',
+    light: 'bg-violet-50',
+    icon: 'bg-violet-100 text-violet-600',
+    text: 'text-violet-600',
+    border: 'border-violet-200',
+  },
+}
+
+const StatCard: React.FC<StatCardProps> = ({
+  title,
+  value,
+  change,
+  changeLabel,
+  icon: Icon,
+  color,
+  link,
+  subtitle,
+}) => {
+  const colors = colorClasses[color]
+  const isPositive = change !== undefined && change > 0
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -2, transition: { duration: 0.2 } }}
+      className={cn(
+        'relative overflow-hidden rounded-xl xs:rounded-2xl p-3 xs:p-4 sm:p-5 transition-all duration-300 min-h-[120px] xs:min-h-[140px]',
+        'bg-white border shadow-sm hover:shadow-md',
+        colors.border
+      )}
+    >
+      {/* Background pattern */}
+      <div className="absolute top-0 right-0 -mt-2 -mr-2 w-16 h-16 opacity-10">
+        <Icon className="w-full h-full" />
+      </div>
+
+      <div className="flex items-start justify-between relative z-10 gap-2">
+        <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0', colors.icon)}>
+          <Icon className="w-5 h-5" />
+        </div>
+        {change !== undefined && (
+          <div
+            className={cn(
+              'flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0',
+              isPositive ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+            )}
+          >
+            {isPositive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+            <span>{Math.abs(change)}%</span>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-3 relative z-10 min-w-0">
+        <h3 className="text-2xl font-bold text-gray-900 truncate">{value}</h3>
+        <p className="text-sm font-medium text-gray-600 mt-1 line-clamp-2">{title}</p>
+        {subtitle && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{subtitle}</p>}
+        {changeLabel && <p className="text-xs text-gray-400 mt-1 line-clamp-1">{changeLabel}</p>}
+      </div>
+    </motion.div>
+  )
+}
 
 export const OxygenDashboardPage: React.FC = () => {
   const { user } = useAuthStore()
@@ -366,82 +487,115 @@ export const OxygenDashboardPage: React.FC = () => {
   const kpis = summary?.kpis
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Wind className="w-8 h-8 text-sky-600" />
-            Pharmacy Oxygen Dashboard
-          </h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Financial monitoring and medical oxygen reception management.
-          </p>
+    <div className="space-y-6 p-6 pt-10 overflow-x-hidden">
+      {/* Welcome & Actions */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm"
+      >
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <Wind className="w-6 h-6 text-sky-600" />
+              Oxygen Management
+            </h1>
+            <p className="text-sm text-gray-600 mt-1">
+              Financial monitoring, cylinder reception, and tracking.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => loadData()}
+              className="border-gray-300 text-gray-700 hover:bg-gray-50"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button
+              onClick={() => setIsModalOpen(true)}
+              className="bg-sky-600 hover:bg-sky-700 text-white shadow-sm"
+              size="sm"
+            >
+              <Plus className="w-4 h-4 mr-2" /> Receive Oxygen
+            </Button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => loadData()}>
-            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
-          </Button>
-          <Button onClick={() => setIsModalOpen(true)} className="bg-sky-600 hover:bg-sky-700">
-            <Plus className="w-4 h-4 mr-2" /> Receive Oxygen
-          </Button>
+      </motion.div>
+
+      {/* Financial KPIs */}
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Activity className="w-5 h-5 text-teal-600" />
+          Financial Overview
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          <StatCard
+            title="Total Allocation"
+            value={formatCurrency(kpis?.total_allocation || 0)}
+            subtitle={`FY ${new Date().getFullYear()} (080702 / 27402)`}
+            icon={DollarSign}
+            color="primary"
+          />
+          <StatCard
+            title="Total Expenses"
+            value={formatCurrency(kpis?.expense || 0)}
+            subtitle="Refill & Service costs"
+            icon={TrendingUp}
+            color="purple"
+          />
+          <StatCard
+            title="Liabilities"
+            value={formatCurrency(kpis?.liabilities || 0)}
+            subtitle="Pending invoices"
+            icon={AlertCircle}
+            color="warning"
+          />
+          <StatCard
+            title="Current Balance"
+            value={formatCurrency(kpis?.balance || 0)}
+            subtitle="Remaining allocation"
+            icon={DollarSign}
+            color="success"
+          />
+          <StatCard
+            title="Loan Charges"
+            value={formatCurrency(kpis?.loan_total || 0)}
+            subtitle="Private cylinder fees"
+            icon={Truck}
+            color="info"
+          />
         </div>
       </div>
 
-      {/* Financial KPI Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-        <StatCard
-          icon={DollarSign}
-          title="Total Allocation"
-          value={formatCurrency(kpis?.total_allocation || 0)}
-          color="primary"
-          subtitle="FY 2026 (080702 / 27402)"
-        />
-        <StatCard
-          icon={TrendingUp}
-          title="Total Expenses"
-          value={formatCurrency(kpis?.expense || 0)}
-          color="success"
-          subtitle="Refill & Service costs"
-        />
-        <StatCard
-          icon={AlertCircle}
-          title="Liabilities"
-          value={formatCurrency(kpis?.liabilities || 0)}
-          color="warning"
-          subtitle="Pending invoices"
-        />
-        <StatCard
-          icon={DollarSign}
-          title="Current Balance"
-          value={formatCurrency(kpis?.balance || 0)}
-          color="info"
-          subtitle="Remaining allocation"
-        />
-        <StatCard
-          icon={Truck}
-          title="Loan Charges"
-          value={formatCurrency(kpis?.loan_total || 0)}
-          color="primary"
-          subtitle="Private cylinder fees"
-        />
-      </div>
-
-      <div className="lg:col-span-3 bg-white border rounded-2xl shadow-sm overflow-hidden flex flex-col pt-4">
-        <div className="px-4 pb-2 border-b flex justify-between items-center bg-gray-50/30">
-          <h3 className="font-bold text-gray-700 flex items-center gap-2">
-            <Clock className="w-4 h-4" /> Recent Receptions
+      {/* Recent Receptions Table */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm flex flex-col pt-4"
+      >
+        <div className="px-5 pb-3 border-b border-gray-100 flex justify-between items-center">
+          <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+            <Clock className="w-4 h-4 text-sky-600" />
+            Recent Receptions
           </h3>
-          <Button variant="ghost" size="sm" className="text-xs text-sky-600">View All</Button>
+          <Button variant="ghost" size="sm" className="text-xs text-sky-600 hover:text-sky-700">
+            View All <ChevronRight className="w-3 h-3 ml-1" />
+          </Button>
         </div>
-        <Table
-          data={receptions}
-          columns={recordsColumns}
-          isLoading={isLoading}
-          emptyMessage="No records"
-          onRowClick={(row) => setSelectedReception(row)}
-        />
-      </div>
+        <div className="p-0">
+          <Table
+            data={receptions}
+            columns={recordsColumns}
+            isLoading={isLoading}
+            emptyMessage="No reception records found"
+            onRowClick={(row) => setSelectedReception(row)}
+          />
+        </div>
+      </motion.div>
 
       {/* Modal for Reception */}
       <Modal

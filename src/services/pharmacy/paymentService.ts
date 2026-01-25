@@ -26,16 +26,37 @@ export const paymentService = {
         if (error) throw error
 
         // Filter in memory for now
-        // We want LPOs that are FULLY RECEIVED and VERIFIED
+        // We want LPOs that have been explicitly SENT FOR PAYMENT
         return (data as LPOWithRelations[]).filter(lpo => {
-            // Check if ANY receiving record is marked as fully received AND verified
-            // (Assuming one Full Receiving record is enough, or multiple records summing up - 
-            // but relying on the is_fully_received flag on the receiving record is safest for now if the workflow enforces it)
-            const isFullyReceivedAndVerified = lpo.receiving_records?.some(r => r.is_fully_received && r.status === 'verified')
+            // Check if LPO status is 'sent_for_payment'
+            // This flag is set by receivingService.sendForPayment()
+            const isSentForPayment = lpo.payment_status === 'sent_for_payment'
             const isPaid = lpo.payment?.status === 'completed'
 
-            return isFullyReceivedAndVerified && !isPaid
+            return isSentForPayment && !isPaid
         })
+    },
+
+    // Get specific LPO with payment details
+    async getLPOPaymentDetails(lpoId: string): Promise<LPOWithRelations | null> {
+        const { data, error } = await supabase
+            .from(LPO_TABLE)
+            .select(`
+                *,
+                purchase_order:pharmacy_purchase_orders (
+                    *,
+                    supplier:suppliers (*)
+                ),
+                payment:pharmacy_payments(*)
+            `)
+            .eq('id', lpoId)
+            .single()
+
+        if (error) {
+            console.error('Error fetching LPO payment details:', error)
+            return null
+        }
+        return data as LPOWithRelations
     },
 
     // Create or Update Payment Record
@@ -53,7 +74,10 @@ export const paymentService = {
         if (existing) {
             const { data, error } = await supabase
                 .from(PAYMENT_TABLE)
-                .update({ ...payment, updated_at: new Date().toISOString() })
+                .update({
+                    ...payment,
+                    updated_at: new Date().toISOString()
+                })
                 .eq('id', existing.id)
                 .select()
                 .single()
@@ -63,7 +87,10 @@ export const paymentService = {
         } else {
             const { data, error } = await supabase
                 .from(PAYMENT_TABLE)
-                .insert({ ...payment, status: payment.status || 'pending' })
+                .insert({
+                    ...payment,
+                    status: payment.status || 'pending'
+                })
                 .select()
                 .single()
 
@@ -71,8 +98,13 @@ export const paymentService = {
             result = data
         }
 
-        // If payment is completed, record expense in budget tables
+        // 3. Update LPO payment status if completed
         if (result.status === 'completed' || result.status === 'issued') {
+            await supabase
+                .from(LPO_TABLE)
+                .update({ payment_status: 'paid' })
+                .eq('id', payment.lpo_id)
+
             await this.recordBudgetExpense(result)
         }
 

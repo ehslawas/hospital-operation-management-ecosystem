@@ -1,3 +1,4 @@
 export { PurchaseOrderListPage } from './PurchaseOrderListPage'
-export { ReceivingPage } from './ReceivingPage'
+export { default as ReceivingPage } from './ReceivingPage'
+export { default as ReceivedItemsHistoryPage } from './ReceivedItemsHistoryPage'
 

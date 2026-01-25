@@ -129,7 +129,7 @@ const FALLBACK_ADMIN_MENUS: MenuItem[] = [
 const FALLBACK_PHARMACY_MENUS: MenuItem[] = [
     { id: 'dash', label: 'Dashboard', path: '/dashboard', icon: 'LayoutDashboard', parent_id: null, order_index: 0, is_core: true, allowed_department_id: null, module_code: 'dashboard', children: [] },
     { id: 'purchasing', label: 'Purchasing', path: '/c/purchasing', icon: 'ShoppingCart', parent_id: null, order_index: 1, is_core: true, allowed_department_id: null, module_code: 'procurement', children: [] },
-    { id: 'receiving', label: 'Receiving', path: '/c/receiving', icon: 'Truck', parent_id: null, order_index: 2, is_core: true, allowed_department_id: null, module_code: 'receiving', children: [] },
+    { id: 'receiving', label: 'Received Item', path: '/pharmacy/procurement/received-items', icon: 'Truck', parent_id: null, order_index: 2, is_core: true, allowed_department_id: null, module_code: 'receiving', children: [] },
     { id: 'inventory', label: 'Inventory', path: '/c/inventory', icon: 'Package', parent_id: null, order_index: 3, is_core: true, allowed_department_id: null, module_code: 'inventory', children: [] },
     { id: 'dispensing', label: 'Dispensing', path: '/c/dispensing', icon: 'Pill', parent_id: null, order_index: 4, is_core: true, allowed_department_id: null, module_code: 'dispensing', children: [] },
     { id: 'reports', label: 'Reports', path: '/c/reports', icon: 'BarChart3', parent_id: null, order_index: 5, is_core: true, allowed_department_id: null, module_code: 'reports', children: [] },

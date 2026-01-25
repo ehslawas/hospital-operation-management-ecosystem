@@ -11,7 +11,10 @@ export interface LPO extends BaseEntity {
     lpo_number: string
     document_date: string
     document_url?: string
+    expected_delivery_date?: string
     status: 'draft' | 'generated' | 'uploaded' | 'sent' | 'verified' | 'archived'
+    payment_status?: 'pending' | 'sent_for_payment' | 'paid'
+    sent_for_payment_date?: string
     created_by?: string
 }
 
@@ -22,6 +25,7 @@ export interface LPOWithRelations extends LPO {
     receiving_records?: Receiving[]
     payment?: Payment
     lou?: LOU
+    sent_for_payment_date?: string
 }
 
 // =====================================================
@@ -63,13 +67,24 @@ export interface OrderTrackingWithRelations extends OrderTracking {
 // RECEIVING TYPES
 // =====================================================
 
+export interface ReceivingDocument extends BaseEntity {
+    receiving_id: string
+    do_number?: string
+    do_document_url?: string
+    uploaded_at?: string
+}
+
 export interface Receiving extends BaseEntity {
     lpo_id: string
     receiving_date: string
     receiving_type: 'full' | 'partial'
 
-    do_document_url?: string
+    do_document_url?: string // @deprecated use documents array
     invoice_document_url?: string
+
+    documents?: ReceivingDocument[]
+    has_missing_details?: boolean
+    missing_details_completed_at?: string
 
     status: 'pending' | 'verified' | 'completed'
     is_fully_received: boolean
@@ -90,11 +105,15 @@ export interface ReceivingItem extends BaseEntity {
     outstanding_quantity: number
 
     batch_number?: string
+    manufactured_date?: string
     expiry_date?: string
     storage_location?: string
     qr_code?: string
+    requires_lou?: boolean
 
     is_fully_received: boolean
+    is_late?: boolean
+    days_late?: number
 }
 
 export interface CreditNote extends BaseEntity {
@@ -115,10 +134,19 @@ export interface Payment extends BaseEntity {
     lpo_id: string
     lpo_number: string
     payment_amount: number
+
+    // Payment Details
     payment_issued_date?: string
     payment_received_date?: string
+    payment_keyed_date?: string
+
+    // Manual Input Fields
     payment_method?: string
     payment_reference?: string
+    egrn_number?: string
+    invoice_number?: string
+    phis_status?: 'pending' | 'paid'
+
     status: 'pending' | 'issued' | 'received' | 'completed'
     data_source: 'manual' | 'scraped'
     scraped_at?: string
@@ -129,26 +157,120 @@ export interface Payment extends BaseEntity {
 // PENALTY TYPES
 // =====================================================
 
+export type PenaltyType = 'appl' | 'cc'
+
+export interface PerformanceStandard extends BaseEntity {
+    hospital_id?: string
+    code: string // e.g., PS01, PS02
+    description_bm: string // Malay description
+    description_en?: string // English description
+    penalty_formula: string // Formula description
+    penalty_type: 'percentage' | 'fixed' | 'per_incident' | 'per_day' | 'custom'
+    penalty_rate?: number // e.g., 0.015 for 1.5%
+    fixed_amount?: number // e.g., 500.00
+    is_active: boolean
+    sort_order: number
+}
+
+export interface PenaltyCertification {
+    user_id?: string
+    name: string
+    designation: string
+    date: string
+    signature_url?: string
+}
+
 export interface Penalty extends BaseEntity {
     lpo_id: string
-    order_tracking_id: string
-    days_overdue: number
+    order_tracking_id?: string
+    receiving_id?: string
+    receiving_item_id?: string
+
+    // Item details
+    item_id?: string
+    item_name?: string
+    item_code?: string
+    item_type?: string
+    quantity?: number
+    unit_price?: number
+
+    // Calculation fields
+    days_overdue?: number
+    days_late?: number
     penalty_rate?: number
     penalty_amount: number
+    total_order_value?: number
+    failed_product_value?: number
+
+    // Penalty classification
+    penalty_type: PenaltyType // 'appl' or 'cc'
+    performance_standards_violated?: string[] // Array of standard IDs
+
+    // Document fields
     penalty_notice_url?: string
+    penalty_pdf_url?: string
+
+    // Certification fields (for APPL LAMPIRAN 9)
+    prepared_by_user_id?: string
+    prepared_by_name?: string
+    prepared_by_designation?: string
+    prepared_at?: string
+    prepared_signature_url?: string
+
+    verified_by_user_id?: string
+    verified_by_name?: string
+    verified_by_designation?: string
+    verified_at?: string
+    verified_signature_url?: string
+
+    // Supplier acknowledgment
+    supplier_acknowledged_at?: string
+    supplier_signature_url?: string
+    supplier_signatory_name?: string
+    supplier_signatory_designation?: string
+
+    // Payment fields
     penalty_paid: boolean
     payment_method?: string
     payment_date?: string
     payment_reference?: string
-    status: 'pending' | 'issued' | 'paid' | 'waived'
+    payment_kaedah?: 1 | 2 // 1 = Potongan, 2 = Cek
+
+    // Status and communication
+    status: 'pending' | 'approved' | 'issued' | 'paid' | 'waived'
     email_sent_at?: string
     email_sent_to?: string
     notes?: string
+    waiver_reason?: string
+    approved_by?: string
+    approved_at?: string
 }
 
 // =====================================================
 // LOU TYPES
 // =====================================================
+
+export interface LOUItem extends BaseEntity {
+    lou_id: string
+    receiving_item_id: string
+
+    // Core details
+    item_id: string
+    item_name: string
+    item_code: string
+    item_type: 'drug' | 'non_drug'
+
+    // Tracking details
+    po_number?: string
+    lpo_number?: string
+    do_number?: string
+    batch_number?: string
+    expiry_date?: string
+    manufactured_date?: string
+
+    quantity_received: number
+    status: 'pending' | 'resolved' | 'acknowledged'
+}
 
 export interface LOU extends BaseEntity {
     lpo_id: string
@@ -160,6 +282,15 @@ export interface LOU extends BaseEntity {
     email_sent_at?: string
     email_sent_to?: string
     status: 'pending' | 'generated' | 'sent' | 'acknowledged'
+
+    // New fields
+    po_number?: string
+    lpo_number?: string
+    do_numbers?: string[]
+    items_count?: number
+    supplier_name?: string
+
+    items?: LOUItem[] // Relations
 }
 
 // =====================================================

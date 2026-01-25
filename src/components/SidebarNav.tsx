@@ -271,7 +271,7 @@ export default function SidebarNav({ collapsed = false }: Props) {
               {subItem('/pharmacy/procurement/orders', 'Purchase Order')}
               {subItem('/pharmacy/procurement/lpo', 'Letter of Purchase Order')}
               {subItem('/pharmacy/procurement/tracking', 'Order Tracking')}
-              {subItem('/pharmacy/procurement/receiving', 'Receiving')}
+              {subItem('/pharmacy/procurement/received-items', 'Received Item')}
               {subItem('/pharmacy/procurement/payments', 'Payment')}
               {subItem('/pharmacy/procurement/penalties', 'Penalty')}
               {subItem('/pharmacy/procurement/lou', 'LOU')}
