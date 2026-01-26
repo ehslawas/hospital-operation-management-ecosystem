@@ -660,7 +660,7 @@ export const PurchaseOrderListPage: React.FC = () => {
                           </button>
                         </TableCell>
                         <TableCell className="text-sm text-slate-700">
-                          {order.supplier?.company_name || '—'}
+                          {order.supplier?.company_name || order.manual_supplier_name || '—'}
                         </TableCell>
                         <TableCell className="text-sm text-slate-600 font-mono text-xs">
                           {order.vote_code || '—'}

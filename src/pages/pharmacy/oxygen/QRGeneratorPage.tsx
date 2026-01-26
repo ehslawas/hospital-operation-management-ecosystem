@@ -8,11 +8,16 @@ import {
     Printer,
     Plus,
     Trash2,
-    Layout,
     AirVent,
-    Activity
+    Activity,
+    ChevronRight,
+    History,
+    CheckCircle2,
+    Layers,
+    BadgeCheck
 } from 'lucide-react';
-import { Button, Card, Input, Select } from '@/components/ui';
+import { Button, Card, Input, Select, Badge, Spinner } from '@/components/ui';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface GeneratedLabel {
     id: string;
@@ -31,17 +36,18 @@ export const QRGeneratorPage: React.FC = () => {
     const [startingSerial, setStartingSerial] = useState('1');
     const [existingSerials, setExistingSerials] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [registrySummary, setRegistrySummary] = useState<any[]>([]);
+    const [selectedRegistrySize, setSelectedRegistrySize] = useState<string | null>(null);
+    const [sizeDetails, setSizeDetails] = useState<any[]>([]);
+    const [isDetailsLoading, setIsDetailsLoading] = useState(false);
 
-    const [recentCylinders, setRecentCylinders] = useState<any[]>([]);
-
-    // Hardcoded presets for quick selection
     const sizePresets = [
-        { code: 'P101-D', capacity: '0.5m³' },
-        { code: 'P101-E', capacity: '0.7m³' },
-        { code: 'P101-F', capacity: '1.4m³' },
-        { code: 'P101-HS', capacity: '6.4m³' },
-        { code: '101-F', capacity: '1.4m³' },
-        { code: '101-N', capacity: '8.0m³' }
+        { code: 'P101-D', capacity: '0.5m³', label: 'D' },
+        { code: 'P101-E', capacity: '0.7m³', label: 'E' },
+        { code: 'P101-F', capacity: '1.4m³', label: 'F' },
+        { code: 'P101-HS', capacity: '6.4m³', label: 'HS' },
+        { code: '101-F', capacity: '1.4m³', label: '101-F' },
+        { code: '101-N', capacity: '8.0m³', label: '101-N' }
     ];
 
     const typePresets = ['Bullnose', 'Pin Index'];
@@ -49,9 +55,89 @@ export const QRGeneratorPage: React.FC = () => {
     useEffect(() => {
         if (user?.hospital_id) {
             fetchExistingSerials();
-            fetchRecentCylinders();
+            fetchRegistrySummary();
         }
     }, [user?.hospital_id]);
+
+    const fetchRegistrySummary = async () => {
+        try {
+            // Fetch all valid combinations from the database (no hardcoding)
+            const { data: combos, error: combosError } = await supabase
+                .from('pharmacy_oxygen_size_type_combos')
+                .select(`
+                    display_name,
+                    display_order,
+                    size:pharmacy_oxygen_cylinder_sizes(id, code),
+                    type:pharmacy_oxygen_cylinder_types(id, name)
+                `)
+                .eq('is_active', true)
+                .order('display_order');
+
+            if (combosError) throw combosError;
+
+            // Fetch inventory counts
+            const { data: inventory, error: invError } = await supabase
+                .from('pharmacy_oxygen_cylinder_inventory')
+                .select('serial_number, cylinder_size_id, cylinder_type_id')
+                .eq('hospital_id', user?.hospital_id);
+
+            if (invError) throw invError;
+
+            // Build summary from combos table
+            const summary = combos.map((combo: any) => {
+                const sizeId = combo.size?.id;
+                const typeId = combo.type?.id;
+
+                const matching = inventory.filter((item: any) =>
+                    item.cylinder_size_id === sizeId && item.cylinder_type_id === typeId
+                );
+
+                const serials = matching.map((m: any) => m.serial_number).sort();
+
+                return {
+                    display_name: combo.display_name,
+                    size_code: combo.size?.code,
+                    type_name: combo.type?.name,
+                    total_count: matching.length,
+                    first_serial: serials[0] || '',
+                    last_serial: serials[serials.length - 1] || ''
+                };
+            });
+
+            setRegistrySummary(summary);
+        } catch (err) {
+            console.error("Failed to fetch registry summary:", err);
+        }
+    };
+
+    const fetchSizeDetails = async (sizeCode: string, typeName?: string, displayName?: string) => {
+        setIsDetailsLoading(true);
+        // Use the display_name passed from the registry card (database-driven)
+        setSelectedRegistrySize(displayName || sizeCode);
+        try {
+            const { data: sizeData } = await supabase.from('pharmacy_oxygen_cylinder_sizes').select('id').eq('code', sizeCode).single();
+            const { data: typeData } = typeName ? await supabase.from('pharmacy_oxygen_cylinder_types').select('id').eq('name', typeName).single() : { data: null };
+
+            if (sizeData) {
+                let query = supabase
+                    .from('pharmacy_oxygen_cylinder_inventory')
+                    .select('*')
+                    .eq('hospital_id', user?.hospital_id)
+                    .eq('cylinder_size_id', sizeData.id);
+
+                if (typeData) {
+                    query = query.eq('cylinder_type_id', typeData.id);
+                }
+
+                const { data: items } = await query.order('serial_number', { ascending: false });
+                setSizeDetails(items || []);
+            }
+        } catch (err) {
+            console.error("Failed to fetch size details:", err);
+        } finally {
+            setIsDetailsLoading(false);
+        }
+    };
 
     const fetchExistingSerials = async () => {
         setIsLoading(true);
@@ -65,7 +151,6 @@ export const QRGeneratorPage: React.FC = () => {
             const serials = data?.map(d => d.serial_number).filter(Boolean) as string[];
             setExistingSerials(serials || []);
 
-            // Suggest next serial
             const numericSerials = serials
                 ?.map(s => {
                     const match = s.match(/\d+$/);
@@ -83,21 +168,6 @@ export const QRGeneratorPage: React.FC = () => {
         }
     };
 
-    const fetchRecentCylinders = async () => {
-        try {
-            const { data, error } = await supabase
-                .from('pharmacy_oxygen_cylinder_inventory')
-                .select('*, size_info:pharmacy_oxygen_cylinder_sizes(*)')
-                .eq('hospital_id', user?.hospital_id)
-                .order('created_at', { ascending: false })
-                .limit(12);
-
-            if (error) throw error;
-            setRecentCylinders(data || []);
-        } catch (err) {
-            console.error("Failed to fetch recent cylinders:", err);
-        }
-    };
 
     const generateLabels = async () => {
         if (!user?.hospital_id) return;
@@ -132,14 +202,6 @@ export const QRGeneratorPage: React.FC = () => {
             alert(`Only generated ${newLabels.length} labels. Some serial numbers might already be in use.`);
         }
 
-        const PREVIEW_LIMIT = 50;
-        if (labels.length + newLabels.length > PREVIEW_LIMIT) {
-            if (!confirm(`You are generating a large number of labels (${labels.length + newLabels.length}). This might be slow to render. Continue?`)) {
-                return;
-            }
-        }
-
-        // SAVE TO DB
         setIsLoading(true);
         try {
             const { error } = await registerNewCylinders(
@@ -152,19 +214,15 @@ export const QRGeneratorPage: React.FC = () => {
                 }))
             );
 
-            if (error) {
-                alert(`Error saving to registry: ${error}`);
-                return;
-            }
+            if (error) throw new Error(error);
 
-            // On success
             setLabels([...labels, ...newLabels]);
             setStartingSerial(serialNum.toString());
-            fetchRecentCylinders(); // Refresh list
+            fetchRegistrySummary(); // Refresh stats immediately
 
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
-            alert("Failed to save cylinders to registry.");
+            alert(`Failed: ${e.message}`);
         } finally {
             setIsLoading(false);
         }
@@ -175,198 +233,352 @@ export const QRGeneratorPage: React.FC = () => {
     };
 
     const clearAll = () => setLabels([]);
+    const handlePrint = () => window.print();
 
-    const handlePrint = () => {
-        window.print();
-    };
+    // Grouping Logic
+    const groupedLabelsMap = labels.reduce((acc, label) => {
+        const key = `${label.type_name} — ${label.size_code}`;
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(label);
+        return acc;
+    }, {} as Record<string, GeneratedLabel[]>);
+
+    const groupedLabels = Object.entries(groupedLabelsMap);
 
     return (
-        <div className="p-6 space-y-6 max-w-7xl mx-auto">
-            {/* Header - Hide on print */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                        <QrCode className="w-8 h-8 text-sky-600" />
-                        Cylinder QR Generator
-                    </h1>
-                    <p className="text-sm text-gray-600 mt-1">
-                        Generate and register professional QR labels for medical oxygen cylinders.
-                    </p>
-                </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={clearAll} disabled={labels.length === 0}>
-                        <Trash2 className="w-4 h-4 mr-2" /> Clear All
-                    </Button>
-                    <Button onClick={handlePrint} disabled={labels.length === 0} className="bg-sky-600 hover:bg-sky-700">
-                        <Printer className="w-4 h-4 mr-2" /> Print Labels
-                    </Button>
-                </div>
-            </div>
+        <div className="min-h-screen bg-slate-50/50 p-4 md:p-8 font-sans text-slate-900 selection:bg-sky-100 selection:text-sky-900">
+            <div className="max-w-[1600px] mx-auto space-y-8">
 
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                {/* Controls Panel - Hide on print */}
-                <div className="lg:col-span-1 space-y-6 print:hidden">
-                    <Card className="p-5 space-y-4">
-                        <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-2">
-                            <Layout className="w-4 h-4 text-sky-500" />
-                            Generator Settings
-                        </h3>
-
-                        <div className="space-y-4">
+                {/* Header Section */}
+                <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8 border-b border-slate-200 print:hidden">
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest">
+                            <span>Pharmacy</span>
+                            <ChevronRight className="w-3 h-3 text-slate-300" />
+                            <span>Oxygen</span>
+                            <ChevronRight className="w-3 h-3 text-slate-300" />
+                            <span className="text-sky-600">QR Generator</span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-sky-600 rounded-2xl shadow-lg shadow-sky-200">
+                                <QrCode className="w-8 h-8 text-white" />
+                            </div>
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Cylinder Size</label>
-                                <Select value={currentSize} onChange={e => setCurrentSize(e.target.value)}>
-                                    {sizePresets.map(s => (
-                                        <option key={s.code} value={s.code}>{s.code} ({s.capacity})</option>
-                                    ))}
-                                </Select>
+                                <h1 className="text-3xl font-black tracking-tight text-slate-900">Cylinder Asset Factory</h1>
+                                <p className="text-slate-500 font-medium">Generate, register, and print professional-grade QR identifiers.</p>
                             </div>
-
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Cylinder Type</label>
-                                <Select value={currentType} onChange={e => setCurrentType(e.target.value)}>
-                                    {typePresets.map(t => (
-                                        <option key={t} value={t}>{t}</option>
-                                    ))}
-                                </Select>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1 flex items-center justify-between">
-                                        Start Serial
-                                        {isLoading && <Activity className="w-3 h-3 animate-spin text-sky-500" />}
-                                    </label>
-                                    <Input
-                                        type="number"
-                                        min={1}
-                                        value={startingSerial}
-                                        onChange={e => setStartingSerial(e.target.value)}
-                                        placeholder="e.g. 1"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Quantity</label>
-                                    <Input
-                                        type="number"
-                                        min={1}
-                                        max={50}
-                                        value={count}
-                                        onChange={e => setCount(parseInt(e.target.value) || 1)}
-                                    />
-                                </div>
-                            </div>
-
-                            <Button onClick={generateLabels} isLoading={isLoading} className="w-full bg-sky-600">
-                                <Plus className="w-4 h-4 mr-2" /> Generate & Register
-                            </Button>
                         </div>
-                    </Card>
+                    </div>
 
-                    <Card className="p-4 bg-emerald-50 border-emerald-100 flex gap-3">
-                        <div className="shrink-0 p-2 bg-emerald-100 rounded-full">
-                            <Activity className="w-4 h-4 text-emerald-600" />
-                        </div>
-                        <div>
-                            <p className="text-xs font-bold text-emerald-800 uppercase mb-1">Registry Info</p>
-                            <p className="text-[10px] text-emerald-700 leading-relaxed">
-                                Labels generated here are automatically saved to the <strong>Pharmacy Registry</strong> as 'Available' in Store.
-                            </p>
-                        </div>
-                    </Card>
+                    <div className="flex items-center gap-3">
+                        <Button
+                            variant="outline"
+                            onClick={clearAll}
+                            disabled={labels.length === 0}
+                            className="border-slate-200 text-slate-600 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100 h-12 px-6 rounded-xl font-bold transition-all disabled:opacity-30"
+                        >
+                            <Trash2 className="w-4 h-4 mr-2" /> Clear Session
+                        </Button>
+                        <Button
+                            onClick={handlePrint}
+                            disabled={labels.length === 0}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-xl shadow-indigo-100 h-12 px-8 gap-3 rounded-xl font-bold transition-all active:scale-95 border-b-4 border-indigo-800"
+                        >
+                            <Printer className="w-5 h-5" /> Print Labels ({labels.length})
+                        </Button>
+                    </div>
+                </header>
 
-                    {/* Recently Registered Section */}
-                    <div className="pt-4 border-t border-slate-200">
-                        <label className="text-xs font-bold text-gray-400 uppercase mb-3 block">Recently Registered</label>
-                        <div className="space-y-2">
-                            {recentCylinders.length === 0 ? (
-                                <p className="text-xs text-slate-400 italic">No recent registrations.</p>
-                            ) : (
-                                recentCylinders.map(cyl => (
-                                    <div key={cyl.id} className="flex items-center justify-between p-2 bg-white rounded-lg border border-slate-100 shadow-sm">
-                                        <div>
-                                            <p className="text-[10px] font-black text-slate-700">{cyl.qr_code}</p>
-                                            <p className="text-[9px] text-slate-400 uppercase">{cyl.size_info?.code || 'Unknown Size'}</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mb-1"></span>
-                                        </div>
+                {/* Horizontal Registry Dashboard */}
+                <div className="mb-8 space-y-4">
+                    <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+                        <BadgeCheck className="w-3.5 h-3.5" /> Established Registry Overview
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                        {registrySummary.map((stat, idx) => (
+                            <motion.div
+                                key={`${stat.size_code}-${stat.type_name}`}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: idx * 0.05 }}
+                                onClick={() => fetchSizeDetails(stat.size_code, stat.type_name, stat.display_name)}
+                                className="group cursor-pointer rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-sky-400 hover:shadow-md transition-all relative overflow-hidden"
+                            >
+                                <div className="absolute top-0 right-0 w-12 h-12 bg-slate-50 rounded-full -mr-6 -mt-6 group-hover:bg-sky-50 transition-colors" />
+
+                                <div className="relative z-10 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[11px] font-black text-slate-900 tracking-tight leading-none truncate pr-1">{stat.display_name}</span>
+                                        <Badge variant="success" className="bg-emerald-50 text-emerald-600 border-emerald-100 text-[9px] px-1.5 py-0 font-black">
+                                            {stat.total_count}
+                                        </Badge>
                                     </div>
-                                ))
-                            )}
-                        </div>
+                                    <div className="space-y-0.5">
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Latest SN</p>
+                                        <p className="text-[10px] font-mono font-bold text-slate-600 truncate">
+                                            {stat.last_serial ? stat.last_serial.split('-').pop() : '...'}
+                                        </p>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        ))}
                     </div>
                 </div>
 
-                {/* Labels Preview Area */}
-                <div className="lg:col-span-3 labels-container">
-                    {labels.length === 0 ? (
-                        <div className="h-64 border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center text-gray-400 bg-white print:hidden">
-                            <QrCode className="w-12 h-12 mb-2 opacity-20" />
-                            <p>No labels generated in this session.</p>
-                            <p className="text-xs text-gray-300 mt-2">Adjust settings and click Generate & Register</p>
-                        </div>
-                    ) : (
-                        <div className="label-grid grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 print:grid print:grid-cols-3 print:gap-[2mm] print:p-0">
-                            {labels.map((label) => {
-                                const isPrivate = label.size_code.startsWith('P');
-                                return (
-                                    <div
-                                        key={label.id}
-                                        className="label-card relative group bg-white border border-gray-200 p-4 rounded-xl shadow-sm hover:border-sky-300 transition-all flex items-center gap-4 print:shadow-none print:border-gray-400 print:rounded-none print:w-[65mm] print:h-[46mm] print:p-2 print:gap-2 print:border-[0.2pt] print:m-0 print:overflow-hidden print:flex print:box-border"
-                                    >
-                                        <div className="shrink-0 bg-white p-1 rounded border border-gray-100 print:border-none print:p-0">
-                                            <QRCodeSVG
-                                                value={label.qr_value}
-                                                size={85}
-                                                level="H"
-                                                includeMargin={false}
-                                                className="print:w-[28mm] print:h-[28mm]"
-                                            />
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+
+                    {/* Controls Column */}
+                    <aside className="lg:col-span-3 space-y-6 print:hidden">
+                        <Card className="p-6 border-slate-200 shadow-sm space-y-6">
+                            <div className="flex items-center gap-2 pb-4 border-b border-slate-100">
+                                <Layers className="w-5 h-5 text-sky-500" />
+                                <h3 className="font-black text-slate-800 uppercase tracking-tight">Generator Config</h3>
+                            </div>
+
+                            <div className="space-y-5">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Cylinder Size</label>
+                                    <Select value={currentSize} onChange={e => setCurrentSize(e.target.value)} className="h-11 rounded-xl bg-slate-50 border-slate-200 font-bold focus:ring-2 focus:ring-sky-500/20">
+                                        {sizePresets.map(s => (
+                                            <option key={s.code} value={s.code}>{s.code} — {s.capacity}</option>
+                                        ))}
+                                    </Select>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Valve / Connection Type</label>
+                                    <Select value={currentType} onChange={e => setCurrentType(e.target.value)} className="h-11 rounded-xl bg-slate-50 border-slate-200 font-bold focus:ring-2 focus:ring-sky-500/20">
+                                        {typePresets.map(t => (
+                                            <option key={t} value={t}>{t}</option>
+                                        ))}
+                                    </Select>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Start Serial</label>
+                                            {isLoading && <Spinner className="w-3 h-3 text-sky-500" />}
                                         </div>
-
-                                        <div className="flex-1 min-w-0 flex flex-col justify-between h-full print:h-[40mm]">
-                                            <div className="space-y-0.5">
-                                                <div className="flex items-center gap-1">
-                                                    <AirVent className="w-3 h-3 text-sky-500 print:w-2.5 print:h-2.5" />
-                                                    <span className="text-[10px] font-black text-gray-900 uppercase tracking-tighter print:text-[7pt] print:leading-none">Oxy Cylinder</span>
-                                                </div>
-                                                <div className="flex items-center justify-between gap-1">
-                                                    <span className="text-[11px] font-bold text-sky-700 uppercase leading-none print:text-[8pt]">{label.size_code}</span>
-                                                    <span className="text-[9px] text-gray-500 bg-gray-50 px-1 rounded font-bold print:text-[6.5pt] print:bg-transparent print:p-0">#{label.serial_no?.split('-').pop()}</span>
-                                                </div>
-                                                <div className="text-[9px] font-bold text-gray-600 uppercase leading-none flex items-center gap-1 print:text-[6.5pt] print:mt-1">
-                                                    <span className="text-[7px] text-gray-400 font-mono print:text-[5.5pt]">SN:</span>
-                                                    <span className="font-mono truncate print:text-[6pt]">{label.serial_no}</span>
-                                                </div>
-                                                <div className="text-[8px] text-gray-400 font-medium mt-1 print:hidden truncate">
-                                                    {label.type_name}
-                                                </div>
-                                            </div>
-
-                                            <div className="mt-auto pt-1 border-t border-gray-100 print:border-gray-200 print:pt-0.5">
-                                                <p className="text-[7.5px] font-black text-rose-600 leading-tight print:text-[6pt] print:font-black">
-                                                    {isPrivate ? 'Hak Milik Hospital Lawas (Private)' : 'Loan to Hospital Lawas'}
-                                                </p>
-                                                <p className="text-[6px] font-black text-gray-400 uppercase tracking-[0.2em] mt-0.5 print:text-[5.5pt] print:mt-0 text-center">
-                                                    KKM MEDICAL RESOURCE
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <button
-                                            onClick={() => removeLabel(label.id)}
-                                            className="absolute -top-2 -right-2 p-1 bg-white border border-rose-100 text-rose-500 rounded-full shadow-sm hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-opacity print:hidden"
-                                        >
-                                            <Trash2 className="w-3 h-3" />
-                                        </button>
+                                        <Input
+                                            type="number"
+                                            value={startingSerial}
+                                            onChange={e => setStartingSerial(e.target.value)}
+                                            className="h-11 rounded-xl bg-slate-50 border-slate-200 font-mono font-bold"
+                                        />
                                     </div>
-                                );
-                            })}
-                        </div>
-                    )}
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Quantity</label>
+                                        <Input
+                                            type="number"
+                                            min={1}
+                                            max={99}
+                                            value={count}
+                                            onChange={e => setCount(parseInt(e.target.value) || 1)}
+                                            className="h-11 rounded-xl bg-slate-50 border-slate-200 font-bold"
+                                        />
+                                    </div>
+                                </div>
+
+                                <Button
+                                    onClick={generateLabels}
+                                    isLoading={isLoading}
+                                    className="w-full bg-slate-900 hover:bg-slate-800 text-white h-12 rounded-xl font-black uppercase tracking-widest text-xs transition-all active:scale-95 shadow-lg shadow-slate-200"
+                                >
+                                    <Plus className="w-4 h-4 mr-2" /> Generate & Record
+                                </Button>
+                            </div>
+                        </Card>
+
+                        <Card className="p-4 bg-indigo-900 border-none shadow-xl shadow-indigo-100 relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
+                                <BadgeCheck className="w-16 h-16 text-white" />
+                            </div>
+                            <div className="relative z-10 flex gap-4">
+                                <div className="shrink-0 p-2.5 bg-white/10 rounded-xl">
+                                    <Activity className="w-5 h-5 text-white" />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black text-sky-300 uppercase tracking-widest mb-1">System Logic</p>
+                                    <p className="text-[11px] text-white/80 font-medium leading-relaxed">
+                                        Cylinders are automatically registered to <strong>Store</strong> as <strong>Available</strong> assets upon generation.
+                                    </p>
+                                </div>
+                            </div>
+                        </Card>
+
+                    </aside>
+
+                    {/* Main Labels Display */}
+                    <main className="lg:col-span-9 space-y-12 labels-container min-h-[600px]">
+                        <AnimatePresence mode="popLayout">
+                            {labels.length === 0 ? (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="h-full min-h-[500px] border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center justify-center text-slate-400 bg-white/50 print:hidden backdrop-blur-sm"
+                                >
+                                    <div className="p-8 bg-slate-100 rounded-full mb-6 text-slate-300">
+                                        <QrCode className="w-16 h-16 opacity-40" />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-slate-900">Workbench Empty</h3>
+                                    <p className="text-sm text-slate-400 mt-2 font-medium max-w-xs text-center">Configure generator settings on the left to start manufacturing cylinder identifiers.</p>
+                                </motion.div>
+                            ) : (
+                                <div className="space-y-12">
+                                    {groupedLabels.map(([groupKey, groupLabels], gIdx) => (
+                                        <motion.div
+                                            key={groupKey}
+                                            initial={{ opacity: 0, y: 20 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ delay: gIdx * 0.1 }}
+                                            className="space-y-6"
+                                        >
+                                            {/* Group Banner */}
+                                            <div className="flex items-center gap-4 print:hidden">
+                                                <div className="h-px flex-1 bg-slate-200/60" />
+                                                <div className="flex items-center gap-3 px-6 py-2 bg-white rounded-full border border-slate-200 shadow-sm">
+                                                    <Badge variant="info" className="px-3 py-1 font-black text-xs uppercase tracking-widest">{groupKey}</Badge>
+                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{groupLabels.length} Units Generated</span>
+                                                </div>
+                                                <div className="h-px flex-1 bg-slate-200/60" />
+                                            </div>
+
+                                            {/* Sub-grid of Labels */}
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 print:grid print:grid-cols-3 print:gap-[2mm] print:p-0">
+                                                {groupLabels.map((label) => {
+                                                    const isPrivate = label.size_code.startsWith('P');
+                                                    return (
+                                                        <motion.div
+                                                            key={label.id}
+                                                            whileHover={{ y: -4, scale: 1.02 }}
+                                                            className="label-card relative group bg-white border border-slate-200 p-5 rounded-2xl shadow-sm hover:shadow-xl hover:border-sky-300 transition-all flex items-center gap-5 print:shadow-none print:border-slate-400 print:rounded-none print:w-[65mm] print:h-[46mm] print:p-3 print:gap-3 print:border-[0.2pt] print:m-0 print:overflow-hidden print:flex print:box-border"
+                                                        >
+                                                            <div className="shrink-0 bg-white p-2 rounded-xl border border-slate-100 print:border-none print:p-0">
+                                                                <QRCodeSVG
+                                                                    value={label.qr_value}
+                                                                    size={95}
+                                                                    level="H"
+                                                                    includeMargin={false}
+                                                                    className="print:w-[28mm] print:h-[28mm]"
+                                                                />
+                                                            </div>
+
+                                                            <div className="flex-1 min-w-0 flex flex-col justify-between h-full print:h-[40mm]">
+                                                                <div className="space-y-1">
+                                                                    <div className="flex items-center gap-1.5 opacity-60">
+                                                                        <AirVent className="w-3 h-3 text-sky-500 print:w-2.5 print:h-2.5" />
+                                                                        <span className="text-[9px] font-black text-slate-900 uppercase tracking-widest print:text-[6pt]">Oxy Identity</span>
+                                                                    </div>
+                                                                    <div className="flex items-end justify-between">
+                                                                        <span className="text-xl font-black text-slate-900 leading-none print:text-[12pt]">{label.size_code}</span>
+                                                                        <span className="text-[10px] font-black text-sky-600 bg-sky-50 px-2 py-0.5 rounded-lg print:text-[8pt] print:bg-transparent print:p-0">#{label.serial_no?.split('-').pop()}</span>
+                                                                    </div>
+                                                                    <div className="pt-2">
+                                                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 print:text-[6pt]">Full Serial Number</div>
+                                                                        <code className="text-[11px] font-bold text-slate-600 font-mono print:text-[8pt]">{label.serial_no}</code>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="mt-4 pt-3 border-t border-slate-100 print:border-slate-200 print:pt-1">
+                                                                    <p className="text-[8px] font-black text-rose-600 leading-tight print:text-[6.5pt]">
+                                                                        {isPrivate ? 'Hak Milik Hospital Lawas (Private)' : 'Loan to Hospital Lawas'}
+                                                                    </p>
+                                                                    <div className="flex items-center justify-between mt-1">
+                                                                        <p className="text-[6px] font-black text-slate-400 uppercase tracking-[0.2em] print:text-[5.5pt]">KKM MEDICAL RESOURCE</p>
+                                                                        {!isPrivate && <BadgeCheck className="w-3 h-3 text-sky-500/50 print:w-2.5 print:h-2.5" />}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <button
+                                                                onClick={() => removeLabel(label.id)}
+                                                                className="absolute -top-2 -right-2 p-1.5 bg-rose-500 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity print:hidden hover:scale-110 active:scale-95"
+                                                            >
+                                                                <Plus className="w-3 h-3 rotate-45" />
+                                                            </button>
+                                                        </motion.div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </motion.div>
+                                    ))}
+                                </div>
+                            )}
+                        </AnimatePresence>
+                    </main>
                 </div>
             </div>
+
+            {/* Drill Down Modal: Registry Archive */}
+            {selectedRegistrySize && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        className="bg-white rounded-[2rem] shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col"
+                    >
+                        <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-white sticky top-0 z-10">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-sky-50 rounded-xl text-sky-600">
+                                    <History className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-black text-slate-900 tracking-tight">Registry Archive: {selectedRegistrySize}</h2>
+                                    <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wide">Historical Generated ID Log</p>
+                                </div>
+                            </div>
+                            <Button
+                                variant="outline"
+                                onClick={() => setSelectedRegistrySize(null)}
+                                className="rounded-xl border-slate-200 hover:bg-slate-50 h-9 text-xs font-bold"
+                            >
+                                <Plus className="w-3.5 h-3.5 rotate-45 mr-1" /> Close
+                            </Button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-5 custom-scrollbar">
+                            {isDetailsLoading ? (
+                                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                                    <Spinner className="w-10 h-10 text-sky-600" />
+                                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Querying Registry...</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-2">
+                                    {sizeDetails.map((item, idx) => (
+                                        <motion.div
+                                            key={item.id}
+                                            initial={{ opacity: 0, scale: 0.95 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            transition={{ delay: idx * 0.005 }}
+                                            className="p-2 rounded-xl border border-slate-100 bg-slate-50/50 flex flex-col gap-1 group hover:bg-white hover:border-sky-200 transition-all hover:shadow-md cursor-default relative overflow-hidden"
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[9px] font-mono font-black text-sky-600">
+                                                    #{item.serial_number.split('-').pop()}
+                                                </span>
+                                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                            </div>
+                                            <div className="space-y-0 text-center py-0.5">
+                                                <p className="text-[10px] font-black text-slate-800 font-mono tracking-tighter leading-none">{item.qr_code}</p>
+                                            </div>
+                                            <div className="pt-1 border-t border-slate-100 mt-0.5 flex items-center justify-between">
+                                                <p className="text-[7px] font-bold text-slate-400 uppercase">{new Date(item.created_at).toLocaleDateString()}</p>
+                                                <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500/30" />
+                                            </div>
+                                        </motion.div>
+                                    ))}
+                                    {sizeDetails.length === 0 && (
+                                        <div className="col-span-full py-20 text-center">
+                                            <p className="text-slate-400 italic">No records found for this size.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </motion.div>
+                </div>
+            )}
 
             {/* Print styles */}
             <style>{`
@@ -382,10 +594,8 @@ export const QRGeneratorPage: React.FC = () => {
           }
 
           /* Hide everything except labels */
-          .print\\:hidden, button, .lg\\:col-span-1 { display: none !important; }
-          .p-6, .max-w-7xl, .main-grid { position: static !important; width: auto !important; height: auto !important; margin: 0 !important; padding: 0 !important; border: none !important; }
-
-          /* Absolute position labels container to bypass parent layout bugs */
+          .print\\:hidden, button, aside, header { display: none !important; }
+          
           .labels-container {
             position: absolute !important;
             top: 0 !important;
@@ -396,6 +606,7 @@ export const QRGeneratorPage: React.FC = () => {
             padding: 5mm !important;
             background: white !important;
             z-index: 9999 !important;
+            display: block !important;
           }
 
           .label-grid {
@@ -414,12 +625,14 @@ export const QRGeneratorPage: React.FC = () => {
             height: 46mm !important;
             display: flex !important;
             margin: 0 !important;
-            padding: 3mm !important;
-            gap: 3mm !important;
+            padding: 4mm !important;
+            gap: 4mm !important;
             border: 0.1pt solid #ccc !important;
             page-break-inside: avoid !important;
             background: white !important;
             box-sizing: border-box !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
           }
         }
       `}</style>

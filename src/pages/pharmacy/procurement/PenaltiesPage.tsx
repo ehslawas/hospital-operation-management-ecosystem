@@ -82,6 +82,7 @@ interface PenaltyRecord {
                 id: string
                 company_name: string
             }
+            manual_supplier_name?: string
         }
     }
     order_tracking?: {
@@ -339,7 +340,8 @@ export default function PenaltiesPage() {
                 itemName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 p.lpo?.lpo_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 p.lpo?.purchase_order?.po_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                p.lpo?.purchase_order?.supplier?.company_name?.toLowerCase().includes(searchQuery.toLowerCase())
+                p.lpo?.purchase_order?.manual_supplier_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (p.lpo?.purchase_order?.supplier?.company_name || p.lpo?.purchase_order?.manual_supplier_name)?.toLowerCase().includes(searchQuery.toLowerCase())
             return matchesSearch
         })
     }, [penalties, searchQuery])
@@ -736,11 +738,11 @@ export default function PenaltiesPage() {
                                             <TableCell align="left">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-9 h-9 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-600 font-bold text-xs shrink-0 group-hover:bg-blue-100 group-hover:border-blue-200 group-hover:text-blue-700 transition-all">
-                                                        {penalty.lpo?.purchase_order?.supplier?.company_name?.charAt(0) || 'S'}
+                                                        {(penalty.lpo?.purchase_order?.supplier?.company_name || penalty.lpo?.purchase_order?.manual_supplier_name)?.charAt(0) || 'S'}
                                                     </div>
                                                     <div className="flex flex-col max-w-[200px]">
                                                         <span className="font-semibold text-gray-900 truncate text-sm">
-                                                            {penalty.lpo?.purchase_order?.supplier?.company_name || 'N/A'}
+                                                            {penalty.lpo?.purchase_order?.supplier?.company_name || penalty.lpo?.purchase_order?.manual_supplier_name || 'N/A'}
                                                         </span>
                                                         <span className="text-[10px] text-gray-400 truncate uppercase mt-0.5">
                                                             {penalty.order_tracking?.item_name || penalty.item_name}

@@ -151,9 +151,21 @@ async function htmlToPdf(element: HTMLElement): Promise<Uint8Array> {
       // Append to temp container
       tempContainer.appendChild(clonedPage)
 
-      // Force reflow and wait for fonts/images to load
+      // Wait for all images in the cloned page to load
+      const images = Array.from(clonedPage.querySelectorAll('img'))
+      if (images.length > 0) {
+        await Promise.all(images.map(img => {
+          if (img.complete) return Promise.resolve()
+          return new Promise(resolve => {
+            img.onload = resolve
+            img.onerror = resolve // Resolve even on error to not block forever
+          })
+        }))
+      }
+
+      // Force reflow and wait for fonts to load
       void clonedPage.offsetHeight
-      await new Promise(resolve => setTimeout(resolve, 200))
+      await new Promise(resolve => setTimeout(resolve, 300))
 
       // Get actual rendered dimensions
       const rect = clonedPage.getBoundingClientRect()
@@ -161,9 +173,8 @@ async function htmlToPdf(element: HTMLElement): Promise<Uint8Array> {
       const actualHeight = Math.max(rect.height, targetHeightPx)
 
       // Capture with professional quality (scale 4 for 384 DPI equivalent quality)
-      // This ensures crisp text and sharp lines for government documents
       const canvas = await html2canvas(clonedPage, {
-        scale: 4, // Very high resolution: 4x = 384 DPI equivalent (professional print quality)
+        scale: 4,
         useCORS: true,
         allowTaint: false,
         backgroundColor: '#ffffff',
@@ -174,7 +185,7 @@ async function htmlToPdf(element: HTMLElement): Promise<Uint8Array> {
         windowHeight: actualHeight,
         removeContainer: false,
         imageTimeout: 15000,
-        foreignObjectRendering: true, // Better rendering of complex elements
+        foreignObjectRendering: true,
       })
 
       // Remove cloned page

@@ -527,6 +527,7 @@ export interface OxygenSummary {
   kpis?: OxygenDashboardKPIs
   inventory_summary?: {
     size_code: string
+    type_code: string
     type_name: string
     capacity: number
     unit: string

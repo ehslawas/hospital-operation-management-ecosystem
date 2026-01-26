@@ -17,10 +17,10 @@ export interface PharmacyPOSignatures {
 }
 
 const DEFAULT_SIGNATURES: PharmacyPOSignatures = {
-  applicantName: 'KAMRIAH BINTI MAIL',
-  applicantPosition: 'PEN. PEGAWAI FARMASI U 6',
+  applicantName: 'AMRI AMIT',
+  applicantPosition: 'PENOLONG PEGAWAI FARMASI U5',
   headName: 'TAN YUAN ZHANG',
-  headPosition: 'PEGAWAI FARMASI UF 32',
+  headPosition: 'PEGAWAI FARMASI UF 12',
 }
 
 const SUPABASE_SETTING_KEY = 'pharmacy_po_signatures'

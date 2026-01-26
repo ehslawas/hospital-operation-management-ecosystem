@@ -196,250 +196,252 @@ export const SupplierReturn: React.FC = () => {
     }
 
     return (
-        <div className="p-6 space-y-8 bg-slate-50/20 min-h-screen animate-fade-in">
-            {/* Government Professional Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-                        <div className="p-2 bg-white rounded-xl shadow-sm border border-slate-100">
-                            <Truck className="w-6 h-6 text-slate-900" />
-                        </div>
-                        Return to Supplier
-                    </h1>
-                    <p className="text-slate-500 font-medium mt-1 uppercase tracking-wider text-[11px]">Vendor Pickup & Status Archiving Protocol</p>
-                </div>
-                {returnStep === 'selection' && (
-                    <Button
-                        variant="outline"
-                        onClick={() => {
-                            setReturnStep('info')
-                            setSelectedIds(new Set())
-                        }}
-                        className="border-slate-300 text-slate-700 font-black h-11 px-6 rounded-xl hover:bg-slate-50"
-                    >
-                        Back to Protocol
-                    </Button>
-                )}
-            </div>
-
-            {returnStep === 'info' ? (
-                /* STEP 1: FORMAL VENDOR DATA ENTRY */
-                <div className="max-w-2xl mx-auto py-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <Card className="p-10 border-slate-200/60 shadow-2xl shadow-slate-900/5 bg-white rounded-[2rem] space-y-10">
-                        <div className="text-center space-y-3">
-                            <div className="w-20 h-20 bg-slate-900 text-white rounded-3xl flex items-center justify-center mx-auto shadow-2xl shadow-slate-200 transform -rotate-6">
-                                <Truck className="w-10 h-10" />
+        <div className="min-h-screen bg-slate-50/50 p-4 md:p-8 font-sans text-slate-900 selection:bg-sky-100 selection:text-sky-900">
+            <div className="max-w-[1600px] mx-auto space-y-8">
+                {/* Government Professional Header */}
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                            <div className="p-2 bg-white rounded-xl shadow-sm border border-slate-100">
+                                <Truck className="w-6 h-6 text-slate-900" />
                             </div>
-                            <div className="pt-4">
-                                <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Initiate Vendor Return</h2>
-                                <p className="text-slate-400 text-[11px] font-black uppercase tracking-[0.3em] mt-2">Official Logistics Documentation</p>
-                            </div>
-                        </div>
-
-                        <div className="space-y-6">
-                            <div className="space-y-2">
-                                <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">Vendor / Supplier</label>
-                                <Input
-                                    value={returnForm.vendor_name}
-                                    onChange={e => setReturnForm(p => ({ ...p, vendor_name: e.target.value }))}
-                                    className="h-16 font-black border-slate-200 bg-slate-50/30 rounded-2xl focus:border-slate-900 px-6 text-sm uppercase tracking-tight"
-                                    disabled
-                                />
-                            </div>
-                        </div>
-
+                            Return to Supplier
+                        </h1>
+                        <p className="text-slate-500 font-medium mt-1 uppercase tracking-wider text-[11px]">Vendor Pickup & Status Archiving Protocol</p>
+                    </div>
+                    {returnStep === 'selection' && (
                         <Button
-                            onClick={handleProceedToSelection}
-                            className="w-full bg-slate-900 hover:bg-black text-white h-16 rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-2xl shadow-slate-200 group"
+                            variant="outline"
+                            onClick={() => {
+                                setReturnStep('info')
+                                setSelectedIds(new Set())
+                            }}
+                            className="border-slate-300 text-slate-700 font-black h-11 px-6 rounded-xl hover:bg-slate-50"
                         >
-                            Proceed to Unit Selection
-                            <ArrowRight className="w-5 h-5 ml-3 group-hover:translate-x-1 transition-transform" />
+                            Back to Protocol
                         </Button>
-                    </Card>
+                    )}
                 </div>
-            ) : (
-                /* STEP 2: INVENTORY SELECTION & MANIFEST */
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 animate-in fade-in slide-in-from-right-4 duration-500">
-                    {/* Manifest Sidebar */}
-                    <div className="lg:col-span-1 space-y-6">
-                        <Card className="p-8 border-slate-200/60 shadow-xl shadow-slate-900/5 bg-white rounded-3xl relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.05] transition-opacity">
-                                <Truck className="w-24 h-24 text-slate-900" />
-                            </div>
-                            <div className="relative z-10 space-y-6">
-                                <div>
-                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Returning To</h3>
-                                    <p className="text-xl font-black text-slate-900 tracking-tighter leading-none uppercase">{returnForm.vendor_name}</p>
+
+                {returnStep === 'info' ? (
+                    /* STEP 1: FORMAL VENDOR DATA ENTRY */
+                    <div className="max-w-2xl mx-auto py-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <Card className="p-10 border-slate-200/60 shadow-2xl shadow-slate-900/5 bg-white rounded-[2rem] space-y-10">
+                            <div className="text-center space-y-3">
+                                <div className="w-20 h-20 bg-slate-900 text-white rounded-3xl flex items-center justify-center mx-auto shadow-2xl shadow-slate-200 transform -rotate-6">
+                                    <Truck className="w-10 h-10" />
                                 </div>
-
-                                <div className="pt-6 border-t border-slate-100 flex justify-between items-end">
-                                    <div>
-                                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Items Selected</h3>
-                                        <p className="text-5xl font-black text-slate-900 tracking-tighter leading-none">{selectedIds.size}</p>
-                                    </div>
-                                    <Button
-                                        onClick={() => setIsScannerOpen(true)}
-                                        className="h-12 w-12 rounded-xl bg-slate-900 text-white shadow-lg hover:bg-black"
-                                    >
-                                        <QrCode className="w-6 h-6" />
-                                    </Button>
+                                <div className="pt-4">
+                                    <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Initiate Vendor Return</h2>
+                                    <p className="text-slate-400 text-[11px] font-black uppercase tracking-[0.3em] mt-2">Official Logistics Documentation</p>
                                 </div>
-
-                                <Button
-                                    className={`w-full h-14 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] transition-all duration-300 ${selectedIds.size > 0
-                                        ? 'bg-slate-900 text-white hover:bg-black shadow-xl'
-                                        : 'bg-slate-100 text-slate-400 cursor-not-allowed border-none'
-                                        }`}
-                                    onClick={handleProcessReturn}
-                                    disabled={isProcessing || selectedIds.size === 0}
-                                    isLoading={isProcessing}
-                                >
-                                    Confirm & Print Manifest
-                                    <Printer className="w-4 h-4 ml-3" />
-                                </Button>
                             </div>
-                        </Card>
 
-                        <Card className="p-6 border-slate-200 bg-white/50 rounded-2xl">
-                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Protocol Note</h3>
-                            <p className="text-[10px] text-slate-500 font-bold leading-relaxed uppercase">
-                                All selected cylinders will be archived as <span className="text-slate-900 underline">RETURNED</span>. This protocol is irreversible without administrative clearance.
-                            </p>
+                            <div className="space-y-6">
+                                <div className="space-y-2">
+                                    <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">Vendor / Supplier</label>
+                                    <Input
+                                        value={returnForm.vendor_name}
+                                        onChange={e => setReturnForm(p => ({ ...p, vendor_name: e.target.value }))}
+                                        className="h-16 font-black border-slate-200 bg-slate-50/30 rounded-2xl focus:border-slate-900 px-6 text-sm uppercase tracking-tight"
+                                        disabled
+                                    />
+                                </div>
+                            </div>
+
+                            <Button
+                                onClick={handleProceedToSelection}
+                                className="w-full bg-slate-900 hover:bg-black text-white h-16 rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-2xl shadow-slate-200 group"
+                            >
+                                Proceed to Unit Selection
+                                <ArrowRight className="w-5 h-5 ml-3 group-hover:translate-x-1 transition-transform" />
+                            </Button>
                         </Card>
                     </div>
-
-                    {/* Inventory Table Area */}
-                    <Card className="lg:col-span-3 overflow-hidden border-slate-200 shadow-xl shadow-slate-900/5 bg-white rounded-3xl flex flex-col min-h-[600px]">
-                        <div className="p-6 border-b border-slate-50 flex justify-between items-center bg-white gap-4">
-                            <div className="flex-1 relative">
-                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                <Input
-                                    placeholder="SEARCH BY QR OR SERIAL..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="h-12 pl-12 border-slate-100 bg-slate-50/50 focus:border-slate-900 rounded-xl font-black text-xs tracking-tight placeholder:text-slate-300 uppercase"
-                                />
-                            </div>
-                            <div className="relative">
-                                <Input
-                                    placeholder="SCAN / TYPE QR..."
-                                    className="h-12 w-64 border-slate-100 bg-slate-50/50 focus:border-slate-900 rounded-xl font-black text-xs tracking-tight placeholder:text-slate-300 uppercase px-4"
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                            const val = e.currentTarget.value
-                                            if (val) {
-                                                handleScan(val)
-                                                e.currentTarget.value = ''
-                                            }
-                                        }
-                                    }}
-                                />
-                            </div>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={selectAll}
-                                className="text-slate-400 font-black hover:text-slate-900 h-12 px-6 rounded-xl uppercase text-[10px] tracking-widest whitespace-nowrap"
-                            >
-                                {selectedIds.size === filteredCylinders.length ? 'Deselect All' : 'Select All Available'}
-                            </Button>
-                        </div>
-
-                        <div className="overflow-x-auto flex-1">
-                            <Table
-                                isLoading={isLoading}
-                                data={filteredCylinders}
-                                columns={[
-                                    {
-                                        key: 'select',
-                                        label: '',
-                                        render: (_: any, row: any) => (
-                                            <div
-                                                onClick={() => toggleSelection(row.id)}
-                                                className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center cursor-pointer transition-all ${selectedIds.has(row.id)
-                                                    ? 'bg-slate-900 border-slate-900 text-white'
-                                                    : 'border-slate-200 hover:border-slate-400 bg-white'
-                                                    }`}
-                                            >
-                                                {selectedIds.has(row.id) && <CheckCircle2 className="w-5 h-5" />}
-                                            </div>
-                                        )
-                                    },
-                                    {
-                                        key: 'qr_code',
-                                        label: 'MANIFEST CODE',
-                                        render: (v) => <span className="font-mono font-black text-slate-900 text-sm tracking-tighter uppercase">{v}</span>
-                                    },
-                                    {
-                                        key: 'serial_number',
-                                        label: 'SERIAL NO.',
-                                        render: (v) => <span className="font-black text-slate-500 text-xs">{v || 'NOT REGISTERED'}</span>
-                                    },
-                                    {
-                                        key: 'size_info',
-                                        label: 'SIZE',
-                                        render: (v: any) => <Badge className="bg-slate-100 text-slate-900 border-none font-black text-[10px] px-3 py-1">{v?.code || 'N/A'}</Badge>
-                                    },
-                                    {
-                                        key: 'status',
-                                        label: 'STATE',
-                                        render: () => <Badge className="bg-amber-100 text-amber-700 border-none font-black text-[9px] tracking-widest px-3 py-1">EMPTY</Badge>
-                                    }
-                                ]}
-                                emptyMessage="No EMPTY cylinders available for return protocol."
-                            />
-                        </div>
-                    </Card>
-                </div>
-            )}
-
-            {isScannerOpen && (
-                <QRScanner onScan={handleScan} onClose={() => setIsScannerOpen(false)} />
-            )}
-
-            {/* RECENT RETURNS HISTORY TABLE */}
-            <Card className="overflow-hidden border-slate-200 shadow-xl shadow-slate-900/5 bg-white rounded-3xl">
-                <div className="p-6 border-b border-slate-50 flex justify-between items-center bg-slate-50/30">
-                    <h2 className="font-black text-slate-900 flex items-center gap-2 uppercase tracking-widest text-xs">
-                        <Activity className="w-4 h-4 text-slate-900" />
-                        Recent Logistics Manifests
-                    </h2>
-                </div>
-                <Table
-                    data={recentReturns}
-                    columns={[
-                        {
-                            key: 'date',
-                            label: 'DATE / TIME',
-                            render: (v) => <span className="text-[11px] font-black text-slate-500 uppercase">{new Date(v).toLocaleString('en-GB')}</span>
-                        },
-                        {
-                            key: 'sizes',
-                            label: 'OXYGEN TYPE SUMMARY',
-                            render: (v) => (
-                                <div className="flex flex-wrap gap-2">
-                                    {Object.entries(v).map(([code, count]) => (
-                                        <Badge key={code} className="bg-white border border-slate-200 text-slate-700 font-black text-[10px] px-2 py-0.5">
-                                            {code}: {String(count)}
-                                        </Badge>
-                                    ))}
+                ) : (
+                    /* STEP 2: INVENTORY SELECTION & MANIFEST */
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 animate-in fade-in slide-in-from-right-4 duration-500">
+                        {/* Manifest Sidebar */}
+                        <div className="lg:col-span-1 space-y-6">
+                            <Card className="p-8 border-slate-200/60 shadow-xl shadow-slate-900/5 bg-white rounded-3xl relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.05] transition-opacity">
+                                    <Truck className="w-24 h-24 text-slate-900" />
                                 </div>
-                            )
-                        },
-                        {
-                            key: 'qty',
-                            label: 'QUANTITY',
-                            render: (v) => <span className="text-sm font-black text-slate-900">{v}</span>
-                        },
-                        {
-                            key: 'remarks',
-                            label: 'LOGISTICS DETAILS',
-                            render: (v) => <span className="text-[10px] text-slate-400 font-bold uppercase italic">{v || '-'}</span>
-                        }
-                    ]}
-                    emptyMessage="No recent return records found in registry."
-                />
-            </Card>
+                                <div className="relative z-10 space-y-6">
+                                    <div>
+                                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Returning To</h3>
+                                        <p className="text-xl font-black text-slate-900 tracking-tighter leading-none uppercase">{returnForm.vendor_name}</p>
+                                    </div>
+
+                                    <div className="pt-6 border-t border-slate-100 flex justify-between items-end">
+                                        <div>
+                                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Items Selected</h3>
+                                            <p className="text-5xl font-black text-slate-900 tracking-tighter leading-none">{selectedIds.size}</p>
+                                        </div>
+                                        <Button
+                                            onClick={() => setIsScannerOpen(true)}
+                                            className="h-12 w-12 rounded-xl bg-slate-900 text-white shadow-lg hover:bg-black"
+                                        >
+                                            <QrCode className="w-6 h-6" />
+                                        </Button>
+                                    </div>
+
+                                    <Button
+                                        className={`w-full h-14 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] transition-all duration-300 ${selectedIds.size > 0
+                                            ? 'bg-slate-900 text-white hover:bg-black shadow-xl'
+                                            : 'bg-slate-100 text-slate-400 cursor-not-allowed border-none'
+                                            }`}
+                                        onClick={handleProcessReturn}
+                                        disabled={isProcessing || selectedIds.size === 0}
+                                        isLoading={isProcessing}
+                                    >
+                                        Confirm & Print Manifest
+                                        <Printer className="w-4 h-4 ml-3" />
+                                    </Button>
+                                </div>
+                            </Card>
+
+                            <Card className="p-6 border-slate-200 bg-white/50 rounded-2xl">
+                                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Protocol Note</h3>
+                                <p className="text-[10px] text-slate-500 font-bold leading-relaxed uppercase">
+                                    All selected cylinders will be archived as <span className="text-slate-900 underline">RETURNED</span>. This protocol is irreversible without administrative clearance.
+                                </p>
+                            </Card>
+                        </div>
+
+                        {/* Inventory Table Area */}
+                        <Card className="lg:col-span-3 overflow-hidden border-slate-200 shadow-xl shadow-slate-900/5 bg-white rounded-3xl flex flex-col min-h-[600px]">
+                            <div className="p-6 border-b border-slate-50 flex justify-between items-center bg-white gap-4">
+                                <div className="flex-1 relative">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    <Input
+                                        placeholder="SEARCH BY QR OR SERIAL..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="h-12 pl-12 border-slate-100 bg-slate-50/50 focus:border-slate-900 rounded-xl font-black text-xs tracking-tight placeholder:text-slate-300 uppercase"
+                                    />
+                                </div>
+                                <div className="relative">
+                                    <Input
+                                        placeholder="SCAN / TYPE QR..."
+                                        className="h-12 w-64 border-slate-100 bg-slate-50/50 focus:border-slate-900 rounded-xl font-black text-xs tracking-tight placeholder:text-slate-300 uppercase px-4"
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                const val = e.currentTarget.value
+                                                if (val) {
+                                                    handleScan(val)
+                                                    e.currentTarget.value = ''
+                                                }
+                                            }
+                                        }}
+                                    />
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={selectAll}
+                                    className="text-slate-400 font-black hover:text-slate-900 h-12 px-6 rounded-xl uppercase text-[10px] tracking-widest whitespace-nowrap"
+                                >
+                                    {selectedIds.size === filteredCylinders.length ? 'Deselect All' : 'Select All Available'}
+                                </Button>
+                            </div>
+
+                            <div className="overflow-x-auto flex-1">
+                                <Table
+                                    isLoading={isLoading}
+                                    data={filteredCylinders}
+                                    columns={[
+                                        {
+                                            key: 'select',
+                                            label: '',
+                                            render: (_: any, row: any) => (
+                                                <div
+                                                    onClick={() => toggleSelection(row.id)}
+                                                    className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center cursor-pointer transition-all ${selectedIds.has(row.id)
+                                                        ? 'bg-slate-900 border-slate-900 text-white'
+                                                        : 'border-slate-200 hover:border-slate-400 bg-white'
+                                                        }`}
+                                                >
+                                                    {selectedIds.has(row.id) && <CheckCircle2 className="w-5 h-5" />}
+                                                </div>
+                                            )
+                                        },
+                                        {
+                                            key: 'qr_code',
+                                            label: 'MANIFEST CODE',
+                                            render: (v) => <span className="font-mono font-black text-slate-900 text-sm tracking-tighter uppercase">{v}</span>
+                                        },
+                                        {
+                                            key: 'serial_number',
+                                            label: 'SERIAL NO.',
+                                            render: (v) => <span className="font-black text-slate-500 text-xs">{v || 'NOT REGISTERED'}</span>
+                                        },
+                                        {
+                                            key: 'size_info',
+                                            label: 'SIZE',
+                                            render: (v: any) => <Badge className="bg-slate-100 text-slate-900 border-none font-black text-[10px] px-3 py-1">{v?.code || 'N/A'}</Badge>
+                                        },
+                                        {
+                                            key: 'status',
+                                            label: 'STATE',
+                                            render: () => <Badge className="bg-amber-100 text-amber-700 border-none font-black text-[9px] tracking-widest px-3 py-1">EMPTY</Badge>
+                                        }
+                                    ]}
+                                    emptyMessage="No EMPTY cylinders available for return protocol."
+                                />
+                            </div>
+                        </Card>
+                    </div>
+                )}
+
+                {isScannerOpen && (
+                    <QRScanner onScan={handleScan} onClose={() => setIsScannerOpen(false)} />
+                )}
+
+                {/* RECENT RETURNS HISTORY TABLE */}
+                <Card className="overflow-hidden border-slate-200 shadow-xl shadow-slate-900/5 bg-white rounded-3xl">
+                    <div className="p-6 border-b border-slate-50 flex justify-between items-center bg-slate-50/30">
+                        <h2 className="font-black text-slate-900 flex items-center gap-2 uppercase tracking-widest text-xs">
+                            <Activity className="w-4 h-4 text-slate-900" />
+                            Recent Logistics Manifests
+                        </h2>
+                    </div>
+                    <Table
+                        data={recentReturns}
+                        columns={[
+                            {
+                                key: 'date',
+                                label: 'DATE / TIME',
+                                render: (v) => <span className="text-[11px] font-black text-slate-500 uppercase">{new Date(v).toLocaleString('en-GB')}</span>
+                            },
+                            {
+                                key: 'sizes',
+                                label: 'OXYGEN TYPE SUMMARY',
+                                render: (v) => (
+                                    <div className="flex flex-wrap gap-2">
+                                        {Object.entries(v).map(([code, count]) => (
+                                            <Badge key={code} className="bg-white border border-slate-200 text-slate-700 font-black text-[10px] px-2 py-0.5">
+                                                {code}: {String(count)}
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                )
+                            },
+                            {
+                                key: 'qty',
+                                label: 'QUANTITY',
+                                render: (v) => <span className="text-sm font-black text-slate-900">{v}</span>
+                            },
+                            {
+                                key: 'remarks',
+                                label: 'LOGISTICS DETAILS',
+                                render: (v) => <span className="text-[10px] text-slate-400 font-bold uppercase italic">{v || '-'}</span>
+                            }
+                        ]}
+                        emptyMessage="No recent return records found in registry."
+                    />
+                </Card>
+            </div>
         </div>
     )
 }

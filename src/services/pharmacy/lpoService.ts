@@ -463,6 +463,7 @@ export const lpoService = {
                     po_number,
                     hospital_id,
                     vote_code,
+                    manual_supplier_name,
                     supplier:suppliers(company_name),
                     items:pharmacy_purchase_order_items(
                         item_name,
@@ -510,7 +511,9 @@ export const lpoService = {
                 const po = lpo.purchase_order as any
                 const matchesLpo = lpo.lpo_number?.toLowerCase().includes(q)
                 const matchesPo = po?.po_number?.toLowerCase().includes(q)
-                const matchesSupplier = po?.supplier?.company_name?.toLowerCase().includes(q)
+                const matchesSupplier =
+                    po?.supplier?.company_name?.toLowerCase().includes(q) ||
+                    po?.manual_supplier_name?.toLowerCase().includes(q)
                 const matchesItems = po?.items?.some((item: any) =>
                     item.item_name?.toLowerCase().includes(q)
                 )
@@ -596,7 +599,8 @@ export const lpoService = {
                 const q = searchQuery.toLowerCase()
                 const matchesSearch =
                     po.po_number.toLowerCase().includes(q) ||
-                    po.supplier?.company_name.toLowerCase().includes(q) ||
+                    po.supplier?.company_name?.toLowerCase().includes(q) ||
+                    po.manual_supplier_name?.toLowerCase().includes(q) ||
                     po.items?.some((item: any) => item.item_name?.toLowerCase().includes(q))
 
                 if (!matchesSearch) return false

@@ -166,7 +166,8 @@ export default function PaymentPage() {
 
     const filteredLpos = lpos.filter(lpo =>
         lpo.lpo_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        lpo.purchase_order?.supplier?.company_name?.toLowerCase().includes(searchTerm.toLowerCase())
+        lpo.purchase_order?.supplier?.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lpo.purchase_order?.manual_supplier_name?.toLowerCase().includes(searchTerm.toLowerCase())
     )
 
     const columns = [
@@ -195,11 +196,11 @@ export default function PaymentPage() {
             render: (_: any, record: LPOWithRelations) => (
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm shrink-0">
-                        {record.purchase_order?.supplier?.company_name?.charAt(0) || 'S'}
+                        {(record.purchase_order?.supplier?.company_name || record.purchase_order?.manual_supplier_name || 'S').charAt(0)}
                     </div>
                     <div className="flex flex-col max-w-[200px]">
                         <span className="font-semibold text-slate-900 truncate">
-                            {record.purchase_order?.supplier?.company_name || 'N/A'}
+                            {record.purchase_order?.supplier?.company_name || record.purchase_order?.manual_supplier_name || 'N/A'}
                         </span>
                         <span className="text-xs text-slate-500 truncate">
                             {record.purchase_order?.supplier?.registration_number || 'REG-N/A'}
@@ -418,7 +419,7 @@ export default function PaymentPage() {
                                         </div>
 
                                         <h2 className="text-2xl font-medium text-slate-900 mb-2 leading-tight">
-                                            {selectedLpo.purchase_order?.supplier?.company_name}
+                                            {selectedLpo.purchase_order?.supplier?.company_name || selectedLpo.purchase_order?.manual_supplier_name}
                                         </h2>
                                         <div className="flex items-center gap-2 text-slate-500 text-sm">
                                             <Building2 className="w-4 h-4" />

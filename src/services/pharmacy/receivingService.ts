@@ -26,6 +26,7 @@ export const receivingService = {
                         po_number,
                         total_amount,
                         created_at,
+                        manual_supplier_name,
                         supplier:suppliers (company_name)
                     )
                 ),

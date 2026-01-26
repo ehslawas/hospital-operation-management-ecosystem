@@ -429,7 +429,7 @@ export default function ReceivingPage() {
 
                   <div>
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Supplier</label>
-                    <div className="font-medium text-slate-700">{lpo.purchase_order?.supplier?.company_name}</div>
+                    <div className="font-medium text-slate-700">{lpo.purchase_order?.supplier?.company_name || lpo.purchase_order?.manual_supplier_name || 'N/A'}</div>
                   </div>
 
                   <div className="flex gap-4">

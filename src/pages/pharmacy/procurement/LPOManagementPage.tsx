@@ -798,7 +798,7 @@ export default function LPOManagementPage() {
                                                             </div>
                                                         </TableCell>
                                                         <TableCell>
-                                                            <div className="font-medium text-slate-700">{po.supplier?.company_name}</div>
+                                                            <div className="font-medium text-slate-700">{po.supplier?.company_name || po.manual_supplier_name}</div>
                                                         </TableCell>
                                                         <TableCell>
                                                             <span className="text-slate-400 italic text-sm">Draft LPO #</span>
@@ -884,7 +884,7 @@ export default function LPOManagementPage() {
                                                             {lpo.purchase_order?.po_number}
                                                         </TableCell>
                                                         <TableCell>
-                                                            <div className="font-medium text-slate-700">{lpo.purchase_order?.supplier?.company_name}</div>
+                                                            <div className="font-medium text-slate-700">{lpo.purchase_order?.supplier?.company_name || lpo.purchase_order?.manual_supplier_name}</div>
                                                         </TableCell>
                                                         <TableCell className="text-right pr-6">
                                                             <div className="flex items-center justify-end gap-2">

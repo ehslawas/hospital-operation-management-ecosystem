@@ -144,7 +144,7 @@ export async function issueCylindersToDepartment(
         // 1. Validate cylinders (must be available)
         const { data: validCylinders, error: valError } = await supabase
             .from('pharmacy_oxygen_cylinder_inventory')
-            .select('id, qr_code, status, current_location')
+            .select('id, qr_code, status, current_location, cylinder_size_id')
             .eq('hospital_id', hospitalId)
             .in('qr_code', data.cylinders)
             .eq('status', 'available')
@@ -191,8 +191,11 @@ export async function issueCylindersToDepartment(
             if (movError) throw movError
         }
 
-        // 3. Update Request Status if applicable
+        // 3. Update or Create Request Record
+        let finalRequestId = data.request_id;
+
         if (data.request_id) {
+            // Update existing request record to completed
             const { data: reqData } = await supabase
                 .from('pharmacy_oxygen_dept_requests')
                 .select('id')
@@ -207,9 +210,59 @@ export async function issueCylindersToDepartment(
 
                 if (reqError) console.warn('Failed to update request status', reqError)
             }
+        } else {
+            // AUTO-GENERATE COMPLETED REQUEST FOR MANUAL FLOW
+            // This ensures manual supplies show up on the "Cylinder Request" page for full tracking.
+
+            // a. Generate Request ID
+            const year = new Date().getFullYear()
+            const { count } = await supabase
+                .from('pharmacy_oxygen_dept_requests')
+                .select('*', { count: 'exact', head: true })
+                .eq('hospital_id', hospitalId)
+
+            const nextNum = (count || 0) + 1
+            finalRequestId = `OC-${year}-${String(nextNum).padStart(4, '0')}`
+
+            // b. Create Request Header (immediately as completed)
+            const { data: newReqHeader, error: headerError } = await supabase
+                .from('pharmacy_oxygen_dept_requests')
+                .insert({
+                    hospital_id: hospitalId,
+                    request_id: finalRequestId,
+                    department_id: data.department_id,
+                    requested_by: data.issued_by, // Initiated by Pharmacy staff
+                    status: 'completed',
+                    approved_by: data.issued_by,
+                    approved_at: data.issued_at
+                })
+                .select()
+                .single()
+
+            if (headerError) throw headerError
+
+            // c. Create Request Items (grouping by size from scanned cylinders)
+            const itemsMap = new Map<string, number>();
+            validCylinders?.forEach(c => {
+                const sizeId = c.cylinder_size_id;
+                itemsMap.set(sizeId, (itemsMap.get(sizeId) || 0) + 1);
+            });
+
+            const itemsToInsert = Array.from(itemsMap.entries()).map(([sizeId, qty]) => ({
+                request_id: newReqHeader.id,
+                cylinder_size_id: sizeId,
+                quantity: qty,
+                quantity_issued: qty
+            }))
+
+            const { error: itemError } = await supabase
+                .from('pharmacy_oxygen_dept_request_items')
+                .insert(itemsToInsert)
+
+            if (itemError) throw itemError
         }
 
-        return { data: { approval_required: false } as any, error: null }
+        return { data: { approval_required: false, request_id: finalRequestId } as any, error: null }
     } catch (error) {
         console.error('Error issuing cylinders:', error)
         return { data: null, error: error instanceof Error ? error.message : 'Failed to issue' }
@@ -475,3 +528,43 @@ export const uploadRequestDocument = async (id: string, file: Blob): Promise<Api
     }
 }
 
+/**
+ * Delete a department request
+ * Only allows deleting if status is pending
+ */
+export async function deleteDeptRequest(requestId: string): Promise<ApiResponse<void>> {
+    try {
+        // 1. Get current status
+        const { data: currentReq, error: getError } = await supabase
+            .from('pharmacy_oxygen_dept_requests')
+            .select('status')
+            .eq('id', requestId)
+            .single()
+
+        if (getError) throw getError
+        if (currentReq.status !== 'pending') {
+            throw new Error('Only pending requests can be deleted.')
+        }
+
+        // 2. Delete items (cascade should handle this if defined, but being explicit is safer)
+        const { error: itemError } = await supabase
+            .from('pharmacy_oxygen_dept_request_items')
+            .delete()
+            .eq('request_id', requestId)
+
+        if (itemError) throw itemError
+
+        // 3. Delete header
+        const { error: headerError } = await supabase
+            .from('pharmacy_oxygen_dept_requests')
+            .delete()
+            .eq('id', requestId)
+
+        if (headerError) throw headerError
+
+        return { data: undefined, error: null }
+    } catch (error) {
+        console.error('Error deleting request:', error)
+        return { data: null, error: error instanceof Error ? error.message : 'Failed to delete' }
+    }
+}

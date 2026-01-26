@@ -403,6 +403,7 @@ export async function getOxygenSummary(hospitalId: string): Promise<ApiResponse<
       const key = `Medical Oxygen-${s.code}`
       inventoryMap[key] = {
         size_code: s.code,
+        type_code: 'MO', // Default or fetch if available
         type_name: 'Medical Oxygen',
         capacity: s.capacity,
         unit: s.unit,
@@ -416,12 +417,14 @@ export async function getOxygenSummary(hospitalId: string): Promise<ApiResponse<
 
     inv.forEach((item: any) => {
       const sizeCode = item.size_info?.code || 'Unknown'
+      const typeCode = item.type_info?.code || 'MO'
       const typeName = item.type_info?.name || 'Medical Oxygen'
       const key = `${typeName}-${sizeCode}`
 
       if (!inventoryMap[key]) {
         inventoryMap[key] = {
           size_code: sizeCode,
+          type_code: typeCode,
           type_name: typeName,
           capacity: item.size_info?.capacity || 0,
           unit: item.size_info?.unit || 'm3',
@@ -674,5 +677,134 @@ export async function registerNewCylinders(
   } catch (error) {
     console.error('Error registering cylinders:', error)
     return { data: null, error: error instanceof Error ? error.message : 'Failed to register' }
+  }
+}
+
+
+export interface LocationInventory {
+  location_id: string
+  location_name: string
+  type: 'store' | 'department'
+  total_cylinders: number
+  available_cylinders: number
+  empty_cylinders: number
+  items: {
+    size: string
+    count: number
+  }[]
+  cylinders: {
+    id: string
+    qr_code: string
+    status: 'available' | 'empty' | 'issued' | 'damaged' | 'returned_to_supplier'
+    size_code: string
+  }[]
+}
+
+/**
+* Get detailed oxygen distribution by location
+*/
+export async function getOxygenDistribution(hospitalId: string): Promise<ApiResponse<LocationInventory[]>> {
+  try {
+    // 1. Fetch all inventory with department and size info
+    const { data: inventory, error } = await supabase
+      .from('pharmacy_oxygen_cylinder_inventory')
+      .select(`
+        id,
+        qr_code,
+        current_location,
+        department_id,
+        status,
+        cylinder_size_id,
+        department:departments(id, department_name),
+        size_info:cylinder_size_id(code)
+      `)
+      .eq('hospital_id', hospitalId)
+      .neq('status', 'maintenance')
+
+    if (error) throw error
+
+    // 2. Group by Location
+    const locationMap = new Map<string, LocationInventory>()
+
+    const ensureLocation = (id: string, name: string, type: 'store' | 'department') => {
+      if (!locationMap.has(id)) {
+        locationMap.set(id, {
+          location_id: id,
+          location_name: name,
+          type,
+          total_cylinders: 0,
+          available_cylinders: 0,
+          empty_cylinders: 0,
+          items: [],
+          cylinders: []
+        })
+      }
+      return locationMap.get(id)!
+    }
+
+    // Initialize Store
+    const storeEntry = ensureLocation('Store', 'Medical Cylinder Store', 'store')
+
+    inventory?.forEach((item: any) => {
+      let locEntry: LocationInventory
+
+      // Determine Location Logic
+      // In the schema: current_location is often 'Store' or 'Department'
+      // If it's 'Department', department_id should be present.
+      if (item.current_location === 'Store' || (!item.department_id && (!item.current_location || item.current_location === 'Store'))) {
+        locEntry = storeEntry
+      } else if (item.department) {
+        locEntry = ensureLocation(item.department.id, item.department.department_name, 'department')
+      } else if (item.current_location && item.current_location !== 'Department') {
+        // If it's a string like 'Ward 1' directly in current_location
+        locEntry = ensureLocation(item.current_location, item.current_location, 'department')
+      } else {
+        // Fallback
+        locEntry = storeEntry
+      }
+
+      // Update Counts
+      locEntry.total_cylinders++
+      if (item.status === 'empty') {
+        locEntry.empty_cylinders++
+      } else {
+        locEntry.available_cylinders++
+      }
+
+      // Track Size Breakdown
+      const sizeCode = item.size_info?.code || 'Unknown'
+      const existingItem = locEntry.items.find(i => i.size === sizeCode)
+      if (existingItem) {
+        existingItem.count++
+      } else {
+        locEntry.items.push({ size: sizeCode, count: 1 })
+      }
+
+      // Track Individual Cylinders
+      locEntry.cylinders.push({
+        id: item.id,
+        qr_code: item.qr_code,
+        status: item.status,
+        size_code: sizeCode
+      })
+    })
+
+    // Sort items within locations
+    locationMap.forEach(loc => {
+      loc.items.sort((a, b) => a.size.localeCompare(b.size))
+    })
+
+    // Convert map to array, Store first, then Departments alphabetically
+    const result = Array.from(locationMap.values()).sort((a, b) => {
+      if (a.type === 'store') return -1
+      if (b.type === 'store') return 1
+      return a.location_name.localeCompare(b.location_name)
+    })
+
+    return { data: result, error: null }
+
+  } catch (error) {
+    console.error('Error fetching oxygen distribution:', error)
+    return { data: [], error: error instanceof Error ? error.message : 'Failed to fetch' }
   }
 }

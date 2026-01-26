@@ -21,6 +21,7 @@ import {
   ShoppingCart,
   Filter
 } from 'lucide-react'
+import { supabase } from '@/services/supabase'
 import { Button, Input, Select, Badge, Pagination, Modal, Spinner } from '@/components/ui'
 import { FinancialPageLayout } from '@/components/pharmacy/financial/FinancialPageLayout'
 import { PDFUpload } from '@/components/ui/PDFUpload'
@@ -379,9 +380,24 @@ const SupplierFormModal: React.FC<SupplierFormModalProps> = ({ isOpen, onClose, 
         <div className="border-t pt-4">
           <h3 className="font-semibold text-slate-800 mb-4">Documents Upload</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <PDFUpload label="Account Doc" file={accountDoc} onChange={setAccountDoc} />
-            <PDFUpload label="MOF Cert" file={mofCert} onChange={setMofCert} />
-            <PDFUpload label="Bumi Cert" file={bumiputeraCert} onChange={setBumiputeraCert} />
+            <PDFUpload
+              label="Account Doc"
+              value={accountDoc}
+              onChange={setAccountDoc}
+              previewUrl={supplier?.account_document_url}
+            />
+            <PDFUpload
+              label="MOF Cert"
+              value={mofCert}
+              onChange={setMofCert}
+              previewUrl={supplier?.mof_certificate_url}
+            />
+            <PDFUpload
+              label="Bumi Cert"
+              value={bumiputeraCert}
+              onChange={setBumiputeraCert}
+              previewUrl={supplier?.bumiputera_registration_certificate_url}
+            />
           </div>
         </div>
         <div className="flex justify-end gap-3 pt-4 border-t sticky bottom-0 bg-white">
@@ -434,37 +450,77 @@ export const SupplierCatalogPage: React.FC = () => {
     } finally { setIsLoading(false) }
   }
 
-  const handleSave = async (data: Partial<Supplier>, files: any) => {
-    // TODO: Handle file uploads to Supabase storage
-    // For now, we'll just save the supplier data without file uploads
-    // Files: files.accountDoc, files.mofCert, files.bumiputeraCert
+  const handleSave = async (data: Partial<Supplier>, files: { accountDoc?: File | null; mofCert?: File | null; bumiputeraCert?: File | null }) => {
+    setIsLoading(true)
+    try {
+      console.log('handleSave called with data:', data)
+      console.log('files:', files)
 
-    console.log('handleSave called with data:', data)
-    console.log('selectedSupplier:', selectedSupplier)
-    console.log('user?.hospital_id:', user?.hospital_id)
+      // 1. Initial save/update to get/ensure supplier ID
+      let result
+      let supplierId = selectedSupplier?.id
 
-    let result
-    if (selectedSupplier) {
-      console.log('Updating supplier:', selectedSupplier.id)
-      result = await updateSupplier(selectedSupplier.id, data)
-    } else {
-      console.log('Creating new supplier with hospitalId:', user?.hospital_id || null)
-      result = await createSupplier(user?.hospital_id || null, data)
+      if (selectedSupplier) {
+        console.log('Updating basic info for supplier:', selectedSupplier.id)
+        result = await updateSupplier(selectedSupplier.id, data)
+      } else {
+        console.log('Creating new supplier with hospitalId:', user?.hospital_id || null)
+        result = await createSupplier(user?.hospital_id || null, data)
+        if (result.data) supplierId = result.data.id
+      }
+
+      if (result.error || !supplierId) {
+        throw new Error(result.error || 'Failed to initialize supplier record')
+      }
+
+      // 2. Handle File Uploads if any
+      const uploadPromises = []
+      const fileUpdates: Partial<Supplier> = {}
+
+      const uploadFile = async (file: File, type: string, fieldName: keyof Supplier) => {
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${type}_${Date.now()}.${fileExt}`
+        const filePath = `pharmacy/suppliers/${supplierId}/${fileName}`
+
+        const { error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(filePath, file)
+
+        if (uploadError) throw uploadError
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('documents')
+          .getPublicUrl(filePath)
+
+        fileUpdates[fieldName as any] = publicUrl
+      }
+
+      if (files.accountDoc) uploadPromises.push(uploadFile(files.accountDoc, 'account_doc', 'account_document_url'))
+      if (files.mofCert) uploadPromises.push(uploadFile(files.mofCert, 'mof_cert', 'mof_certificate_url'))
+      if (files.bumiputeraCert) uploadPromises.push(uploadFile(files.bumiputeraCert, 'bumi_cert', 'bumiputera_registration_certificate_url'))
+
+      if (uploadPromises.length > 0) {
+        console.log('Uploading files...', uploadPromises.length)
+        await Promise.all(uploadPromises)
+
+        // 3. Update supplier with document URLs
+        console.log('Updating supplier with document URLs:', fileUpdates)
+        const updateResult = await updateSupplier(supplierId, fileUpdates)
+        if (updateResult.error) throw new Error(updateResult.error)
+      }
+
+      console.log('Save successful!')
+      showSuccess('Success', 'Supplier saved successfully')
+      loadSuppliers()
+      setShowAddModal(false)
+      setShowEditModal(false)
+    } catch (e: any) {
+      console.error('Save failed:', e)
+      showError('Error', e.message || 'Failed to save supplier')
+      throw e
+    } finally {
+      setIsLoading(false)
     }
-
-    console.log('Result:', result)
-
-    if (result.error) {
-      console.error('Save failed with error:', result.error)
-      showError('Error', result.error)
-      throw new Error(result.error)
-    }
-
-    console.log('Save successful!')
-    showSuccess('Success', 'Supplier saved successfully')
-    loadSuppliers()
-    setShowAddModal(false)
-    setShowEditModal(false)
   }
 
 

@@ -256,6 +256,7 @@ export async function getPurchaseOrders(
         approved_by,
         approved_at,
         notes,
+        manual_supplier_name,
         created_at,
         updated_at,
         supplier:suppliers(*),
@@ -319,6 +320,7 @@ export async function getPurchaseOrders(
 
         const orConditions = [
           `po_number.ilike.%${search}%`,
+          `manual_supplier_name.ilike.%${search}%`,
           `delivery_address.ilike.%${search}%`,
           `notes.ilike.%${search}%`
         ]

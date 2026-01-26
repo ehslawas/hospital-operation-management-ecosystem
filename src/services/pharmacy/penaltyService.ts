@@ -166,7 +166,8 @@ export const penaltyService = {
                         vote_activity,
                         category,
                         department,
-                        supplier:suppliers (id, company_name)
+                        supplier:suppliers (id, company_name),
+                        manual_supplier_name
                     ),
                     receiving_records:pharmacy_receiving (
                         *,

@@ -113,7 +113,7 @@ export default function ReceivedItemsHistoryPage() {
     const filteredRecords = records.filter(record => {
         const ln = record.lpo?.lpo_number || ''
         const pn = record.lpo?.purchase_order?.po_number || ''
-        const sn = record.lpo?.purchase_order?.supplier?.company_name || ''
+        const sn = record.lpo?.purchase_order?.supplier?.company_name || record.lpo?.purchase_order?.manual_supplier_name || ''
         const dn = record.do_number || ''
 
         // Search in items
@@ -163,7 +163,7 @@ export default function ReceivedItemsHistoryPage() {
             render: (_: any, record: any) => (
                 <div className="flex flex-col max-w-[200px]">
                     <span className="font-bold text-blue-600">{record.lpo?.lpo_number || 'N/A'}</span>
-                    <span className="text-xs text-slate-500 truncate">{record.lpo?.purchase_order?.supplier?.company_name || 'N/A'}</span>
+                    <span className="text-xs text-slate-500 truncate">{record.lpo?.purchase_order?.supplier?.company_name || record.lpo?.purchase_order?.manual_supplier_name || 'N/A'}</span>
                 </div>
             )
         },
@@ -389,7 +389,7 @@ export default function ReceivedItemsHistoryPage() {
                     isOpen={isAssessmentOpen}
                     onClose={() => setIsAssessmentOpen(false)}
                     onConfirm={handleAssessmentConfirm}
-                    supplierName={selectedRecordForAssessment.lpo?.purchase_order?.supplier?.company_name || 'N/A'}
+                    supplierName={selectedRecordForAssessment.lpo?.purchase_order?.supplier?.company_name || selectedRecordForAssessment.lpo?.purchase_order?.manual_supplier_name || 'N/A'}
                     lpoNumber={selectedRecordForAssessment.lpo?.lpo_number || ''}
                     details={{
                         orderDate: selectedRecordForAssessment.lpo?.document_date || selectedRecordForAssessment.lpo?.created_at,
