@@ -870,6 +870,11 @@ export default function PenaltiesPage() {
                     ) : (
                         <CCPenaltyFormNew
                             penalty={selectedPenalty}
+                            // Pass all active penalties for the same LPO to allow batch processing
+                            availablePenalties={penalties.filter(p =>
+                                p.lpo?.lpo_number === selectedPenalty.lpo?.lpo_number &&
+                                p.status === selectedPenalty.status // Only group same-status items
+                            )}
                             isOpen={true}
                             onSave={handleApprove}
                             onClose={() => setIsDetailModalOpen(false)}

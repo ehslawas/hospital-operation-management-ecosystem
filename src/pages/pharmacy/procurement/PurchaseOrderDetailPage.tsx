@@ -5,7 +5,7 @@ import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
 import { JATA_LOGO_BASE64 } from '@/constants/logo';
 import { Button, Spinner, Badge, ConfirmationDialog, Modal, Input } from '@/components/ui'
-import { getPurchaseOrderById, rejectPurchaseOrder, deletePurchaseOrder, submitPurchaseOrder, approvePurchaseOrder, sendPurchaseOrder } from '@/services/pharmacy/procurementService'
+import { getPurchaseOrderById, rejectPurchaseOrder, deletePurchaseOrder, submitPurchaseOrder, approvePurchaseOrder, sendPurchaseOrder, updateApprovedPOItem } from '@/services/pharmacy/procurementService'
 import { findContractByNumber } from '@/services/pharmacy/contractCatalogService'
 import { supabase } from '@/services/supabase'
 import { getWarrants, getWarrantSummary } from '@/services/pharmacy/warrantService'
@@ -58,6 +58,14 @@ export const PurchaseOrderDetailPage: React.FC = () => {
   const [isSavingSettings, setIsSavingSettings] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
   const printContentRef = useRef<HTMLDivElement>(null)
+
+  // Item Editing States
+  const [editingItemId, setEditingItemId] = useState<string | null>(null)
+  const [editQuantity, setEditQuantity] = useState<number>(0)
+  const [editPrice, setEditPrice] = useState<number>(0)
+  const [editPackaging, setEditPackaging] = useState<string>('')
+  const [isUpdatingItem, setIsUpdatingItem] = useState(false)
+
   const [signatures, setSignatures] = useState<PharmacyPOSignatures>({
     applicantName: 'KAMRIAH BINTI MAIL',
     applicantPosition: 'PEN. PEGAWAI FARMASI U 6',
@@ -768,6 +776,45 @@ export const PurchaseOrderDetailPage: React.FC = () => {
     }
   }
 
+  const handleStartEditItem = (item: any) => {
+    setEditingItemId(item.id)
+    setEditQuantity(item.quantity_ordered)
+    setEditPrice(item.unit_price)
+    setEditPackaging(item.packaging_description || '')
+  }
+
+  const handleCancelItemEdit = () => {
+    setEditingItemId(null)
+  }
+
+  const handleSaveItemEdit = async (itemId: string) => {
+    if (!order || !user?.id) return
+
+    try {
+      setIsUpdatingItem(true)
+      const result = await updateApprovedPOItem(order.id, itemId, user.id, {
+        quantity_ordered: editQuantity,
+        unit_price: editPrice,
+        packaging_description: editPackaging
+      })
+
+      if (result.error || !result.data) {
+        showError('Error', result.error || 'Failed to update item')
+        return
+      }
+
+      // Refresh data
+      void loadOrder()
+      setEditingItemId(null)
+      showSuccess('Item Updated', 'The purchase order item has been updated successfully.')
+    } catch (error) {
+      console.error('Error updating item:', error)
+      showError('Error', 'Failed to update item')
+    } finally {
+      setIsUpdatingItem(false)
+    }
+  }
+
 
 
   const formatCurrency = (amount: number) => {
@@ -1053,27 +1100,109 @@ export const PurchaseOrderDetailPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {items.map((item, index) => (
-                  <tr key={item.id} className="hover:bg-gray-50">
-                    <td className="border border-gray-600 px-2 py-1 text-xs text-gray-900 text-center font-semibold">{index + 1}</td>
-                    <td className="border border-gray-600 px-2 py-0.5 text-xs text-gray-900">
-                      <span className="font-bold">{item.item_name || '—'}</span>
-                      {/* SQ Details */}
-                      {order.po_type === 'sq' && (
-                        <div className="mt-1 text-[10px] font-normal leading-tight text-gray-700">
-                          <div className="font-semibold text-blue-700">INV SQ no : </div>
-                        </div>
-                      )}
-                    </td>
-                    <td className="border border-gray-600 px-2 py-1 text-xs text-gray-700 font-mono">{item.item_code || '—'}</td>
-                    <td className="border border-gray-600 px-2 py-1 text-xs text-gray-900 text-center font-semibold">{item.quantity_ordered}</td>
-                    <td className="border border-gray-600 px-2 py-1 text-xs text-gray-900 text-right font-semibold">{formatCurrency(item.unit_price)}</td>
-                    <td className="border border-gray-600 px-2 py-1 text-xs text-gray-900 text-right font-bold">
-                      {formatCurrency(item.quantity_ordered * item.unit_price)}
-                    </td>
-                    <td className="border border-gray-600 px-2 py-1 text-xs text-gray-700">{item.packaging_description || '—'}</td>
-                  </tr>
-                ))}
+                {items.map((item, index) => {
+                  const isEditing = editingItemId === item.id
+                  const canEditItem = isPharmacyLogistic && ['approved', 'sent', 'partial_received'].includes(order.status)
+
+                  return (
+                    <tr key={item.id} className={`${isEditing ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
+                      <td className="border border-gray-600 px-2 py-1 text-xs text-gray-900 text-center font-semibold">{index + 1}</td>
+                      <td className="border border-gray-600 px-2 py-0.5 text-xs text-gray-900">
+                        <span className="font-bold">{item.item_name || '—'}</span>
+                        {/* SQ Details */}
+                        {order.po_type === 'sq' && (
+                          <div className="mt-1 text-[10px] font-normal leading-tight text-gray-700">
+                            <div className="font-semibold text-blue-700">INV SQ no : </div>
+                          </div>
+                        )}
+                      </td>
+                      <td className="border border-gray-600 px-2 py-1 text-xs text-gray-700 font-mono">{item.item_code || '—'}</td>
+                      <td className="border border-gray-600 px-2 py-1 text-xs text-gray-900 text-center font-semibold group relative">
+                        {isEditing ? (
+                          <div className="flex justify-center w-full min-w-[80px]">
+                            <Input
+                              type="number"
+                              className="h-10 w-full py-1 px-2 text-center text-sm font-bold border-2 border-blue-400 focus:ring-2 focus:ring-blue-500"
+                              value={editQuantity}
+                              onChange={(e) => setEditQuantity(Number(e.target.value))}
+                              autoFocus
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center gap-1">
+                            {item.quantity_ordered}
+                            {canEditItem && (
+                              <button
+                                onClick={() => handleStartEditItem(item)}
+                                className="no-print p-1 rounded hover:bg-gray-200 text-blue-600 focus:outline-none"
+                                title="Edit Item"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                      <td className="border border-gray-600 px-2 py-1 text-xs text-gray-900 text-right font-semibold">
+                        {isEditing ? (
+                          <div className="flex justify-end w-full min-w-[100px]">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              className="h-10 w-full py-1 px-2 text-right text-sm font-bold border-2 border-blue-400 focus:ring-2 focus:ring-blue-500"
+                              value={editPrice}
+                              onChange={(e) => setEditPrice(Number(e.target.value))}
+                            />
+                          </div>
+                        ) : (
+                          formatCurrency(item.unit_price)
+                        )}
+                      </td>
+                      <td className="border border-gray-600 px-2 py-1 text-xs text-gray-900 text-right font-bold">
+                        {isEditing ? (
+                          <div className="text-sm text-blue-700">
+                            {formatCurrency(editQuantity * editPrice)}
+                          </div>
+                        ) : (
+                          formatCurrency(item.quantity_ordered * item.unit_price)
+                        )}
+                      </td>
+                      <td className="border border-gray-600 px-2 py-1 text-xs text-gray-700">
+                        {isEditing ? (
+                          <div className="flex flex-col gap-2 min-w-[150px]">
+                            <Input
+                              className="h-10 py-1 px-3 text-sm border-2 border-blue-400 focus:ring-2 focus:ring-blue-500"
+                              value={editPackaging}
+                              onChange={(e) => setEditPackaging(e.target.value)}
+                            />
+                            <div className="flex items-center gap-2 no-print mt-1">
+                              <Button
+                                size="sm"
+                                variant="primary"
+                                className="h-8 text-xs px-4 bg-blue-600 hover:bg-blue-700"
+                                onClick={() => handleSaveItemEdit(item.id)}
+                                disabled={isUpdatingItem}
+                              >
+                                {isUpdatingItem ? 'Saving...' : 'Save'}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 text-xs px-4 border-gray-400"
+                                onClick={handleCancelItemEdit}
+                                disabled={isUpdatingItem}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          item.packaging_description || '—'
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
                 {/* Consolidated Contract Details Row */}
                 {(order.kkm_contract_number || contract?.delivery_period || contract?.end_date) && (
                   <tr className="bg-white">

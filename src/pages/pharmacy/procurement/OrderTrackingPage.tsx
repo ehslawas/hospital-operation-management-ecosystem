@@ -36,6 +36,8 @@ import { FinancialPageLayout } from '@/components/pharmacy/financial/FinancialPa
 import { POItemsModal } from '@/components/pharmacy/procurement/modals/POItemsModal'
 import { DetailedReceivePanel } from '@/components/pharmacy/procurement/modals/DetailedReceivePanel'
 import { LPOComparisonModal } from '@/components/pharmacy/procurement/modals/LPOComparisonModal'
+import { ReminderModal } from '@/components/pharmacy/procurement/modals/ReminderModal'
+import { BellRing } from 'lucide-react'
 
 // --- Sub-components ---
 
@@ -108,7 +110,12 @@ export default function OrderTrackingPage() {
 
     // Receive Modals
     const [selectedLpoForReceive, setSelectedLpoForReceive] = useState<any>(null)
+
     const [isDetailedReceiveOpen, setIsDetailedReceiveOpen] = useState(false)
+
+    // Reminder Modal
+    const [selectedLpoForReminder, setSelectedLpoForReminder] = useState<any>(null)
+    const [isReminderModalOpen, setIsReminderModalOpen] = useState(false)
 
     useEffect(() => {
         loadTrackingData()
@@ -179,7 +186,8 @@ export default function OrderTrackingPage() {
     const getLpoStatus = (items: any[]) => {
         if (!items || items.length === 0) return { label: 'Unknown', variant: 'gray' as const }
 
-        const hasOverdue = items.some(i => i.is_overdue)
+        const now = new Date()
+        const hasOverdue = items.some(i => i.is_overdue || (i.status !== 'delivered' && new Date(i.expected_delivery_date) < now))
         if (hasOverdue) return { label: 'OVERDUE', variant: 'error' as const }
 
         const allDelivered = items.every(i => i.status === 'delivered')
@@ -338,7 +346,23 @@ export default function OrderTrackingPage() {
                 const isDelivered = status.label === 'DELIVERED'
 
                 return (
-                    <div className="flex justify-end pr-2">
+                    <div className="flex justify-end pr-2 gap-2">
+                        {/* Reminder Button for Overdue Items */}
+                        {status.label === 'OVERDUE' && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 px-3 font-bold text-[10px] uppercase tracking-wider text-amber-600 border-amber-200 hover:bg-amber-50 hover:text-amber-700 shadow-sm transition-all"
+                                onClick={() => {
+                                    setSelectedLpoForReminder(lpo)
+                                    setIsReminderModalOpen(true)
+                                }}
+                            >
+                                <BellRing className="w-3 h-3 mr-1.5 animate-pulse" />
+                                Reminder ({lpo.reminders?.length || 0})
+                            </Button>
+                        )}
+
                         <Button
                             variant={isDelivered ? "ghost" : "default"}
                             size="sm"
@@ -363,7 +387,7 @@ export default function OrderTrackingPage() {
                             ) : (
                                 <span className="flex items-center gap-1.5">
                                     <Package className="w-3 h-3" />
-                                    Receive Order
+                                    Receive
                                 </span>
                             )}
                         </Button>
@@ -568,6 +592,13 @@ export default function OrderTrackingPage() {
                 onSuccess={() => {
                     loadTrackingData()
                 }}
+            />
+
+            <ReminderModal
+                isOpen={isReminderModalOpen}
+                onClose={() => setIsReminderModalOpen(false)}
+                lpo={selectedLpoForReminder}
+                onSuccess={loadTrackingData}
             />
 
         </FinancialPageLayout>

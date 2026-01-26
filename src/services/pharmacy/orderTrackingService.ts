@@ -217,10 +217,11 @@ export const orderTrackingService = {
                      po_number,
                      manual_supplier_name,
                      kkm_contract_number,
-                     supplier:suppliers(company_name, email),
-                     items:pharmacy_purchase_order_items(item_name)
+                     supplier:suppliers(company_name, email, address),
+                     items:pharmacy_purchase_order_items(id, item_id, item_name, item_code, quantity_ordered) 
                  ),
-                 tracking_items:pharmacy_order_tracking(*)
+                 tracking_items:pharmacy_order_tracking(*),
+                 reminders:pharmacy_lpo_reminders(*)
              `)
             .not('status', 'eq', 'cancelled')
 
@@ -496,5 +497,38 @@ export const orderTrackingService = {
         }
 
         return fixedCount
+    },
+
+    // Log a reminder
+    async logReminder(lpoId: string, pdfBlob: Blob, reminderNumber: number): Promise<void> {
+        // 1. Upload PDF
+        const fileName = `${lpoId}/reminder_${reminderNumber}_${Date.now()}.pdf`
+        const { error: uploadError } = await supabase.storage
+            .from('lpo-documents') // Using existing bucket or create new one? plan said lpo-reminders but lpo-documents exists. use that for simplicity or check if exists.
+            .upload(fileName, pdfBlob)
+
+        if (uploadError) throw uploadError
+
+        const { data: { publicUrl } } = supabase.storage
+            .from('lpo-documents')
+            .getPublicUrl(fileName)
+
+        // 2. Insert Record
+        const { error } = await supabase
+            .from('pharmacy_lpo_reminders')
+            .insert({
+                lpo_id: lpoId,
+                pdf_url: publicUrl,
+                reminder_number: reminderNumber,
+                sent_at: new Date().toISOString()
+            })
+
+        if (error) throw error
+
+        // 3. Also update tracking items to reflect reminder count? 
+        // Logic in markReminderSent updates 'pharmacy_order_tracking'.
+        // We might want to keep that for backward compatibility or display in item row.
+        // But since we are doing LPO level, maybe just the new table is enough.
+        // However, 'days_overdue' etc are on tracking item.
     }
 }

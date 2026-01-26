@@ -1,5 +1,5 @@
 import { supabase } from '@/services/supabase'
-import { Penalty } from '@/types/pharmacy/procurementNew'
+import { Penalty, OrderTracking } from '@/types/pharmacy/procurementNew'
 
 const TABLE_NAME = 'pharmacy_penalties'
 
@@ -167,6 +167,10 @@ export const penaltyService = {
                         category,
                         department,
                         supplier:suppliers (id, company_name)
+                    ),
+                    receiving_records:pharmacy_receiving (
+                        *,
+                        documents:pharmacy_receiving_documents (*)
                     )
                 ),
                 order_tracking:pharmacy_order_tracking (
@@ -275,5 +279,16 @@ export const penaltyService = {
 
         if (error) throw error
         return data
+    },
+
+    // Get all items for an LPO to allow adding them to penalty
+    async getLPOItems(lpoId: string): Promise<OrderTracking[]> {
+        const { data, error } = await supabase
+            .from('pharmacy_order_tracking')
+            .select('*')
+            .eq('lpo_id', lpoId)
+
+        if (error) throw error
+        return data as OrderTracking[]
     }
 }

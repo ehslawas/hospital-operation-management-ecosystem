@@ -1738,3 +1738,101 @@ export async function reallocatePurchaseOrder(
   }
 }
 
+/**
+ * Update a specific item in an APPROVED Purchase Order.
+ * Recalculates PO total and syncs with CC/APPL expenses.
+ */
+export async function updateApprovedPOItem(
+  poId: string,
+  itemId: string,
+  userId: string,
+  data: {
+    quantity_ordered: number
+    unit_price: number
+    packaging_description: string
+  }
+): Promise<ApiResponse<PurchaseOrderWithRelations>> {
+  try {
+    // 1. Get PO and item to verify state
+    const { data: po, error: poError } = await supabase
+      .from('pharmacy_purchase_orders')
+      .select('*, items:pharmacy_purchase_order_items(*)')
+      .eq('id', poId)
+      .single()
+
+    if (poError || !po) throw new Error('Purchase Order not found')
+
+    // We only allow this for approved/sent/partial_received statuses
+    const allowedStatuses = ['approved', 'sent', 'partial_received']
+    if (!allowedStatuses.includes(po.status)) {
+      throw new Error(`Cannot edit items for PO with status: ${po.status}`)
+    }
+
+    // 2. Update the specific item
+    const { error: itemUpdateError } = await supabase
+      .from('pharmacy_purchase_order_items')
+      .update({
+        quantity_ordered: data.quantity_ordered,
+        unit_price: data.unit_price,
+        total_price: data.quantity_ordered * data.unit_price,
+        packaging_description: data.packaging_description
+      })
+      .eq('id', itemId)
+      .eq('po_id', poId)
+
+    if (itemUpdateError) throw itemUpdateError
+
+    // 3. Recalculate PO totals
+    // Fetch fresh items to be sure
+    const { data: freshItems, error: itemsError } = await supabase
+      .from('pharmacy_purchase_order_items')
+      .select('*')
+      .eq('po_id', poId)
+
+    if (itemsError || !freshItems) throw new Error('Failed to fetch updated items')
+
+    const newSubtotal = freshItems.reduce((sum, item) => sum + Number(item.total_price), 0)
+    const newTotal = newSubtotal // Assuming no tax as per create logic
+
+    // 4. Update PO record
+    const { data: updatedPO, error: updateError } = await supabase
+      .from('pharmacy_purchase_orders')
+      .update({
+        subtotal: newSubtotal,
+        total_amount: newTotal,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', poId)
+      .select('*, items:pharmacy_purchase_order_items(*)')
+      .single()
+
+    if (updateError) throw updateError
+
+    // 5. Sync Budget Expense records
+    await Promise.all([
+      syncSinglePOToCCAllocation(po.hospital_id, poId),
+      syncSinglePOToAPPLAllocation(po.hospital_id, poId)
+    ])
+
+    // 6. Log the change
+    await supabase.from('approval_logs').insert({
+      entity_type: 'purchase_order',
+      entity_id: poId,
+      action: 'item_updated',
+      approved_by: userId,
+      notes: `Updated item ${itemId}: Qty ${data.quantity_ordered}, Price ${data.unit_price}`,
+      created_at: new Date().toISOString()
+    })
+
+    // Invalidate stats cache
+    invalidateCache(`procurement-stats-${po.hospital_id}`)
+
+    return { data: updatedPO as PurchaseOrderWithRelations, error: null }
+  } catch (error) {
+    console.error('Error updating approved PO item:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to update item'
+    }
+  }
+}

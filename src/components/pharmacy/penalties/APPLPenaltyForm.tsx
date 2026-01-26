@@ -40,121 +40,13 @@ const OFFICIAL_STANDARDS = [
 ]
 
 // SIGNATURE UTILS AND COMPONENTS
+import { SignatureModal } from '@/components/ui/SignatureModal'
+
 interface SignerProfile {
     name: string
     designation: string
     date: string
     signature: string | null // Base64 data URL
-}
-
-const SignatureModal = ({ isOpen, onClose, onSave, title }: { isOpen: boolean, onClose: () => void, onSave: (data: string) => void, title: string }) => {
-    const canvasRef = React.useRef<HTMLCanvasElement>(null)
-    const [isDrawing, setIsDrawing] = React.useState(false)
-
-    React.useEffect(() => {
-        if (isOpen && canvasRef.current) {
-            const canvas = canvasRef.current
-            const ctx = canvas.getContext('2d')
-            if (ctx) {
-                ctx.lineWidth = 2
-                ctx.lineCap = 'round'
-                ctx.strokeStyle = '#000'
-                ctx.clearRect(0, 0, canvas.width, canvas.height)
-            }
-        }
-    }, [isOpen])
-
-    const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
-        setIsDrawing(true)
-        const canvas = canvasRef.current
-        if (!canvas) return
-        const ctx = canvas.getContext('2d')
-        if (!ctx) return
-
-        const rect = canvas.getBoundingClientRect()
-        let x, y
-        if ('touches' in e) {
-            x = e.touches[0].clientX - rect.left
-            y = e.touches[0].clientY - rect.top
-        } else {
-            x = (e as React.MouseEvent).clientX - rect.left
-            y = (e as React.MouseEvent).clientY - rect.top
-        }
-        ctx.beginPath()
-        ctx.moveTo(x, y)
-    }
-
-    const draw = (e: React.MouseEvent | React.TouchEvent) => {
-        if (!isDrawing) return
-        const canvas = canvasRef.current
-        if (!canvas) return
-        const ctx = canvas.getContext('2d')
-        if (!ctx) return
-
-        const rect = canvas.getBoundingClientRect()
-        let x, y
-        if ('touches' in e) {
-            x = e.touches[0].clientX - rect.left
-            y = e.touches[0].clientY - rect.top
-        } else {
-            x = (e as React.MouseEvent).clientX - rect.left
-            y = (e as React.MouseEvent).clientY - rect.top
-        }
-        ctx.lineTo(x, y)
-        ctx.stroke()
-    }
-
-    const stopDrawing = () => {
-        setIsDrawing(false)
-    }
-
-    const handleSave = () => {
-        if (canvasRef.current) {
-            onSave(canvasRef.current.toDataURL())
-            onClose()
-        }
-    }
-
-    const handleClear = () => {
-        if (canvasRef.current) {
-            const ctx = canvasRef.current.getContext('2d')
-            ctx?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
-        }
-    }
-
-    if (!isOpen) return null
-
-    return (
-        <Dialog open={true} onOpenChange={onClose}>
-            <DialogContent className="max-w-md bg-white p-6 rounded-2xl shadow-2xl">
-                <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                        <h3 className="font-bold text-lg">{title}</h3>
-                        <Button variant="ghost" size="sm" onClick={onClose}><X className="w-4 h-4" /></Button>
-                    </div>
-                    <div className="border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 touch-none">
-                        <canvas
-                            ref={canvasRef}
-                            width={400}
-                            height={200}
-                            className="w-full h-[200px] cursor-crosshair touch-none"
-                            onMouseDown={startDrawing}
-                            onMouseMove={draw}
-                            onMouseUp={stopDrawing}
-                            onMouseLeave={stopDrawing}
-                            onTouchStart={startDrawing}
-                            onTouchMove={draw}
-                            onTouchEnd={stopDrawing}
-                        />
-                    </div>
-                    <div className="flex justify-end gap-2">
-                        <Button variant="outline" onClick={handleClear}>Clear</Button>
-                        <Button onClick={handleSave} className="bg-slate-900 text-white">Save Signature</Button>
-                    </div>
-                </div>
-            </DialogContent>
-        </Dialog>
-    )
 }
 
 export const APPLPenaltyForm: React.FC<APPLPenaltyFormProps> = ({

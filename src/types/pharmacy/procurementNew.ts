@@ -1,6 +1,16 @@
 import { BaseEntity, User } from '@/types'
 import { PurchaseOrderWithRelations, Drug, NonDrug } from './index'
 
+export interface LPOReminder extends BaseEntity {
+    lpo_id: string
+    sent_at: string
+    sent_by?: string
+    recipient_email?: string
+    recipient_name?: string
+    pdf_url?: string
+    reminder_number: number
+}
+
 // =====================================================
 // LPO TYPES
 // =====================================================
@@ -23,6 +33,7 @@ export interface LPOWithRelations extends LPO {
     created_by_user?: User
     tracking_items?: OrderTracking[] | { count: number }[]
     receiving_records?: Receiving[]
+    reminders?: LPOReminder[]
     payment?: Payment
     lou?: LOU
     sent_for_payment_date?: string
@@ -37,6 +48,8 @@ export interface OrderTracking extends BaseEntity {
     item_id: string
     item_type: 'drug' | 'non_drug'
     item_code: string
+    item_name?: string
+    unit_price?: number
     item_category: 'APPL' | 'CC'
 
     expected_delivery_date: string
