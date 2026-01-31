@@ -22,7 +22,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { ROUTES, PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE, SYSTEM_ROLES } from '@/lib/constants'
 import type { Department, DepartmentWithRelations, Hospital, SortConfig } from '@/types'
 
-export const DepartmentListPage: React.FC = () => {
+const DepartmentsPage: React.FC = () => {
   const navigate = useNavigate()
   const { error: showError, success: showSuccess } = useToastStore()
   const { user } = useAuthStore()
@@ -425,4 +425,4 @@ export const DepartmentListPage: React.FC = () => {
   )
 }
 
-export default DepartmentListPage
+export default DepartmentsPage

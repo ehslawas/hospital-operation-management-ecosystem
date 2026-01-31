@@ -14,6 +14,8 @@ import type {
   StockTransaction,
   InventoryFilter,
   StockLocation,
+  StockLocationItem,
+  StockLocationItemWithRelations,
   ExpiryItem,
   SlowMovingItem,
   StockLevelSummary,
@@ -33,12 +35,18 @@ import type {
 /**
  * Get drug categories
  */
-export async function getDrugCategories(): Promise<ApiResponse<DrugCategory[]>> {
+export async function getDrugCategories(hospitalId?: string): Promise<ApiResponse<DrugCategory[]>> {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('drug_categories')
       .select('*')
       .order('category_name', { ascending: true })
+
+    if (hospitalId) {
+      query = query.eq('hospital_id', hospitalId)
+    }
+
+    const { data, error } = await query
 
     if (error) throw error
 
@@ -389,15 +397,230 @@ export async function getAllBatches(
       query = query.eq('location_id', filter.location_id)
     }
 
-    const { data, error } = await query.order('expiry_date', { ascending: true })
+    const { data: batches, error } = await query.order('expiry_date', { ascending: true })
 
     if (error) throw error
-    return { data: data as StockBatchWithRelations[], error: null }
+
+    // Manually fetch related items because of polymorphic "item_id" without FK
+    if (!batches || batches.length === 0) {
+      return { data: [], error: null }
+    }
+
+    const drugIds = batches
+      .filter((b) => b.item_type === 'drug')
+      .map((b) => b.item_id)
+      .filter((id): id is string => !!id)
+
+    const nonDrugIds = batches
+      .filter((b) => b.item_type === 'non_drug')
+      .map((b) => b.item_id)
+      .filter((id): id is string => !!id)
+
+    // Fetch Drugs
+    let drugsMap: Record<string, any> = {}
+    if (drugIds.length > 0) {
+      const { data: drugs } = await supabase
+        .from('drugs')
+        .select('*')
+        .in('id', drugIds)
+
+      if (drugs) {
+        drugsMap = drugs.reduce((acc, drug) => {
+          acc[drug.id] = drug
+          return acc
+        }, {} as Record<string, any>)
+      }
+    }
+
+    // Fetch Non-Drugs
+    let nonDrugsMap: Record<string, any> = {}
+    if (nonDrugIds.length > 0) {
+      const { data: nonDrugs } = await supabase
+        .from('non_drugs')
+        .select('*')
+        .in('id', nonDrugIds)
+
+      if (nonDrugs) {
+        nonDrugsMap = nonDrugs.reduce((acc, item) => {
+          acc[item.id] = item
+          return acc
+        }, {} as Record<string, any>)
+      }
+    }
+
+    // Attach relations
+    const populatedBatches = batches.map((batch) => ({
+      ...batch,
+      drug: batch.item_type === 'drug' ? drugsMap[batch.item_id] : undefined,
+      non_drug: batch.item_type === 'non_drug' ? nonDrugsMap[batch.item_id] : undefined,
+    }))
+
+    return { data: populatedBatches as StockBatchWithRelations[], error: null }
   } catch (error) {
     console.error('Error fetching batches:', error)
     return {
       data: null,
       error: error instanceof Error ? error.message : 'Failed to fetch batches',
+    }
+  }
+}
+
+/**
+ * Get inventory with Unit Catalog as the backbone.
+ * Lists ALL Active items from the catalog.
+ * If stock exists, shows batch details.
+ * If no stock, shows placeholder with 0 quantity.
+ */
+export async function getInventoryWithCatalogBackbone(
+  hospitalId: string,
+  filter?: {
+    search?: string
+    item_type?: 'drug' | 'non_drug' | 'all'
+    status?: string // 'active', 'out_of_stock'
+    location_id?: string
+  }
+): Promise<ApiResponse<StockBatchWithRelations[]>> {
+  try {
+    // 1. Get Active Catalogs for this Hospital
+    // We assume we want items from all active catalogs, or we could restrict to a specific module if needed.
+    const { data: catalogs, error: catalogError } = await supabase
+      .from('pharmacy_unit_catalog')
+      .select('id')
+      .eq('hospital_id', hospitalId)
+      .eq('status', 'active')
+
+    if (catalogError) throw catalogError
+
+    if (!catalogs || catalogs.length === 0) {
+      return { data: [], error: null }
+    }
+
+    const catalogIds = catalogs.map((c) => c.id)
+
+    // 2. Fetch Active Catalog Items
+    let itemQuery = supabase
+      .from('pharmacy_unit_catalog_items')
+      .select(`
+        *,
+        drug:drugs(*),
+        non_drug:non_drugs(*)
+      `)
+      .in('catalog_id', catalogIds)
+      .eq('is_active', true) // Only active items
+
+    if (filter?.item_type && filter.item_type !== 'all') {
+      itemQuery = itemQuery.eq('item_type', filter.item_type)
+    }
+
+    const { data: catalogItems, error: itemError } = await itemQuery
+
+    if (itemError) throw itemError
+
+    if (!catalogItems || catalogItems.length === 0) {
+      return { data: [], error: null }
+    }
+
+    // 3. Fetch Stock Batches
+    // We fetch ALL batches for this hospital to ensure we match correctly
+    let batchQuery = supabase
+      .from('pharmacy_stock_batches')
+      .select(`
+        *,
+        location:pharmacy_stock_locations (*)
+      `)
+      .eq('hospital_id', hospitalId)
+    // We process status filtering in memory for complex cases (like 'out_of_stock' which is virtual)
+    // but if user asks for specific batch status, we could filter here, BUT we need to be careful not to exclude the "ghost" items if they are "out of stock"
+
+    if (filter?.location_id) {
+      batchQuery = batchQuery.eq('location_id', filter.location_id)
+    }
+
+    const { data: batches, error: batchError } = await batchQuery.order('expiry_date', { ascending: true })
+
+    if (batchError) throw batchError
+
+    // 4. Merge Logic
+    // Map: ItemID -> Batches[]
+    const batchesMap: Record<string, typeof batches> = {}
+    batches?.forEach((b) => {
+      const key = `${b.item_type}_${b.item_id}`
+      if (!batchesMap[key]) batchesMap[key] = []
+      batchesMap[key].push(b)
+    })
+
+    const result: StockBatchWithRelations[] = []
+
+    catalogItems.forEach((item) => {
+      const itemId = item.item_type === 'drug' ? item.drug_id : item.non_drug_id
+      const key = `${item.item_type}_${itemId}`
+      const itemBatches = batchesMap[key] || []
+
+      // Name filtering (naive client-side optimization)
+      if (filter?.search) {
+        const search = filter.search.toLowerCase()
+        const name = item.item_type === 'drug' ? item.drug?.drug_name : item.non_drug?.item_name
+        if (!name?.toLowerCase().includes(search)) {
+          return // Skip this item
+        }
+      }
+
+      if (itemBatches.length > 0) {
+        // Add all batches
+        itemBatches.forEach((batch) => {
+          // If filtering by status 'out_of_stock', we technically shouldn't see these unless they have 0 qty?
+          // But usually 'out_of_stock' means "I want to see things with 0 stock".
+          // If filter.status is set, we might filter batches here.
+          // For now, push all found batches (assuming they match the query if we filtered batches earlier).
+
+          // We need to attach the relations from the catalog item to the batch since batch query might have failed to join them if relying on manual fetch
+          // But wait, the previous "getAllBatches" did manual fetch. 
+          // Here we ALREADY have the drug/non_drug from the catalog item query!
+          // So we can just use that.
+
+          result.push({
+            ...batch,
+            drug: item.drug,
+            non_drug: item.non_drug,
+            // location is already on batch
+          } as StockBatchWithRelations)
+        })
+      } else {
+        // NO STOCK -> Create Placeholder
+        // Only if we are NOT filtering for a specific status that implies "Active Stock Only"
+        // If filter.status == 'available' (meaning has stock), we skip this.
+        // If filter.status == undefined OR 'out_of_stock' OR 'all', we show it.
+
+        const shouldShowZeroStock = !filter?.status || filter.status === 'out_of_stock' || filter.status === 'all'
+
+        if (shouldShowZeroStock) {
+          result.push({
+            id: `virtual_${item.id}`,
+            hospital_id: hospitalId,
+            item_id: itemId,
+            item_type: item.item_type,
+            batch_number: '-',
+            expiry_date: null,
+            quantity_received: 0,
+            quantity_on_hand: 0,
+            quantity_reserved: 0,
+            status: 'active', // It's an active catalog item
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            drug: item.drug,
+            non_drug: item.non_drug,
+            location: undefined, // No location
+          } as unknown as StockBatchWithRelations)
+        }
+      }
+    })
+
+    return { data: result, error: null }
+  } catch (error) {
+    console.error('Error in catalog backbone inventory:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch inventory',
     }
   }
 }
@@ -558,6 +781,153 @@ export async function getStockLocations(hospitalId: string): Promise<ApiResponse
     return {
       data: null,
       error: error instanceof Error ? error.message : 'Failed to fetch stock locations',
+    }
+  }
+}
+
+export async function createStockLocation(
+  location: Omit<StockLocation, 'id' | 'created_at' | 'updated_at'>
+): Promise<ApiResponse<StockLocation>> {
+  try {
+    const { data, error } = await supabase
+      .from('pharmacy_stock_locations')
+      .insert(location)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    return { data: data as StockLocation, error: null }
+  } catch (error) {
+    console.error('Error creating stock location:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to create stock location',
+    }
+  }
+}
+
+export async function updateStockLocation(
+  id: string,
+  updates: Partial<Omit<StockLocation, 'id' | 'created_at' | 'updated_at'>>
+): Promise<ApiResponse<StockLocation>> {
+  try {
+    const { data, error } = await supabase
+      .from('pharmacy_stock_locations')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    return { data: data as StockLocation, error: null }
+  } catch (error) {
+    console.error('Error updating stock location:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to update stock location',
+    }
+  }
+}
+
+// =====================================================
+// STOCK LOCATION ITEMS
+// =====================================================
+
+export async function getLocationItems(
+  locationId: string
+): Promise<ApiResponse<StockLocationItemWithRelations[]>> {
+  try {
+    const { data, error } = await supabase
+      .from('pharmacy_location_items')
+      .select(`
+        *,
+        unit_catalog_item:pharmacy_unit_catalog_items (
+          *,
+          drug:drugs (*),
+          non_drug:non_drugs (*)
+        )
+      `)
+      .eq('location_id', locationId)
+
+    if (error) throw error
+
+    return { data: data as StockLocationItemWithRelations[], error: null }
+  } catch (error) {
+    console.error('Error fetching location items:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch location items',
+    }
+  }
+}
+
+export async function addItemsToLocation(
+  locationId: string,
+  catalogItemIds: string[]
+): Promise<ApiResponse<StockLocationItem[]>> {
+  try {
+    const items = catalogItemIds.map((itemId) => ({
+      location_id: locationId,
+      unit_catalog_item_id: itemId,
+      min_stock: 0,
+      max_stock: 0,
+    }))
+
+    const { data, error } = await supabase
+      .from('pharmacy_location_items')
+      .insert(items)
+      .select()
+
+    if (error) throw error
+
+    return { data: data as StockLocationItem[], error: null }
+  } catch (error) {
+    console.error('Error adding items to location:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to add items to location',
+    }
+  }
+}
+
+export async function removeLocationItem(id: string): Promise<ApiResponse<void>> {
+  try {
+    const { error } = await supabase.from('pharmacy_location_items').delete().eq('id', id)
+
+    if (error) throw error
+
+    return { data: undefined, error: null }
+  } catch (error) {
+    console.error('Error removing location item:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to remove location item',
+    }
+  }
+}
+
+export async function updateLocationItem(
+  id: string,
+  updates: Partial<Omit<StockLocationItem, 'id' | 'location_id' | 'unit_catalog_item_id'>>
+): Promise<ApiResponse<StockLocationItem>> {
+  try {
+    const { data, error } = await supabase
+      .from('pharmacy_location_items')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    return { data: data as StockLocationItem, error: null }
+  } catch (error) {
+    console.error('Error updating location item:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to update location item',
     }
   }
 }

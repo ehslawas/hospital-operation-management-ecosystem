@@ -13,22 +13,55 @@ import type {
 } from '@/types/pharmacy'
 
 /**
+ * Extract item name from a catalog item with relations
+ */
+function getItemName(item: UnitCatalogItemWithRelations): string | null {
+  if (item.item_type === 'drug') {
+    return (
+      item.drug?.drug_name ||
+      item.appl_drug?.item_name ||
+      item.lp_drug?.item_name ||
+      item.contract?.item_name ||
+      null
+    )
+  }
+  return (
+    item.non_drug?.item_name ||
+    item.appl_non_drug?.item_name ||
+    item.lp_non_drug?.item_name ||
+    item.contract?.item_name ||
+    null
+  )
+}
+
+/**
  * Get catalog items for a specific catalog
  */
 export async function getCatalogItems(
   catalogId: string,
   itemType?: CatalogItemType,
   page: number = 1,
-  pageSize: number = 50
+  pageSize: number = 50,
+  categoryId?: string,
+  therapeuticClassId?: string
 ): Promise<ApiResponse<PaginatedResponse<UnitCatalogItemWithRelations>>> {
   try {
+    // If filtering by category, we force inner join on drugs to filter by category_id
+    // This effectively filters out non-drugs and drugs not in the category
+    const drugJoinType = (categoryId || therapeuticClassId) ? '!inner' : ''
+
     let query = supabase
       .from('pharmacy_unit_catalog_items')
       .select(
         `
         *,
-        drug:drugs(id, drug_code, drug_name, generic_name, brand_name, unit_of_measure, status),
-        non_drug:non_drugs(id, item_code, item_name, unit_of_measure, status),
+        drug:drugs${drugJoinType}(id, drug_code, drug_name, generic_name, brand_name, unit_of_measure, status, packaging_description, sku, pku, procurement_vote, category:drug_categories!category_id(*), therapeutic_class:drug_categories!therapeutic_class_id(*)),
+        non_drug:non_drugs(id, item_code, item_name, unit_of_measure, status, packaging_description, sku, pku, procurement_vote),
+        contract:contracts(id, contract_number, item_name, supplier_name),
+        appl_drug:appl_drugs(id, item_code, item_name, packaging_description, price),
+        appl_non_drug:appl_non_drugs(id, item_code, item_name, packaging_description, price),
+        lp_drug:lp_drugs(id, item_code, item_name, packaging_description, price),
+        lp_non_drug:lp_non_drugs(id, item_code, item_name, packaging_description, price),
         last_updated_by_user:users!pharmacy_unit_catalog_items_last_updated_by_fkey(id, full_name, email)
       `,
         { count: 'exact' }
@@ -37,6 +70,14 @@ export async function getCatalogItems(
 
     if (itemType) {
       query = query.eq('item_type', itemType)
+    }
+
+    if (categoryId) {
+      query = query.eq('drug.category_id', categoryId)
+    }
+
+    if (therapeuticClassId) {
+      query = query.eq('drug.therapeutic_class_id', therapeuticClassId)
     }
 
     const from = (page - 1) * pageSize
@@ -81,8 +122,13 @@ export async function getCatalogItem(
       .select(
         `
         *,
-        drug:drugs(id, drug_code, drug_name, generic_name, brand_name, unit_of_measure, status),
-        non_drug:non_drugs(id, item_code, item_name, unit_of_measure, status),
+        drug:drugs(id, drug_code, drug_name, generic_name, brand_name, unit_of_measure, status, packaging_description, sku, pku, procurement_vote, category_id, therapeutic_class_id, category:drug_categories!category_id(*), therapeutic_class:drug_categories!therapeutic_class_id(*)),
+        non_drug:non_drugs(id, item_code, item_name, unit_of_measure, status, packaging_description, sku, pku, procurement_vote, category_id),
+        contract:contracts(id, contract_number, item_name, supplier_name),
+        appl_drug:appl_drugs(id, item_code, item_name, packaging_description, price),
+        appl_non_drug:appl_non_drugs(id, item_code, item_name, packaging_description, price),
+        lp_drug:lp_drugs(id, item_code, item_name, packaging_description, price),
+        lp_non_drug:lp_non_drugs(id, item_code, item_name, packaging_description, price),
         last_updated_by_user:users!pharmacy_unit_catalog_items_last_updated_by_fkey(id, full_name, email),
         catalog:pharmacy_unit_catalog(id, department_id, hospital_id)
       `
@@ -122,21 +168,31 @@ export async function addCatalogItem(
       is_active: itemData.is_active,
       min_limit: itemData.min_limit,
       max_limit: itemData.max_limit || null,
+      reorder_level: itemData.reorder_level || 1,
       last_updated_by: userId,
       last_updated_at: new Date().toISOString(),
+      contract_id: itemData.contract_id || null,
+      contract_number: itemData.contract_number || null,
+      appl_drug_id: itemData.appl_drug_id || null,
+      appl_non_drug_id: itemData.appl_non_drug_id || null,
+      lp_drug_id: itemData.lp_drug_id || null,
+      lp_non_drug_id: itemData.lp_non_drug_id || null,
+      procurement_vote: itemData.procurement_vote || null,
     }
 
     if (itemData.item_type === 'drug') {
-      if (!itemData.drug_id) {
-        throw new Error('Drug ID is required for drug items')
+      // Relax validation: Drug ID is optional if we have an external source ID
+      if (!itemData.drug_id && !itemData.appl_drug_id && !itemData.lp_drug_id && !itemData.contract_id) {
+        throw new Error('Drug ID or valid Source ID is required for drug items')
       }
-      insertData.drug_id = itemData.drug_id
+      insertData.drug_id = itemData.drug_id || null
       insertData.non_drug_id = null
     } else {
-      if (!itemData.non_drug_id) {
-        throw new Error('Non-drug ID is required for non-drug items')
+      // Relax validation here too if needed, though usually non_drugs are simpler
+      if (!itemData.non_drug_id && !itemData.appl_non_drug_id && !itemData.lp_non_drug_id) {
+        throw new Error('Non-drug ID or valid Source ID is required for non-drug items')
       }
-      insertData.non_drug_id = itemData.non_drug_id
+      insertData.non_drug_id = itemData.non_drug_id || null
       insertData.drug_id = null
     }
 
@@ -156,6 +212,8 @@ export async function addCatalogItem(
       'created',
       null,
       data,
+      data.id,
+      itemData.item_name,
       'Item added to catalog'
     )
 
@@ -190,21 +248,29 @@ export async function addCatalogItems(
         is_active: itemData.is_active,
         min_limit: itemData.min_limit,
         max_limit: itemData.max_limit || null,
+        reorder_level: itemData.reorder_level || 1,
         last_updated_by: userId,
         last_updated_at: new Date().toISOString(),
+        contract_id: itemData.contract_id || null,
+        contract_number: itemData.contract_number || null,
+        appl_drug_id: itemData.appl_drug_id || null,
+        appl_non_drug_id: itemData.appl_non_drug_id || null,
+        lp_drug_id: itemData.lp_drug_id || null,
+        lp_non_drug_id: itemData.lp_non_drug_id || null,
+        procurement_vote: itemData.procurement_vote || null,
       }
 
       if (itemData.item_type === 'drug') {
-        if (!itemData.drug_id) {
-          throw new Error('Drug ID is required for drug items')
+        if (!itemData.drug_id && !itemData.appl_drug_id && !itemData.lp_drug_id && !itemData.contract_id) {
+          throw new Error('Drug ID or valid Source ID is required for drug items')
         }
-        baseData.drug_id = itemData.drug_id
+        baseData.drug_id = itemData.drug_id || null
         baseData.non_drug_id = null
       } else {
-        if (!itemData.non_drug_id) {
-          throw new Error('Non-drug ID is required for non-drug items')
+        if (!itemData.non_drug_id && !itemData.appl_non_drug_id && !itemData.lp_non_drug_id) {
+          throw new Error('Non-drug ID or valid Source ID is required for non-drug items')
         }
-        baseData.non_drug_id = itemData.non_drug_id
+        baseData.non_drug_id = itemData.non_drug_id || null
         baseData.drug_id = null
       }
 
@@ -219,7 +285,9 @@ export async function addCatalogItems(
     if (error) throw error
 
     // Log changes for each item
-    for (const item of data || []) {
+    for (let i = 0; i < (data || []).length; i++) {
+      const item = data![i]
+      const originalItem = items[i]
       await logCatalogItemChange(
         catalogId,
         hospitalId,
@@ -227,6 +295,8 @@ export async function addCatalogItems(
         'created',
         null,
         item,
+        item.id,
+        originalItem.item_name,
         'Bulk item addition'
       )
     }
@@ -261,6 +331,7 @@ export async function updateCatalogItem(
       throw new Error(oldItemResult.error || 'Failed to fetch old item data')
     }
     const oldItem = oldItemResult.data
+    const itemName = getItemName(oldItem)
 
     const updateData: any = {
       last_updated_by: userId,
@@ -275,6 +346,35 @@ export async function updateCatalogItem(
     }
     if (updates.max_limit !== undefined) {
       updateData.max_limit = updates.max_limit || null
+    }
+    if (updates.reorder_level !== undefined) {
+      updateData.reorder_level = updates.reorder_level
+    }
+
+    // Update drug/non-drug classifications if provided
+    if (oldItem.item_type === 'drug' && oldItem.drug_id) {
+      const drugUpdates: any = {}
+      if (updates.category_id !== undefined) drugUpdates.category_id = updates.category_id
+      if (updates.therapeutic_class_id !== undefined) drugUpdates.therapeutic_class_id = updates.therapeutic_class_id
+      if (updates.procurement_vote !== undefined) drugUpdates.procurement_vote = updates.procurement_vote
+
+      if (Object.keys(drugUpdates).length > 0) {
+        const { error: drugError } = await supabase
+          .from('drugs')
+          .update(drugUpdates)
+          .eq('id', oldItem.drug_id)
+
+        if (drugError) throw drugError
+      }
+    } else if (oldItem.item_type === 'non_drug' && oldItem.non_drug_id) {
+      if (updates.procurement_vote !== undefined) {
+        const { error: nonDrugError } = await supabase
+          .from('non_drugs')
+          .update({ procurement_vote: updates.procurement_vote })
+          .eq('id', oldItem.non_drug_id)
+
+        if (nonDrugError) throw nonDrugError
+      }
     }
 
     const { data, error } = await supabase
@@ -297,6 +397,8 @@ export async function updateCatalogItem(
         'is_active',
         oldItem.is_active,
         updates.is_active,
+        itemId,
+        itemName,
         'Item status updated'
       )
     }
@@ -309,6 +411,8 @@ export async function updateCatalogItem(
         'min_limit',
         oldItem.min_limit,
         updates.min_limit,
+        itemId,
+        itemName,
         'Minimum limit updated'
       )
     }
@@ -321,7 +425,70 @@ export async function updateCatalogItem(
         'max_limit',
         oldItem.max_limit,
         updates.max_limit,
+        itemId,
+        itemName,
         'Maximum limit updated'
+      )
+    }
+    if (updates.reorder_level !== undefined && updates.reorder_level !== oldItem.reorder_level) {
+      changedFields.push('reorder_level')
+      await logCatalogItemChange(
+        catalogId,
+        hospitalId,
+        userId,
+        'reorder_level',
+        oldItem.reorder_level,
+        updates.reorder_level,
+        itemId,
+        itemName,
+        'Buffer quantity updated'
+      )
+    }
+
+    // Log classification changes
+    if (oldItem.item_type === 'drug') {
+      const oldDrug = oldItem.drug
+      if (updates.category_id !== undefined && updates.category_id !== oldDrug?.category_id) {
+        await logCatalogItemChange(
+          catalogId,
+          hospitalId,
+          userId,
+          'category_id',
+          oldDrug?.category_id,
+          updates.category_id,
+          itemId,
+          itemName,
+          'Category updated'
+        )
+      }
+      if (updates.therapeutic_class_id !== undefined && updates.therapeutic_class_id !== oldDrug?.therapeutic_class_id) {
+        await logCatalogItemChange(
+          catalogId,
+          hospitalId,
+          userId,
+          'therapeutic_class_id',
+          oldDrug?.therapeutic_class_id,
+          updates.therapeutic_class_id,
+          itemId,
+          itemName,
+          'Therapeutic class updated'
+        )
+      }
+    }
+
+    // Log procurement vote changes
+    const oldVote = oldItem.item_type === 'drug' ? oldItem.drug?.procurement_vote : oldItem.non_drug?.procurement_vote
+    if (updates.procurement_vote !== undefined && updates.procurement_vote !== oldVote) {
+      await logCatalogItemChange(
+        catalogId,
+        hospitalId,
+        userId,
+        'procurement_vote',
+        oldVote,
+        updates.procurement_vote,
+        itemId,
+        itemName,
+        'Procurement source updated'
       )
     }
 
@@ -371,21 +538,24 @@ export async function deleteCatalogItem(
         'deleted',
         itemResult.data,
         null,
+        itemId,
+        getItemName(itemResult.data),
         'Item removed from catalog'
       )
+
+      const { error } = await supabase
+        .from('pharmacy_unit_catalog_items')
+        .delete()
+        .eq('id', itemId)
+
+      if (error) throw error
+
+      return {
+        data: undefined,
+        error: null,
+      }
     }
-
-    const { error } = await supabase
-      .from('pharmacy_unit_catalog_items')
-      .delete()
-      .eq('id', itemId)
-
-    if (error) throw error
-
-    return {
-      data: undefined,
-      error: null,
-    }
+    throw new Error(itemResult.error || 'Item not found')
   } catch (error) {
     console.error('Error deleting catalog item:', error)
     return {
@@ -458,6 +628,8 @@ async function logCatalogItemChange(
   fieldName: string,
   oldValue: any,
   newValue: any,
+  itemId?: string | null,
+  itemName?: string | null,
   reason?: string
 ): Promise<void> {
   try {
@@ -470,6 +642,8 @@ async function logCatalogItemChange(
       old_value: oldValue !== null && oldValue !== undefined ? oldValue : null,
       new_value: newValue !== null && newValue !== undefined ? newValue : null,
       change_reason: reason || null,
+      item_id: itemId || null,
+      item_name: itemName || null,
     })
   } catch (error) {
     console.error('Error logging catalog item change:', error)
@@ -477,3 +651,55 @@ async function logCatalogItemChange(
   }
 }
 
+/**
+ * Search all active catalog items for a hospital
+ */
+export async function searchCatalogItems(
+  hospitalId: string,
+  searchQuery: string,
+  itemType?: CatalogItemType
+): Promise<ApiResponse<UnitCatalogItemWithRelations[]>> {
+  try {
+    let query = supabase
+      .from('pharmacy_unit_catalog_items')
+      .select(`
+        *,
+        drug:drugs(*, category:drug_categories!category_id(*), therapeutic_class:drug_categories!therapeutic_class_id(*)),
+        non_drug:non_drugs(*)
+      `)
+      .eq('hospital_id', hospitalId)
+      .eq('is_active', true)
+
+    if (itemType) {
+      query = query.eq('item_type', itemType)
+    }
+
+    const { data, error } = await query.limit(100)
+
+    if (error) throw error
+
+    let items = (data || []) as UnitCatalogItemWithRelations[]
+
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase()
+      items = items.filter(item => {
+        const name = item.item_type === 'drug'
+          ? item.drug?.drug_name
+          : item.non_drug?.item_name
+        const code = item.item_type === 'drug'
+          ? item.drug?.drug_code
+          : item.non_drug?.item_code
+
+        return name?.toLowerCase().includes(q) || code?.toLowerCase().includes(q)
+      })
+    }
+
+    return { data: items, error: null }
+  } catch (error) {
+    console.error('Error searching catalog items:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to search catalog items',
+    }
+  }
+}

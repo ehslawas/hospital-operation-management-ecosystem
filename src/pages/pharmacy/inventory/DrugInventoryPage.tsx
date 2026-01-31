@@ -14,12 +14,14 @@ export const DrugInventoryPage: React.FC = () => {
 
   const [drugs, setDrugs] = useState<DrugWithRelations[]>([])
   const [categories, setCategories] = useState<DrugCategory[]>([])
+  const [therapeuticClasses, setTherapeuticClasses] = useState<DrugCategory[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Filters
   const [search, setSearch] = useState('')
   const [categoryId, setCategoryId] = useState('')
+  const [therapeuticClassId, setTherapeuticClassId] = useState('')
   const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('all')
 
   // Pagination
@@ -33,7 +35,17 @@ export const DrugInventoryPage: React.FC = () => {
     const loadCategories = async () => {
       const res = await getDrugCategories()
       if (res.data) {
-        setCategories(res.data)
+        // Split categories into FUKKM (standard) and Therapeutic Classes
+        // Classification Logic:
+        // FUKKM Categories: Short codes (e.g., A, B, C, A*) - Length usually <= 3
+        // Therapeutic Classes: Descriptive codes (e.g., ANTIBIOTICS) - Length > 3
+
+        const allCats = res.data
+        const therapeutic = allCats.filter(c => (c.category_code?.length || 0) > 3)
+        const fukkm = allCats.filter(c => (c.category_code?.length || 0) <= 3)
+
+        setCategories(fukkm)
+        setTherapeuticClasses(therapeutic)
       }
     }
     void loadCategories()
@@ -49,6 +61,7 @@ export const DrugInventoryPage: React.FC = () => {
     const filter: DrugCatalogFilter = {
       search: search || undefined,
       category_id: categoryId || undefined,
+      therapeutic_class_id: therapeuticClassId || undefined,
       status: status === 'all' ? undefined : (status as 'active' | 'inactive'),
     }
 
@@ -64,7 +77,7 @@ export const DrugInventoryPage: React.FC = () => {
     }
 
     setIsLoading(false)
-  }, [isSessionReady, hospitalId, search, categoryId, status, page])
+  }, [isSessionReady, hospitalId, search, categoryId, therapeuticClassId, status, page])
 
   useEffect(() => {
     void loadDrugs()
@@ -73,7 +86,7 @@ export const DrugInventoryPage: React.FC = () => {
   // Reset page when filters change
   useEffect(() => {
     setPage(1)
-  }, [search, categoryId, status])
+  }, [search, categoryId, therapeuticClassId, status])
 
   const renderStatusBadge = (itemStatus: 'active' | 'inactive') => {
     return itemStatus === 'active' ? (
@@ -124,10 +137,22 @@ export const DrugInventoryPage: React.FC = () => {
         </div>
 
         <div className="w-full md:w-48">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Category</label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Category (FUKKM)</label>
           <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
             <option value="">All Categories</option>
             {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.category_name}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        <div className="w-full md:w-48">
+          <label className="block text-xs font-medium text-gray-600 mb-1">Therapeutic Class</label>
+          <Select value={therapeuticClassId} onChange={(e) => setTherapeuticClassId(e.target.value)}>
+            <option value="">All Classes</option>
+            {therapeuticClasses.map((cat) => (
               <option key={cat.id} value={cat.id}>
                 {cat.category_name}
               </option>
@@ -180,7 +205,8 @@ export const DrugInventoryPage: React.FC = () => {
                   <TableCell as="th">Generic</TableCell>
                   <TableCell as="th">Form</TableCell>
                   <TableCell as="th">Strength</TableCell>
-                  <TableCell as="th">Category</TableCell>
+                  <TableCell as="th">Category (FUKKM)</TableCell>
+                  <TableCell as="th">Therapeutic Class</TableCell>
                   <TableCell as="th" className="text-center">Controlled</TableCell>
                   <TableCell as="th" className="text-center">Stock</TableCell>
                   <TableCell as="th" className="text-center">Status</TableCell>
@@ -214,6 +240,9 @@ export const DrugInventoryPage: React.FC = () => {
                     </TableCell>
                     <TableCell className="text-xs text-gray-500">
                       {drug.category?.category_name || '—'}
+                    </TableCell>
+                    <TableCell className="text-xs text-gray-500">
+                      {drug.therapeutic_class?.category_name || '—'}
                     </TableCell>
                     <TableCell className="text-center">
                       {drug.is_controlled ? (

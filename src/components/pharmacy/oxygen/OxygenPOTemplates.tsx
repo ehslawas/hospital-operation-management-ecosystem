@@ -197,15 +197,15 @@ export const OxygenPurchaseOrderTemplate: React.FC<OxygenPurchaseOrderTemplatePr
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td className="border border-gray-600 px-2 py-1 text-xs text-center font-semibold">1</td>
-                                    <td className="border border-gray-600 px-2 py-1 text-xs font-bold uppercase">{cylinderType}</td>
-                                    <td className="border border-gray-600 px-2 py-1 text-xs text-center font-semibold">{items.length} UNIT</td>
-                                    <td className="border border-gray-600 px-2 py-1 text-xs text-right font-semibold">{formatCurrency(total / (items.length || 1))}</td>
-                                    <td className="border border-gray-600 px-2 py-1 text-xs text-right font-bold">{formatCurrency(total)}</td>
+                                    <td className="border border-gray-600 px-2 py-3 text-xs text-center font-semibold">1</td>
+                                    <td className="border border-gray-600 px-2 py-3 text-xs font-bold uppercase">{cylinderType}</td>
+                                    <td className="border border-gray-600 px-2 py-3 text-xs text-center font-semibold">{items.length} UNIT</td>
+                                    <td className="border border-gray-600 px-2 py-3 text-xs text-right font-semibold">{formatCurrency(total / (items.length || 1))}</td>
+                                    <td className="border border-gray-600 px-2 py-3 text-xs text-right font-bold">{formatCurrency(total)}</td>
                                 </tr>
                                 <tr className="bg-gray-200 font-bold border-t-2 border-gray-800">
-                                    <td colSpan={4} className="border border-gray-800 px-2 py-2 text-xs uppercase text-right">JUMLAH KESELURUHAN:</td>
-                                    <td className="border border-gray-800 px-2 py-2 text-xs text-right">{formatCurrency(total)}</td>
+                                    <td colSpan={4} className="border border-gray-800 px-2 py-4 text-xs uppercase text-right">JUMLAH KESELURUHAN:</td>
+                                    <td className="border border-gray-800 px-2 py-4 text-xs text-right">{formatCurrency(total)}</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -216,10 +216,10 @@ export const OxygenPurchaseOrderTemplate: React.FC<OxygenPurchaseOrderTemplatePr
                     <div className="px-8 py-4 bg-white border-t-2 border-gray-800">
                         <div className="flex gap-6 items-end">
                             <div className="w-[55%] flex flex-col justify-end items-center pb-2">
-                                <div className="border-b-2 border-gray-800 w-[80%] mx-auto mb-2"></div>
-                                <p className="text-[11pt] font-bold text-gray-900 mb-1 leading-tight">(Tandatangan)</p>
-                                <p className="text-[10pt] font-bold text-gray-800 mb-1 leading-tight">Pegawai Yang Mengesahkan Peruntukan</p>
-                                <p className="text-[10pt] font-bold text-gray-800 leading-tight">Pengarah Hospital Lawas</p>
+                                <div className="border-b-2 border-gray-800 w-[80%] mx-auto mb-4"></div>
+                                <p className="text-[11pt] font-bold text-gray-900 mb-2">(Tandatangan)</p>
+                                <p className="text-[10pt] font-bold text-gray-800 text-center mb-1">Pegawai Yang Mengesahkan Peruntukan</p>
+                                <p className="text-[10pt] font-bold text-gray-800">Pengarah Hospital Lawas</p>
                             </div>
                             <div className="w-[45%] flex flex-col justify-end">
                                 <table className="w-full border-collapse border-2 border-gray-800 bg-white" style={{ tableLayout: 'fixed' }}>

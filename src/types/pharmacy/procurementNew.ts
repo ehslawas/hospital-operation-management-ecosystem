@@ -59,7 +59,7 @@ export interface OrderTracking extends BaseEntity {
     kkm_contract_number?: string
     tarikh_serahan?: string
 
-    status: 'pending' | 'in_transit' | 'delivered' | 'overdue'
+    status: 'pending' | 'in_transit' | 'received' | 'delivered' | 'overdue'
     is_overdue: boolean
     days_overdue: number
 

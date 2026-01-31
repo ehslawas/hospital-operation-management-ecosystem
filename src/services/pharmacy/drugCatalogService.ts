@@ -14,6 +14,7 @@ import type { Drug, DrugWithRelations } from '@/types/pharmacy'
 export interface DrugCatalogFilter {
   search?: string
   category_id?: string
+  therapeutic_class_id?: string
   supplier_id?: string
   procurement_vote?: 'appl' | 'cc' | 'dp' | 'lp'
   status?: 'active' | 'inactive'
@@ -75,7 +76,7 @@ export async function getDrugCatalog(
   try {
     let query = supabase
       .from('drugs')
-      .select('*', { count: 'exact' })
+      .select('*, category:drug_categories!category_id(*), therapeutic_class:drug_categories!therapeutic_class_id(*), supplier:suppliers(*)', { count: 'exact' })
       .eq('hospital_id', hospitalId)
 
     // Apply filters
@@ -86,6 +87,10 @@ export async function getDrugCatalog(
 
     if (filter?.category_id) {
       query = query.eq('category_id', filter.category_id)
+    }
+
+    if (filter?.therapeutic_class_id) {
+      query = query.eq('therapeutic_class_id', filter.therapeutic_class_id)
     }
 
     if (filter?.supplier_id) {
@@ -282,6 +287,7 @@ export async function createDrug(
       strength: drugData.strength || null,
       unit_of_measure: drugData.unit_of_measure || 'unit',
       category_id: drugData.category_id || null,
+      therapeutic_class_id: drugData.therapeutic_class_id || null,
       is_controlled: drugData.is_controlled || false,
       requires_prescription: drugData.requires_prescription || false,
       storage_conditions: drugData.storage_conditions || null,
@@ -661,4 +667,3 @@ export async function batchImportDrugs(
     }
   }
 }
-

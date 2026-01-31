@@ -9,12 +9,7 @@ import { checkFileDuplicate, recordFileUpload, updateUploadRecord } from '@/serv
 import { useAuthStore } from '@/stores/authStore'
 import type { NonDrugCategory, DrugCategory } from '@/types/pharmacy'
 
-// Declare XLSX on window for CDN import
-declare global {
-  interface Window {
-    XLSX: any
-  }
-}
+import readXlsxFile from 'read-excel-file'
 
 export interface ColumnMapping {
   excelColumn: string
@@ -729,6 +724,55 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
     }
 
     setFile(selectedFile)
+
+    // Parse Excel/CSV file immediately if it's an excel file
+    if (fileType === 'excel') {
+      setIsProcessing(true)
+      try {
+        const rows = await readXlsxFile(selectedFile)
+
+        if (rows.length < 2) {
+          setImportResult({
+            success: 0,
+            errors: ['File appears to be empty or has no data rows']
+          })
+          setIsProcessing(false)
+          return
+        }
+
+        // Extract headers (first row) and data
+        // read-excel-file returns array of arrays: [[header1, header2], [val1, val2], ...]
+        // We ensure headers are strings
+        const headers = rows[0].map(h => String(h || ''))
+        const dataRows = rows.slice(1) // Data starts from row 2
+
+        // Convert to array of objects for compatibility with existing logic
+        // [{ "Drug Name": "Paracetamol", "Code": "123" }, ...]
+        const jsonData = dataRows.map(row => {
+          const obj: Record<string, any> = {}
+          headers.forEach((header, index) => {
+            obj[header] = row[index]
+          })
+          return obj
+        })
+
+        setExcelColumns(headers)
+        setExcelData(jsonData)
+
+        // Auto-map columns
+        const suggestedMappings = mapColumns(headers, targetFields, catalogType)
+        setMappings(suggestedMappings)
+
+        setIsProcessing(false)
+      } catch (err) {
+        console.error('Error reading excel file:', err)
+        setImportResult({
+          success: 0,
+          errors: ['Failed to parse Excel file. Please ensure it is a valid .xlsx file.']
+        })
+        setIsProcessing(false)
+      }
+    }
 
     // Handle Vision AI analysis for images/PDFs
     if ((fileType === 'image' || fileType === 'pdf') && catalogType) {

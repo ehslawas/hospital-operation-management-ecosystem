@@ -107,6 +107,7 @@ export interface Drug extends BaseEntity {
   strength?: string
   unit_of_measure: string
   category_id?: string
+  therapeutic_class_id?: string
   is_controlled: boolean
   requires_prescription: boolean
   storage_conditions?: string
@@ -128,6 +129,7 @@ export interface Drug extends BaseEntity {
 
 export interface DrugWithRelations extends Drug {
   category?: DrugCategory
+  therapeutic_class?: DrugCategory
   hospital?: Hospital
   supplier?: Supplier
   current_stock?: number
@@ -596,6 +598,25 @@ export interface Budget extends BaseEntity {
   created_by: string
   approved_by?: string
   status: 'active' | 'closed'
+}
+
+// =====================================================
+// STOCK LOCATION ITEMS
+// =====================================================
+
+export interface StockLocationItem {
+  id: string
+  location_id: string
+  unit_catalog_item_id: string
+  min_stock: number
+  max_stock: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface StockLocationItemWithRelations extends StockLocationItem {
+  unit_catalog_item?: UnitCatalogItemWithRelations
 }
 
 export interface BudgetWithRelations extends Budget {
@@ -1210,7 +1231,7 @@ export interface Contract extends BaseEntity {
   unit_price?: number // Harga (RM) - Price per unit in Ringgit Malaysia
   currency?: string // Currency (default: MYR)
   delivery_period?: string // Tempoh Serahan - Expected delivery timeframe
-  sst_rate?: string // SST - Sales and Service Tax rate/amount
+  packaging_description?: string // Added
   status: ContractCatalogStatus
   metadata?: Record<string, unknown> // Additional fields (notes, custom fields)
   uploaded_file_id?: string // Link to uploaded_files table
@@ -1493,6 +1514,7 @@ export interface UnitCatalogChange extends BaseEntity {
   change_reason?: string | null
   ip_address?: string | null
   user_agent?: string | null
+  item_name?: string | null
 }
 
 export interface UnitCatalogChangeWithRelations extends UnitCatalogChange {
@@ -1546,9 +1568,18 @@ export interface UnitCatalogItem extends BaseEntity {
   item_type: CatalogItemType
   drug_id?: string | null
   non_drug_id?: string | null
+  contract_id?: string | null
+  contract_number?: string | null
+  appl_drug_id?: string | null
+  appl_non_drug_id?: string | null
+  lp_drug_id?: string | null
+  lp_non_drug_id?: string | null
+  procurement_vote?: string | null
   is_active: boolean
   min_limit: number
   max_limit?: number | null
+  reorder_level: number
+  reorder_qty?: number | null
   last_updated_at?: string | null
   last_updated_by?: string | null
 }
@@ -1556,6 +1587,11 @@ export interface UnitCatalogItem extends BaseEntity {
 export interface UnitCatalogItemWithRelations extends UnitCatalogItem {
   drug?: Drug
   non_drug?: NonDrug
+  contract?: Contract
+  appl_drug?: ApplDrug
+  appl_non_drug?: ApplNonDrug
+  lp_drug?: LpDrug
+  lp_non_drug?: LpNonDrug
   last_updated_by_user?: User
   catalog?: UnitCatalog
 }
@@ -1564,9 +1600,20 @@ export interface UnitCatalogItemFormData {
   item_type: CatalogItemType
   drug_id?: string | null
   non_drug_id?: string | null
+  contract_id?: string | null
+  contract_number?: string | null
+  appl_drug_id?: string | null
+  appl_non_drug_id?: string | null
+  lp_drug_id?: string | null
+  lp_non_drug_id?: string | null
+  procurement_vote?: string | null
   is_active: boolean
   min_limit: number
   max_limit?: number | null
+  reorder_level: number
+  category_id?: string | null
+  therapeutic_class_id?: string | null
+  item_name?: string | null
 }
 
 export interface UnitCatalogWithItemCounts extends UnitCatalogWithRelations {
@@ -1763,6 +1810,32 @@ export interface UnitCatalogFormData {
   max_non_drug_items?: number | null
   status: UnitCatalogStatus
   responsible_user_id?: string | null
-  notes?: string | null
   update_reason?: string | null
+}
+
+export interface GroupedItemSource {
+  type: 'master' | 'contract' | 'appl' | 'lp'
+  id: string // drug.id, contract.id, appl_drug.id or lp_drug.id
+  contract_number?: string
+  supplier_name?: string
+  price?: number
+  packaging?: string
+  unit?: string
+  sku?: string
+  pku?: string
+  packaging_description?: string
+}
+
+export interface GroupedAvailableItem {
+  id: string // The Master Item ID (drug_id or non_drug_id)
+  item_name: string
+  item_code: string
+  generic_name?: string
+  unit_of_measure: string
+  item_type: 'drug' | 'non_drug'
+  sku?: string
+  pku?: string
+  packaging_description?: string
+  sources: GroupedItemSource[]
+  already_in_catalog?: boolean
 }

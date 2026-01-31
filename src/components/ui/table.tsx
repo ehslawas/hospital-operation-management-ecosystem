@@ -1,4 +1,5 @@
 import React from 'react';
+import { FileX2 } from 'lucide-react';
 
 export interface Column<T> {
   key: string;
@@ -281,7 +282,7 @@ interface TableEmptyProps {
   colSpan?: number;
 }
 
-import { FileX2 } from 'lucide-react';
+// Import moved to top
 
 export function TableEmpty({
   message = 'No data available',

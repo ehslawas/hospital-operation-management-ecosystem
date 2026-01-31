@@ -28,10 +28,18 @@ import {
     type OxygenDeptRequestWithRelations
 } from '@/services/pharmacy/oxygenDepartmentService'
 import { getOxygenCylinderSizes } from '@/services/pharmacy/oxygenService'
-import { getDepartments } from '@/services/departmentService'
+import { getDepartmentsByHospital } from '@/services/departmentService'
 import { generateIssuanceNotePDF } from '@/services/pharmacy/IssuanceNotePDF'
 import type { Column } from '@/types'
 import { formatDate } from '@/lib/utils'
+import { useOnlineStatus } from '@/hooks/useOnlineStatus'
+import {
+    addToOfflineIssueQueue,
+    getOfflineIssueQueue,
+    removeFromOfflineIssueQueue,
+    OfflineIssueItem
+} from '@/services/pharmacy/offlineStorageService'
+import { Wifi, WifiOff, RefreshCw, Database } from 'lucide-react'
 
 // Hardcoded department list from the user's reference photo for 100% accuracy
 const GOVERNMENT_DEPARTMENTS = [
@@ -72,6 +80,11 @@ export const IssueToDepartment: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false)
     const [departments, setDepartments] = useState<any[]>([])
     const [sizes, setSizes] = useState<any[]>([])
+
+    // Offline State
+    const isOnline = useOnlineStatus()
+    const [offlineQueue, setOfflineQueue] = useState<OfflineIssueItem[]>([])
+    const [isSyncing, setIsSyncing] = useState(false)
 
     // Issue Form State
     const [selectedRequest, setSelectedRequest] = useState<OxygenDeptRequestWithRelations | null>(null)
@@ -138,13 +151,67 @@ export const IssueToDepartment: React.FC = () => {
 
     const loadMasterData = async () => {
         if (!user?.hospital_id) return
-        const [dRes, sRes] = await Promise.all([
-            getDepartments({ hospitalId: user.hospital_id }),
+
+        // Load offline queue
+        setOfflineQueue(getOfflineIssueQueue())
+
+        if (!isOnline) return // Skip network calls if offline
+
+        const [deptList, sRes] = await Promise.all([
+            getDepartmentsByHospital(user.hospital_id),
             getOxygenCylinderSizes()
         ])
 
-        if (dRes.data) setDepartments(dRes.data)
+        if (deptList) setDepartments(deptList)
         if (sRes.data) setSizes(sRes.data)
+    }
+
+    // Effect to reload queue on mount
+    useEffect(() => {
+        setOfflineQueue(getOfflineIssueQueue())
+    }, [])
+
+    const handleSync = async () => {
+        if (!isOnline || offlineQueue.length === 0) return
+        if (!user?.hospital_id || !user?.id) return
+        setIsSyncing(true)
+
+        let successCount = 0
+        let failCount = 0
+
+        for (const item of offlineQueue) {
+            try {
+                // Determine department ID - if it was a name in offline mode, try to map it, or use as is if ID
+                // Ideally in offline mode we stored the ID if possible, or we need to resolve it now.
+                // For simplicity, we assume we had the ID available (cached departments) or we fail.
+
+                const res = await issueCylindersToDepartment(user.hospital_id!, {
+                    request_id: item.payload.request_id,
+                    department_id: item.payload.department_id,
+                    issued_by: user.id,
+                    issued_at: item.payload.issued_at,
+                    cylinders: item.payload.cylinders,
+                    requester_name: item.payload.requester_name,
+                    issuer_name: item.payload.issuer_name
+                })
+
+                if (res.error) throw new Error(res.error)
+
+                // Remove from queue on success
+                removeFromOfflineIssueQueue(item.id)
+                successCount++
+            } catch (err) {
+                console.error('Sync failed for item', item.id, err)
+                failCount++
+            }
+        }
+
+        setOfflineQueue(getOfflineIssueQueue())
+        setIsSyncing(false)
+        loadData() // Refresh live data
+
+        if (successCount > 0) toast.success('Sync Complete', `Successfully synced ${successCount} records.`)
+        if (failCount > 0) toast.error('Sync Issues', `Failed to sync ${failCount} records. Check connectivity.`)
     }
 
     const handleScan = (qr: string) => {
@@ -160,9 +227,33 @@ export const IssueToDepartment: React.FC = () => {
     const handleIssueSubmit = async () => {
         if (!user?.hospital_id || !user?.id) return
 
-        const deptId = selectedRequest ? selectedRequest.department_id : issueForm.department_id
+        let deptId = selectedRequest ? selectedRequest.department_id : ''
+
+        // Manual Mode: Resolve Name to UUID
+        if (!deptId && issueForm.department_id) {
+            const selectedName = issueForm.department_id
+            const matchedDept = departments.find(d =>
+                d.department_name?.toLowerCase() === selectedName.toLowerCase() ||
+                d.name?.toLowerCase() === selectedName.toLowerCase()
+            )
+
+            if (matchedDept) {
+                deptId = matchedDept.id
+            } else {
+                // Fallback: Check if the value itself happens to be a UUID (edge case)
+                const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedName)
+                if (isUuid) {
+                    deptId = selectedName
+                } else {
+                    console.error('Department Name resolution failed:', selectedName, departments)
+                    toast.error('Configuration Error', `Department "${selectedName}" is not registered in the system database.`)
+                    return
+                }
+            }
+        }
+
         if (!deptId) {
-            toast.error('Error', 'Please select a department')
+            toast.error('Error', 'Please select a valid department')
             return
         }
 
@@ -173,6 +264,48 @@ export const IssueToDepartment: React.FC = () => {
 
         setIsSubmitting(true)
         try {
+            // OFFLINE LOGIC
+            if (!isOnline) {
+                // 1. Create offline payload
+                const targetDept = departments.find(d => d.id === deptId)
+                const deptName = targetDept?.department_name || targetDept?.name || 'Unknown Dept'
+
+                addToOfflineIssueQueue({
+                    payload: {
+                        request_id: selectedRequest?.request_id,
+                        department_id: deptId,
+                        issued_by: user.id,
+                        issued_at: new Date().toISOString(),
+                        cylinders: issueForm.scannedQRs,
+                        requester_name: issueForm.requester_name,
+                        issuer_name: issueForm.issuer_name
+                    },
+                    meta: {
+                        dept_name: deptName
+                    }
+                })
+
+                // 2. Update Local State (Mock Success)
+                setOfflineQueue(getOfflineIssueQueue())
+                setLastIssuedRecord({
+                    dept_name: deptName,
+                    requester: issueForm.requester_name,
+                    issuer: issueForm.issuer_name,
+                    date: new Date().toISOString(),
+                    cylinders: issueForm.scannedQRs,
+                    requestId: 'PENDING-SYNC'
+                })
+
+                setIsIssueModalOpen(false)
+                setIssueForm({ department_id: '', scannedQRs: [], requester_name: '', issuer_name: user?.full_name || '' })
+                setSelectedRequest(null)
+                setIsSuccessModalOpen(true)
+
+                toast.success('Saved to Outbox', 'Record saved locally. Sync when online.')
+                return // Exit early
+            }
+
+            // ONLINE LOGIC
             const res = await issueCylindersToDepartment(user.hospital_id, {
                 request_id: selectedRequest?.request_id,
                 department_id: deptId,
@@ -185,10 +318,22 @@ export const IssueToDepartment: React.FC = () => {
 
             if (res.error) throw new Error(res.error)
 
+            // CHECK FOR APPROVAL REQUIREMENT
+            // The service might return approval_required: true
+            const resData = res.data as any
+            if (resData?.approval_required) {
+                toast.success('Approval Requested', 'Manager approval required for this issuance.')
+
+                setIsIssueModalOpen(false)
+                setIssueForm({ department_id: '', scannedQRs: [], requester_name: '', issuer_name: user?.full_name || '' })
+                setSelectedRequest(null)
+                loadData()
+                return // Stop here, do not show success modal for immediate issuance
+            }
+
             toast.success('Success', 'Cylinders issued successfully')
 
             // Capture for tracking and PDF
-            const resData = res.data as any;
             const targetDept = departments.find(d => d.id === deptId)
             setLastIssuedRecord({
                 dept_name: targetDept?.department_name || targetDept?.name || 'Unknown',
@@ -389,7 +534,29 @@ export const IssueToDepartment: React.FC = () => {
                         </h1>
                         <p className="text-slate-500 font-medium mt-1 uppercase tracking-wider text-[11px]">Cylinder Inventory Management & Issuance</p>
                     </div>
-                    <div className="flex gap-2 w-full md:w-auto">
+                    <div className="flex gap-2 w-full md:w-auto items-center">
+                        {/* OFFLINE INDICATOR */}
+                        {!isOnline && (
+                            <div className="flex items-center gap-2 px-3 py-1 bg-amber-100 text-amber-800 rounded-lg text-[10px] font-black uppercase tracking-wider animate-pulse border border-amber-200">
+                                <WifiOff className="w-3.5 h-3.5" />
+                                Offline Mode
+                            </div>
+                        )}
+
+                        {/* SYNC BUTTON */}
+                        {offlineQueue.length > 0 && (
+                            <Button
+                                onClick={handleSync}
+                                disabled={!isOnline || isSyncing}
+                                className={`h-11 px-4 font-black rounded-xl text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg transition-all ${isOnline
+                                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200'
+                                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                    }`}
+                            >
+                                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                                {isSyncing ? 'Syncing...' : `Sync (${offlineQueue.length})`}
+                            </Button>
+                        )}
 
                         <Button onClick={() => { setSelectedRequest(null); setIsIssueModalOpen(true); }} className="flex-1 md:flex-none bg-slate-900 hover:bg-black text-white h-11 px-6 font-black rounded-xl shadow-lg shadow-slate-200">
                             <QrCode className="w-4 h-4 mr-2" />
@@ -608,11 +775,13 @@ export const IssueToDepartment: React.FC = () => {
                                         disabled={isSubmitting || issueForm.scannedQRs.length === 0}
                                         isLoading={isSubmitting}
                                         className={`h-12 px-10 rounded-xl font-black text-white shadow-xl uppercase tracking-widest text-[11px] transition-all duration-300 ${issueForm.scannedQRs.length > 0
-                                            ? 'bg-slate-900 hover:bg-black shadow-slate-200'
+                                            ? isOnline
+                                                ? 'bg-slate-900 hover:bg-black shadow-slate-200'
+                                                : 'bg-amber-600 hover:bg-amber-700 shadow-amber-200'
                                             : 'bg-slate-200 shadow-none cursor-not-allowed text-slate-400'
                                             }`}
                                     >
-                                        Complete Issuance
+                                        {isOnline ? 'Complete Issuance' : 'Save Locally'}
                                     </Button>
                                 </div>
                             </div>
@@ -632,7 +801,9 @@ export const IssueToDepartment: React.FC = () => {
                             <CheckCircle2 className="w-10 h-10" />
                         </div>
                         <div>
-                            <h3 className="text-2xl font-black text-slate-900 tracking-tighter">Transaction Logged</h3>
+                            <h3 className="text-2xl font-black text-slate-900 tracking-tighter">
+                                {isOnline ? 'Transaction Logged' : 'Saved to Outbox'}
+                            </h3>
                             <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-2">Movement Reference: {lastIssuedRecord?.requestId || 'AUTOGEN'}</p>
                         </div>
                         <div className="bg-slate-50 border border-slate-200 p-6 rounded-2xl text-left space-y-4">

@@ -5,14 +5,33 @@ import { Modal, Button } from '@/components/ui';
 interface QRScannerProps {
     onScan: (data: string) => void;
     onClose: () => void;
+    allowMultiple?: boolean;
+    debounceMs?: number;
 }
 
-export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
+export const QRScanner: React.FC<QRScannerProps> = ({
+    onScan,
+    onClose,
+    allowMultiple = false,
+    debounceMs = 500
+}) => {
     const [error, setError] = useState<string | null>(null);
+    const lastScanRef = React.useRef<{ code: string; time: number } | null>(null);
 
     const handleScan = (detected: IDetectedBarcode[]) => {
         if (detected && detected.length > 0) {
-            onScan(detected[0].rawValue);
+            const code = detected[0].rawValue;
+            const now = Date.now();
+
+            // Debounce: skip if same code scanned within debounceMs
+            if (lastScanRef.current &&
+                lastScanRef.current.code === code &&
+                now - lastScanRef.current.time < debounceMs) {
+                return;
+            }
+
+            lastScanRef.current = { code, time: now };
+            onScan(code);
         }
     };
 
@@ -23,7 +42,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
                     <Scanner
                         onScan={handleScan}
                         onError={(err: any) => setError(err.message)}
-                        allowMultiple={false}
+                        allowMultiple={allowMultiple}
                         styles={{
                             container: { width: '100%', aspectRatio: '1/1' },
                             video: { borderRadius: '0.75rem' }

@@ -75,6 +75,7 @@ export const DashboardPage: React.FC = () => {
               return <GeneralWardDashboard />
 
             case SYSTEM_MODULES.LABORATORY:
+            case 'pathology':
               return <LaboratoryDashboard />
 
             case SYSTEM_MODULES.HAEMODIALYSIS:

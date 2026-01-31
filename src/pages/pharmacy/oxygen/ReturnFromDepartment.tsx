@@ -81,10 +81,12 @@ export const ReturnFromDepartment: React.FC = () => {
             }
 
             if (cylRes.data.status !== 'issued') {
+                console.warn('Invalid status for return:', cylRes.data.status, qr)
                 updateQueueStatus(qr, 'error', `INVALID STATUS: ${cylRes.data.status.toUpperCase()}. ONLY 'ISSUED' UNITS CAN BE RECOVERED.`)
                 return
             }
 
+            console.log('Valid return cylinder:', cylRes.data)
             updateQueueStatus(qr, 'scanned', undefined, cylRes.data)
         } catch (e) {
             updateQueueStatus(qr, 'error', 'Validation protocol failed')
@@ -254,28 +256,47 @@ export const ReturnFromDepartment: React.FC = () => {
                                 </div>
                             </Card>
 
-                            <Card className="p-8 border-slate-200 bg-slate-900 text-white shadow-2xl shadow-slate-900/20 rounded-3xl">
-                                <div className="flex justify-between items-start">
-                                    <div className="space-y-1">
-                                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Total Units</h3>
-                                        <p className="text-5xl font-black tracking-tighter">{scannedQRs.filter(i => i.status === 'scanned').length}</p>
+                            <Card className="p-8 border-slate-200/60 shadow-xl shadow-slate-900/5 bg-white rounded-3xl relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
+
+                                <div className="relative z-10 flex flex-col h-full justify-between min-h-[200px]">
+                                    <div className="flex justify-between items-start">
+                                        <div className="space-y-2">
+                                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Ready to Commit</h3>
+                                            <div className="flex items-baseline gap-2">
+                                                <p className="text-6xl font-black text-slate-900 tracking-tighter">
+                                                    {scannedQRs.filter(i => i.status === 'scanned').length}
+                                                </p>
+                                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Units</span>
+                                            </div>
+                                        </div>
+                                        <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center border border-slate-100">
+                                            <Hash className="w-5 h-5 text-slate-400" />
+                                        </div>
                                     </div>
-                                    <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center">
-                                        <Hash className="w-6 h-6 text-white" />
+
+                                    <div className="space-y-3 mt-8">
+                                        <Button
+                                            className={`w-full h-14 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] transition-all duration-300 shadow-lg ${scannedQRs.filter(i => i.status === 'scanned').length > 0
+                                                    ? 'bg-slate-900 text-white hover:bg-black hover:shadow-slate-900/20 hover:scale-[1.02]'
+                                                    : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed shadow-none'
+                                                }`}
+                                            onClick={processReturn}
+                                            disabled={isSubmitting || scannedQRs.filter(i => i.status === 'scanned').length === 0}
+                                            isLoading={isSubmitting}
+                                        >
+                                            Commit to Registry
+                                            <ArrowRight className="w-4 h-4 ml-3" />
+                                        </Button>
+
+                                        {scannedQRs.length > 0 && scannedQRs.filter(i => i.status === 'scanned').length === 0 && (
+                                            <div className="flex items-center justify-center gap-2 text-rose-500 bg-rose-50 py-2 rounded-lg">
+                                                <AlertCircle className="w-3 h-3" />
+                                                <p className="text-[9px] font-black uppercase tracking-widest">No Valid Units</p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
-                                <Button
-                                    className={`w-full mt-10 h-14 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] transition-all duration-300 ${scannedQRs.filter(i => i.status === 'scanned').length > 0
-                                        ? 'bg-white text-slate-900 hover:bg-slate-50 shadow-xl shadow-white/5'
-                                        : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
-                                        }`}
-                                    onClick={processReturn}
-                                    disabled={isSubmitting || scannedQRs.filter(i => i.status === 'scanned').length === 0}
-                                    isLoading={isSubmitting}
-                                >
-                                    Commit to Registry
-                                    <ArrowRight className="w-4 h-4 ml-3" />
-                                </Button>
                             </Card>
                         </div>
 

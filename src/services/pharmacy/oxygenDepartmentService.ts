@@ -232,9 +232,7 @@ export async function issueCylindersToDepartment(
                     request_id: finalRequestId,
                     department_id: data.department_id,
                     requested_by: data.issued_by, // Initiated by Pharmacy staff
-                    status: 'completed',
-                    approved_by: data.issued_by,
-                    approved_at: data.issued_at
+                    status: 'completed'
                 })
                 .select()
                 .single()

@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Printer, ShoppingCart, Edit2, Trash2, CheckCircle, FileCheck, Settings, XCircle, AlertTriangle, Plus } from 'lucide-react'
+import { ArrowLeft, Printer, ShoppingCart, Edit2, Trash2, CheckCircle, FileCheck, Settings, XCircle, AlertTriangle, Plus, QrCode } from 'lucide-react'
 import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
 import { JATA_LOGO_BASE64 } from '@/constants/logo';
 import { Button, Spinner, Badge, ConfirmationDialog, Modal, Input } from '@/components/ui'
 import { getPurchaseOrderById, rejectPurchaseOrder, deletePurchaseOrder, submitPurchaseOrder, approvePurchaseOrder, sendPurchaseOrder, updateApprovedPOItem } from '@/services/pharmacy/procurementService'
-import { findContractByNumber } from '@/services/pharmacy/contractCatalogService'
+import { findContractByNumber, getContractById } from '@/services/pharmacy/contractCatalogService'
 import { supabase } from '@/services/supabase'
 import { getWarrants, getWarrantSummary } from '@/services/pharmacy/warrantService'
 import { getPharmacyPOSignatures, updatePharmacyPOSignatures, type PharmacyPOSignatures, AUTHORIZED_SIGNATURE_DEPARTMENTS, DEPT_CODE_MAPPING } from '@/services/pharmacy/pharmacySettingsService'
@@ -16,6 +16,7 @@ import type { PurchaseOrderWithRelations, PurchaseOrderItem, ContractWithRelatio
 import { ReallocateAllocationModal } from '@/components/pharmacy/procurement/modals/ReallocateAllocationModal'
 import { BudgetDebug } from '@/components/shared/BudgetDebug'
 import { ROUTES, SYSTEM_ROLES } from '@/lib/constants'
+import { OxyIdentityCard } from '@/components/pharmacy/procurement/OxyIdentityCard'
 
 export const PurchaseOrderDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
@@ -57,6 +58,7 @@ export const PurchaseOrderDetailPage: React.FC = () => {
   const [showReallocateModal, setShowReallocateModal] = useState(false)
   const [isSavingSettings, setIsSavingSettings] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
+  const [isPrintingLabels, setIsPrintingLabels] = useState(false)
   const printContentRef = useRef<HTMLDivElement>(null)
 
   // Item Editing States
@@ -337,6 +339,17 @@ export const PurchaseOrderDetailPage: React.FC = () => {
                   }
                 }
 
+                // If still not resolved, try Contract Catalog (fallback for contract-based custom items)
+                if (!resolvedItem) {
+                  const { data: contract } = await getContractById(item.item_id)
+                  if (contract) {
+                    resolvedItem = {
+                      item_name: contract.item_name,
+                      item_code: contract.item_code || 'CONTRACT'
+                    }
+                  }
+                }
+
                 return {
                   ...item,
                   item_name: resolvedItem?.item_name || 'Unknown Drug',
@@ -374,6 +387,17 @@ export const PurchaseOrderDetailPage: React.FC = () => {
                     resolvedItem = {
                       item_name: nonDrug.item_name,
                       item_code: nonDrug.item_code
+                    }
+                  }
+                }
+
+                // If still not resolved, try Contract Catalog (fallback for contract-based custom items)
+                if (!resolvedItem) {
+                  const { data: contract } = await getContractById(item.item_id)
+                  if (contract) {
+                    resolvedItem = {
+                      item_name: contract.item_name,
+                      item_code: contract.item_code || 'CONTRACT'
                     }
                   }
                 }
@@ -593,6 +617,15 @@ export const PurchaseOrderDetailPage: React.FC = () => {
     } finally {
       setIsPrinting(false)
     }
+  }
+
+  const handlePrintLabels = async () => {
+    setIsPrintingLabels(true)
+    // Small delay to allow state to propagate and styles to apply
+    setTimeout(() => {
+      window.print()
+      setIsPrintingLabels(false)
+    }, 100)
   }
 
   const handleEdit = () => {
@@ -1518,6 +1551,7 @@ export const PurchaseOrderDetailPage: React.FC = () => {
 
   return (
     <>
+
       {/* Professional Print Styles - Includes PO Form and Supplier Documents */}
       <style>{`
 /* A4 Size for Screen View */
@@ -1531,8 +1565,12 @@ export const PurchaseOrderDetailPage: React.FC = () => {
 }
 @media print {
   @page {
-    size: A4;
-    margin: 0mm!important;
+    size: landscape;
+    margin: 5mm!important;
+  }
+  /* Force landscape for modern browsers */
+  body {
+      print-color-adjust: exact;
   }
   * {
     -webkit-print-color-adjust: exact!important;
@@ -1540,7 +1578,7 @@ export const PurchaseOrderDetailPage: React.FC = () => {
   }
 
   /* Only hide the main content area, letting the print-form take over */
-  .print-content > *:not(.print-form) {
+  .print-content > *:not(.print-form):not(.print-labels-container) {
     display: none!important;
   }
 
@@ -1549,7 +1587,12 @@ export const PurchaseOrderDetailPage: React.FC = () => {
     visibility: visible!important;
     width: 210mm!important;
     margin: 0 auto!important;
+    position: absolute;
+    top: 0;
+    left: 0;
   }
+
+  /* Label Printing Styles are now managed globally in index.css via #print-labels-grid-root */
 
   .no-print {
     display: none!important;
@@ -1731,25 +1774,38 @@ export const PurchaseOrderDetailPage: React.FC = () => {
 
             {/* Print Button - restricted for non-logistics unless approved */}
             {(order.status === 'approved' || order.status === 'sent' || isPharmacyLogistic) && (
-              <Button
-                onClick={handlePrint}
-                variant="primary"
-                size="sm"
-                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 shadow-sm"
-                disabled={isPrinting}
-              >
-                {isPrinting ? (
-                  <>
-                    <Spinner className="w-4 h-4" />
-                    Generating PDF...
-                  </>
-                ) : (
-                  <>
-                    <Printer className="w-4 h-4" />
-                    Cetak / Print
-                  </>
-                )}
-              </Button>
+              <>
+                <Button
+                  onClick={handlePrintLabels}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2 border-slate-300 text-slate-700 hover:bg-slate-50"
+                  disabled={isPrinting || isPrintingLabels}
+                >
+                  <QrCode className="w-4 h-4" />
+                  Print Labels
+                </Button>
+
+                <Button
+                  onClick={handlePrint}
+                  variant="primary"
+                  size="sm"
+                  className="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 shadow-sm"
+                  disabled={isPrinting}
+                >
+                  {isPrinting ? (
+                    <>
+                      <Spinner className="w-4 h-4" />
+                      Generating PDF...
+                    </>
+                  ) : (
+                    <>
+                      <Printer className="w-4 h-4" />
+                      Cetak / Print
+                    </>
+                  )}
+                </Button>
+              </>
             )}
 
             {/* Create LPO Bridge Button */}
@@ -1766,6 +1822,7 @@ export const PurchaseOrderDetailPage: React.FC = () => {
             )}
             {(userRole === SYSTEM_ROLES.SYSTEM_ADMIN ||
               userRole === SYSTEM_ROLES.HOSPITAL_ADMIN ||
+              userRole === SYSTEM_ROLES.HOSPITAL_ADMINISTRATOR ||
               isPharmacyLogistic ||
               (user?.department?.department_code && AUTHORIZED_SIGNATURE_DEPARTMENTS.includes(user.department.department_code)) ||
               (user?.department?.department_name && AUTHORIZED_SIGNATURE_DEPARTMENTS.includes(user.department.department_name))) && (
@@ -1816,8 +1873,21 @@ export const PurchaseOrderDetailPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Print Labels Container - Visible only when printing labels */}
+      <div id="print-labels-grid-root" className={`${isPrintingLabels ? '' : 'hidden print:hidden'}`}>
+        {items.map((item, index) => (
+          <OxyIdentityCard
+            key={`print-${item.id}`}
+            itemName={item.item_name || 'Unknown Item'}
+            itemCode={item.item_code || 'N/A'}
+            serialNumber={`${item.item_code || 'ITEM'}-${String(index + 1).padStart(4, '0')}`}
+            quantity={item.quantity_ordered}
+          />
+        ))}
+      </div>
+
       {/* Government Form Print Layout - HIDDEN ON SCREEN */}
-      <div ref={printContentRef} className="print-form hidden print:block">
+      <div ref={printContentRef} className={`print-form hidden print:block ${isPrintingLabels ? 'print:!hidden' : ''}`}>
         <div className="space-y-0 text-black">
           {renderPage1Content()}
           <div className="page-break" style={{ height: '1px', pageBreakAfter: 'always' }}></div>

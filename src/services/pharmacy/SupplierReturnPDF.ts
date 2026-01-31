@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf'
-import 'jspdf-autotable'
+import autoTable from 'jspdf-autotable'
 import { formatDate } from '@/lib/utils'
 
 interface SupplierReturnForm {
@@ -10,163 +10,258 @@ interface SupplierReturnForm {
 }
 
 /**
- * Generates a professional Malaysian Government-standard cylinder return manifest
- * based on the "BORANG PESANAN GAS PERUBATAN DAN PENGELUARAN SILINDER" template.
+ * Generates a professional Malaysian Government-standard cylinder return manifest.
+ * Strictly enforces 2 pages: Page 1 (Private/Own), Page 2 (Loan/Vendor).
+ * Fills the entire A4 page to look like a formal pre-printed document.
  */
 export const generateSupplierReturnPDF = (items: any[], form: SupplierReturnForm, user: any) => {
-    const doc = new jsPDF()
+    const doc = new jsPDF('p', 'mm', 'a4')
+
+    // Filter Items
+    const privateItems = items.filter(i => i.ownership === 'Private')
+    const loanItems = items.filter(i => i.ownership !== 'Private')
+
+    // PAGE 1: PRIVATE CYLINDERS
+    drawPage(doc, privateItems, form, user, "SILINDER H.D.L (MILIK SENDIRI)", 1)
+
+    doc.addPage()
+
+    // PAGE 2: LOAN CYLINDERS
+    drawPage(doc, loanItems, form, user, "SILINDER PEMBEKAL (PINJAMAN)", 2)
+
+    doc.save(`Return_Manifest_${Date.now()}.pdf`)
+}
+
+const drawPage = (doc: jsPDF, items: any[], form: SupplierReturnForm, user: any, typeLabel: string, pageNum: number) => {
+    // A4 Height = 297mm. Width = 210mm.
+    const PAGE_HEIGHT = 297
+    const FOOTER_HEIGHT = 60 // Height required for signatures + notices
+    const HEADER_HEIGHT = 45
+    const MARGIN = 10
+    const TABLE_START_Y = HEADER_HEIGHT + 5
+    const FOOTER_START_Y = PAGE_HEIGHT - FOOTER_HEIGHT - MARGIN // ~227mm
+
     const timestamp = new Date().toLocaleString('en-GB')
     const hospitalName = "HOSPITAL DAERAH LAWAS"
     const hospitalAddress = "98850, LAWAS, SARAWAK."
     const hospitalContact = "TEL: 085-284384  FAX: 085-283270"
 
-    // 1. MAIN TITLE
+    // --- 1. HEADER SECTION ---
     doc.setFont('Helvetica', 'bold')
     doc.setFontSize(10)
-    doc.text("BORANG PESANAN GAS PERUBATAN DAN PENGELUARAN SILINDER", 105, 10, { align: 'center' })
+    doc.text("BORANG PESANAN GAS PERUBATAN DAN PENGELUARAN SILINDER", 105, 12, { align: 'center' })
+    doc.setFontSize(9)
+    doc.text(`(${typeLabel})`, 105, 16, { align: 'center' })
 
-    // Draw Top Table Border
     doc.setLineWidth(0.5)
-    doc.line(10, 12, 200, 12) // Top border
+    doc.line(10, 18, 200, 18)
 
-    // 2. DARIPADA / KEPADA BOXES
+    // --- 2. INFO BOXES ---
+    const boxTopY = 20
+    doc.setLineWidth(0.1)
+
+    // DARIPADA
+    doc.rect(10, boxTopY, 95, 20)
     doc.setFontSize(8)
-    // Box for DARIPADA
-    doc.rect(10, 12, 95, 25) // Left box
-    doc.text("DARIPADA:", 11, 16)
-    doc.text(hospitalName, 35, 16)
-    doc.setFont('Helvetica', 'normal')
-    doc.text(hospitalAddress, 35, 21)
-    doc.text(hospitalContact, 35, 26)
-
-    // Box for KEPADA
     doc.setFont('Helvetica', 'bold')
-    doc.rect(105, 12, 95, 25) // Right box
-    doc.text("KEPADA:", 106, 16)
-    doc.text(form.vendor_name.toUpperCase(), 125, 16)
+    doc.text("DARIPADA:", 12, boxTopY + 4)
+    doc.text(hospitalName, 32, boxTopY + 4)
     doc.setFont('Helvetica', 'normal')
-    doc.text("ALAMAT PEMBEKAL BERDAFTAR", 125, 21) // Placeholder if no address
+    doc.text(hospitalAddress, 32, boxTopY + 8)
+    doc.text(hospitalContact, 32, boxTopY + 12)
 
-    // 3. REF NUMBERS
+    // KEPADA
+    doc.rect(105, boxTopY, 95, 20)
     doc.setFont('Helvetica', 'bold')
-    doc.rect(10, 37, 95, 10) // Left bottom box
-    doc.text("NO. PEMESANAN:", 11, 43)
-    doc.text(`VRET-${Date.now().toString().slice(-6)}`, 45, 43)
+    doc.text("KEPADA:", 107, boxTopY + 4)
+    doc.text(form.vendor_name.toUpperCase(), 125, boxTopY + 4)
+    doc.setFont('Helvetica', 'normal')
+    doc.text("LOT 1525, PIASAU IND. ESTATE", 125, boxTopY + 8)
+    doc.text("98000 MIRI, SARAWAK.", 125, boxTopY + 12)
 
-    doc.rect(105, 37, 95, 10) // Right bottom box
-    doc.text("NO. PESANAN KERAJAAN:", 106, 43)
-    doc.text("-", 155, 43) // Placeholder
+    // REFS
+    const refY = boxTopY + 20
+    doc.rect(10, refY, 95, 8)
+    doc.setFont('Helvetica', 'bold')
+    doc.text("NO. PEMESANAN:", 12, refY + 5)
+    doc.text(`VRET-${Date.now().toString().slice(-6)}-${pageNum === 1 ? 'P' : 'L'}`, 45, refY + 5)
 
-    // 4. MAIN MANIFEST TABLE - GRID STYLE
-    // We group by size as requested
-    const sizes = [...new Set(items.map(i => i.size_info?.code || 'Unknown'))]
+    doc.rect(105, refY, 95, 8)
+    doc.text("NO. PESANAN KERAJAAN:", 107, refY + 5)
+    doc.text("-", 155, refY + 5)
 
+    // --- 3. TABLE DATA ---
     const rows: any[] = []
-    sizes.forEach(size => {
-        const sizeItems = items.filter(i => (i.size_info?.code || 'Unknown') === size)
 
-        // Split QR codes into groups of 5 for grid-like layout in rows
-        for (let i = 0; i < sizeItems.length; i += 5) {
-            const chunk = sizeItems.slice(i, i + 5)
-            const rowArr = new Array(5).fill('')
-            chunk.forEach((it, idx) => {
-                rowArr[idx] = it.qr_code
-            })
-
-            rows.push([
-                i === 0 ? `${size}\n(Medical Oxygen)` : '', // Only show size name on first sub-row
-                ...rowArr,
-                chunk.length, // Qty Sent
-                '' // Qty Received (Empty)
-            ])
-        }
+    // Process Items
+    const groupedItemsByCode: { [key: string]: any[] } = {}
+    items.forEach(item => {
+        const code = item.size_info?.code || 'Unknown'
+        if (!groupedItemsByCode[code]) groupedItemsByCode[code] = []
+        groupedItemsByCode[code].push(item)
     })
 
-    const autoTable = (doc as any).autoTable
-    autoTable({
-        startY: 52,
-        head: [['PERIHAL BARANG', { content: 'NO. PENDAFTARAN SILINDER', colSpan: 5 }, 'QTY\nSENT', 'QTY\nREC']],
+    Object.keys(groupedItemsByCode).sort().forEach(code => {
+        const sizeItems = groupedItemsByCode[code];
+        const sizeDescription = code === 'J' ? 'BN 6.4m³' : (code === 'F' ? 'BN 1.4m³' : 'BN 0.7m³');
+
+        // Rows of 4
+        for (let i = 0; i < sizeItems.length; i += 4) {
+            const chunk = sizeItems.slice(i, i + 4);
+            const serials = new Array(4).fill('');
+            chunk.forEach((it, idx) => {
+                serials[idx] = it.serial_number || it.qr_code;
+            });
+
+            rows.push([
+                i === 0 ? sizeDescription : '',
+                ...serials,
+                i === 0 ? sizeItems.length : '',
+                ''
+            ]);
+        }
+    });
+
+    if (rows.length === 0) {
+        rows.push(['TIADA', '', '', '', '', '0', '']);
+    }
+
+    // FILLER ROWS TO REACH BOTTOM
+    // Estimate row height ~ 6-7mm. 
+    // Available height for table body = FOOTER_START_Y - TABLE_START_Y - Headlines
+    // We want the table to visually touch the footer block.
+    // Let's rely on autoTable's styling but force a certain number of rows if short.
+
+    const ROW_HEIGHT = 8
+    const availableHeight = FOOTER_START_Y - TABLE_START_Y - 10 // -10 for header
+    const maxRows = Math.floor(availableHeight / ROW_HEIGHT)
+
+    while (rows.length < maxRows) {
+        rows.push(['', '', '', '', '', '', '']);
+    }
+
+    // --- 4. DRAW TABLE ---
+    autoTable(doc, {
+        startY: TABLE_START_Y,
+        margin: { left: 10, right: 10 },
+        head: [
+            [
+                { content: 'PERIHAL BARANG', rowSpan: 1, styles: { halign: 'left' } },
+                { content: 'NO. PENDAFTARAN SILINDER', colSpan: 4, styles: { halign: 'center' } },
+                { content: 'KUANTITI\nDIHANTAR', rowSpan: 1, styles: { halign: 'center', valign: 'middle' } },
+                { content: 'KUANTITI\nDITERIMA', rowSpan: 1, styles: { halign: 'center', valign: 'middle' } }
+            ]
+        ],
         body: rows,
         theme: 'grid',
         headStyles: {
             fillColor: [255, 255, 255],
             textColor: [0, 0, 0],
-            fontSize: 7,
+            fontSize: 8,
             fontStyle: 'bold',
-            halign: 'center',
-            lineWidth: 0.1,
+            lineWidth: 0.2, // Thicker header borders
             lineColor: [0, 0, 0]
         },
         styles: {
-            fontSize: 7,
-            cellPadding: 2,
+            fontSize: 8,
+            cellPadding: 1.5,
+            minCellHeight: ROW_HEIGHT,
             lineColor: [0, 0, 0],
-            lineWidth: 0.1,
-            font: 'Helvetica'
+            lineWidth: 0.1, // Thinner body borders
+            font: 'Helvetica',
+            valign: 'middle',
+            textColor: [0, 0, 0]
         },
         columnStyles: {
-            0: { cellWidth: 35, fontStyle: 'bold' },
-            1: { halign: 'center', cellWidth: 25 },
-            2: { halign: 'center', cellWidth: 25 },
-            3: { halign: 'center', cellWidth: 25 },
-            4: { halign: 'center', cellWidth: 25 },
-            5: { halign: 'center', cellWidth: 25 },
-            6: { halign: 'center', cellWidth: 15 },
-            7: { halign: 'center', cellWidth: 15 },
+            0: { cellWidth: 30, fontStyle: 'bold' }, // Desc
+            1: { cellWidth: 25, halign: 'center' },  // S1
+            2: { cellWidth: 25, halign: 'center' },  // S2
+            3: { cellWidth: 25, halign: 'center' },  // S3
+            4: { cellWidth: 25, halign: 'center' },  // S4
+            5: { cellWidth: 30, halign: 'center' },  // Qty Sent
+            6: { cellWidth: 30, halign: 'center' }   // Qty Rec
         }
     })
 
-    // 5. SUMMARY ROW
-    const finalY = (doc as any).lastAutoTable.finalY
+    // --- 5. FIXED FOOTER POSITION ---
+    // We ignore the table's finalY and render the footer at the strict bottom location
+    // ensuring the document feels "full".
+    // If the table overflowed (too many items), autoTable handles page breaks, 
+    // but for our case, we assume it fits or fits on 2 pages naturally. 
+    // Since we forced empty rows, we might need to check if we pushed too far, 
+    // but the maxRows calc should prevent that.
+
+    const sigY = FOOTER_START_Y
+    const finalTableY = (doc as any).lastAutoTable.finalY
+
+    // Draw JUMLAH ROW manually at the very bottom of the table area OR at the top of the footer?
+    // Better to draw it right above the Signature block for consistency.
+    const sumRowY = sigY - 8
+
+    // Rect for JUMLAH
+    doc.setLineWidth(0.2)
     doc.setFont('Helvetica', 'bold')
-    doc.rect(10, finalY, 155, 8)
-    doc.text("JUMLAH", 140, finalY + 5.5)
-    doc.rect(165, finalY, 15, 8)
-    doc.text(items.length.toString(), 172.5, finalY + 5.5, { align: 'center' })
-    doc.rect(180, finalY, 20, 8) // Qty Received sum placeholder
 
-    // 6. SIGNATURE PROTOCOL (TRIPLE BLOCK)
-    const sigY = finalY + 15
+    // Label
+    doc.rect(10, sumRowY, 130, 8)
+    doc.text("JUMLAH", 135, sumRowY + 5.5, { align: 'right' })
+
+    // Count - Sum total items (ignoring filler rows)
+    // We only sum real items
+    const itemCount = items.length
+    doc.rect(140, sumRowY, 30, 8)
+    doc.text(items.length > 0 ? itemCount.toString() : '0', 155, sumRowY + 5.5, { align: 'center' })
+
+    // Empty Rec
+    doc.rect(170, sumRowY, 30, 8)
+    doc.text("0", 185, sumRowY + 5.5, { align: 'center' })
+
+    // --- 6. SIGNATURES ---
     doc.setFontSize(7)
+    const boxW = 63.3
+    const headerH = 10
+    const bodyH = 40
 
-    // Header for signature blocks
-    doc.rect(10, sigY, 63, 10)
-    doc.text("AKUAN PENGELUARAN\nSILINDER & PEMESANAN", 41.5, sigY + 4, { align: 'center' })
+    // Headers
+    doc.rect(10, sigY, boxW, headerH)
+    doc.text("AKUAN PENGELUARAN\nSILINDER & PEMESANAN", 10 + (boxW / 2), sigY + 4, { align: 'center' })
 
-    doc.rect(73, sigY, 64, 10)
-    doc.text("AKUAN TERIMA PEMBEKAL/\nSYARIKAT PENGANGKUTAN", 105, sigY + 4, { align: 'center' })
+    doc.rect(73.3, sigY, boxW, headerH)
+    doc.text("AKUAN TERIMA PEMBEKAL/\nPENGANGKUTAN", 73.3 + (boxW / 2), sigY + 4, { align: 'center' })
 
-    doc.rect(137, sigY, 63, 10)
-    doc.text("AKUAN TERIMA PENERIMA\n(DILENGKAPKAN SETELAH STOK DITERIMA)", 168.5, sigY + 4, { align: 'center' })
+    doc.rect(136.6, sigY, boxW, headerH)
+    doc.text("AKUAN TERIMA PENERIMA\n(DILENGKAPKAN SETELAH STOK DITERIMA)", 136.6 + (boxW / 2), sigY + 4, { align: 'center' })
 
-    // Signatures content
-    const sigContentY = sigY + 10
-    doc.rect(10, sigContentY, 63, 40) // Block 1
-    doc.text("........................................................", 15, sigContentY + 25)
-    doc.text(`NAMA: ${user?.full_name?.toUpperCase()}`, 12, sigContentY + 30)
-    doc.text(`JAWATAN: PEGAWAI FARMASI`, 12, sigContentY + 34)
-    doc.text(`TARIKH: ${formatDate(new Date())}`, 12, sigContentY + 38)
+    // Bodies
+    const sigBodyY = sigY + headerH
 
-    doc.rect(73, sigContentY, 64, 40) // Block 2
-    doc.text("........................................................", 78, sigContentY + 25)
-    doc.text(`NAMA: ${(form.driver_name || '').toUpperCase()}`, 75, sigContentY + 30)
-    doc.text(`VEHICLE: ${(form.vehicle_no || '').toUpperCase()}`, 75, sigContentY + 34)
-    doc.text(`TARIKH: ${formatDate(form.return_date)}`, 75, sigContentY + 38)
+    // Box 1
+    doc.rect(10, sigBodyY, boxW, bodyH)
+    doc.text("........................................................", 15, sigBodyY + 25)
+    doc.text(`NAMA: ${user?.full_name?.toUpperCase() || 'AMRI AMIT'}`, 12, sigBodyY + 30)
+    doc.text(`JAWATAN: PENOLONG PEGAWAI FARMASI`, 12, sigBodyY + 34)
+    doc.text(`TARIKH: ${formatDate(new Date())}`, 12, sigBodyY + 38)
 
-    doc.rect(137, sigContentY, 63, 40) // Block 3
-    doc.text("........................................................", 142, sigContentY + 25)
-    doc.text(`NAMA:`, 139, sigContentY + 30)
-    doc.text(`JAWATAN:`, 139, sigContentY + 34)
-    doc.text(`TARIKH:`, 139, sigContentY + 38)
+    // Box 2
+    doc.rect(73.3, sigBodyY, boxW, bodyH)
+    doc.text("........................................................", 78.5, sigBodyY + 25)
+    doc.text(`NAMA:`, 75.5, sigBodyY + 30)
+    doc.text(`TARIKH:`, 75.5, sigBodyY + 34)
+    doc.text(`COP JABATAN:`, 75.5, sigBodyY + 38)
 
-    // FOOTER
-    doc.setFontSize(7)
-    doc.setFont('Helvetica', 'italic')
-    doc.text("BORANG INI HENDAKLAH DIISI DALAM TIGA (3) SALINAN", 10, sigContentY + 45)
+    // Box 3
+    doc.rect(136.6, sigBodyY, boxW, bodyH)
+    doc.text("........................................................", 142, sigBodyY + 25)
+    doc.text(`NAMA:`, 139, sigBodyY + 30)
+    doc.text(`JAWATAN:`, 139, sigBodyY + 34)
+    doc.text(`TARIKH:`, 139, sigBodyY + 38)
 
+    // Footer Text
+    doc.setFont('Helvetica', 'bolditalic')
+    doc.text("BORANG INI HENDAKLAH DIISI DALAM TIGA (3) SALINAN", 10, sigBodyY + 45)
+
+    doc.setFont('Helvetica', 'normal')
     doc.setFontSize(6)
     doc.setTextColor(150)
-    doc.text(`System Generated: ${timestamp} | Digital Manifest V2.0`, 105, 290, { align: 'center' })
-
-    doc.save(`Oxygen_Return_Manifest_${Date.now()}.pdf`)
+    doc.text(`Generated by HOME Ecosystem | ${timestamp} | Page ${pageNum} of 2`, 105, 292, { align: 'center' })
 }

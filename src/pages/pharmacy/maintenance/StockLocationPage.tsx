@@ -1,9 +1,25 @@
 import React, { useEffect, useState } from 'react'
-import { AlertTriangle, MapPin, Plus, Thermometer, Building2 } from 'lucide-react'
+import {
+  Building2,
+  MapPin,
+  Plus,
+  Search,
+  Thermometer,
+  AlertCircle,
+  Settings
+} from 'lucide-react'
 import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
-import { Table, Spinner, Badge, Button } from '@/components/ui'
+import {
+  Button,
+  Input,
+  Badge,
+  Spinner,
+  Table
+} from '@/components/ui'
 import { getStockLocations } from '@/services/pharmacy/inventoryService'
 import type { StockLocation, LocationType, TemperatureRequirement } from '@/types/pharmacy'
+import { AddLocationModal } from './modals/AddLocationModal'
+import { StockLocationDetailModal } from './modals/StockLocationDetailModal'
 
 export const StockLocationPage: React.FC = () => {
   const { user } = useAuthStore()
@@ -13,27 +29,30 @@ export const StockLocationPage: React.FC = () => {
   const [locations, setLocations] = useState<StockLocation[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [selectedLocation, setSelectedLocation] = useState<StockLocation | null>(null)
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+
+  const loadLocations = async () => {
+    if (!hospitalId) return
+    setIsLoading(true)
+    setError(null)
+
+    const res = await getStockLocations(hospitalId)
+
+    if (res.error) {
+      setError(res.error)
+      setLocations([])
+    } else {
+      setLocations(res.data || [])
+    }
+
+    setIsLoading(false)
+  }
 
   useEffect(() => {
     if (!isSessionReady || !hospitalId) return
-
-    const load = async () => {
-      setIsLoading(true)
-      setError(null)
-
-      const res = await getStockLocations(hospitalId)
-
-      if (res.error) {
-        setError(res.error)
-        setLocations([])
-      } else {
-        setLocations(res.data || [])
-      }
-
-      setIsLoading(false)
-    }
-
-    void load()
+    void loadLocations()
   }, [isSessionReady, hospitalId])
 
   const renderLocationTypeBadge = (type: LocationType) => {
@@ -84,7 +103,7 @@ export const StockLocationPage: React.FC = () => {
           </p>
         </div>
 
-        <Button className="flex items-center gap-2">
+        <Button className="flex items-center gap-2" onClick={() => setIsAddModalOpen(true)}>
           <Plus className="w-4 h-4" />
           Add Location
         </Button>
@@ -148,6 +167,7 @@ export const StockLocationPage: React.FC = () => {
                 <Table.Cell as="th">Temperature</Table.Cell>
                 <Table.Cell as="th" className="text-right">Capacity</Table.Cell>
                 <Table.Cell as="th" className="text-center">Status</Table.Cell>
+                <Table.Cell as="th" className="text-right">Actions</Table.Cell>
               </Table.Row>
             </Table.Head>
             <Table.Body>
@@ -189,6 +209,20 @@ export const StockLocationPage: React.FC = () => {
                       <Badge variant="gray">Inactive</Badge>
                     )}
                   </Table.Cell>
+                  <Table.Cell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="flex items-center gap-2 ml-auto"
+                      onClick={() => {
+                        setSelectedLocation(location)
+                        setIsDetailModalOpen(true)
+                      }}
+                    >
+                      <Settings className="w-4 h-4" />
+                      Manage
+                    </Button>
+                  </Table.Cell>
                 </Table.Row>
               ))}
             </Table.Body>
@@ -203,10 +237,27 @@ export const StockLocationPage: React.FC = () => {
           <li><strong>Warehouse:</strong> Main storage facility for bulk inventory</li>
           <li><strong>Pharmacy:</strong> Dispensing locations (main, satellite, outpatient)</li>
           <li><strong>Ward:</strong> Ward-level stock for immediate patient care</li>
-          <li><strong>Cold Room:</strong> Temperature-controlled storage (2-8°C, -20°C, -80°C)</li>
+          <li><strong>Cold Room:</strong> Temperature-controlled storage (2-8°C, -20C, -80°C)</li>
           <li><strong>Controlled:</strong> Secure storage for scheduled/controlled substances</li>
         </ul>
       </div>
+
+      <AddLocationModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSuccess={() => {
+          void loadLocations()
+        }}
+      />
+
+      <StockLocationDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        location={selectedLocation}
+        onSuccess={() => {
+          void loadLocations()
+        }}
+      />
     </div>
   )
 }

@@ -85,7 +85,7 @@ export const SYSTEM_ROLES = {
 // Role Display Names
 export const ROLE_DISPLAY_NAMES: Record<string, string> = {
   [SYSTEM_ROLES.SYSTEM_ADMIN]: 'System Administrator',
-  [SYSTEM_ROLES.HOSPITAL_ADMIN]: 'Hospital System Administrator',
+  [SYSTEM_ROLES.HOSPITAL_ADMIN]: 'Hospital Administrator',
   [SYSTEM_ROLES.MEDICAL_OFFICER]: 'Medical Officer',
   [SYSTEM_ROLES.ASSISTANT_MEDICAL_OFFICER]: 'Assistant Medical Officer',
   [SYSTEM_ROLES.SENIOR_ASSISTANT_MEDICAL_OFFICER]: 'Senior Assistant Medical Officer',
@@ -255,6 +255,7 @@ export const TRANSACTION_TYPES = {
 
 // Toast Duration (milliseconds)
 export const TOAST_DURATION = {
+  MINIMAL: 1500, // New snappy duration for rapid feedback
   SHORT: 3000,
   MEDIUM: 5000,
   LONG: 8000,
@@ -291,6 +292,13 @@ export const ROUTES = {
   ADMIN_ALERTS: '/admin/alerts',
   ADMIN_SYSTEM_LOGS: '/admin/system-logs',
 
+  // NEW: System Admin Isolated Module
+  SYSTEM_DASHBOARD: '/system/dashboard',
+  SYSTEM_TENANTS: '/system/tenants',
+  SYSTEM_ANALYTICS: '/system/analytics',
+  SYSTEM_AUDIT_LOGS: '/system/audit-logs',
+  SYSTEM_HEALTH: '/system/health',
+
   // Hospital Admin Routes
   ADMIN_MEMOS: '/admin/memos',
   ADMIN_MEMO_CREATE: '/admin/memos/create',
@@ -307,6 +315,25 @@ export const ROUTES = {
   ADMIN_HOSPITAL_HEALTH: '/admin/hospital-health',
   ADMIN_HOSPITAL_LOGS: '/admin/hospital-logs',
   ADMIN_HOSPITAL_BACKUPS: '/admin/hospital-backups',
+
+  // Admin Operations (Exclusive Module)
+  ADMIN_OPERATIONS: '/admin/operations',
+  ADMIN_OPERATIONS_DASHBOARD: '/admin/operations/dashboard',
+  ADMIN_OPERATIONS_PROCUREMENT: '/admin/operations/procurement',
+  ADMIN_OPERATIONS_PROCUREMENT_ORDERS: '/admin/operations/procurement/orders',
+  ADMIN_OPERATIONS_PROCUREMENT_CREATE: '/admin/operations/procurement/orders/create',
+  ADMIN_OPERATIONS_PROCUREMENT_LPO: '/admin/operations/procurement/lpo',
+  ADMIN_OPERATIONS_PROCUREMENT_RECEIVING: '/admin/operations/procurement/receiving',
+  ADMIN_OPERATIONS_PROCUREMENT_PAYMENT: '/admin/operations/procurement/payment',
+  ADMIN_OPERATIONS_FINANCIAL: '/admin/operations/financial',
+  ADMIN_OPERATIONS_WARRANT: '/admin/operations/financial/warrant',
+  ADMIN_OPERATIONS_WARRANT_CREATE: '/admin/operations/financial/warrant/new',
+  ADMIN_OPERATIONS_WARRANT_EDIT: '/admin/operations/financial/warrant/:id/edit',
+
+  // Admin Operations - Pembangunan (P42)
+  ADMIN_OPERATIONS_PEMBANGUNAN: '/admin/operations/financial/pembangunan',
+  ADMIN_OPERATIONS_PEMBANGUNAN_CREATE: '/admin/operations/financial/pembangunan/new',
+  ADMIN_OPERATIONS_PEMBANGUNAN_EDIT: '/admin/operations/financial/pembangunan/:id/edit',
 
   // Pharmacy Logistics Routes
   PHARMACY: '/pharmacy',
@@ -382,6 +409,7 @@ export const ROUTES = {
   // Maintenance
   PHARMACY_MAINTENANCE: '/pharmacy/maintenance',
   PHARMACY_UNIT_CATALOG: '/pharmacy/maintenance/units',
+  PHARMACY_UNIT_CATALOG_ITEMS: '/pharmacy/maintenance/units/:id/items',
   PHARMACY_STOCK_LOCATION: '/pharmacy/maintenance/locations',
   PHARMACY_STOCK_VERIFICATION: '/pharmacy/maintenance/verification',
 
@@ -446,7 +474,7 @@ export const SYSTEM_MODULES = {
 
   // Clinical Modules
   EMERGENCY_TRAUMA: 'emergency_trauma',
-  LABORATORY: 'pathology',
+  LABORATORY: 'laboratory',
   OPERATION_THEATER: 'operation_theater',
   CSSU_CSSD: 'cssu_cssd',
   RADIOLOGY: 'radiology',
@@ -544,8 +572,8 @@ export const MODULE_DEFINITIONS = [
     category: 'clinical',
   },
   {
-    code: 'pathology',
-    name: 'Pathologist',
+    code: 'laboratory',
+    name: 'Pathology & Laboratory',
     description: 'Laboratory tests and results management',
     icon: 'FlaskConical',
     category: 'clinical',

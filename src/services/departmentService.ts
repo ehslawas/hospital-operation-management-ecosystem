@@ -279,7 +279,7 @@ export async function getDepartmentsByHospital(hospitalId: string): Promise<Depa
       .from('departments')
       .select('*')
       .eq('hospital_id', hospitalId)
-      .eq('status', 'active')
+      // .eq('status', 'active') // Removed strict filter to ensure all departments show up
       .order('department_name', { ascending: true })
       .limit(200)
 

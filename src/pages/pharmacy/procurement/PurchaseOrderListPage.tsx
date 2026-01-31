@@ -544,162 +544,226 @@ export const PurchaseOrderListPage: React.FC = () => {
 
           {/* Table - only show after initial load is complete */}
           {!isLoading && hasInitialLoad && !error && (
-            <div className="glass-card rounded-2xl overflow-hidden shadow-sm">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader className="bg-slate-50/50">
-                    <TableRow className="border-b border-slate-100 hover:bg-transparent">
-                      <TableCell as="th" className="pl-4">
-                        <input
-                          type="checkbox"
-                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 shadow-sm"
-                          checked={orders.length > 0 && selectedIds.length === orders.length}
-                          onChange={handleSelectAll}
-                        />
-                      </TableCell>
-                      <TableCell as="th" className="font-semibold text-slate-600">Order Date</TableCell>
-                      <TableCell as="th" className="font-semibold text-slate-600">{activeTab === 'sq' ? 'SQ Number' : 'PO Number'}</TableCell>
-                      <TableCell as="th" className="font-semibold text-slate-600">Supplier</TableCell>
-                      <TableCell as="th" className="font-semibold text-slate-600">Vote Code</TableCell>
-                      <TableCell as="th" className="font-semibold text-slate-600">Category</TableCell>
-                      <TableCell as="th" className="font-semibold text-slate-600">Department</TableCell>
-                      {activeTab === 'po' && (
-                        <TableCell as="th" className="text-right font-semibold text-slate-600">Total</TableCell>
-                      )}
-                      <TableCell as="th" className="text-center font-semibold text-slate-600">Status</TableCell>
-                      <TableCell as="th" className="text-right font-semibold text-slate-600 pr-4">Actions</TableCell>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {/* Batch Actions Toolbar */}
-                    {selectedIds.length > 0 && (
-                      <TableRow className="bg-blue-50/50 border-b border-blue-100 sticky top-0 z-20 backdrop-blur-sm">
-                        <TableCell colSpan={activeTab === 'sq' ? 9 : 10} className="py-3 px-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <span className="text-sm font-semibold text-blue-700 bg-blue-100 px-2 py-1 rounded-md">
-                                {selectedIds.length} items selected
-                              </span>
-                              <div className="h-4 w-px bg-blue-200" />
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="primary"
-                                  className="bg-emerald-600 hover:bg-emerald-700 h-8 text-xs gap-1.5 shadow-sm"
-                                  onClick={() => setShowBatchApproveDialog(true)}
-                                  disabled={!selectedIds.some((id) => orders.find((o) => o.id === id)?.status === 'pending_approval')}
-                                >
-                                  <CheckCircle className="w-3.5 h-3.5" />
-                                  Approve Selected
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="border-red-200 text-red-600 hover:bg-red-50 h-8 text-xs gap-1.5 shadow-sm"
-                                  onClick={() => setShowBatchDeleteDialog(true)}
-                                  disabled={!selectedIds.some((id) => orders.find((o) => o.id === id)?.status === 'draft')}
-                                >
-                                  <XCircle className="w-3.5 h-3.5" />
-                                  Delete Drafts
-                                </Button>
-                              </div>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setSelectedIds([])}
-                              className="h-8 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-100/50"
-                            >
-                              Deselect All
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
+            <>
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-4">
+                {orders.length === 0 ? (
+                  <div className="text-center py-10 text-slate-400 border border-dashed border-slate-300 rounded-xl bg-slate-50">
+                    No orders found matching your filters
+                  </div>
+                ) : (
+                  orders.map((order) => (
+                    <div
+                      key={order.id}
+                      className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3 active:scale-[0.99] transition-transform"
+                      onClick={() => navigate(ROUTES.PHARMACY_PO_DETAIL.replace(':id', order.id))}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-bold text-slate-800 text-sm">{order.po_number}</p>
+                          <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">
+                            {order.supplier?.company_name || order.manual_supplier_name || 'Unknown Supplier'}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-0.5">Date</p>
+                          <p className="text-sm font-medium text-slate-700">{formatDate(order.order_date)}</p>
+                        </div>
+                      </div>
 
-                    {orders.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={activeTab === 'sq' ? 9 : 10} className="text-center py-16">
-                          <div className="flex flex-col items-center justify-center text-slate-400">
-                            <div className="p-4 bg-slate-50 rounded-full mb-3">
-                              <Search className="w-6 h-6" />
-                            </div>
-                            <p className="text-lg font-medium text-slate-600">No orders found</p>
-                            <p className="text-sm mt-1">Try adjusting your filters or search query.</p>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-
-                    {orders.map((order) => (
-                      <TableRow
-                        key={order.id}
-                        className={`
-                        group border-b border-slate-50 hover:bg-slate-50/50 transition-colors
-                        ${order.status === 'cancelled' ? 'bg-red-50/20 grayscale-[0.3]' : ''}
-                        ${selectedIds.includes(order.id) ? 'bg-blue-50/30' : ''}
-                      `}
-                      >
-                        <TableCell className="pl-4">
-                          <input
-                            type="checkbox"
-                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                            checked={selectedIds.includes(order.id)}
-                            onChange={() => handleSelectOne(order.id)}
-                          />
-                        </TableCell>
-                        <TableCell className="text-sm text-slate-500 font-medium">
-                          {formatDate(order.order_date)}
-                        </TableCell>
-                        <TableCell>
-                          <button
-                            onClick={() => navigate(ROUTES.PHARMACY_PO_DETAIL.replace(':id', order.id))}
-                            className="text-sm font-bold text-royal-blue hover:text-blue-700 hover:underline cursor-pointer"
-                          >
-                            {order.po_number}
-                          </button>
-                        </TableCell>
-                        <TableCell className="text-sm text-slate-700">
-                          {order.supplier?.company_name || order.manual_supplier_name || '—'}
-                        </TableCell>
-                        <TableCell className="text-sm text-slate-600 font-mono text-xs">
-                          {order.vote_code || '—'}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {order.category ? (
-                            <Badge variant="gray" className="capitalize bg-slate-100 text-slate-600 border-slate-200">
-                              {order.category.replace('_', ' ')}
-                            </Badge>
-                          ) : '—'}
-                        </TableCell>
-                        <TableCell className="text-sm text-slate-600">
-                          {order.department === 'laboratory_pathology' ? 'Pathologist' : (order.department ? order.department.replace('_', ' ') : '—')}
-                        </TableCell>
-                        {activeTab === 'po' && (
-                          <TableCell className="text-right text-sm font-bold text-slate-700">
-                            {formatCurrency(order.total_amount)}
-                          </TableCell>
+                      <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-50 mt-2">
+                        {order.vote_code && (
+                          <Badge variant="gray" className="text-[10px] font-mono bg-slate-100 text-slate-600 border-slate-200">
+                            {order.vote_code}
+                          </Badge>
                         )}
-                        <TableCell className="text-center">
+                        {order.category && (
+                          <Badge variant="gray" className="text-[10px] capitalize bg-slate-100 text-slate-600 border-slate-200">
+                            {order.category.replace('_', ' ')}
+                          </Badge>
+                        )}
+                      </div>
+
+                      {order.department && (
+                        <div className="pb-2">
+                          <span className="text-[10px] text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
+                            {order.department === 'laboratory_pathology' ? 'Pathologist' : order.department.replace('_', ' ')}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-0.5">Amount</p>
+                          <p className="text-lg font-bold text-emerald-600">{formatCurrency(order.total_amount)}</p>
+                        </div>
+                        <div>
                           {renderStatusBadge(order.status)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <button
-                            onClick={() => navigate(ROUTES.PHARMACY_PO_DETAIL.replace(':id', order.id))}
-                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          >
-                            <FileText className="w-4 h-4" />
-                          </button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
 
-              {/* Pagination */}
+              {/* Desktop Table View */}
+              <div className="hidden md:block glass-card rounded-2xl overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader className="bg-slate-50/50">
+                      <TableRow className="border-b border-slate-100 hover:bg-transparent">
+                        <TableCell as="th" className="pl-4">
+                          <input
+                            type="checkbox"
+                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 shadow-sm"
+                            checked={orders.length > 0 && selectedIds.length === orders.length}
+                            onChange={handleSelectAll}
+                          />
+                        </TableCell>
+                        <TableCell as="th" className="font-semibold text-slate-600">Order Date</TableCell>
+                        <TableCell as="th" className="font-semibold text-slate-600">{activeTab === 'sq' ? 'SQ Number' : 'PO Number'}</TableCell>
+                        <TableCell as="th" className="font-semibold text-slate-600">Supplier</TableCell>
+                        <TableCell as="th" className="font-semibold text-slate-600">Vote Code</TableCell>
+                        <TableCell as="th" className="font-semibold text-slate-600">Category</TableCell>
+                        <TableCell as="th" className="font-semibold text-slate-600">Department</TableCell>
+                        {activeTab === 'po' && (
+                          <TableCell as="th" className="text-right font-semibold text-slate-600">Total</TableCell>
+                        )}
+                        <TableCell as="th" className="text-center font-semibold text-slate-600">Status</TableCell>
+                        <TableCell as="th" className="text-right font-semibold text-slate-600 pr-4">Actions</TableCell>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {/* Batch Actions Toolbar */}
+                      {selectedIds.length > 0 && (
+                        <TableRow className="bg-blue-50/50 border-b border-blue-100 sticky top-0 z-20 backdrop-blur-sm">
+                          <TableCell colSpan={activeTab === 'sq' ? 9 : 10} className="py-3 px-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <span className="text-sm font-semibold text-blue-700 bg-blue-100 px-2 py-1 rounded-md">
+                                  {selectedIds.length} items selected
+                                </span>
+                                <div className="h-4 w-px bg-blue-200" />
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="primary"
+                                    className="bg-emerald-600 hover:bg-emerald-700 h-8 text-xs gap-1.5 shadow-sm"
+                                    onClick={() => setShowBatchApproveDialog(true)}
+                                    disabled={!selectedIds.some((id) => orders.find((o) => o.id === id)?.status === 'pending_approval')}
+                                  >
+                                    <CheckCircle className="w-3.5 h-3.5" />
+                                    Approve Selected
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="border-red-200 text-red-600 hover:bg-red-50 h-8 text-xs gap-1.5 shadow-sm"
+                                    onClick={() => setShowBatchDeleteDialog(true)}
+                                    disabled={!selectedIds.some((id) => orders.find((o) => o.id === id)?.status === 'draft')}
+                                  >
+                                    <XCircle className="w-3.5 h-3.5" />
+                                    Delete Drafts
+                                  </Button>
+                                </div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setSelectedIds([])}
+                                className="h-8 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-100/50"
+                              >
+                                Deselect All
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+
+                      {orders.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={activeTab === 'sq' ? 9 : 10} className="text-center py-16">
+                            <div className="flex flex-col items-center justify-center text-slate-400">
+                              <div className="p-4 bg-slate-50 rounded-full mb-3">
+                                <Search className="w-6 h-6" />
+                              </div>
+                              <p className="text-lg font-medium text-slate-600">No orders found</p>
+                              <p className="text-sm mt-1">Try adjusting your filters or search query.</p>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+
+                      {orders.map((order) => (
+                        <TableRow
+                          key={order.id}
+                          className={`
+                          group border-b border-slate-50 hover:bg-slate-50/50 transition-colors
+                          ${order.status === 'cancelled' ? 'bg-red-50/20 grayscale-[0.3]' : ''}
+                          ${selectedIds.includes(order.id) ? 'bg-blue-50/30' : ''}
+                        `}
+                        >
+                          <TableCell className="pl-4">
+                            <input
+                              type="checkbox"
+                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                              checked={selectedIds.includes(order.id)}
+                              onChange={() => handleSelectOne(order.id)}
+                            />
+                          </TableCell>
+                          <TableCell className="text-sm text-slate-500 font-medium">
+                            {formatDate(order.order_date)}
+                          </TableCell>
+                          <TableCell>
+                            <button
+                              onClick={() => navigate(ROUTES.PHARMACY_PO_DETAIL.replace(':id', order.id))}
+                              className="text-sm font-bold text-royal-blue hover:text-blue-700 hover:underline cursor-pointer"
+                            >
+                              {order.po_number}
+                            </button>
+                          </TableCell>
+                          <TableCell className="text-sm text-slate-700">
+                            {order.supplier?.company_name || order.manual_supplier_name || '—'}
+                          </TableCell>
+                          <TableCell className="text-sm text-slate-600 font-mono text-xs">
+                            {order.vote_code || '—'}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {order.category ? (
+                              <Badge variant="gray" className="capitalize bg-slate-100 text-slate-600 border-slate-200">
+                                {order.category.replace('_', ' ')}
+                              </Badge>
+                            ) : '—'}
+                          </TableCell>
+                          <TableCell className="text-sm text-slate-600">
+                            {order.department === 'laboratory_pathology' ? 'Pathologist' : (order.department ? order.department.replace('_', ' ') : '—')}
+                          </TableCell>
+                          {activeTab === 'po' && (
+                            <TableCell className="text-right text-sm font-bold text-slate-700">
+                              {formatCurrency(order.total_amount)}
+                            </TableCell>
+                          )}
+                          <TableCell className="text-center">
+                            {renderStatusBadge(order.status)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <button
+                              onClick={() => navigate(ROUTES.PHARMACY_PO_DETAIL.replace(':id', order.id))}
+                              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            >
+                              <FileText className="w-4 h-4" />
+                            </button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              {/* Pagination - Shared */}
               {totalPages > 0 && (
-                <div className="p-4 border-t border-slate-100 bg-slate-50/30">
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 md:border-none md:shadow-none md:bg-transparent md:p-0">
                   <Pagination
                     currentPage={page}
                     totalPages={totalPages}
@@ -710,11 +774,11 @@ export const PurchaseOrderListPage: React.FC = () => {
                       setPageSize(s)
                       setPage(1)
                     }}
-                    className="border-none justify-center"
+                    className="rounded-xl border-none justify-center px-0 py-0"
                   />
                 </div>
               )}
-            </div>
+            </>
           )}
 
           {/* Breakdown Cards in Grid - Hidden for now or keep them? 

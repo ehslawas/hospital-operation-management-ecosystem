@@ -7,8 +7,9 @@ import {
     XCircle,
     Trash2,
     FileUp,
+    Plus,
 } from 'lucide-react'
-import { Button, Badge, Table, TableHeader, TableRow, TableCell, TableBody, Pagination, Spinner, ConfirmationDialog } from '@/components/ui'
+import { Button, Badge, Table, TableHeader, TableRow, TableCell, TableBody, Pagination, Spinner, ConfirmationDialog, Modal, Input } from '@/components/ui'
 import { FinancialPageLayout } from '@/components/pharmacy/financial/FinancialPageLayout'
 import { ExcelImport } from '@/components/pharmacy/ExcelImport'
 import { useToastStore } from '@/stores/toastStore'
@@ -18,8 +19,9 @@ import {
     getContractNonDrugKPIs,
     batchImportContractNonDrugs,
     deleteContractNonDrug,
+    createContractNonDrug,
 } from '@/services/pharmacy/contractNonDrugCatalogService'
-import type { ContractWithRelations, ContractCatalogKPIs, ContractCatalogFilter } from '@/types/pharmacy'
+import type { ContractWithRelations, ContractCatalogKPIs, ContractCatalogFilter, Contract } from '@/types/pharmacy'
 import { motion } from 'framer-motion'
 
 export const ContractNonDrugCatalogPage: React.FC = () => {
@@ -51,6 +53,21 @@ export const ContractNonDrugCatalogPage: React.FC = () => {
 
     const [showDeleteModal, setShowDeleteModal] = useState(false)
     const [selectedContract, setSelectedContract] = useState<ContractWithRelations | null>(null)
+
+    // Create Modal State
+    const [showCreateModal, setShowCreateModal] = useState(false)
+    const [isCreating, setIsCreating] = useState(false)
+    const [createFormData, setCreateFormData] = useState<Partial<Contract>>({
+        item_name: '',
+        contract_number: '',
+        item_code: '',
+        start_date: '',
+        end_date: '',
+        supplier_name: '',
+        unit: '',
+        unit_price: undefined,
+        delivery_period: '',
+    })
 
     // Load data
     useEffect(() => {
@@ -106,6 +123,51 @@ export const ContractNonDrugCatalogPage: React.FC = () => {
         return { success: 0, errors: ['Import failed'] }
     }
 
+    const handleCreateItem = async () => {
+        // Validate required fields
+        if (!createFormData.item_name?.trim()) {
+            showError('Validation Error', 'Item Name is required')
+            return
+        }
+        if (!createFormData.contract_number?.trim()) {
+            showError('Validation Error', 'Contract Number is required')
+            return
+        }
+        if (!user?.hospital_id) {
+            showError('Error', 'Hospital ID not found')
+            return
+        }
+
+        setIsCreating(true)
+        try {
+            const result = await createContractNonDrug(user.hospital_id, createFormData)
+            if (result.error) {
+                showError('Error', result.error)
+            } else {
+                showSuccess('Success', 'Contract non-drug item added successfully')
+                setShowCreateModal(false)
+                setCreateFormData({
+                    item_name: '',
+                    contract_number: '',
+                    item_code: '',
+                    start_date: '',
+                    end_date: '',
+                    supplier_name: '',
+                    unit: '',
+                    unit_price: undefined,
+                    delivery_period: '',
+                })
+                loadContracts()
+                loadKPIs()
+            }
+        } catch (error) {
+            showError('Error', 'Failed to create contract item')
+            console.error(error)
+        } finally {
+            setIsCreating(false)
+        }
+    }
+
     const contractImportFields = [
         { key: 'item_name', label: 'Item Name', required: true, type: 'string' as const },
         { key: 'contract_number', label: 'No Kontrak', required: true, type: 'string' as const },
@@ -130,6 +192,9 @@ export const ContractNonDrugCatalogPage: React.FC = () => {
             breadcrumbs={[{ label: 'Catalogs', href: '#' }, { label: 'Contract Non-Drug' }]}
             actions={
                 <div className="flex gap-2">
+                    <Button variant="primary" onClick={() => setShowCreateModal(true)} className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white shadow-lg">
+                        <Plus className="w-4 h-4 mr-2" /> Add Item
+                    </Button>
                     <Button variant="outline" onClick={() => setShowImportModal(true)} className="bg-white/50 backdrop-blur-sm text-blue-700 border-blue-200">
                         <FileUp className="w-4 h-4 mr-2" /> Import Excel
                     </Button>
@@ -271,6 +336,7 @@ export const ContractNonDrugCatalogPage: React.FC = () => {
                 catalogType="contract_non_drug"
             />
 
+
             <ConfirmationDialog
                 isOpen={showDeleteModal}
                 onClose={() => setShowDeleteModal(false)}
@@ -280,6 +346,151 @@ export const ContractNonDrugCatalogPage: React.FC = () => {
                 confirmText="Delete"
                 variant="danger"
             />
+
+            {/* Create Item Modal */}
+            <Modal
+                isOpen={showCreateModal}
+                onClose={() => setShowCreateModal(false)}
+                title="Add Contract Non-Drug Item"
+                size="lg"
+            >
+                <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Item Name - Required */}
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                                Item Name <span className="text-rose-500">*</span>
+                            </label>
+                            <Input
+                                value={createFormData.item_name || ''}
+                                onChange={(e) => setCreateFormData({ ...createFormData, item_name: e.target.value })}
+                                placeholder="Enter item name"
+                                className="w-full"
+                            />
+                        </div>
+
+                        {/* Contract Number - Required */}
+                        <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                                Contract Number <span className="text-rose-500">*</span>
+                            </label>
+                            <Input
+                                value={createFormData.contract_number || ''}
+                                onChange={(e) => setCreateFormData({ ...createFormData, contract_number: e.target.value })}
+                                placeholder="Enter contract number"
+                                className="w-full"
+                            />
+                        </div>
+
+                        {/* Item Code */}
+                        <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Item Code</label>
+                            <Input
+                                value={createFormData.item_code || ''}
+                                onChange={(e) => setCreateFormData({ ...createFormData, item_code: e.target.value })}
+                                placeholder="Enter item code"
+                                className="w-full"
+                            />
+                        </div>
+
+                        {/* Start Date */}
+                        <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Start Date</label>
+                            <Input
+                                type="date"
+                                value={createFormData.start_date || ''}
+                                onChange={(e) => setCreateFormData({ ...createFormData, start_date: e.target.value })}
+                                className="w-full"
+                            />
+                        </div>
+
+                        {/* End Date */}
+                        <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">End Date</label>
+                            <Input
+                                type="date"
+                                value={createFormData.end_date || ''}
+                                onChange={(e) => setCreateFormData({ ...createFormData, end_date: e.target.value })}
+                                className="w-full"
+                            />
+                        </div>
+
+                        {/* Supplier Name */}
+                        <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Supplier Name</label>
+                            <Input
+                                value={createFormData.supplier_name || ''}
+                                onChange={(e) => setCreateFormData({ ...createFormData, supplier_name: e.target.value })}
+                                placeholder="Enter supplier name"
+                                className="w-full"
+                            />
+                        </div>
+
+                        {/* Unit of Measure */}
+                        <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Unit of Measure</label>
+                            <Input
+                                value={createFormData.unit || ''}
+                                onChange={(e) => setCreateFormData({ ...createFormData, unit: e.target.value })}
+                                placeholder="Box, Pack, Each, etc."
+                                className="w-full"
+                            />
+                        </div>
+
+                        {/* Unit Price */}
+                        <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Unit Price (RM)</label>
+                            <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={createFormData.unit_price || ''}
+                                onChange={(e) => setCreateFormData({ ...createFormData, unit_price: e.target.value ? parseFloat(e.target.value) : undefined })}
+                                placeholder="0.00"
+                                className="w-full"
+                            />
+                        </div>
+
+                        {/* Delivery Period */}
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Delivery Period</label>
+                            <Input
+                                value={createFormData.delivery_period || ''}
+                                onChange={(e) => setCreateFormData({ ...createFormData, delivery_period: e.target.value })}
+                                placeholder="e.g., 14 days"
+                                className="w-full"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowCreateModal(false)}
+                            disabled={isCreating}
+                            className="text-slate-600 border-slate-300 hover:bg-slate-50"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="primary"
+                            onClick={handleCreateItem}
+                            disabled={isCreating}
+                            className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white"
+                        >
+                            {isCreating ? (
+                                <>
+                                    <Spinner size="sm" className="mr-2" />
+                                    Creating...
+                                </>
+                            ) : (
+                                'Add Item'
+                            )}
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
         </FinancialPageLayout>
     )
 }

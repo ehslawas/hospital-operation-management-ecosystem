@@ -253,14 +253,14 @@ export const orderTrackingService = {
         ).length
 
         const partial = activeLPOs.filter(l =>
-            l.tracking_items?.some((i: any) => i.status === 'delivered') &&
+            l.tracking_items?.some((i: any) => i.status === 'delivered' || i.status === 'received') &&
             !l.tracking_items?.every((i: any) => i.status === 'delivered')
         ).length
 
-        // Count LPOs where 0 items have been received yet (Purely Pending)
+        // Count LPOs where 0 items have been received/delivered yet (Purely Pending)
         const pendingToReceive = activeLPOs.filter(l =>
             l.tracking_items?.length > 0 &&
-            l.tracking_items?.every((i: any) => i.status !== 'delivered')
+            l.tracking_items?.every((i: any) => i.status !== 'delivered' && i.status !== 'received')
         ).length
 
         return {
@@ -273,14 +273,12 @@ export const orderTrackingService = {
     },
 
     // Update status (e.g., when item is received)
-    async updateTrackingStatus(id: string, status: string, actualDate?: string): Promise<OrderTracking> {
+    async updateTrackingStatus(id: string, status: string, actualDate?: string | null): Promise<OrderTracking> {
         const updates: any = { status }
-        if (actualDate) {
-            updates.actual_delivery_date = actualDate
 
-            // Calculate duration
-            // We need to fetch order_placed_date first or do it in two steps
-            // distinct query for simplicity
+        // Explicitly handle null to clear the date during rollback
+        if (actualDate !== undefined) {
+            updates.actual_delivery_date = actualDate
         }
 
         const { data, error } = await supabase

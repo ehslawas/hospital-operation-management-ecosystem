@@ -9,6 +9,7 @@ import { useSidebar } from '@/stores/uiStore'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { Avatar, LoadingOverlay } from '@/components/ui'
 import { getIconComponent } from '@/lib/iconMapper'
+import { ROLE_DISPLAY_NAMES } from '@/lib/constants'
 import type { MenuItem } from '@/stores/menuStore'
 
 export const Sidebar: React.FC = () => {
@@ -71,8 +72,10 @@ export const Sidebar: React.FC = () => {
         const r = roleCode.toLowerCase()
         if (r === 'pharmacist' || r === 'assistant_pharmacist') {
           deptContext = 'pharmacy_logistics'
-        } else if (r === 'hospital_admin' || r === 'system_admin') {
+        } else if (r === 'hospital_admin') {
           deptContext = 'hospital_admin'
+        } else if (r === 'system_admin') {
+          deptContext = 'system_admin'
         }
       }
 
@@ -403,7 +406,7 @@ const SidebarContent = ({
               {user?.full_name}
             </p>
             <p className="text-xs text-gray-500 truncate">
-              {user?.role?.role_name}
+              {user?.role?.role_code ? (ROLE_DISPLAY_NAMES[user.role.role_code] || user.role.role_name) : ''}
             </p>
             {user?.department && (
               <p className="text-xs text-gray-400 truncate">
@@ -412,6 +415,8 @@ const SidebarContent = ({
             )}
           </div>
         )}
+
+
 
         <button
           onClick={handleLogout}

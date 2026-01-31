@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react'
 import { DepartmentBreakdownItem } from '@/types/pharmacy'
 import { Table, TableHeader, TableBody, TableRow, TableCell } from '@/components/ui'
-import { Building2, FileDigit, Activity } from 'lucide-react'
+import { Building2, Activity } from 'lucide-react'
 
 interface DepartmentBreakdownTableProps {
     data: DepartmentBreakdownItem[]
@@ -100,51 +100,60 @@ export const DepartmentBreakdownTable: React.FC<DepartmentBreakdownTableProps> =
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center gap-2 mb-2">
-                <div className="p-1 bg-blue-50/50 rounded-md border border-blue-100">
-                    <Building2 className="w-3.5 h-3.5 text-blue-600" />
+            <div className="flex items-center justify-between mb-3 px-1">
+                <div className="flex items-center gap-3">
+                    <div className="p-1.5 bg-indigo-50 rounded-lg border border-indigo-100 shadow-sm">
+                        <Building2 className="w-4 h-4 text-indigo-600" />
+                    </div>
+                    <div>
+                        <h3 className="text-sm font-bold text-slate-900 leading-none">
+                            Department Breakdown
+                        </h3>
+                        <p className="text-[10px] text-slate-500 font-medium mt-1">
+                            Cost distribution by vote code
+                        </p>
+                    </div>
                 </div>
-                <h3 className="text-sm font-semibold text-slate-800 tracking-tight">
-                    Department Breakdown
-                </h3>
-                <span className="ml-1 text-[10px] font-medium text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
-                    Detailed Report
+                <span className="text-[10px] font-semibold tracking-wide text-slate-500 bg-slate-50 px-2 py-1 rounded-md border border-slate-100 shadow-sm">
+                    DETAILED REPORT
                 </span>
             </div>
 
-            <div className="rounded-xl border border-slate-200 overflow-hidden shadow-sm bg-white">
+            <div className="rounded-xl border border-slate-200 overflow-hidden shadow-sm bg-white ring-1 ring-slate-200/50">
                 <Table>
-                    <TableHeader className="bg-slate-50/50 border-b border-slate-200">
-                        <TableRow className="hover:bg-transparent">
-                            <TableCell as="th" className="h-7 font-semibold text-slate-500 text-[11px] w-1/4 pl-4 uppercase tracking-wider">Department</TableCell>
-                            <TableCell as="th" className="h-7 font-semibold text-slate-500 text-[11px] w-1/4 uppercase tracking-wider">Vote Code</TableCell>
-                            <TableCell as="th" className="h-7 font-semibold text-slate-500 text-[11px] w-1/4 uppercase tracking-wider">Activity</TableCell>
-                            <TableCell as="th" className="h-7 font-semibold text-slate-500 text-[11px] text-center w-1/8 uppercase tracking-wider">Orders</TableCell>
-                            <TableCell as="th" className="h-7 font-semibold text-slate-500 text-[11px] text-right w-1/8 pr-4 uppercase tracking-wider">Items</TableCell>
+                    <TableHeader className="bg-slate-50/90 border-b border-slate-200 backdrop-blur-sm">
+                        <TableRow className="hover:bg-transparent border-none">
+                            <TableCell as="th" className="!h-6 !py-0 font-bold text-slate-600 text-[10px] w-[30%] !pl-4 uppercase tracking-wider">Department</TableCell>
+                            <TableCell as="th" className="!h-6 !py-0 font-bold text-slate-600 text-[10px] w-[25%] uppercase tracking-wider">Vote Code</TableCell>
+                            <TableCell as="th" className="!h-6 !py-0 font-bold text-slate-600 text-[10px] w-[25%] uppercase tracking-wider">Activity</TableCell>
+                            <TableCell as="th" className="!h-6 !py-0 font-bold text-slate-600 text-[10px] text-center w-[10%] uppercase tracking-wider">Orders</TableCell>
+                            <TableCell as="th" className="!h-6 !py-0 font-bold text-slate-600 text-[10px] text-right w-[10%] !pr-4 uppercase tracking-wider">Items</TableCell>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {rows.map((row, index) => {
-                            // Add a stronger border if it's the start of a new department (and not the very first row)
+                            // Logic for row separation spacing (only between departments)
                             const isNewDepartment = row.isFirstInDept;
-                            const borderClass = isNewDepartment && index !== 0
-                                ? 'border-t border-slate-300' // Stronger separator
-                                : 'border-t border-slate-50'; // Subtle separator
+
+                            // Styling classes - even subtler separators
+                            const rowBorderClass = isNewDepartment && index !== 0
+                                ? 'border-t border-slate-200'
+                                : 'border-t border-slate-50/50';
 
                             return (
-                                <TableRow key={index} className={`hover:bg-slate-50/50 transition-colors ${borderClass} last:border-0 group`}>
+                                <TableRow key={index} className={`hover:bg-blue-50/30 transition-colors ${rowBorderClass} group`}>
 
                                     {/* Department Column */}
                                     {row.isFirstInDept ? (
                                         <TableCell
                                             rowSpan={row.deptRowSpan}
-                                            className="align-top bg-white font-medium text-slate-700 py-2 pl-4 border-r border-slate-100" // Added light border-r
+                                            className="align-top !py-1.5 !pl-4 bg-white"
                                         >
-                                            <div className="flex items-center gap-2 sticky top-4">
-                                                <span className="p-0.5 rounded text-slate-400">
-                                                    <Building2 className="w-3 h-3" />
+                                            <div className="flex items-start gap-2">
+                                                <div className="mt-1 min-w-[2px] h-2.5 rounded-full bg-indigo-500/80" />
+                                                <span className="text-[11px] font-bold text-slate-800 leading-tight">
+                                                    {formatDepartmentName(row.deptName)}
                                                 </span>
-                                                <span className="text-xs">{formatDepartmentName(row.deptName)}</span>
                                             </div>
                                         </TableCell>
                                     ) : null}
@@ -153,28 +162,39 @@ export const DepartmentBreakdownTable: React.FC<DepartmentBreakdownTableProps> =
                                     {row.isFirstInVC ? (
                                         <TableCell
                                             rowSpan={row.vcRowSpan}
-                                            className="align-top bg-white/30 text-slate-600 font-mono text-[11px] py-2 border-r border-slate-50"
+                                            className="align-top !py-1.5 text-slate-600 text-[10px]"
                                         >
                                             <div className="flex items-center gap-2">
-                                                <FileDigit className="w-3 h-3 text-slate-300" />
-                                                <span className="font-medium">{row.vcCode}</span>
+                                                <span className={`px-1 rounded text-[10px] font-mono font-medium border ${row.vcCode !== '-' ? 'bg-slate-50 border-slate-200 text-slate-700' : 'bg-transparent border-transparent text-slate-300'}`}>
+                                                    {row.vcCode !== '-' ? row.vcCode : 'Gen'}
+                                                </span>
                                             </div>
                                         </TableCell>
                                     ) : null}
 
                                     {/* Activity Column */}
-                                    <TableCell className="text-slate-500 text-[11px] py-1 border-r border-slate-50">
-                                        <div className="flex items-center gap-2">
-                                            {row.isActivity && <Activity className="w-3 h-3 text-slate-300" />}
-                                            <span className="font-mono text-[10px]">{row.actCode}</span>
-                                        </div>
+                                    <TableCell className="!py-0.5 text-[10px] align-middle !h-6">
+                                        {row.actCode !== '-' ? (
+                                            <div className="flex items-center gap-1.5">
+                                                <Activity className="w-2.5 h-2.5 text-slate-300" />
+                                                <span className="text-slate-500 font-mono tracking-tighter">{row.actCode}</span>
+                                            </div>
+                                        ) : (
+                                            <span className="text-slate-200 ml-4">-</span>
+                                        )}
                                     </TableCell>
 
                                     {/* Metrics */}
-                                    <TableCell className="text-center font-mono text-[11px] text-slate-600 py-1 border-r border-slate-50">
-                                        {row.orders}
+                                    <TableCell className="!py-0.5 text-center text-[10px] font-medium text-slate-600 align-middle !h-6">
+                                        {row.orders > 0 ? (
+                                            <span className="inline-flex items-center justify-center min-w-[16px] h-4 text-[10px] font-medium rounded-full bg-slate-50 border border-slate-100 text-slate-700">
+                                                {row.orders}
+                                            </span>
+                                        ) : (
+                                            <span className="text-slate-200">-</span>
+                                        )}
                                     </TableCell>
-                                    <TableCell className="text-right font-mono text-[11px] text-slate-600 py-1 pr-4">
+                                    <TableCell className="!py-0.5 text-right !pr-4 text-[10px] font-medium text-slate-700 align-middle !h-6">
                                         {row.items}
                                     </TableCell>
                                 </TableRow>

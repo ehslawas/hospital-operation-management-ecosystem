@@ -12,7 +12,7 @@ import { Button, Input, Spinner, Badge, ConfirmationDialog } from '@/components/
 import { FinancialPageLayout } from '@/components/pharmacy/financial/FinancialPageLayout'
 import { createPurchaseOrder, updatePurchaseOrder, getActiveSuppliers, getPurchaseOrderById } from '@/services/pharmacy/procurementService'
 import { supabase } from '@/services/supabase'
-import { findContractByDrugName, findContractByNumber, calculateMatchScore } from '@/services/pharmacy/contractCatalogService'
+import { findContractByDrugName, findContractByNumber, calculateMatchScore, getContracts } from '@/services/pharmacy/contractCatalogService'
 import { getDrugCatalog, searchDrugs } from '@/services/pharmacy/drugCatalogService'
 import { searchNonDrugs } from '@/services/pharmacy/nonDrugCatalogService'
 import { searchApplDrugs } from '@/services/pharmacy/applDrugCatalogService'
@@ -349,7 +349,36 @@ export const PurchaseOrderCreatePage: React.FC = () => {
         }
 
         setAllItems(combinedItems)
-        setShowSuggestions(combinedItems.length > 0)
+
+        // --- FALLBACK SEARCH IN CONTRACTS ---
+        if (combinedItems.length === 0 && itemSearch.trim().length >= 3) {
+          console.log('No items found in master catalog, trying contract catalog fallback...');
+          const { data: contracts } = await getContracts(hospitalId, { search: itemSearch });
+
+          if (contracts && contracts.length > 0) {
+            const contractItems = contracts.map(c => ({
+              id: c.id,
+              hospital_id: hospitalId,
+              drug_name: c.item_name,
+              item_name: c.item_name,
+              drug_code: 'CONTRACT',
+              item_code: 'CONTRACT',
+              price: c.unit_price || 0,
+              packaging_description: c.unit || '',
+              item_type: formData.category === 'drug' ? 'drug' : 'non_drug',
+              is_contract_fallback: true,
+              contract_number: c.contract_number
+            }));
+
+            // @ts-ignore - we add some custom fields for UI
+            setAllItems(contractItems);
+            setShowSuggestions(true);
+          } else {
+            setShowSuggestions(false);
+          }
+        } else {
+          setShowSuggestions(combinedItems.length > 0)
+        }
       } catch (error) {
         console.error('Error loading items:', error)
       }

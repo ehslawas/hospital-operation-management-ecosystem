@@ -13,11 +13,15 @@ import {
   ArrowDownRight,
   ChevronRight,
   Activity,
-  BadgeCheck,
   Hash,
   Download,
   ScanLine,
-  Search
+  CheckCircle2,
+  RotateCcw,
+  Settings,
+  Save,
+  Trash2,
+  Calendar
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
@@ -33,6 +37,8 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { mergePOWithSupplierDocs } from '@/services/pharmacy/pdfMergeService'
 import { OxygenPurchaseOrderTemplate } from '@/components/pharmacy/oxygen/OxygenPOTemplates'
+import { QRScanner } from '@/components/medical-oxygen/QRScanner'
+import { OxygenAnalytics } from './OxygenAnalytics'
 
 import {
   getOxygenSummary,
@@ -41,11 +47,16 @@ import {
   getOxygenCylinderSizes,
   getOxygenCylinderTypes,
   getOxygenPricingConfig,
-  getOxygenSystemSettings
+  getOxygenSystemSettings,
+  updateOxygenPricing,
+  updateOxygenSystemSettings,
+  deleteOxygenReceptionRecord,
+  updateOxygenReceptionRecord,
+  updateOxygenReceptionPrices
 } from '@/services/pharmacy/oxygenService'
 import { getPharmacyPOSignatures } from '@/services/pharmacy/pharmacySettingsService'
-import { ROUTES } from '@/lib/constants'
 
+import { JATA_LOGO_BASE64 } from '@/constants/logo'
 import type {
   OxygenSummary,
   OxygenReceptionRecordWithRelations,
@@ -185,17 +196,22 @@ export const OxygenDashboardPage: React.FC = () => {
   // Form state
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
   const [poGenerationData, setPoGenerationData] = useState<{
     record: OxygenReceptionRecordWithRelations
     groups: { cylinderType: string; items: any[]; totalAmount: number }[]
   } | null>(null)
   const [signatures, setSignatures] = useState<any>(null)
-  const [sizes, setSizes] = useState<OxygenCylinderSize[]>([])
-  const [types, setTypes] = useState<OxygenCylinderType[]>([])
   const [prices, setPrices] = useState<OxygenPricingConfig[]>([])
   const [settings, setSettings] = useState<OxygenSystemSettings | null>(null)
   const [selectedReception, setSelectedReception] = useState<OxygenReceptionRecordWithRelations | null>(null)
+
+  // Settings state
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false)
+  const [isSavingSettings, setIsSavingSettings] = useState(false)
+  const [editingPrices, setEditingPrices] = useState<Record<string, number>>({})
+  const [editingLoanRate, setEditingLoanRate] = useState<number>(0)
+  const [isEditingDate, setIsEditingDate] = useState(false)
+  const [editingDateValue, setEditingDateValue] = useState('')
 
 
 
@@ -215,6 +231,8 @@ export const OxygenDashboardPage: React.FC = () => {
   }
   const [variantQuantities, setVariantQuantities] = useState<VariantEntry[]>([])
   const [scanInput, setScanInput] = useState('')
+  const [isScannerOpen, setIsScannerOpen] = useState(false)
+  const scanInputRef = React.useRef<HTMLInputElement>(null)
 
   const [formData, setFormData] = useState({
     delivery_order_no: '',
@@ -301,42 +319,47 @@ export const OxygenDashboardPage: React.FC = () => {
     }))
   }
 
-  const handleScan = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && scanInput.trim()) {
-      const code = scanInput.trim().toUpperCase()
+  const processBarcode = (input: string) => {
+    if (!input.trim()) return
+    const code = input.trim().toUpperCase()
 
-      // 1. Check for duplicates across ALL variants
-      const isDuplicate = variantQuantities.some(v => v.scanned_ids.includes(code))
+    // 1. Check for duplicates across ALL variants
+    const isDuplicate = variantQuantities.some(v => v.scanned_ids.includes(code))
 
-      if (isDuplicate) {
-        toast.error('Duplicate Scan', `Cylinder ${code} has already been scanned.`)
-        setScanInput('')
-        return
-      }
+    if (isDuplicate) {
+      toast.error('Duplicate Scan', `Cylinder ${code} has already been scanned.`)
+      setScanInput('')
+      return
+    }
 
-      // 2. Find matching variant (Naive matching: checks if Code contains Size Code or Name)
-      // e.g. "101-N-X321" matches "101-N"
-      const matchedVariant = variantQuantities.find(v =>
-        code.includes(v.size_code.toUpperCase()) ||
-        code.includes(v.display_name.toUpperCase())
-      )
+    // 2. Find matching variant (Naive matching: checks if Code contains Size Code or Name)
+    // e.g. "101-N-X321" matches "101-N"
+    const matchedVariant = variantQuantities.find(v =>
+      code.includes(v.size_code.toUpperCase()) ||
+      code.includes(v.display_name.toUpperCase())
+    )
 
-      if (matchedVariant) {
-        setVariantQuantities(prev => prev.map(v => {
-          if (v.combo_id === matchedVariant.combo_id) {
-            return {
-              ...v,
-              quantity: v.quantity + 1,
-              scanned_ids: [...v.scanned_ids, code]
-            }
+    if (matchedVariant) {
+      setVariantQuantities(prev => prev.map(v => {
+        if (v.combo_id === matchedVariant.combo_id) {
+          return {
+            ...v,
+            quantity: v.quantity + 1,
+            scanned_ids: [...v.scanned_ids, code]
           }
-          return v
-        }))
-        toast.success('Scanned', `Added ${matchedVariant.display_name} (${code})`)
-        setScanInput('')
-      } else {
-        toast.error('Unknown Variant', `Could not match QR code "${code}" to any cylinder type.`)
-      }
+        }
+        return v
+      }))
+      toast.success('Scanned', `Added ${matchedVariant.display_name} (${code})`)
+      setScanInput('')
+    } else {
+      toast.error('Unknown Variant', `Could not match QR code "${code}" to any cylinder type.`)
+    }
+  }
+
+  const handleScan = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      processBarcode(scanInput)
     }
   }
 
@@ -346,18 +369,14 @@ export const OxygenDashboardPage: React.FC = () => {
     setIsLoading(true)
 
     try {
-      const [summaryRes, recordsRes, sizesRes, typesRes, pricingRes, settingsRes]: [
+      const [summaryRes, recordsRes, pricingRes, settingsRes]: [
         ApiResponse<OxygenSummary>,
         ApiResponse<PaginatedResponse<OxygenReceptionRecordWithRelations>>,
-        ApiResponse<OxygenCylinderSize[]>,
-        ApiResponse<OxygenCylinderType[]>,
         ApiResponse<OxygenPricingConfig[]>,
         ApiResponse<OxygenSystemSettings>
       ] = await Promise.all([
         getOxygenSummary(hospitalId),
         getOxygenReceptionRecords(hospitalId, 1, 10),
-        getOxygenCylinderSizes(),
-        getOxygenCylinderTypes(),
         getOxygenPricingConfig(hospitalId),
         getOxygenSystemSettings(hospitalId)
       ])
@@ -366,8 +385,6 @@ export const OxygenDashboardPage: React.FC = () => {
 
       setSummary(summaryRes.data)
       setReceptions(recordsRes.data?.data || [])
-      setSizes(sizesRes.data || [])
-      setTypes(typesRes.data || [])
       setPrices(pricingRes.data || [])
       setSettings(settingsRes.data || null)
     } catch (err) {
@@ -399,6 +416,14 @@ export const OxygenDashboardPage: React.FC = () => {
   useEffect(() => {
     if (prices.length > 0 && settings) {
       void initializeVariantQuantities()
+
+      // Also init editing state
+      const priceMap: Record<string, number> = {}
+      prices.forEach(p => {
+        priceMap[p.cylinder_size_code] = p.refill_price
+      })
+      setEditingPrices(priceMap)
+      setEditingLoanRate(settings.loan_cylinder_rate)
     }
   }, [prices, settings])
 
@@ -406,6 +431,9 @@ export const OxygenDashboardPage: React.FC = () => {
 
   const handleCreateReception = async () => {
     if (!hospitalId || !user?.id) return
+
+    // Use latest settings for loan rate to prevent stale data
+    const currentLoanRate = settings?.loan_cylinder_rate ?? 14.00
 
     // Convert variant quantities to cylinder items
     const cylinderItems: {
@@ -417,7 +445,13 @@ export const OxygenDashboardPage: React.FC = () => {
       loan_price: number
     }[] = []
 
+    let calculatedRefillTotal = 0
+    let calculatedLoanTotal = 0
+
     variantQuantities.forEach(variant => {
+      // Use current loan rate if it's a loan cylinder
+      const itemLoanPrice = variant.is_loaned ? currentLoanRate : 0
+
       for (let i = 0; i < variant.quantity; i++) {
         // Use scanned ID if available, otherwise generate auto-ID
         const scannedId = variant.scanned_ids[i]
@@ -426,10 +460,13 @@ export const OxygenDashboardPage: React.FC = () => {
         cylinderItems.push({
           cylinder_size_id: variant.size_id,
           cylinder_type_id: variant.type_id,
-          qr_code: finalQrCode, // Auto-generate QR code or use scanned
+          qr_code: finalQrCode,
           refill_price: variant.refill_price,
-          loan_price: variant.loan_price
+          loan_price: itemLoanPrice
         })
+
+        calculatedRefillTotal += variant.refill_price
+        calculatedLoanTotal += itemLoanPrice
       }
     })
 
@@ -445,8 +482,8 @@ export const OxygenDashboardPage: React.FC = () => {
         delivery_order_no: formData.delivery_order_no,
         sales_order_no: formData.sales_order_no,
         reception_date: formData.reception_date,
-        refill_amount: variantTotals.refillTotal,
-        loan_amount: variantTotals.loanTotal,
+        refill_amount: calculatedRefillTotal,
+        loan_amount: calculatedLoanTotal,
         vote_code: '080702',
         vote_activity: '27402',
         status: 'completed',
@@ -455,7 +492,7 @@ export const OxygenDashboardPage: React.FC = () => {
 
       if (res.error) throw new Error(res.error)
 
-      toast.success('Success', 'Oxygen reception recorded successfully')
+      toast.success('Success', `Oxygen reception recorded. Loan Rate used: RM ${currentLoanRate.toFixed(2)}`)
 
       setIsModalOpen(false)
       setFormData({
@@ -466,6 +503,7 @@ export const OxygenDashboardPage: React.FC = () => {
         loan_amount: 0,
         cylinders: []
       })
+
       // Reset variant quantities
       setVariantQuantities(prev => prev.map(v => ({ ...v, quantity: 0, scanned_ids: [] })))
       setScanInput('')
@@ -474,6 +512,135 @@ export const OxygenDashboardPage: React.FC = () => {
       toast.error('Error', err instanceof Error ? err.message : 'Failed to record reception')
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleRecalculatePrices = async (reception: OxygenReceptionRecordWithRelations) => {
+    if (!confirm('Are you sure you want to recalculate prices for this reception based on CURRENT System Settings?\n\nThis will update the Refill Amount and Loan Amount in the database permanently.')) {
+      return
+    }
+
+    setIsSubmitting(true) // Reuse submitting state for loading indication
+    try {
+      const currentLoanRate = settings?.loan_cylinder_rate ?? 14.00
+      const items = reception.items || []
+
+      let newRefillTotal = 0
+      let newLoanTotal = 0
+
+      const itemUpdates = items.map(item => {
+        const sizeCode = item.cylinder_size?.code || ''
+        const isLoaned = !sizeCode.toUpperCase().startsWith('P')
+
+        // Find current refill price for this size
+        const refillPrice = prices.find(p => p.cylinder_size_code === sizeCode)?.refill_price || 0
+
+        let newUnitPrice = refillPrice
+
+        if (isLoaned) {
+          newUnitPrice += currentLoanRate
+          newLoanTotal += currentLoanRate
+        }
+
+        newRefillTotal += refillPrice
+
+        return {
+          id: item.id,
+          unit_price: newUnitPrice
+        }
+      })
+
+      const res = await updateOxygenReceptionPrices(reception.id, {
+        refill_amount: newRefillTotal,
+        loan_amount: newLoanTotal,
+        items: itemUpdates
+      })
+
+      if (res.error) throw new Error(res.error)
+
+      toast.success('Prices Updated', `Reception recalculated using Loan Rate RM ${currentLoanRate.toFixed(2)}`)
+      setSelectedReception(null) // Close modal to refresh data view
+      void loadData()
+
+    } catch (err) {
+      console.error(err)
+      toast.error('Error', 'Failed to recalculate prices')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleSaveSettings = async () => {
+    if (!hospitalId) return
+    setIsSavingSettings(true)
+
+    try {
+      // 1. Update individual refill prices
+      const pricePromises = Object.entries(editingPrices).map(([code, price]) => {
+        return updateOxygenPricing(hospitalId, {
+          hospital_id: hospitalId,
+          cylinder_size_code: code,
+          refill_price: price,
+          effective_from: new Date().toISOString().split('T')[0]
+        })
+      })
+
+      // 2. Update system settings (loan rate)
+      const settingsPromise = updateOxygenSystemSettings({
+        hospital_id: hospitalId,
+        loan_cylinder_rate: editingLoanRate
+      })
+
+      const results = await Promise.all([...pricePromises, settingsPromise])
+      const error = results.find(r => r.error)?.error
+
+      if (error) throw new Error(error)
+
+      toast.success('Settings Updated', 'Pricing calculations have been refreshed.')
+      setIsSettingsModalOpen(false)
+      void loadData()
+    } catch (err) {
+      toast.error('Error', err instanceof Error ? err.message : 'Failed to update settings')
+    } finally {
+      setIsSavingSettings(false)
+    }
+  }
+
+  const handleDeleteRecord = async (id: string, doNo: string) => {
+    if (!window.confirm(`Are you sure you want to PERMANENTLY delete record ${doNo}? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      const res = await deleteOxygenReceptionRecord(id)
+      if (res.error) throw new Error(res.error)
+      toast.success('Deleted', `Record ${doNo} has been removed.`)
+      void loadData()
+    } catch (err) {
+      toast.error('Error', err instanceof Error ? err.message : 'Failed to delete record')
+    }
+  }
+
+  const handleUpdateDate = async () => {
+    if (!selectedReception || !editingDateValue) return
+
+    try {
+      const res = await updateOxygenReceptionRecord(selectedReception.id, {
+        reception_date: editingDateValue
+      })
+
+      if (res.error) throw new Error(res.error)
+
+      toast.success('Updated', 'Reception date has been corrected.')
+      setIsEditingDate(false)
+
+      // Refresh data
+      void loadData()
+
+      // Update local state for the modal
+      setSelectedReception(prev => prev ? { ...prev, reception_date: editingDateValue } : null)
+    } catch (err) {
+      toast.error('Error', err instanceof Error ? err.message : 'Failed to update date')
     }
   }
 
@@ -518,6 +685,18 @@ export const OxygenDashboardPage: React.FC = () => {
 
   const handlePreviewPO = (record: OxygenReceptionRecordWithRelations) => {
     const items = record.items || []
+    const loanItems = items.filter(item => !item.cylinder_size?.code?.toUpperCase().startsWith('P'))
+
+    // Calculate effective loan rate from the record itself to support historical prices
+    // Use current system setting for the report to ensure it matches user configuration
+    let effectiveLoanRate = settings?.loan_cylinder_rate ?? 14.00
+
+    /* 
+    // Historical Logic override (Disabled per user request)
+    if (loanItems.length > 0 && record.loan_amount !== undefined && record.loan_amount !== null && Number(record.loan_amount) > 0) {
+      effectiveLoanRate = Number(record.loan_amount) / loanItems.length
+    }
+    */
 
     if (items.length === 0) {
       toast.error('Cannot Generate PO', 'This record has no items associated with it.')
@@ -529,88 +708,73 @@ export const OxygenDashboardPage: React.FC = () => {
     const groups: { cylinderType: string; items: any[]; totalAmount: number, initialBalance: number }[] = []
     let allocatedBalance = summary?.kpis?.total_allocation || 130000
 
-    // HELPER: Config for the 4 cylinder groups + Loan
-    // We want to force these 5 groups if items exist
-    const targetGroups = [
-      { sizeCode: '101-N', type: 'Bullnose', label: '101-N' }, // Medical Oxygen - 101-N
-      { sizeCode: '101-F', type: 'Pin Index', label: '101-F' },
-      { sizeCode: 'P101-D', type: 'Bullnose', label: 'P101-D' },
-      { sizeCode: 'P101-HS', type: 'Pin Index', label: 'P101-HS' },
-    ]
+    // 1. Group items dynamically by Size Code
+    const groupedBySize = items.reduce((acc, item) => {
+      const sizeCode = item.cylinder_size?.code || 'Unknown'
+      if (!acc[sizeCode]) acc[sizeCode] = []
+      acc[sizeCode].push(item)
+      return acc
+    }, {} as Record<string, any[]>)
 
-    // 1. Create Refill POs (Groups 1-4)
-    targetGroups.forEach(target => {
-      // Find items matching this size (and potentially type, though size code usually implies type for specific hospital contexts, 
-      // but here we match primarily by size code logic from the mock data)
-      const matchingItems = items.filter(item => {
-        const itemSize = item.cylinder_size?.code // e.g. "101-N"
-        // Strict match on size code
-        return itemSize === target.sizeCode
+    // 2. Create Refill POs for each size
+    // Sort to keep hospital-owned (starting with P) first for consistent balance deduction
+    Object.entries(groupedBySize)
+      .sort(([codeA], [codeB]) => {
+        const isPA = codeA.toUpperCase().startsWith('P')
+        const isPB = codeB.toUpperCase().startsWith('P')
+        if (isPA && !isPB) return -1
+        if (!isPA && isPB) return 1
+        return codeA.localeCompare(codeB)
       })
-
-      if (matchingItems.length > 0) {
-        // Calculate REFILL price only
-        // Since unit_price in DB = refill + loan, we need to extract refill.
-        // For accurate mock data, we know the prices.
-        // But better to use the calculated logic from the item if we had it. 
-        // We will assume unit_price IS the refill price for this PO context OR subtract known loan.
-        // Actually, for display in PO, "Harga Unit" should be the Refill Price.
-
-        // Mock data logic specific:
-        // 101-N: Refill 81.95, Loan 14.00 (Total 95.95)
-        // 101-F: Refill 56.75, Loan 14.00 (Total 70.75)
-        // P101-D: Refill 49.60, Loan 0
-        // P101-HS: Refill 76.20, Loan 0
-
+      .forEach(([sizeCode, matchingItems]) => {
         let refillTotal = 0
         const refillItems = matchingItems.map(item => {
-          // Heuristic to separate refill from loan if needed, or use unit_price if loan is separate
-          // But DB stores combined. 
-          // We'll use the record's refill_amount / count? No.
-          // Let's rely on the mock data known prices for perfect accuracy or use a robust extractor.
+          // Heuristic: If it doesn't start with 'P', it's a loan cylinder with a fee subtracted from combined unit_price
+          const isLoanPrefix = !sizeCode.toUpperCase().startsWith('P')
 
-          let refillPrice = item.unit_price
-          // If it has a loan component (14.00), subtract it to get refill price for the Refill PO
-          // WE KNOW 101-N and 101-F have loans in our mock data.
-          if (['101-N', '101-F'].includes(target.sizeCode)) {
-            refillPrice = Number(item.unit_price) - 14.00
-          }
+          // History Safe Logic: Use the STORED price. 
+          // If the user wants new prices, they MUST click "Update Prices" on the record first.
+          const storedPrice = Number(item.unit_price || 0)
+          const loanPart = isLoanPrefix ? effectiveLoanRate : 0
+
+          // Refill Price = Stored Price - Loan Part (if applicable)
+          // We trust effectiveLoanRate is derived correctly from history or settings depending on strategy.
+          // In "History Safe Mode" requested, effectiveLoanRate should ideally come from record too, 
+          // BUT earlier we set effectiveLoanRate = settings?.loan_rate ?? 14.00. 
+          // To be truly history safe for LOAN, we should use record.loan_amount / count if available.
+          // However, user specifically complained about 14.00. 
+          // Strategy: The "Update Prices" button fixes the record to match Current Settings.
+          // So looking at Stored Price is correct.
+
+          const refillPrice = isLoanPrefix ? (storedPrice - effectiveLoanRate) : storedPrice
 
           refillTotal += refillPrice
           return { ...item, unit_price: refillPrice } // Override for template display
         })
 
-        // sequential balance logic:
-        // Current PO Start Balance = allocatedBalance
-        // Next PO Start Balance = allocatedBalance - refillTotal
-        const currentBalance = allocatedBalance
-        allocatedBalance -= refillTotal
+        if (refillTotal > 0) {
+          const currentBalance = allocatedBalance
+          allocatedBalance -= refillTotal
 
-        groups.push({
-          cylinderType: `Medical Oxygen - ${target.label}`,
-          items: refillItems,
-          totalAmount: refillTotal,
-          initialBalance: currentBalance
-        })
-      }
-    })
+          groups.push({
+            cylinderType: `Medical Oxygen - ${sizeCode}`,
+            items: refillItems,
+            totalAmount: refillTotal,
+            initialBalance: currentBalance
+          })
+        }
+      })
 
-    // 2. Create Loan PO (Group 5)
-    // Consolidate ALL loan charges
-    const loanItems = items.filter(item => {
-      // Check if this item has a loan charge.
-      // 101-N and 101-F have loan charges in our mock data.
-      return ['101-N', '101-F'].includes(item.cylinder_size?.code || '')
-    })
-
+    // 3. Create Loan PO (Group final)
+    // Consolidate ALL loan charges (already filtered above)
     if (loanItems.length > 0) {
-      const totalLoanAmount = loanItems.length * 14.00 // Fixed rate context
+      const totalLoanAmount = loanItems.length * effectiveLoanRate
 
       // For the Loan PO, we want the table to show "Loan Cylinder" as the item name
-      // And the Unit Price should be 14.00
+      // And the Unit Price should be the effective rate
       const displayLoanItems = loanItems.map(item => ({
         ...item,
-        unit_price: 14.00
+        unit_price: effectiveLoanRate
       }))
 
       // Loan PO does NOT use the Refill allocation chain.
@@ -632,67 +796,247 @@ export const OxygenDashboardPage: React.FC = () => {
   }
 
   const handlePreviewReport = (record: OxygenReceptionRecordWithRelations) => {
-    toast.info('Generating PDF...', 'Preparing Reception Report. Please wait.')
+    toast.info('Generating PDF...', 'Preparing Official Reception Report...')
     const doc = new jsPDF()
-    const hospitalName = "HOSPITAL DAERAH LAWAS"
 
-    // Header
-    doc.setFontSize(14)
-    doc.text("LAPORAN PENERIMAAN BEKALAN GAS PERUBATAN", 105, 15, { align: 'center' })
-    doc.setFontSize(10)
-    doc.text("(KEW.PS-3)", 105, 22, { align: 'center' })
+    // Compact Layout Constants
+    const pageWidth = doc.internal.pageSize.width
+    const margin = 10 // Reduced margin to make use of full A4 width
 
-    // Metadata
-    autoTable(doc, {
-      startY: 30,
-      body: [
-        ["HOSPITAL:", hospitalName.toUpperCase(), "NO. DO / INVOIS:", String(record.delivery_order_no).toUpperCase()],
-        ["TARIKH TERIMA:", formatDate(record.reception_date).toUpperCase(), "PEGAWAI PENERIMA:", (record.created_by_user?.full_name || '-').toUpperCase()],
-        ["VOTE CODE:", String(record.vote_code || '080702'), "AKTIVITI:", String(record.vote_activity || '27402')]
-      ],
-      theme: 'plain',
-      styles: { fontSize: 9, cellPadding: 1.5 },
-      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 35 }, 2: { fontStyle: 'bold', cellWidth: 40 } }
-    })
+    // Classification: Refill Hospital (starting with 'P') vs Loan Cylinder (others)
+    const refillHospitalItems = record.items?.filter(i => i.cylinder_size?.code?.toUpperCase().startsWith('P')) || []
+    const loanCylinderItems = record.items?.filter(i => !i.cylinder_size?.code?.toUpperCase().startsWith('P')) || []
 
-    // Items
-    const cylinders = record.items || []
-    const itemsBody = cylinders.map((item, idx) => [
-      idx + 1,
-      String(item.cylinder?.qr_code || '-'),
-      String(item.cylinder_size?.code || '-'),
-      String(item.cylinder_type?.name || '-'),
-      "1 UNIT",
-      formatCurrency(item.unit_price || 0)
-    ])
+    // Calculate effective loan rate from the record itself (historical accuracy)
+    // Use current system setting for the report to ensure it matches user configuration
+    // (Even if the record was saved with an older price)
+    let effectiveLoanRate = settings?.loan_cylinder_rate ?? 14.00
 
-    autoTable(doc, {
-      startY: 55,
-      head: [['BIL', 'NO. SIRI / QR', 'SAIZ', 'JENIS', 'KUANTITI', 'HARGA SEUNIT (RM)']],
-      body: itemsBody,
-      theme: 'grid',
-      headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
-      styles: { fontSize: 8 },
-      columnStyles: {
-        0: { cellWidth: 10, halign: 'center' },
-        4: { cellWidth: 20, halign: 'center' },
-        5: { cellWidth: 35, halign: 'right' }
+    /* 
+    // Historical Logic (Disabled per user request to follow current settings)
+    if (loanCylinderItems.length > 0 && record.loan_amount !== undefined && record.loan_amount !== null && Number(record.loan_amount) > 0) {
+      effectiveLoanRate = Number(record.loan_amount) / loanCylinderItems.length
+    }
+    */
+
+    // Correct Pricing Logic: unit_price in DB includes the loan fee if it's a loan cylinder.
+    // HISTORY SAFE MODE: Use stored values.
+    const refillHospitalTotal = refillHospitalItems.reduce((sum, item) => sum + (item.unit_price || 0), 0)
+    const refillLoanTotal = loanCylinderItems.reduce((sum, item) => sum + (Number(item.unit_price || 0) - effectiveLoanRate), 0)
+    const loanFeesTotal = loanCylinderItems.length * effectiveLoanRate
+    const grandTotal = refillHospitalTotal + refillLoanTotal + loanFeesTotal
+
+    // Helper to chunk arrays
+    const chunkArray = <T,>(arr: T[], size: number): T[][] => {
+      const chunks: T[][] = []
+      for (let i = 0; i < arr.length; i += size) {
+        chunks.push(arr.slice(i, i + size))
       }
-    })
+      return chunks
+    }
 
-    const finalY = (doc as any).lastAutoTable.finalY + 10
-    doc.setFontSize(9)
-    doc.text("JUMLAH KESELURUHAN (RM): " + formatCurrency(record.total_amount), 195, finalY, { align: 'right' })
+    const renderHeader = (doc: jsPDF) => {
+      // Professional Logo Size & Position (Filling more space)
+      doc.addImage(JATA_LOGO_BASE64, 'PNG', pageWidth / 2 - 10, 8, 20, 20)
 
-    doc.text("Tandatangan Pegawai Penerima:", 20, finalY + 20)
-    doc.text("....................................................", 20, finalY + 35)
-    doc.text("( Nama: " + (record.created_by_user?.full_name || '') + " )", 20, finalY + 40)
+      doc.setFont("times", "bold")
+      doc.setFontSize(14)
+      doc.text("KEMENTERIAN KESIHATAN MALAYSIA", pageWidth / 2, 34, { align: 'center' })
+      doc.setFontSize(11)
+      doc.text("HOSPITAL DAERAH LAWAS", pageWidth / 2, 40, { align: 'center' })
 
-    const blobUrl = doc.output('bloburl') as any as string
-    window.open(blobUrl, '_blank')
+      doc.setFontSize(13)
+      doc.text("LAPORAN PENERIMAAN BEKALAN GAS PERUBATAN", pageWidth / 2, 50, { align: 'center' })
+      doc.setFontSize(10)
+      doc.text("(KEW.PS-3)", pageWidth / 2, 55, { align: 'center' })
+    }
+
+    const generatePage = (items: typeof record.items) => {
+      renderHeader(doc)
+
+      // Professional Info Block (Optimized)
+      const startY = 62
+      autoTable(doc, {
+        startY: startY,
+        body: [
+          ["NO. PESANAN / DO:", record.delivery_order_no?.toUpperCase() || '-'],
+          ["TARIKH TERIMA:", formatDate(record.reception_date).toUpperCase()],
+          ["DITERIMA OLEH:", (record.created_by_user?.full_name || 'SYSTEM').toUpperCase()],
+          ["KOD UNDI / AKTIVITI:", `${record.vote_code || '080702'} / ${record.vote_activity || '27402'}`]
+        ],
+        theme: 'plain',
+        styles: { font: 'times', fontSize: 10, cellPadding: 1.0 },
+        columnStyles: { 0: { fontStyle: 'bold', cellWidth: 45 }, 1: { cellWidth: 100 } },
+        margin: { left: margin, right: margin }
+      })
+
+      // Group all items by Size Code
+      const groupedItems = items?.reduce((acc, item) => {
+        const key = item.cylinder_size?.code || 'Unknown'
+        if (!acc[key]) {
+          acc[key] = {
+            code: key,
+            qr_codes: [],
+            count: 0,
+            unit_refill_combined: item.unit_price || 0
+          }
+        }
+        acc[key].qr_codes.push(item.cylinder?.qr_code || '-')
+        acc[key].count += 1
+        return acc
+      }, {} as Record<string, { code: string, qr_codes: string[], count: number, unit_refill_combined: number }>)
+
+      const tableBody: any[] = []
+      let rowIdx = 1
+
+      // Sort: Hospital first (P*) then others
+      Object.values(groupedItems || {})
+        .sort((a, b) => {
+          const aP = a.code.toUpperCase().startsWith('P')
+          const bP = b.code.toUpperCase().startsWith('P')
+          if (aP && !bP) return -1
+          if (!aP && bP) return 1
+          return a.code.localeCompare(b.code)
+        })
+        .forEach((group) => {
+          const isLoanPrefix = !group.code.toUpperCase().startsWith('P')
+          const refillRate = isLoanPrefix ? (group.unit_refill_combined - effectiveLoanRate) : group.unit_refill_combined
+
+          // Split QR codes into chunks of 10 to prevent row height overflow
+          const qrChunks = chunkArray(group.qr_codes, 10)
+
+          qrChunks.forEach((chunkElements, chunkIdx) => {
+            const qrList = chunkElements.join(', ')
+            const isFirstChunk = chunkIdx === 0
+            const typeLabel = `${group.code}\n(REFILL)${isFirstChunk ? '' : ' (samb.)'}`
+
+            if (isLoanPrefix) {
+              // Row index only for the very first chunk of the REFILL line
+              const rowNum = isFirstChunk ? rowIdx++ : ''
+
+              tableBody.push([
+                rowNum,
+                typeLabel,
+                qrList,
+                isFirstChunk ? group.count + " UNIT" : '',
+                isFirstChunk ? formatCurrency(refillRate) : '',
+                isFirstChunk ? formatCurrency(group.count * refillRate) : ''
+              ])
+            } else {
+              const rowNum = isFirstChunk ? rowIdx++ : ''
+              const ownerTypeLabel = `${group.code}${isFirstChunk ? '' : ' (samb.)'}`
+
+              tableBody.push([
+                rowNum,
+                ownerTypeLabel,
+                qrList,
+                isFirstChunk ? group.count + " UNIT" : '',
+                isFirstChunk ? formatCurrency(refillRate) : '',
+                isFirstChunk ? formatCurrency(group.count * refillRate) : ''
+              ])
+            }
+          })
+
+          // Add Rental Row if it's a loan cylinder (only once per group)
+          if (isLoanPrefix) {
+            tableBody.push([
+              rowIdx++,
+              `${group.code}\n(SEWAAN)`,
+              "CAJ PINJAMAN / SEWAAN SILINDER",
+              group.count + " UNIT",
+              formatCurrency(effectiveLoanRate),
+              formatCurrency(group.count * effectiveLoanRate)
+            ])
+          }
+        })
+
+      autoTable(doc, {
+        startY: (doc as any).lastAutoTable.finalY + 8,
+        head: [['BIL', 'JENIS / SAIZ', 'NO. SIRI / QR CODE', 'KUANTITI', 'KADAR (RM)', 'AMAUN (RM)']],
+        body: tableBody,
+        theme: 'grid',
+        headStyles: { fillColor: [80, 80, 80], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', font: 'times', fontSize: 10 },
+        styles: { font: 'times', fontSize: 9.5, cellPadding: 1.6, valign: 'middle', overflow: 'linebreak' },
+        columnStyles: {
+          0: { cellWidth: 10, halign: 'center' },
+          1: { cellWidth: 30, halign: 'center', fontStyle: 'bold' },
+          2: { cellWidth: 'auto', fontSize: 8.5 }, // Clearer QR codes
+          3: { cellWidth: 20, halign: 'center' },
+          4: { cellWidth: 25, halign: 'right' },
+          5: { cellWidth: 25, halign: 'right' }
+        },
+        margin: { left: margin, right: margin }
+      })
+
+      let finalY = (doc as any).lastAutoTable.finalY + 10
+      const pageHeight = doc.internal.pageSize.height
+      const requiredSpace = 90 // Approx space for Summary + Signatures
+
+      // Check if we have enough space for Summary + Signatures, otherwise add new page
+      if (finalY + requiredSpace > pageHeight - margin) {
+        doc.addPage()
+        finalY = 40 // Reset Y to top margin
+      }
+
+      // Professional Summary Block
+      doc.setFontSize(11)
+      doc.setFont("times", "bold")
+      doc.text("RINGKASAN AMAUN KESELURUHAN", margin, finalY)
+      finalY += 2
+      doc.setDrawColor(200, 200, 200)
+      doc.line(margin, finalY, pageWidth - margin, finalY)
+      finalY += 7
+
+      doc.setFont("times", "normal")
+      doc.setFontSize(10)
+
+      doc.text(`1. JUMLAH REFILL HOSPITAL [${refillHospitalItems.length} UNIT]:`, margin, finalY)
+      doc.text(formatCurrency(refillHospitalTotal), pageWidth - margin, finalY, { align: 'right' })
+      finalY += 7
+
+      doc.text(`2. JUMLAH REFILL (LOAN) [${loanCylinderItems.length} UNIT]:`, margin, finalY)
+      doc.text(formatCurrency(refillLoanTotal), pageWidth - margin, finalY, { align: 'right' })
+      finalY += 7
+
+      doc.text(`3. JUMLAH SEWAAN (LOAN) [${loanCylinderItems.length} UNIT @ ${formatCurrency(effectiveLoanRate)}]:`, margin, finalY)
+      doc.text(formatCurrency(loanFeesTotal), pageWidth - margin, finalY, { align: 'right' })
+      finalY += 9
+
+      doc.setFont("times", "bold")
+      doc.setFontSize(11)
+      doc.text("JUMLAH BESAR (1 + 2 + 3):", margin, finalY)
+      doc.text(formatCurrency(grandTotal), pageWidth - margin, finalY, { align: 'right' })
+      finalY += 14
+
+      // Signature Block (Optimized)
+      const currentY = finalY
+      doc.setFontSize(10)
+      doc.setFont("times", "normal")
+      doc.text("Disediakan Oleh (Pegawai Penerima):", margin, currentY)
+      doc.line(margin, currentY + 14, margin + 55, currentY + 14)
+      doc.text(`Nama: ${(record.created_by_user?.full_name || '').toUpperCase()}`, margin, currentY + 20)
+      doc.text("Jawatan: ...............................................", margin, currentY + 26)
+      doc.text(`Tarikh: ${formatDate(new Date())}`, margin, currentY + 32)
+
+      const rightColX = pageWidth / 2 + 5
+      doc.text("Disahkan Oleh (Ketua Unit):", rightColX, currentY)
+      doc.line(rightColX, currentY + 14, rightColX + 55, currentY + 14)
+      doc.text("Nama: ...................................................", rightColX, currentY + 20)
+      doc.text("Jawatan: ...............................................", rightColX, currentY + 26)
+      doc.text("Tarikh: .................................................", rightColX, currentY + 32)
+
+      // Footer
+      doc.setFontSize(6)
+      doc.setFont("times", "italic")
+    }
+
+    // Execute combined 1-page report
+    generatePage(record.items || [])
+
+    doc.save(`Reception_Report_${record.delivery_order_no}.pdf`)
+    toast.success('Official PDF Generated', 'Combined 1-page report generated.')
   }
 
-  // ... existing columns ...
   const recordsColumns: Column<OxygenReceptionRecordWithRelations>[] = [
     { key: 'reception_date', label: 'Date', render: (val) => formatDate(String(val)) },
     { key: 'delivery_order_no', label: 'DO No', className: 'font-bold' },
@@ -701,13 +1045,23 @@ export const OxygenDashboardPage: React.FC = () => {
       key: 'refill_amount',
       label: 'Refill (RM)',
       className: 'text-right',
-      render: (val) => formatCurrency(Number(val))
+      render: (_, row) => {
+        const refillTotal = row.items?.reduce((sum, item) => {
+          const isLoan = !item.cylinder_size?.code?.toUpperCase().startsWith('P')
+          return sum + (Number(item.unit_price || 0) - (isLoan ? 14.00 : 0))
+        }, 0) || 0
+        return formatCurrency(refillTotal)
+      }
     },
     {
       key: 'loan_amount',
       label: 'Loan (RM)',
       className: 'text-right',
-      render: (val) => formatCurrency(Number(val))
+      render: (_, row) => {
+        const loanItems = row.items?.filter(i => !i.cylinder_size?.code?.toUpperCase().startsWith('P')) || []
+        const loanTotal = loanItems.length * 14.00
+        return formatCurrency(loanTotal)
+      }
     },
     {
       key: 'id',
@@ -721,8 +1075,17 @@ export const OxygenDashboardPage: React.FC = () => {
           <Button variant="outline" size="sm" onClick={() => handlePreviewPO(row)} title="Generate Purchase Orders">
             PO
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => handlePreviewReport(row)} title="Generate Reception Report">
+          <Button variant="outline" size="sm" onClick={() => handlePreviewReport(row)} title="Generate Reception Report">
             Report
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleDeleteRecord(row.id, row.delivery_order_no)}
+            className="text-rose-500 hover:text-rose-700 hover:bg-rose-50"
+            title="Delete Record"
+          >
+            <Trash2 className="h-4 w-4" />
           </Button>
         </div>
       )
@@ -763,73 +1126,11 @@ export const OxygenDashboardPage: React.FC = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={async () => {
-                  const confirm = window.confirm('Generate mock reception data? This will add records to the database.')
-                  if (!confirm) return
-
-                  setIsLoading(true)
-                  try {
-                    // Seed Data: 1 Record with Multiple Types
-                    const seeds = [
-                      {
-                        do_no: `DO-MOCK-${Math.floor(Math.random() * 1000)}`,
-                        date: new Date().toISOString().split('T')[0],
-                        items: [
-                          { size_id: sizes.find(s => s.code === '101-N')?.id, type_id: types.find(t => t.name === 'Bullnose')?.id || types[0]?.id, qty: 10, refill: 81.95, loan: 14.00 },
-                          { size_id: sizes.find(s => s.code === '101-F')?.id, type_id: types.find(t => t.name === 'Pin Index')?.id || types[0]?.id, qty: 5, refill: 56.75, loan: 14.00 },
-                          { size_id: sizes.find(s => s.code === 'P101-D')?.id, type_id: types.find(t => t.name === 'Bullnose')?.id || types[0]?.id, qty: 12, refill: 49.60, loan: 0 },
-                          { size_id: sizes.find(s => s.code === 'P101-HS')?.id, type_id: types.find(t => t.name === 'Pin Index')?.id || types[0]?.id, qty: 3, refill: 76.20, loan: 0 }
-                        ]
-                      }
-                    ]
-
-                    for (const seed of seeds) {
-                      const cylinderItems: any[] = []
-                      let refillTotal = 0
-                      let loanTotal = 0
-
-                      seed.items.forEach(item => {
-                        if (!item.size_id || !item.type_id) return
-                        for (let i = 0; i < item.qty; i++) {
-                          cylinderItems.push({
-                            cylinder_size_id: item.size_id,
-                            cylinder_type_id: item.type_id,
-                            qr_code: `MOCK-${item.size_id.slice(0, 4)}-${Date.now()}-${i}`,
-                            refill_price: item.refill,
-                            loan_price: item.loan
-                          })
-                          refillTotal += item.refill
-                          loanTotal += item.loan
-                        }
-                      })
-
-                      await createOxygenReceptionRecord({
-                        hospital_id: hospitalId!,
-                        delivery_order_no: seed.do_no,
-                        sales_order_no: `SO-${Math.floor(Math.random() * 10000)}`,
-                        reception_date: seed.date,
-                        refill_amount: refillTotal,
-                        loan_amount: loanTotal,
-                        vote_code: '080702',
-                        vote_activity: '27402',
-                        status: 'completed',
-                        created_by: user!.id
-                      }, cylinderItems)
-                    }
-
-                    toast.success('Success', 'Generated 1 combined mock reception record')
-                    loadData()
-                  } catch (err) {
-                    console.error(err)
-                    toast.error('Error', 'Failed to generate mock data')
-                  } finally {
-                    setIsLoading(false)
-                  }
-                }}
-                className="border-gray-300 text-sky-600 hover:bg-sky-50"
+                onClick={() => setIsSettingsModalOpen(true)}
+                className="border-gray-300 text-gray-700 hover:bg-gray-50"
               >
-                <Hash className="w-4 h-4 mr-2" />
-                Generate Data
+                <Settings className="w-4 h-4 mr-2 text-slate-500" />
+                Pricing Settings
               </Button>
               <Button
                 onClick={() => setIsModalOpen(true)}
@@ -887,6 +1188,9 @@ export const OxygenDashboardPage: React.FC = () => {
             />
           </div>
         </div>
+
+        {/* Analytics Section */}
+        <OxygenAnalytics />
 
         {/* Recent Receptions Table */}
         <motion.div
@@ -959,35 +1263,18 @@ export const OxygenDashboardPage: React.FC = () => {
                       />
                     </div>
                   </div>
-                  <div className="w-40">
+                  <div className="relative w-40">
+                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5">
+                      <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                    </div>
                     <Input
                       type="date"
+                      value={formData.reception_date}
+                      onChange={e => setFormData({ ...formData, reception_date: e.target.value })}
+                      className="h-8 border-slate-200 pl-8 text-xs font-bold transition-all focus:border-sky-500 focus:ring-sky-500/10"
                     />
                   </div>
 
-                  {/* Auto-Fill Button */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setVariantQuantities(prev => prev.map(v => {
-                        if (v.display_name === 'P101-D') return { ...v, quantity: 3, scanned_ids: [] }
-                        if (v.display_name === 'P101-F (BN)') return { ...v, quantity: 12, scanned_ids: [] }
-                        if (v.display_name === 'P101-F (PI)') return { ...v, quantity: 10, scanned_ids: [] }
-                        if (v.display_name === '101-N') return { ...v, quantity: 30, scanned_ids: [] }
-                        if (v.display_name === '101-F') return { ...v, quantity: 15, scanned_ids: [] }
-                        return v
-                      }))
-                      setFormData(prev => ({
-                        ...prev,
-                        delivery_order_no: 'DO-DEMO-2026-001',
-                        sales_order_no: 'SO-DEMO-998877'
-                      }))
-                    }}
-                    className="h-7 rounded-md border border-sky-100 bg-sky-50 px-3 text-[9px] font-bold text-sky-600 hover:bg-sky-100"
-                  >
-                    Auto-Fill
-                  </Button>
                 </div>
               </div>
             </div>
@@ -996,12 +1283,22 @@ export const OxygenDashboardPage: React.FC = () => {
             <div className="flex-1 overflow-y-auto p-4">
 
               {/* Scan Bar */}
-              <div className="mb-4 flex items-center gap-2 rounded-xl bg-slate-900 p-2 shadow-lg">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500 text-white">
+              <div
+                onClick={() => scanInputRef.current?.focus()}
+                className="mb-4 flex cursor-text items-center gap-2 rounded-xl bg-slate-900 p-2 shadow-lg ring-offset-slate-900 transition-all focus-within:ring-2 focus-within:ring-sky-500/50"
+              >
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setIsScannerOpen(true)
+                  }}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500 text-white shadow-lg shadow-sky-500/20 transition-all hover:bg-sky-400 hover:scale-105 active:scale-95"
+                >
                   <ScanLine className="h-4 w-4" />
-                </div>
+                </button>
                 <div className="flex-1">
                   <input
+                    ref={scanInputRef}
                     autoFocus
                     type="text"
                     value={scanInput}
@@ -1179,11 +1476,11 @@ export const OxygenDashboardPage: React.FC = () => {
                 </div>
               </div>
             </div>
-          </div >
-        </Modal >
+          </div>
+        </Modal>
 
         {/* Detail Modal for Reception - NEW COMPACT DESIGN */}
-        < Modal
+        <Modal
           isOpen={!!selectedReception}
           onClose={() => setSelectedReception(null)}
           title=""
@@ -1222,9 +1519,57 @@ export const OxygenDashboardPage: React.FC = () => {
                       <h2 className="text-xl font-bold tracking-tight text-white">{selectedReception.delivery_order_no}</h2>
                     </div>
                     <div className="flex items-center gap-6">
-                      <div className="text-right">
-                        <p className="text-[10px] uppercase tracking-widest text-slate-400">Date</p>
-                        <p className="text-sm font-bold text-white">{formatDate(selectedReception.reception_date)}</p>
+                      <div className="text-right flex items-center gap-2">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-widest text-slate-400">Date</p>
+                          {isEditingDate ? (
+                            <Input
+                              type="date"
+                              value={editingDateValue}
+                              onChange={e => setEditingDateValue(e.target.value)}
+                              className="h-7 border-slate-700 bg-slate-800 text-[11px] font-bold text-white w-32"
+                            />
+                          ) : (
+                            <p className="text-sm font-bold text-white">{formatDate(selectedReception.reception_date)}</p>
+                          )}
+                        </div>
+                        <div className="mt-4">
+                          {isEditingDate ? (
+                            <div className="flex gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={handleUpdateDate}
+                                className="h-6 w-6 p-0 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+                                title="Save"
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setIsEditingDate(false)}
+                                className="h-6 w-6 p-0 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+                                title="Cancel"
+                              >
+                                <RotateCcw className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setIsEditingDate(true)
+                                setEditingDateValue(selectedReception.reception_date)
+                              }}
+                              className="h-6 w-6 p-0 text-slate-500 hover:text-white hover:bg-white/10"
+                              title="Edit Date"
+                            >
+                              <Settings className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       <div className="text-right">
                         <p className="text-[10px] uppercase tracking-widest text-slate-400">Received By</p>
@@ -1364,6 +1709,17 @@ export const OxygenDashboardPage: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRecalculatePrices(selectedReception)}
+                        className="h-8 gap-2 text-xs font-bold text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                        title="Update record to use current price settings"
+                        disabled={isSubmitting}
+                      >
+                        <RefreshCw className={`h-3.5 w-3.5 ${isSubmitting ? 'animate-spin' : ''}`} />
+                        Update Prices
+                      </Button>
+                      <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handlePreviewPO(selectedReception)}
@@ -1396,7 +1752,118 @@ export const OxygenDashboardPage: React.FC = () => {
               </div>
             );
           })()}
-        </Modal >
+        </Modal>
+
+        {/* Pricing Settings Modal */}
+        <Modal
+          isOpen={isSettingsModalOpen}
+          onClose={() => setIsSettingsModalOpen(false)}
+          title="Oxygen Pricing & Rates"
+          size="lg"
+        >
+          <div className="space-y-6 p-1">
+            <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-100 bg-slate-50/50 px-4 py-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-1 rounded-full bg-sky-500" />
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-700">Refill Price (by Size)</h4>
+                </div>
+              </div>
+              <div className="p-4 space-y-3">
+                {prices.map(price => (
+                  <div key={price.id} className="flex items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <p className="text-xs font-bold text-slate-700">{price.cylinder_size_code}</p>
+                      <p className="text-[10px] text-slate-400">Standard refill rate</p>
+                    </div>
+                    <div className="w-32">
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">RM</span>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={editingPrices[price.cylinder_size_code] || ''}
+                          onChange={e => setEditingPrices({
+                            ...editingPrices,
+                            [price.cylinder_size_code]: Number(e.target.value)
+                          })}
+                          className="h-8 pl-9 text-xs font-bold"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-100 bg-slate-50/50 px-4 py-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-1 rounded-full bg-amber-500" />
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-700">Cylinder Loan Rate</h4>
+                </div>
+              </div>
+              <div className="p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <p className="text-xs font-bold text-slate-700">Fixed Loan Fee</p>
+                    <p className="text-[10px] text-slate-400">Applicable to all loaned cylinders</p>
+                  </div>
+                  <div className="w-32">
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">RM</span>
+                      <Input
+                        type="number"
+                        step="0.10"
+                        value={editingLoanRate}
+                        onChange={e => setEditingLoanRate(Number(e.target.value))}
+                        className="h-8 pl-9 text-xs font-bold"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsSettingsModalOpen(false)}
+                className="text-xs font-bold text-slate-500"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveSettings}
+                disabled={isSavingSettings}
+                className="bg-emerald-600 hover:bg-emerald-700 text-xs font-bold text-white shadow-sm"
+              >
+                {isSavingSettings ? (
+                  <RefreshCw className="w-3 h-3 mr-2 animate-spin" />
+                ) : (
+                  <Save className="w-3 h-3 mr-2" />
+                )}
+                Save Pricing Changes
+              </Button>
+            </div>
+          </div>
+        </Modal>
+
+        {/* Camera Scanner Modal */}
+        {
+          isScannerOpen && (
+            <QRScanner
+              onScan={(result) => {
+                if (result) {
+                  processBarcode(result)
+                  setIsScannerOpen(false)
+                }
+              }}
+              onClose={() => setIsScannerOpen(false)}
+            />
+          )
+        }
         {/* Hidden PO Print Templates (used by PDF generator) */}
         {/* We use an off-screen container instead of display:none to ensure browser renders it properly for capture */}
         <div
@@ -1419,8 +1886,8 @@ export const OxygenDashboardPage: React.FC = () => {
             ))}
           </div>
         </div>
-      </div >
-    </div >
+      </div>
+    </div>
   );
 };
 

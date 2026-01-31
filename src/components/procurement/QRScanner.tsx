@@ -23,7 +23,7 @@ export function QRScanner({ onScan, isOpen, onClose }: QRScannerProps) {
                 <DialogHeader className="flex flex-row items-center justify-between">
                     <DialogTitle className="flex items-center gap-2">
                         <Camera className="w-5 h-5" />
-                        Scan LPO QR Code
+                        Scan Barcode / QR
                     </DialogTitle>
                 </DialogHeader>
 
@@ -32,19 +32,20 @@ export function QRScanner({ onScan, isOpen, onClose }: QRScannerProps) {
                         <div className="w-full max-w-[300px] aspect-square relative">
                             <Scanner
                                 onScan={handleScan}
+                                formats={['qr_code', 'data_matrix', 'code_128', 'ean_13']}
                                 styles={{
                                     container: { width: '100%', height: '100%' },
                                     video: { objectFit: 'cover' }
                                 }}
                                 components={{
-                                    audio: false, // Optional: disable beep
-                                    finder: true  // Shows a finder overlay
+                                    audio: false,
+                                    finder: true
                                 }}
                             />
                         </div>
                     )}
                     <p className="text-white/70 text-sm mt-4 text-center">
-                        Align the QR code within the frame to scan
+                        Align the QR code or DataMatrix (on box) within the frame
                     </p>
                 </div>
 

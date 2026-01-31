@@ -124,29 +124,40 @@ export async function createOxygenReceptionRecord(
 
     if (recordError) throw recordError
 
-    // 2. Add cylinders to inventory and record movement
+    // 2. Prepare inventory data for bulk upsert
+    const inventoryData = cylinders.map(cyl => ({
+      hospital_id: data.hospital_id,
+      cylinder_size_id: cyl.cylinder_size_id,
+      cylinder_type_id: cyl.cylinder_type_id,
+      qr_code: cyl.qr_code.trim(),
+      serial_number: cyl.serial_number?.trim(),
+      status: 'available',
+      current_location: 'Store',
+    }))
+
+    // Perform bulk upsert and retrieve IDs
+    const { data: inventoryItems, error: invError } = await supabase
+      .from('pharmacy_oxygen_cylinder_inventory')
+      .upsert(inventoryData, { onConflict: 'qr_code' })
+      .select('id, qr_code')
+
+    if (invError) throw invError
+    if (!inventoryItems) throw new Error('Failed to retrieve inventory items after bulk upsert')
+
+    // Create a map for quick ID lookup by QR code
+    const inventoryMap = new Map(inventoryItems.map(item => [item.qr_code, item.id]))
+
+    // 3. Prepare bulk movements and reception items
+    const movementData: any[] = []
+    const itemData: any[] = []
+
     for (const cyl of cylinders) {
-      // Upsert inventory
-      const { data: inventoryItem, error: invError } = await supabase
-        .from('pharmacy_oxygen_cylinder_inventory')
-        .upsert({
-          hospital_id: data.hospital_id,
-          cylinder_size_id: cyl.cylinder_size_id,
-          cylinder_type_id: cyl.cylinder_type_id,
-          qr_code: cyl.qr_code,
-          serial_number: cyl.serial_number,
-          status: 'available',
-          current_location: 'Store',
-        })
-        .select()
-        .single()
+      const inventoryId = inventoryMap.get(cyl.qr_code.trim())
+      if (!inventoryId) continue
 
-      if (invError) throw invError
-
-      // Record movement
-      const { error: moveError } = await supabase.from('pharmacy_oxygen_cylinder_movements').insert({
+      movementData.push({
         hospital_id: data.hospital_id,
-        cylinder_id: inventoryItem.id,
+        cylinder_id: inventoryId,
         movement_type: 'received',
         from_location: 'Supplier',
         to_location: 'Store',
@@ -154,19 +165,23 @@ export async function createOxygenReceptionRecord(
         remarks: `Received via DO ${data.delivery_order_no}`,
       })
 
-      if (moveError) throw moveError
-
-      // Link to reception record
-      const { error: itemError } = await supabase.from('pharmacy_oxygen_reception_items').insert({
+      itemData.push({
         reception_id: record.id,
-        cylinder_id: inventoryItem.id,
+        cylinder_id: inventoryId,
         cylinder_size_id: cyl.cylinder_size_id,
         cylinder_type_id: cyl.cylinder_type_id,
         unit_price: cyl.refill_price + cyl.loan_price
       })
-
-      if (itemError) throw itemError
     }
+
+    // 4. Execute batch inserts
+    const [moveRes, itemRes] = await Promise.all([
+      supabase.from('pharmacy_oxygen_cylinder_movements').insert(movementData),
+      supabase.from('pharmacy_oxygen_reception_items').insert(itemData)
+    ])
+
+    if (moveRes.error) throw moveRes.error
+    if (itemRes.error) throw itemRes.error
 
     return { data: record as OxygenReceptionRecord, error: null }
   } catch (error) {
@@ -251,12 +266,19 @@ export async function updateCylinderStatus(
     if (getError) throw getError
 
     // 2. Update inventory
+    const updatePayload: any = {
+      status: newStatus,
+      current_location: location,
+    }
+
+    // Clear department assignment if cylinder is returned/empty/available (back in store)
+    if (['empty', 'returned_to_supplier', 'available'].includes(newStatus)) {
+      updatePayload.department_id = null
+    }
+
     const { error: updateError } = await supabase
       .from('pharmacy_oxygen_cylinder_inventory')
-      .update({
-        status: newStatus,
-        current_location: location,
-      })
+      .update(updatePayload)
       .eq('id', cylinderId)
 
     if (updateError) throw updateError
@@ -372,13 +394,26 @@ export async function getOxygenSummary(hospitalId: string): Promise<ApiResponse<
   try {
     // 1. Get KPIs
     const kpisRes = await getOxygenDashboardKPIs(hospitalId)
-    if (kpisRes.error) throw new Error(kpisRes.error)
+    // Silently handle KPI errors to ensure inventory data still loads
+    if (kpisRes.error) {
+      console.warn('Failed to load Oxygen KPIs, defaulting to zero:', kpisRes.error)
+    }
+    const kpis = kpisRes.data || {
+      cc_allocation: 0,
+      total_allocation: 0,
+      expense: 0,
+      balance: 0,
+      liabilities: 0,
+      net_expenses: 0,
+      loan_total: 0
+    }
 
-    // 2. Get Inventory Stats and Usage
+    // 2. Get Inventory Stats and Usage (only cylinders with a valid department)
     const { data: inv, error: invError } = await supabase
       .from('pharmacy_oxygen_cylinder_inventory')
       .select('*, size_info:pharmacy_oxygen_cylinder_sizes(*), type_info:pharmacy_oxygen_cylinder_types(*)')
       .eq('hospital_id', hospitalId)
+      .not('department_id', 'is', null) // Exclude cylinders without assigned department
 
     if (invError) throw invError
 
@@ -395,25 +430,8 @@ export async function getOxygenSummary(hospitalId: string): Promise<ApiResponse<
       .eq('movement_type', 'issued')
       .gte('moved_at', thirtyDaysAgo.toISOString())
 
-    // Aggregate inventory by size/type
+    // Aggregate inventory by size/type - NO pre-population to avoid empty 'MO' entries
     const inventoryMap: Record<string, any> = {}
-
-    // Pre-populate with sizes
-    allSizes?.forEach(s => {
-      const key = `Medical Oxygen-${s.code}`
-      inventoryMap[key] = {
-        size_code: s.code,
-        type_code: 'MO', // Default or fetch if available
-        type_name: 'Medical Oxygen',
-        capacity: s.capacity,
-        unit: s.unit,
-        total: 0,
-        available: 0,
-        empty: 0,
-        issued: 0,
-        avg_usage_month: 0
-      }
-    })
 
     inv.forEach((item: any) => {
       const sizeCode = item.size_info?.code || 'Unknown'
@@ -446,14 +464,18 @@ export async function getOxygenSummary(hospitalId: string): Promise<ApiResponse<
       }
     })
 
-    // Usage stats
+    // Usage stats - find matching inventory entries by size code
     usageMovements?.forEach((move: any) => {
       const sizeId = move.cylinder?.cylinder_size_id
       if (sizeId) {
         const s = allSizes?.find(x => x.id === sizeId)
         if (s) {
-          const key = `Medical Oxygen-${s.code}`
-          if (inventoryMap[key]) inventoryMap[key].avg_usage_month++
+          // Find matching inventory entries by size_code
+          Object.keys(inventoryMap).forEach(key => {
+            if (inventoryMap[key].size_code === s.code) {
+              inventoryMap[key].avg_usage_month++
+            }
+          })
         }
       }
     })
@@ -482,7 +504,7 @@ export async function getOxygenSummary(hospitalId: string): Promise<ApiResponse<
 
     return {
       data: {
-        kpis: kpisRes.data!,
+        kpis: kpis,
         inventory_summary: Object.values(inventoryMap),
         recent_receptions: recentReceptions as OxygenReceptionRecord[],
         total_cylinders: inv.length,
@@ -592,7 +614,7 @@ export async function updateOxygenSystemSettings(
   try {
     const { error } = await supabase
       .from('pharmacy_oxygen_system_settings')
-      .upsert(settings)
+      .upsert(settings, { onConflict: 'hospital_id' })
 
     if (error) throw error
     return { data: undefined, error: null }
@@ -603,24 +625,26 @@ export async function updateOxygenSystemSettings(
 }
 
 /**
- * Find a cylinder by its QR code
+ * Find a cylinder by its QR code or Serial Number
  */
 export async function findCylinderByQR(
   hospitalId: string,
-  qrCode: string
+  identifier: string
 ): Promise<ApiResponse<OxygenCylinderInventoryWithRelations | null>> {
   try {
+    const term = identifier.trim()
     const { data, error } = await supabase
       .from('pharmacy_oxygen_cylinder_inventory')
-      .select('*, size_info:pharmacy_oxygen_cylinder_sizes(*), type_info:pharmacy_oxygen_cylinder_types(*)')
+      .select('*, size_info:pharmacy_oxygen_cylinder_sizes(*), type_info:pharmacy_oxygen_cylinder_types(*), department:departments(id, department_name)')
       .eq('hospital_id', hospitalId)
-      .eq('qr_code', qrCode)
+      .or(`qr_code.ilike.${term},serial_number.ilike.${term}`)
+      .limit(1)
       .maybeSingle()
 
     if (error) throw error
     return { data: data as OxygenCylinderInventoryWithRelations, error: null }
   } catch (error) {
-    console.error('Error finding cylinder by QR:', error)
+    console.error('Error finding cylinder by ID:', error)
     return { data: null, error: error instanceof Error ? error.message : 'Failed to find cylinder' }
   }
 }
@@ -688,6 +712,7 @@ export interface LocationInventory {
   total_cylinders: number
   available_cylinders: number
   empty_cylinders: number
+  issued_cylinders: number
   items: {
     size: string
     count: number
@@ -697,6 +722,10 @@ export interface LocationInventory {
     qr_code: string
     status: 'available' | 'empty' | 'issued' | 'damaged' | 'returned_to_supplier'
     size_code: string
+    location?: string
+    updated_at?: string
+    created_at?: string
+    last_reconciled_at?: string
   }[]
 }
 
@@ -715,11 +744,14 @@ export async function getOxygenDistribution(hospitalId: string): Promise<ApiResp
         department_id,
         status,
         cylinder_size_id,
+        updated_at,
+        created_at,
+        last_reconciled_at,
         department:departments(id, department_name),
-        size_info:cylinder_size_id(code)
+        size_info:pharmacy_oxygen_cylinder_sizes(code)
       `)
       .eq('hospital_id', hospitalId)
-      .neq('status', 'maintenance')
+      .order('updated_at', { ascending: false })
 
     if (error) throw error
 
@@ -735,6 +767,7 @@ export async function getOxygenDistribution(hospitalId: string): Promise<ApiResp
           total_cylinders: 0,
           available_cylinders: 0,
           empty_cylinders: 0,
+          issued_cylinders: 0,
           items: [],
           cylinders: []
         })
@@ -749,24 +782,30 @@ export async function getOxygenDistribution(hospitalId: string): Promise<ApiResp
       let locEntry: LocationInventory
 
       // Determine Location Logic
-      // In the schema: current_location is often 'Store' or 'Department'
-      // If it's 'Department', department_id should be present.
-      if (item.current_location === 'Store' || (!item.department_id && (!item.current_location || item.current_location === 'Store'))) {
+      // 0. If returned to supplier, strictly assign to Store (regardless of old department_id)
+      if (item.status === 'returned_to_supplier') {
         locEntry = storeEntry
-      } else if (item.department) {
+      }
+      // 1. If it has a department assigned
+      else if (item.department) {
         locEntry = ensureLocation(item.department.id, item.department.department_name, 'department')
-      } else if (item.current_location && item.current_location !== 'Department') {
-        // If it's a string like 'Ward 1' directly in current_location
+      }
+      // 2. If it has a custom location string that's not 'Store' or 'Department'
+      else if (item.current_location && item.current_location !== 'Store' && item.current_location !== 'Department') {
         locEntry = ensureLocation(item.current_location, item.current_location, 'department')
-      } else {
-        // Fallback
+      }
+      // 3. Fallback to Store
+      else {
         locEntry = storeEntry
       }
 
       // Update Counts
+      // Don't count 'returned_to_supplier' in the total active cylinders for the location if it's a department (though we forced it to store above, so this is safe)
       locEntry.total_cylinders++
       if (item.status === 'empty') {
         locEntry.empty_cylinders++
+      } else if (item.status === 'issued') {
+        locEntry.issued_cylinders++
       } else {
         locEntry.available_cylinders++
       }
@@ -784,8 +823,14 @@ export async function getOxygenDistribution(hospitalId: string): Promise<ApiResp
       locEntry.cylinders.push({
         id: item.id,
         qr_code: item.qr_code,
-        status: item.status,
-        size_code: sizeCode
+        status: item.status as any,
+        size_code: sizeCode,
+        location: (item.current_location === 'Store' && item.department)
+          ? item.department.department_name
+          : (item.current_location || 'Store'),
+        updated_at: item.updated_at,
+        created_at: item.created_at,
+        last_reconciled_at: item.last_reconciled_at
       })
     })
 
@@ -808,3 +853,443 @@ export async function getOxygenDistribution(hospitalId: string): Promise<ApiResp
     return { data: [], error: error instanceof Error ? error.message : 'Failed to fetch' }
   }
 }
+
+export const deleteOxygenReceptionRecord = async (id: string): Promise<ApiResponse<void>> => {
+  try {
+    const { error } = await supabase
+      .from('pharmacy_oxygen_reception_records')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+    return { data: undefined, error: null }
+  } catch (err) {
+    console.error('Failed to delete oxygen record', err)
+    return { data: undefined, error: err instanceof Error ? err.message : 'Unknown error' }
+  }
+}
+
+export const updateOxygenReceptionRecord = async (id: string, updates: Partial<OxygenReceptionRecord>): Promise<ApiResponse<OxygenReceptionRecord>> => {
+  try {
+    const { data, error } = await supabase
+      .from('pharmacy_oxygen_reception_records')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return { data: data as OxygenReceptionRecord, error: null }
+  } catch (err) {
+    console.error('Failed to update oxygen record', err)
+    return { data: null, error: err instanceof Error ? err.message : 'Unknown error' }
+  }
+}
+
+/**
+ * Wipe all registry data for a hospital
+ * DANGER: This is a destructive operation
+ */
+export async function clearOxygenCylinderRegistry(hospitalId: string): Promise<ApiResponse<void>> {
+  try {
+    // 1. Delete movements first (FK constraint)
+    const { error: moveError } = await supabase
+      .from('pharmacy_oxygen_cylinder_movements')
+      .delete()
+      .eq('hospital_id', hospitalId)
+
+    if (moveError) throw moveError
+
+    // 2. Delete inventory
+    const { error: invError } = await supabase
+      .from('pharmacy_oxygen_cylinder_inventory')
+      .delete()
+      .eq('hospital_id', hospitalId)
+
+    if (invError) throw invError
+
+    return { data: undefined, error: null }
+  } catch (error) {
+    console.error('Error clearing registry:', error)
+    return { data: null, error: error instanceof Error ? error.message : 'Failed to clear registry' }
+  }
+}
+
+/**
+ * Delete specific registry data by size and type
+ */
+export async function deleteCylindersBySizeAndType(
+  hospitalId: string,
+  sizeId: string,
+  typeId?: string
+): Promise<ApiResponse<void>> {
+  try {
+    // 1. Get cylinder IDs first to delete movements (Cascade is usually handled by DB, but safe to do here)
+    let query = supabase
+      .from('pharmacy_oxygen_cylinder_inventory')
+      .select('id')
+      .eq('hospital_id', hospitalId)
+      .eq('cylinder_size_id', sizeId)
+
+    if (typeId) {
+      query = query.eq('cylinder_type_id', typeId)
+    }
+
+    const { data: cylinders, error: fetchError } = await query
+    if (fetchError) throw fetchError
+
+    if (!cylinders || cylinders.length === 0) return { data: undefined, error: null }
+
+    const cylinderIds = cylinders.map(c => c.id)
+
+    // 2. Delete movements
+    const { error: moveError } = await supabase
+      .from('pharmacy_oxygen_cylinder_movements')
+      .delete()
+      .in('cylinder_id', cylinderIds)
+
+    if (moveError) throw moveError
+
+    // 3. Delete inventory
+    const { error: invError } = await supabase
+      .from('pharmacy_oxygen_cylinder_inventory')
+      .delete()
+      .in('id', cylinderIds)
+
+    if (invError) throw invError
+
+    return { data: undefined, error: null }
+  } catch (error) {
+    console.error('Error deleting cylinders by size/type:', error)
+    return { data: null, error: error instanceof Error ? error.message : 'Failed to delete records' }
+  }
+}
+
+/**
+ * Get Oxygen Analytics Data
+ * - Monthly usage by cylinder type (Refill Count/Cost)
+ * - Monthly loan analytics (Loan Count/Cost)
+ * - Quarterly summary
+ */
+export async function getOxygenAnalytics(hospitalId: string, year: number) {
+  try {
+    const startDate = `${year}-01-01`
+    const endDate = `${year}-12-31`
+
+    // 1. Fetch all completed reception records for the year
+    const { data: records, error } = await supabase
+      .from('pharmacy_oxygen_reception_records')
+      .select(`
+        *,
+        items:pharmacy_oxygen_reception_items(
+          *,
+          cylinder_size:pharmacy_oxygen_cylinder_sizes(*),
+          cylinder_type:pharmacy_oxygen_cylinder_types(*)
+        )
+      `)
+      .eq('hospital_id', hospitalId)
+      .eq('status', 'completed')
+      .gte('reception_date', startDate)
+      .lte('reception_date', endDate)
+      .order('reception_date', { ascending: true })
+
+    if (error) throw error
+
+    // Initialize containers for 12 months
+    const months = Array.from({ length: 12 }, (_, i) => {
+      const d = new Date(year, i, 1)
+      return d.toLocaleString('default', { month: 'short' })
+    })
+
+    // Data Structures
+    const usageByType: Record<string, number[]> = {} // "Type-Size": [Jan, Feb, ...]
+    const costByType: Record<string, number[]> = {}
+    const loanCounts = new Array(12).fill(0)
+    const loanCosts = new Array(12).fill(0)
+
+    // Helper to get month index (0-11)
+    const getMonthIdx = (dateStr: string) => new Date(dateStr).getMonth()
+
+    records?.forEach(record => {
+      const mIdx = getMonthIdx(record.reception_date)
+
+      // Calculate effective loan rate for THIS specific record (History Safe)
+      const loanItems = record.items?.filter((i: any) => !i.cylinder_size?.code?.toUpperCase().startsWith('P')) || []
+      let effectiveRecordLoanRate = 14.00 // Default fallback for very old records
+
+      if (loanItems.length > 0 && record.loan_amount !== undefined && record.loan_amount !== null) {
+        effectiveRecordLoanRate = Number(record.loan_amount) / loanItems.length
+      }
+
+      record.items?.forEach((item: any) => {
+        const sizeCode = item.cylinder_size?.code || 'Unknown'
+        const capacity = item.cylinder_size?.capacity ? `(${item.cylinder_size.capacity}m3)` : ''
+
+        // Logic: Hospital owned (starts with P) vs Loan (others)
+        const isHospitalOwned = sizeCode.toUpperCase().startsWith('P')
+        const typeName = `Medical Oxygen - ${sizeCode} ${capacity}`.trim()
+
+        // 1. Usage (Refills) - Applied to ALL cylinders
+        if (!usageByType[typeName]) {
+          usageByType[typeName] = new Array(12).fill(0)
+          costByType[typeName] = new Array(12).fill(0)
+        }
+
+        // Count represents one cylinder refill
+        usageByType[typeName][mIdx] += 1
+
+        // Refill Cost
+        // If loan cylinder, refill price is unit_price - effectiveRecordLoanRate
+        // If hospital cylinder, refill price is full unit_price
+        let refillCost = Number(item.unit_price || 0)
+        if (!isHospitalOwned) {
+          refillCost = Math.max(0, refillCost - effectiveRecordLoanRate)
+
+          // 2. Loan Analytics - Only for non-P cylinders
+          loanCounts[mIdx] += 1
+          loanCosts[mIdx] += effectiveRecordLoanRate
+        }
+
+        costByType[typeName][mIdx] += refillCost
+      })
+    })
+
+    // Format for Recharts
+    const monthlyUsage = months.map((month, idx) => {
+      const entry: any = { name: month, totalRefills: 0, totalRefillCost: 0 }
+      Object.keys(usageByType).forEach(type => {
+        entry[type] = usageByType[type][idx]
+        entry[`${type}_cost`] = costByType[type][idx]
+        entry.totalRefills += usageByType[type][idx]
+        entry.totalRefillCost += costByType[type][idx]
+      })
+      return entry
+    })
+
+    const monthlyLoans = months.map((month, idx) => ({
+      name: month,
+      count: loanCounts[idx],
+      cost: loanCosts[idx]
+    }))
+
+    // Quarterly Stats per Type
+    // Q1: 0-2, Q2: 3-5, Q3: 6-8, Q4: 9-11
+    const quarterlyBreakdown: any[] = []
+
+    Object.keys(usageByType).forEach(type => {
+      const months = usageByType[type]
+      const q1 = months[0] + months[1] + months[2]
+      const q2 = months[3] + months[4] + months[5]
+      const q3 = months[6] + months[7] + months[8]
+      const q4 = months[9] + months[10] + months[11]
+
+      quarterlyBreakdown.push({
+        type,
+        q1,
+        q2,
+        q3,
+        q4,
+        total: q1 + q2 + q3 + q4,
+        avg_q1: Math.round(q1 / 3),
+        avg_q2: Math.round(q2 / 3),
+        avg_q3: Math.round(q3 / 3),
+        avg_q4: Math.round(q4 / 3)
+      })
+    })
+
+    // Sort by type name
+    quarterlyBreakdown.sort((a, b) => a.type.localeCompare(b.type))
+
+    return {
+      data: {
+        monthly_usage: monthlyUsage,
+        monthly_loans: monthlyLoans,
+        quarterly_stats: quarterlyBreakdown,
+        cylinder_types: Object.keys(usageByType)
+      },
+      error: null
+    }
+
+  } catch (error) {
+    console.error('Error fetching analytics:', error)
+    return { data: null, error: error instanceof Error ? error.message : 'Failed to fetch analytics' }
+  }
+}
+
+/**
+ * Recalculate and Update Prices for an existing reception
+ * This updates both the header totals and individual item unit prices
+ */
+export async function updateOxygenReceptionPrices(
+  receptionId: string,
+  updates: {
+    refill_amount: number
+    loan_amount: number
+    items: Array<{
+      id: string
+      unit_price: number
+    }>
+  }
+): Promise<ApiResponse<void>> {
+  try {
+    // 1. Update Header
+    const { error: headerError } = await supabase
+      .from('pharmacy_oxygen_reception_records')
+      .update({
+        refill_amount: updates.refill_amount,
+        loan_amount: updates.loan_amount,
+        // Trigger total_amount computation if DB trigger exists, or update it manually if needed but schema implies generated?
+        // Let's assume we update only components. If total_amount is stored, we should update it too.
+        total_amount: updates.refill_amount + updates.loan_amount
+      })
+      .eq('id', receptionId)
+
+    if (headerError) throw headerError
+
+    // 2. Update Items (Bulk Upsert)
+    // We only update ID and unit_price. We need to respect other fields so upsert relies on ID match.
+    // However, upsert might require other non-nullable fields if we are not careful? 
+    // Actually, 'update' on a list of IDs is hard.
+    // We will loop for safety as batch size is small (usually <50 items).
+    // Or use upsert with a restricted column set if we had the full objects.
+    // Given we only have ID and price, independent updates are safer unless we fetch-modify-upsert.
+
+    // Optimizing: Use Promise.all 
+    const itemUpdates = updates.items.map(item =>
+      supabase
+        .from('pharmacy_oxygen_reception_items')
+        .update({ unit_price: item.unit_price })
+        .eq('id', item.id)
+    )
+
+    const results = await Promise.all(itemUpdates)
+    const firstError = results.find(r => r.error)?.error
+    if (firstError) throw firstError
+
+    return { data: undefined, error: null }
+  } catch (error) {
+    console.error('Error recalculating prices:', error)
+    return { data: null, error: error instanceof Error ? error.message : 'Failed to update prices' }
+  }
+}
+
+/**
+ * TEMPORARY: Recover 101-N Cylinders using Adjustment Logs (Smart Recovery)
+ * Parses the "remarks" field from pharmacy_oxygen_stock_adjustments
+ */
+export async function recoverFromAdjustmentLogs(hospitalId: string): Promise<void> {
+  try {
+    console.log('Starting Smart Recovery for 101-N...')
+
+    // 1. Get 101-N Size ID
+    const { data: size } = await supabase
+      .from('pharmacy_oxygen_cylinder_sizes')
+      .select('id')
+      .eq('code', '101-N')
+      .single()
+
+    if (!size) {
+      console.error('Size 101-N not found')
+      return
+    }
+
+    // 2. Fetch all 101-N cylinders
+    const { data: cylinders } = await supabase
+      .from('pharmacy_oxygen_cylinder_inventory')
+      .select('id, qr_code')
+      .eq('hospital_id', hospitalId)
+      .eq('cylinder_size_id', size.id)
+
+    if (!cylinders || cylinders.length === 0) return
+
+    console.log(`Checking ${cylinders.length} cylinders...`)
+    let restoredCount = 0
+
+    // 3. For each cylinder, look for recent "Adjustment" logs (last 48 hours)
+    const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
+
+    for (const cyl of cylinders) {
+      const { data: logs } = await supabase
+        .from('pharmacy_oxygen_stock_adjustments')
+        .select('*')
+        .eq('cylinder_id', cyl.id)
+        .gte('created_at', twoDaysAgo)
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      if (logs && logs.length > 0) {
+        const log = logs[0]
+        const remarks = log.remarks || ''
+
+        // Format: "Bulk Update: Location=GW, Dept=2fa7..."
+        const deptMatch = remarks.match(/Dept[=:]\s*([a-f0-9\-]+)/i)
+        const locationMatch = remarks.match(/Location[=:]\s*([^,]+)/i)
+
+        if (deptMatch && deptMatch[1] && deptMatch[1] !== 'N/A' && deptMatch[1] !== 'undefined' && deptMatch[1] !== 'null') {
+          const deptId = deptMatch[1]
+          const location = locationMatch ? locationMatch[1].trim() : 'Department'
+
+          // Determine status based on location.
+          // If location is 'Pharmacy Logistic' or 'Store', it should be 'available' (Ready).
+          // Otherwise, if it's a ward/department, it is 'issued' (In Use).
+          const isStore = /pharmacy|store/i.test(location)
+          const newStatus = isStore ? 'available' : 'issued'
+
+          await supabase
+            .from('pharmacy_oxygen_cylinder_inventory')
+            .update({
+              status: newStatus,
+              current_location: location,
+              department_id: deptId
+            })
+            .eq('id', cyl.id)
+
+          restoredCount++
+          console.log(`Restored ${cyl.qr_code} to Dept ${deptId}`)
+        }
+      }
+    }
+
+    // 4. FINAL SAFEGUARD: Force all 101-N in "Pharmacy Logistic" to be 'available'
+    // This fixes any that might have been missed by the log parsing or found themselves in Store but with 'In Use' status.
+
+    // First, find the Pharmacy Logistic department ID
+    const { data: pharmDept } = await supabase
+      .from('departments')
+      .select('id')
+      .ilike('department_name', '%Pharmacy logistic%')
+      .maybeSingle()
+
+    let query = supabase
+      .from('pharmacy_oxygen_cylinder_inventory')
+      .update({ status: 'available' })
+      .eq('cylinder_size_id', size.id)
+      .eq('status', 'issued')
+
+    if (pharmDept) {
+      // If we found the department, check strictly for it OR the string location
+      query = query.or(`current_location.ilike.%Pharmacy logistic%,department_id.eq.${pharmDept.id}`)
+    } else {
+      // Fallback to just string match
+      query = query.ilike('current_location', '%Pharmacy logistic%')
+    }
+
+    const { error: fixError } = await query
+
+    if (fixError) {
+      console.error('Error fixing Pharmacy Logistic status:', fixError)
+    } else {
+      console.log('Safeguard applied: Checked for 101-N in Pharmacy Logistic.')
+    }
+
+    console.log(`Smart Recovery Complete. Restored ${restoredCount} cylinders.`)
+    alert(`Smart Recovery Complete. Restored ${restoredCount} cylinders to their previous departments based on Adjustment Logs.`)
+
+  } catch (e) {
+    console.error('Smart Recovery failed', e)
+    alert('Recovery failed. See console for details.')
+  }
+}
+
+
+

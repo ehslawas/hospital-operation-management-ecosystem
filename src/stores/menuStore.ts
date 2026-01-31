@@ -106,15 +106,26 @@ export interface MenuItem {
 interface MenuState {
     menus: MenuItem[]
     isLoading: boolean
-    isInitialized: boolean // NEW: Tracks if we've attempted to fetch menus at least once
+    isInitialized: boolean
     error: string | null
+    currentRoleCode?: string
+    currentDeptContext?: string
+    lastFetchTime?: number
 
     // Actions
-    fetchMenus: (userId: string, options?: { roleCode?: string, departmentCode?: string, user?: any }) => Promise<void>
+    fetchMenus: (userId: string, options?: { roleCode?: string, departmentCode?: string, departmentName?: string, user?: any }) => Promise<void>
     clearMenus: () => void
 }
 
 // Fallback menus for System/Hospital Admin to ensure system is never unusable
+const FALLBACK_SYSTEM_ADMIN_MENUS: MenuItem[] = [
+    { id: 'sys-dash', label: 'System Overview', path: '/system/dashboard', icon: 'LayoutDashboard', parent_id: null, order_index: 0, is_core: true, allowed_department_id: null, module_code: 'system_admin', children: [] },
+    { id: 'sys-tenants', label: 'Tenants & Admins', path: '/system/tenants', icon: 'Building2', parent_id: null, order_index: 1, is_core: true, allowed_department_id: null, module_code: 'system_admin', children: [] },
+    { id: 'sys-analytics', label: 'Global Analytics', path: '/system/analytics', icon: 'BarChart', parent_id: null, order_index: 2, is_core: true, allowed_department_id: null, module_code: 'system_admin', children: [] },
+    { id: 'sys-audit', label: 'Global Audit Trail', path: '/system/audit-logs', icon: 'Shield', parent_id: null, order_index: 3, is_core: true, allowed_department_id: null, module_code: 'system_admin', children: [] },
+    { id: 'sys-health', label: 'Health Monitor', path: '/system/health', icon: 'Activity', parent_id: null, order_index: 4, is_core: true, allowed_department_id: null, module_code: 'system_admin', children: [] },
+]
+
 const FALLBACK_ADMIN_MENUS: MenuItem[] = [
     { id: 'dash', label: 'Dashboard', path: '/dashboard', icon: 'LayoutDashboard', parent_id: null, order_index: 0, is_core: true, allowed_department_id: null, module_code: 'dashboard', children: [] },
     { id: 'users', label: 'User Management', path: '/admin/users', icon: 'Users', parent_id: null, order_index: 1, is_core: true, allowed_department_id: null, module_code: 'admin.users', children: [] },
@@ -124,6 +135,11 @@ const FALLBACK_ADMIN_MENUS: MenuItem[] = [
     { id: 'acc', label: 'Access Requests', path: '/admin/access-requests', icon: 'UserPlus', parent_id: null, order_index: 5, is_core: true, allowed_department_id: null, module_code: 'admin.access', children: [] },
     { id: 'audit', label: 'Audit Logs', path: '/admin/audit-logs', icon: 'FileText', parent_id: null, order_index: 6, is_core: true, allowed_department_id: null, module_code: 'admin.audit', children: [] },
     { id: 'settings', label: 'System Settings', path: '/admin/settings', icon: 'Settings', parent_id: null, order_index: 7, is_core: true, allowed_department_id: null, module_code: 'admin.settings', children: [] },
+]
+
+const FALLBACK_HOSPITAL_OPERATIONS_MENUS: MenuItem[] = [
+    { id: 'dash', label: 'Dashboard', path: '/dashboard', icon: 'LayoutDashboard', parent_id: null, order_index: 0, is_core: true, allowed_department_id: null, module_code: 'dashboard', children: [] },
+    { id: 'ops', label: 'Admin Operations', path: '/admin/operations', icon: 'Briefcase', parent_id: null, order_index: 1, is_core: true, allowed_department_id: null, module_code: 'admin_operations', children: [] },
 ]
 
 const FALLBACK_PHARMACY_MENUS: MenuItem[] = [
@@ -256,7 +272,10 @@ export const useMenuStore = create<MenuState>((set, get) => ({
                 const displayDeptName = options?.departmentName || options?.user?.department?.department_name || effectiveDeptName || 'Department';
 
                 const normalizedRole = effectiveRoleCode?.toLowerCase().replace(/\s+/g, '_') || ''
-                const isAdmin = normalizedRole === 'hospital_admin' || normalizedRole === 'system_admin'
+                const isSystemAdmin = normalizedRole === 'system_admin'
+                const isHospitalAdmin = normalizedRole === 'hospital_admin'
+                const isHospitalAdministrator = normalizedRole === 'hospital_administrator'
+                const isAdmin = isSystemAdmin || isHospitalAdmin || isHospitalAdministrator
 
                 // ROBUST PHARMACY DETECTION
                 // Check role code, role name, AND department name
@@ -265,7 +284,7 @@ export const useMenuStore = create<MenuState>((set, get) => ({
                 const isPharmacyDept = effectiveDeptName.toLowerCase().includes('pharmacy');
                 const isPharmacy = isPharmacyRole || isPharmacyDept;
 
-                console.log(`[MenuStore] Context - Role: ${normalizedRole}, RoleName: ${effectiveRoleName}, Dept: ${displayDeptName}, IsAdmin: ${isAdmin}, IsPharmacy: ${isPharmacy}`)
+                console.log(`[MenuStore] Context - Role: ${normalizedRole}, IsSystemAdmin: ${isSystemAdmin}, IsHospitalAdmin: ${isHospitalAdmin}, Dept: ${displayDeptName}, IsPharmacy: ${isPharmacy}`)
 
                 // 2. Parallel Fetch: Menus Structure & Permissions
                 // PHASE 2: Extended timeout to 30s for better resilience with slow networks
@@ -276,9 +295,7 @@ export const useMenuStore = create<MenuState>((set, get) => ({
                     .select('id, label, path, icon, parent_id, order_index, is_core, allowed_department_id, module_code')
                     .order('order_index')
 
-                const rpcQuery = !isAdmin
-                    ? supabase.rpc('get_staff_accessible_modules', { p_staff_id: userId })
-                    : Promise.resolve({ data: [], error: null }) // Admins don't need this
+                const rpcQuery = supabase.rpc('get_staff_accessible_modules', { p_staff_id: userId })
 
                 // Create timeout promises
                 const timeoutPromise = (ms: number, name: string) => new Promise((_, reject) =>
@@ -320,14 +337,12 @@ export const useMenuStore = create<MenuState>((set, get) => ({
                 const allMenus = menusResult.value.data
                 let accessibleModuleCodes = new Set<string>()
 
-                if (!isAdmin) {
-                    if (accessibleModules.length > 0) {
-                        accessibleModules.forEach((m: any) => accessibleModuleCodes.add(m.module_code))
-                    } else {
-                        // If RPC returned nothing OR failed, we might want to fallback to implicit roles
-                        // Logging for debug, but we will proceed to Role/Dept Check below
-                        console.log('[MenuStore] No explicit module permissions found (or RPC failed). Relying on role/dept logic.')
-                    }
+                if (accessibleModules.length > 0) {
+                    accessibleModules.forEach((m: any) => accessibleModuleCodes.add(m.module_code))
+                } else {
+                    // If RPC returned nothing OR failed, we might want to fallback to implicit roles
+                    // Logging for debug, but we will proceed to Role/Dept Check below
+                    console.log('[MenuStore] No explicit module permissions found (or RPC failed). Relying on role/dept logic.')
                 }
 
                 // 4. Filter and Map Menus
@@ -342,7 +357,10 @@ export const useMenuStore = create<MenuState>((set, get) => ({
                 accessibleModuleCodes.forEach(code => {
                     if (code.includes('.')) {
                         const parts = code.split('.')
-                        if (parts.length === 2) normalizedAccessibleCodes.add(parts[1])
+                        if (parts.length === 2) {
+                            normalizedAccessibleCodes.add(parts[1])
+                            // Note: Prefix matching removed in favor of Parent Inheritance
+                        }
                     }
                 })
 
@@ -359,8 +377,61 @@ export const useMenuStore = create<MenuState>((set, get) => ({
 
                     // Admin Logic
                     if (isAdmin) {
-                        isAccessible = code === 'hospital_admin' || code === 'system_admin' || code === 'dashboard'
+                        // STRICT SEPARATION & VIEW MODE LOGIC
+
+                        if (isSystemAdmin) {
+                            // System Admin always sees admin.* + dashboard
+                            // STRICT: We explicitly REMOVE 'normalizedAccessibleCodes.has(code)' to prevent
+                            // other department menus (Pharmacy, Lab, etc.) from cluttering the System Admin view.
+                            isAccessible = code === 'system_admin' || code === 'dashboard'
+                        }
+                        else if (isHospitalAdmin) {
+                            // HOSPITAL SYSTEM ADMIN (e.g. Tan Yuang Zhang)
+                            // Logic:
+                            // 1. If viewing as System Admin (default or explicit): Show Admin.* + Dashboard
+                            // 2. If viewing as Department (e.g. Pharmacy): Show Department Modules using 'normalizedAccessibleCodes'
+
+                            // Check if we are in "Department View" mode
+                            // This works by checking if the effective Dept Code passed in aligns with the user's actual assigned department
+                            // AND if we are explicitly asking for that department context
+
+                            const isDepartmentView = options?.departmentCode &&
+                                options.departmentCode !== 'hospital_admin' &&
+                                options.departmentCode === effectiveDeptCode;
+
+                            if (isDepartmentView) {
+                                // DEPARTMENT VIEW: Show ONLY modules relevant to that department (via permissions)
+                                // We strictly hide admin modules here to avoid clutter
+                                isAccessible = normalizedAccessibleCodes.has(code) || normalizedAccessibleCodes.has(`pharmacy.${code}`)
+
+                                // EXPLICIT BLOCK: Prevent any admin modules from showing in Department View
+                                if (code.startsWith('admin.') || code === 'hospital_admin' || code === 'admin_operations') {
+                                    isAccessible = false
+                                }
+
+                                // Special case: Allow dashboard always
+                                if (code === 'dashboard') isAccessible = true
+                            } else {
+                                // SYSTEM VIEW (Default): Show ONLY System Admin Menus
+                                isAccessible = code === 'hospital_admin' ||
+                                    code === 'dashboard' ||
+                                    code.startsWith('admin.')
+
+                                // Explicitly EXCLUDE pharmacy/clinical modules in System View
+                                // unless they are admin-specific tools
+                            }
+                        }
+                        else if (isHospitalAdministrator) {
+                            // HOSPITAL ADMINISTRATOR (Pegawai Tadbir - e.g. Suriani)
+                            // Strict Whitelist: Admin Operations + Dashboard Only
+                            // They should NOT see the full 'admin.*' suite (like user mgmt, etc)
+
+                            isAccessible = code === 'admin_operations' ||
+                                code === 'dashboard' ||
+                                normalizedAccessibleCodes.has(code)
+                        }
                     }
+                    // Regular Role Logic - Trust the RPC!
                     // Regular Role Logic - Trust the RPC!
                     else {
                         // CRITICAL: Check if this is a whitelisted core module first
@@ -370,7 +441,16 @@ export const useMenuStore = create<MenuState>((set, get) => ({
                         } else if (normalizedAccessibleCodes.has(code) ||
                             normalizedAccessibleCodes.has(`pharmacy.${code}`) ||
                             normalizedAccessibleCodes.has(`admin.${code}`)) {
-                            isAccessible = true
+
+                            // SAFETY CHECK: If we are not an admin role (e.g. simulating Pharmacist),
+                            // we must explicit hide admin modules even if the RPC returns them.
+                            // This happens when a Hospital Admin switches to "Pharmacist View".
+                            const isAdminModule = code.startsWith('admin.') || code === 'hospital_admin' || code === 'admin_operations';
+                            if (isAdminModule) {
+                                isAccessible = false;
+                            } else {
+                                isAccessible = true;
+                            }
                         }
                     }
 
@@ -378,6 +458,26 @@ export const useMenuStore = create<MenuState>((set, get) => ({
                         directlyAccessibleMenuIds.add(m.id)
                     }
                 })
+
+                // Pass 2: Parent Inheritance (Grant access to children of accessible parents)
+                // We loop until no new items are added to handle deep nesting
+                let inheritanceChanged = true
+                while (inheritanceChanged) {
+                    inheritanceChanged = false
+                    allMenus?.forEach((m: any) => {
+                        // If already accessible, skip
+                        if (directlyAccessibleMenuIds.has(m.id)) return
+
+                        // Check Parent Accessibility
+                        if (m.parent_id && directlyAccessibleMenuIds.has(m.parent_id)) {
+                            // Grant access to child if parent is accessible
+                            // This handles cases like 'inv_buffer_drug' (child) inheriting from 'inventory' (parent)
+                            directlyAccessibleMenuIds.add(m.id)
+                            inheritanceChanged = true
+                            // console.log(`[MenuStore] Inherited access for: ${m.module_code} from parent ${m.parent_id}`)
+                        }
+                    })
+                }
 
                 // console.log('[MenuStore] Directly Accessible IDs:', Array.from(directlyAccessibleMenuIds))
 
@@ -473,8 +573,12 @@ export const useMenuStore = create<MenuState>((set, get) => ({
                 // This happens when:
                 // 1. RPC returns empty (no role_permissions) AND logic filtered everything out
                 // 2. We're in a dev environment with broken data
-                if (finalMenus.length === 0 && !isAdmin) {
-                    console.warn('[MenuStore] No accessible menus found after filtering - applying role/department fallback')
+                // If no menus were filtered (or only dashboard remains), apply safety fallbacks
+                // This happens when permissions are missing or DB is incomplete
+                const onlyHasDashboard = finalMenus.length === 1 && finalMenus[0].module_code === 'dashboard';
+
+                if ((finalMenus.length === 0 || onlyHasDashboard) && !isAdmin) {
+                    console.warn('[MenuStore] No accessible menus found (or only dashboard) - applying role/department fallback')
 
                     // NEW: Department-based fallback for roles without explicit permissions
                     // This handles cases like 'Medical Laboratory Technologist' where role_permissions might be missing
@@ -492,11 +596,17 @@ export const useMenuStore = create<MenuState>((set, get) => ({
                     console.log(`[MenuStore] Applied fallback menus based on context (Dept: ${normalizedDeptName}, Role: ${normalizedRole})`)
                 }
 
-                // If STILL no menus (shouldn't happen due to logic above, but for safety), apply strict fallback
-                if (finalMenus.length === 0) {
+                // If STILL no menus (or only dashboard for Admins), apply strict fallback
+                if (finalMenus.length === 0 || (onlyHasDashboard && isAdmin)) {
                     // Note: With 'dashboard' whitelist, this should rarely happen unless menus table is empty/broken
-                    if (isAdmin) {
+                    if (isSystemAdmin) {
+                        // System Admin specifically gets the full admin suite if DB fails
+                        finalMenus = FALLBACK_SYSTEM_ADMIN_MENUS
+                        console.log('[MenuStore] Applied System Admin fallback menus')
+                    } else if (isHospitalAdmin) {
                         finalMenus = FALLBACK_ADMIN_MENUS
+                    } else if (normalizedRole === 'hospital_administrator') {
+                        finalMenus = FALLBACK_HOSPITAL_OPERATIONS_MENUS
                     } else if (isPharmacy) {
                         finalMenus = FALLBACK_PHARMACY_MENUS
                     } else if (normalizedRole === 'medical_laboratory_technologist') {
@@ -514,9 +624,22 @@ export const useMenuStore = create<MenuState>((set, get) => ({
                 let headerTitle = ''
                 let headerIcon = 'Package'
 
-                if (isAdmin) {
-                    headerTitle = 'Hospital Administration'
-                    headerIcon = 'Shield'
+                if (isSystemAdmin) {
+                    headerTitle = 'System Administration'
+                    headerIcon = 'ShieldAlert' // distinct icon for system admin
+                } else if (isHospitalAdmin) {
+                    // System Admin View Header
+                    if (options?.departmentCode && options.departmentCode !== 'hospital_admin') {
+                        // If viewing as department (e.g. Pharmacy), show Department Name
+                        headerTitle = displayDeptName
+                        headerIcon = 'Building2'
+                    } else {
+                        headerTitle = 'Hospital System Administration'
+                        headerIcon = 'ShieldAlert'
+                    }
+                } else if (normalizedRole === 'hospital_administrator') {
+                    headerTitle = 'Hospital Operations'
+                    headerIcon = 'Briefcase'
                 } else if (isPharmacy) {
                     headerTitle = 'Pharmacy Logistics'
                     headerIcon = 'Pill'
@@ -548,13 +671,29 @@ export const useMenuStore = create<MenuState>((set, get) => ({
                     // PHASE 1: Persist to localStorage for instant loading on next page load
                     saveCachedMenus(finalMenusToSet, userId, normalizedRole, effectiveDeptCode || '')
                     // @ts-ignore - Adding custom property for cache tracking
-                    set({ menus: finalMenusToSet, isLoading: false, isInitialized: true, error: null, lastFetchTime: Date.now() })
+                    set({
+                        menus: finalMenusToSet,
+                        isLoading: false,
+                        isInitialized: true,
+                        error: null,
+                        lastFetchTime: Date.now(),
+                        currentRoleCode: effectiveRoleCode,
+                        currentDeptContext: options?.departmentCode || 'hospital_admin'
+                    })
                 } else {
                     console.log('[MenuStore] Setting menus without header:', finalMenus.length, 'items')
                     // PHASE 1: Persist to localStorage for instant loading on next page load
                     saveCachedMenus(finalMenus, userId, normalizedRole, effectiveDeptCode || '')
                     // @ts-ignore
-                    set({ menus: finalMenus, isLoading: false, isInitialized: true, error: null, lastFetchTime: Date.now() })
+                    set({
+                        menus: finalMenus,
+                        isLoading: false,
+                        isInitialized: true,
+                        error: null,
+                        lastFetchTime: Date.now(),
+                        currentRoleCode: effectiveRoleCode,
+                        currentDeptContext: options?.departmentCode || 'hospital_admin'
+                    })
                 }
 
                 return

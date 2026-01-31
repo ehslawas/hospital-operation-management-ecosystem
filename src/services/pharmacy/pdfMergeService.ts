@@ -185,7 +185,7 @@ async function htmlToPdf(element: HTMLElement): Promise<Uint8Array> {
         windowHeight: actualHeight,
         removeContainer: false,
         imageTimeout: 15000,
-        foreignObjectRendering: true,
+        foreignObjectRendering: false,
       })
 
       // Remove cloned page

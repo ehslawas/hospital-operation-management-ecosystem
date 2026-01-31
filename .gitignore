@@ -42,3 +42,7 @@ src/app/
 tsc_output.txt
 tsc_errors*.txt
 *.log
+
+# Backups
+backups/
+

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/services/supabase';
-import { registerNewCylinders } from '@/services/pharmacy/oxygenService';
+import { registerNewCylinders, clearOxygenCylinderRegistry, deleteCylindersBySizeAndType } from '@/services/pharmacy/oxygenService';
 import { useAuthStore } from '@/stores/authStore';
 import { QRCodeSVG } from 'qrcode.react';
 import {
@@ -14,7 +14,8 @@ import {
     History,
     CheckCircle2,
     Layers,
-    BadgeCheck
+    BadgeCheck,
+    RotateCcw
 } from 'lucide-react';
 import { Button, Card, Input, Select, Badge, Spinner } from '@/components/ui';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -24,6 +25,7 @@ interface GeneratedLabel {
     size_code: string;
     type_name: string;
     qr_value: string;
+    capacity: string;
     serial_no?: string;
 }
 
@@ -38,12 +40,14 @@ export const QRGeneratorPage: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [registrySummary, setRegistrySummary] = useState<any[]>([]);
     const [selectedRegistrySize, setSelectedRegistrySize] = useState<string | null>(null);
+    const [selectedSizeId, setSelectedSizeId] = useState<string | null>(null);
+    const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
     const [sizeDetails, setSizeDetails] = useState<any[]>([]);
     const [isDetailsLoading, setIsDetailsLoading] = useState(false);
 
     const sizePresets = [
-        { code: 'P101-D', capacity: '0.5m³', label: 'D' },
         { code: 'P101-E', capacity: '0.7m³', label: 'E' },
+        { code: 'P101-D', capacity: '0.5m³', label: 'D' },
         { code: 'P101-F', capacity: '1.4m³', label: 'F' },
         { code: 'P101-HS', capacity: '6.4m³', label: 'HS' },
         { code: '101-F', capacity: '1.4m³', label: '101-F' },
@@ -119,6 +123,9 @@ export const QRGeneratorPage: React.FC = () => {
             const { data: typeData } = typeName ? await supabase.from('pharmacy_oxygen_cylinder_types').select('id').eq('name', typeName).single() : { data: null };
 
             if (sizeData) {
+                setSelectedSizeId(sizeData.id);
+                setSelectedTypeId(typeData?.id || null);
+
                 let query = supabase
                     .from('pharmacy_oxygen_cylinder_inventory')
                     .select('*')
@@ -134,6 +141,36 @@ export const QRGeneratorPage: React.FC = () => {
             }
         } catch (err) {
             console.error("Failed to fetch size details:", err);
+        } finally {
+            setIsDetailsLoading(false);
+        }
+    };
+
+    const handleClearCategory = async () => {
+        if (!user?.hospital_id || !selectedSizeId) return;
+
+        const confirmed = window.confirm(
+            `⚠️ DANGER: This will permanently delete ALL ${sizeDetails.length} records for "${selectedRegistrySize}".\n\nAre you sure?`
+        );
+
+        if (!confirmed) return;
+
+        setIsDetailsLoading(true);
+        try {
+            const { error } = await deleteCylindersBySizeAndType(
+                user.hospital_id,
+                selectedSizeId,
+                selectedTypeId || undefined
+            );
+
+            if (error) throw new Error(error);
+
+            setSizeDetails([]);
+            fetchRegistrySummary();
+            setSelectedRegistrySize(null);
+            alert("Category cleared successfully.");
+        } catch (err: any) {
+            alert(`Failed to clear category: ${err.message}`);
         } finally {
             setIsDetailsLoading(false);
         }
@@ -185,11 +222,13 @@ export const QRGeneratorPage: React.FC = () => {
 
             if (!allTaken.has(serialStr)) {
                 const uniqueId = `O2-${serialStr}`;
+                const preset = sizePresets.find(s => s.code === currentSize);
                 newLabels.push({
                     id: Math.random().toString(36).substr(2, 9),
                     size_code: currentSize,
                     type_name: currentType,
                     qr_value: uniqueId,
+                    capacity: preset?.capacity || 'N/A',
                     serial_no: serialStr
                 });
                 generatedCount++;
@@ -235,6 +274,31 @@ export const QRGeneratorPage: React.FC = () => {
     const clearAll = () => setLabels([]);
     const handlePrint = () => window.print();
 
+    const handleWipeRegistry = async () => {
+        if (!user?.hospital_id) return;
+
+        const confirmed = window.confirm(
+            "⚠️ DANGER: This will permanently delete ALL registered cylinder assets and movement history for this hospital from the database.\n\nAre you absolutely sure?"
+        );
+
+        if (!confirmed) return;
+
+        setIsLoading(true);
+        try {
+            const res = await clearOxygenCylinderRegistry(user.hospital_id);
+            if (res.error) throw new Error(res.error);
+
+            setLabels([]);
+            fetchRegistrySummary();
+            alert("Registry wiped successfully.");
+        } catch (err: any) {
+            alert(`Failed to wipe registry: ${err.message}`);
+        } finally {
+            setIsLoading(true); // Short delay for reload
+            window.location.reload();
+        }
+    };
+
     // Grouping Logic
     const groupedLabelsMap = labels.reduce((acc, label) => {
         const key = `${label.type_name} — ${label.size_code}`;
@@ -246,8 +310,9 @@ export const QRGeneratorPage: React.FC = () => {
     const groupedLabels = Object.entries(groupedLabelsMap);
 
     return (
-        <div className="min-h-screen bg-slate-50/50 p-4 md:p-8 font-sans text-slate-900 selection:bg-sky-100 selection:text-sky-900">
-            <div className="max-w-[1600px] mx-auto space-y-8">
+        <div className="min-h-screen bg-slate-50/50 p-4 md:p-8 font-sans text-slate-900 selection:bg-sky-100 selection:text-sky-900 print:bg-white print:p-0 print:m-0 print:min-h-0">
+            {/* Global print styles are managed in index.css via #print-labels-grid-root */}
+            <div className="max-w-[1600px] mx-auto space-y-8 print:hidden">
 
                 {/* Header Section */}
                 <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8 border-b border-slate-200 print:hidden">
@@ -273,11 +338,18 @@ export const QRGeneratorPage: React.FC = () => {
                     <div className="flex items-center gap-3">
                         <Button
                             variant="outline"
+                            onClick={handleWipeRegistry}
+                            className="border-rose-200 text-rose-600 hover:bg-rose-50 h-12 px-6 rounded-xl font-bold transition-all"
+                        >
+                            <Trash2 className="w-4 h-4 mr-2" /> Wipe Assets
+                        </Button>
+                        <Button
+                            variant="outline"
                             onClick={clearAll}
                             disabled={labels.length === 0}
-                            className="border-slate-200 text-slate-600 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100 h-12 px-6 rounded-xl font-bold transition-all disabled:opacity-30"
+                            className="border-slate-200 text-slate-600 hover:bg-slate-50 h-12 px-6 rounded-xl font-bold transition-all disabled:opacity-30"
                         >
-                            <Trash2 className="w-4 h-4 mr-2" /> Clear Session
+                            <RotateCcw className="w-4 h-4 mr-2" /> Clear Session
                         </Button>
                         <Button
                             onClick={handlePrint}
@@ -290,7 +362,7 @@ export const QRGeneratorPage: React.FC = () => {
                 </header>
 
                 {/* Horizontal Registry Dashboard */}
-                <div className="mb-8 space-y-4">
+                <div className="mb-8 space-y-4 print:hidden">
                     <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
                         <BadgeCheck className="w-3.5 h-3.5" /> Established Registry Overview
                     </div>
@@ -410,7 +482,8 @@ export const QRGeneratorPage: React.FC = () => {
                     </aside>
 
                     {/* Main Labels Display */}
-                    <main className="lg:col-span-9 space-y-12 labels-container min-h-[600px]">
+                    {/* Main Labels Display - Screen Only */}
+                    <main className="lg:col-span-9 space-y-12 min-h-[600px] print:hidden">
                         <AnimatePresence mode="popLayout">
                             {labels.length === 0 ? (
                                 <motion.div
@@ -445,52 +518,115 @@ export const QRGeneratorPage: React.FC = () => {
                                             </div>
 
                                             {/* Sub-grid of Labels */}
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 print:grid print:grid-cols-3 print:gap-[2mm] print:p-0">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 print:grid print:grid-cols-4 print:gap-[4mm] print:place-content-center print:w-full print:h-full print:mx-auto">
                                                 {groupLabels.map((label) => {
-                                                    const isPrivate = label.size_code.startsWith('P');
+                                                    // Split volume for styling
+                                                    const volMatch = label.capacity.match(/^([\d.]+)(.*)$/);
+                                                    const volNum = volMatch ? volMatch[1] : label.capacity;
+                                                    const volUnit = volMatch ? volMatch[2] : '';
+
                                                     return (
                                                         <motion.div
                                                             key={label.id}
                                                             whileHover={{ y: -4, scale: 1.02 }}
-                                                            className="label-card relative group bg-white border border-slate-200 p-5 rounded-2xl shadow-sm hover:shadow-xl hover:border-sky-300 transition-all flex items-center gap-5 print:shadow-none print:border-slate-400 print:rounded-none print:w-[65mm] print:h-[46mm] print:p-3 print:gap-3 print:border-[0.2pt] print:m-0 print:overflow-hidden print:flex print:box-border"
+                                                            className="label-card relative group bg-white border-2 border-slate-200 p-2 rounded-2xl shadow-sm hover:shadow-2xl hover:border-sky-400 transition-all flex items-stretch gap-2 print:shadow-none print:border-slate-300 print:rounded-none print:w-[67mm] print:h-[64mm] print:p-2 print:gap-2 print:border-[0.2pt] print:m-0 print:overflow-hidden print:flex print:box-border"
                                                         >
-                                                            <div className="shrink-0 bg-white p-2 rounded-xl border border-slate-100 print:border-none print:p-0">
-                                                                <QRCodeSVG
-                                                                    value={label.qr_value}
-                                                                    size={95}
-                                                                    level="H"
-                                                                    includeMargin={false}
-                                                                    className="print:w-[28mm] print:h-[28mm]"
-                                                                />
-                                                            </div>
+                                                            <div className="flex h-full w-full">
+                                                                {/* LEFT SIDEBAR: Header + QR + Footer */}
+                                                                <div className="w-[35%] bg-slate-50 border-r border-slate-200 flex flex-col items-center justify-between p-2 shrink-0 print:border-r-[0.5pt] print:w-[22mm] print:bg-transparent print:p-1">
+                                                                    {/* Header */}
+                                                                    <div className="flex flex-col items-center gap-0.5 w-full text-center">
+                                                                        <div className="flex items-center gap-1 opacity-90">
+                                                                            <AirVent className="w-3 h-3 text-sky-600 print:w-2 print:h-2 print:text-black" />
+                                                                            <span className="text-[8px] font-black text-slate-950 uppercase tracking-wider print:text-[5pt]">OXY ID</span>
+                                                                        </div>
+                                                                        <span className="text-[9px] font-black text-slate-950 px-1 py-0 rounded border border-slate-200 bg-white leading-none print:text-[6pt] print:border-[0.5pt]">
+                                                                            #{label.serial_no?.split('-').pop()}
+                                                                        </span>
+                                                                    </div>
 
-                                                            <div className="flex-1 min-w-0 flex flex-col justify-between h-full print:h-[40mm]">
-                                                                <div className="space-y-1">
-                                                                    <div className="flex items-center gap-1.5 opacity-60">
-                                                                        <AirVent className="w-3 h-3 text-sky-500 print:w-2.5 print:h-2.5" />
-                                                                        <span className="text-[9px] font-black text-slate-900 uppercase tracking-widest print:text-[6pt]">Oxy Identity</span>
+                                                                    {/* QR Code */}
+                                                                    <div className="py-1 flex items-center justify-center">
+                                                                        <QRCodeSVG
+                                                                            value={label.qr_value}
+                                                                            size={85}
+                                                                            level="H"
+                                                                            includeMargin={false}
+                                                                            className="print:w-[18mm] print:h-[18mm]"
+                                                                        />
                                                                     </div>
-                                                                    <div className="flex items-end justify-between">
-                                                                        <span className="text-xl font-black text-slate-900 leading-none print:text-[12pt]">{label.size_code}</span>
-                                                                        <span className="text-[10px] font-black text-sky-600 bg-sky-50 px-2 py-0.5 rounded-lg print:text-[8pt] print:bg-transparent print:p-0">#{label.serial_no?.split('-').pop()}</span>
-                                                                    </div>
-                                                                    <div className="pt-2">
-                                                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 print:text-[6pt]">Full Serial Number</div>
-                                                                        <code className="text-[11px] font-bold text-slate-600 font-mono print:text-[8pt]">{label.serial_no}</code>
+
+                                                                    {/* Footer / Ownership */}
+                                                                    <div className="text-center w-full">
+                                                                        <p className="text-[9px] font-black text-rose-700 uppercase tracking-tight leading-none mb-0.5 print:text-[6pt] print:leading-none">
+                                                                            HOSPITAL LAWAS
+                                                                        </p>
+                                                                        {label.size_code?.startsWith('101-') ? (
+                                                                            <span className="mt-1 px-1.5 py-0.5 bg-sky-100 text-[#0c4a6e] border border-sky-200 rounded text-[6px] font-bold tracking-[0.1em] uppercase print:bg-none print:border-[0.2pt] print:border-black print:text-black print:text-[4pt]">
+                                                                                LOAN CYLINDER
+                                                                            </span>
+                                                                        ) : (
+                                                                            <p className="text-[7px] font-black text-slate-950 uppercase tracking-wider print:text-[4.5pt]">
+                                                                                (PRIVATE)
+                                                                            </p>
+                                                                        )}
                                                                     </div>
                                                                 </div>
 
-                                                                <div className="mt-4 pt-3 border-t border-slate-100 print:border-slate-200 print:pt-1">
-                                                                    <p className="text-[8px] font-black text-rose-600 leading-tight print:text-[6.5pt]">
-                                                                        {isPrivate ? 'Hak Milik Hospital Lawas (Private)' : 'Loan to Hospital Lawas'}
-                                                                    </p>
-                                                                    <div className="flex items-center justify-between mt-1">
-                                                                        <p className="text-[6px] font-black text-slate-400 uppercase tracking-[0.2em] print:text-[5.5pt]">KKM MEDICAL RESOURCE</p>
-                                                                        {!isPrivate && <BadgeCheck className="w-3 h-3 text-sky-500/50 print:w-2.5 print:h-2.5" />}
+                                                                {/* RIGHT CONTENT: Data Details */}
+                                                                <div className="flex-1 p-2 flex flex-col justify-center gap-2 print:p-2 print:gap-1">
+                                                                    {/* Cylinder Name */}
+                                                                    <div className="border-b-2 border-slate-100 pb-1 print:border-b-[0.5pt]">
+                                                                        <div className="flex items-baseline gap-2">
+                                                                            <span className="text-4xl font-black text-slate-950 leading-none tracking-tighter block whitespace-nowrap print:text-[20pt]">
+                                                                                {label.size_code}
+                                                                            </span>
+                                                                            {label.size_code?.startsWith('101-') && (
+                                                                                <span className="text-xl font-black text-sky-600 leading-none tracking-tighter print:text-[10pt] print:text-black">
+                                                                                    LOAN
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div className="space-y-2 print:space-y-1">
+                                                                        {/* Valve Type */}
+                                                                        <div className="flex items-center justify-between">
+                                                                            <span className="text-[8px] font-black text-slate-950 uppercase tracking-widest print:text-[5pt]">
+                                                                                VALVE
+                                                                            </span>
+                                                                            <span className="text-[10px] font-black text-slate-950 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 print:text-[7pt] print:bg-transparent print:border-[0.5pt]">
+                                                                                {label.type_name}
+                                                                            </span>
+                                                                        </div>
+
+                                                                        {/* Volume - MASSIVE */}
+                                                                        <div className="flex items-center justify-between">
+                                                                            <span className="text-[8px] font-black text-slate-950 uppercase tracking-widest print:text-[5pt]">
+                                                                                VOL
+                                                                            </span>
+                                                                            <div className="flex items-baseline gap-0.5">
+                                                                                <span className="text-5xl font-black text-slate-950 leading-none tracking-tighter print:text-[28pt]">
+                                                                                    {volNum}
+                                                                                </span>
+                                                                                <span className="text-xs font-black text-slate-950 print:text-[8pt]">
+                                                                                    {volUnit}
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        {/* Serial ID */}
+                                                                        <div className="flex items-center justify-between pt-1 border-t border-slate-50 print:border-t-[0.5pt]">
+                                                                            <span className="text-[8px] font-black text-slate-950 uppercase tracking-widest text-slate-400 print:text-[5pt] print:text-black">
+                                                                                SN
+                                                                            </span>
+                                                                            <span className="text-[10px] font-mono font-black text-slate-950 print:text-[7pt]">
+                                                                                {label.serial_no}
+                                                                            </span>
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                             </div>
-
                                                             <button
                                                                 onClick={() => removeLabel(label.id)}
                                                                 className="absolute -top-2 -right-2 p-1.5 bg-rose-500 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity print:hidden hover:scale-110 active:scale-95"
@@ -538,6 +674,17 @@ export const QRGeneratorPage: React.FC = () => {
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-5 custom-scrollbar">
+                            <div className="flex items-center justify-between mb-4 px-1">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{sizeDetails.length} Registered Identifiers</p>
+                                <Button
+                                    variant="outline"
+                                    onClick={handleClearCategory}
+                                    disabled={sizeDetails.length === 0}
+                                    className="border-rose-100 text-rose-500 hover:bg-rose-50 h-8 text-[10px] font-black uppercase px-3 rounded-lg transition-all active:scale-95"
+                                >
+                                    <Trash2 className="w-3 h-3 mr-1.5" /> Clear All Records
+                                </Button>
+                            </div>
                             {isDetailsLoading ? (
                                 <div className="flex flex-col items-center justify-center py-20 gap-4">
                                     <Spinner className="w-10 h-10 text-sky-600" />
@@ -555,7 +702,7 @@ export const QRGeneratorPage: React.FC = () => {
                                         >
                                             <div className="flex items-center justify-between">
                                                 <span className="text-[9px] font-mono font-black text-sky-600">
-                                                    #{item.serial_number.split('-').pop()}
+                                                    #{item.serial_number?.split('-').pop() || 'N/A'}
                                                 </span>
                                                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                                             </div>
@@ -580,62 +727,87 @@ export const QRGeneratorPage: React.FC = () => {
                 </div>
             )}
 
-            {/* Print styles */}
-            <style>{`
-        @media print {
-          @page { size: A4 portrait; margin: 0; }
-          html, body { 
-            margin: 0 !important; 
-            padding: 0 !important; 
-            background: white !important; 
-            overflow: visible !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
 
-          /* Hide everything except labels */
-          .print\\:hidden, button, aside, header { display: none !important; }
-          
-          .labels-container {
-            position: absolute !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 210mm !important;
-            height: auto !important;
-            margin: 0 !important;
-            padding: 5mm !important;
-            background: white !important;
-            z-index: 9999 !important;
-            display: block !important;
-          }
+            {/* Unified Print-Only Grid Container */}
+            <div id="print-labels-grid-root" className={labels.length > 0 ? '' : 'hidden'}>
+                {labels.map((label) => {
+                    const volMatch = label.capacity.match(/^([\d.]+)(.*)$/);
+                    const volNum = volMatch ? volMatch[1] : label.capacity;
+                    const volUnit = volMatch ? volMatch[2] : '';
 
-          .label-grid {
-            display: grid !important;
-            grid-template-columns: repeat(3, 65mm) !important;
-            grid-auto-rows: 46mm !important;
-            gap: 2mm !important;
-            width: 200mm !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            border: none !important;
-          }
+                    return (
+                        <div key={`print-${label.id}`} className="bg-white border-[0.5pt] border-black p-2 flex items-stretch gap-2 overflow-hidden box-border" style={{ width: '72mm', height: '50mm' }}>
+                            <div className="flex h-full w-full">
+                                {/* LEFT SIDEBAR */}
+                                <div className="w-[35%] border-r-[0.5pt] border-black flex flex-col items-center justify-between p-1 shrink-0">
+                                    <div className="flex flex-col items-center gap-0.5 w-full text-center">
+                                        <div className="flex items-center gap-1">
+                                            <AirVent className="w-2.5 h-2.5 text-black" />
+                                            <span className="text-[7pt] font-black text-black uppercase tracking-wider">OXY ID</span>
+                                        </div>
+                                        <span className="text-[8pt] font-black text-black px-1 py-0.5 rounded border-[0.5pt] border-black leading-none">
+                                            #{label.serial_no?.split('-').pop()}
+                                        </span>
+                                    </div>
+                                    <div className="py-1 flex items-center justify-center">
+                                        <QRCodeSVG
+                                            value={label.qr_value}
+                                            size={85}
+                                            level="H"
+                                            includeMargin={false}
+                                        />
+                                    </div>
+                                    <div className="text-center w-full">
+                                        <p className="text-[10pt] font-black text-black uppercase leading-none">HOSPITAL LAWAS</p>
+                                        {label.size_code?.startsWith('101-') ? (
+                                            <div className="mt-1 px-2 py-0.5 border-[0.8pt] border-black rounded-sm text-[6.5pt] font-black tracking-widest text-center">
+                                                LOAN CYLINDER
+                                            </div>
+                                        ) : (
+                                            <p className="text-[7pt] font-black text-black uppercase tracking-widest">(PRIVATE)</p>
+                                        )}
+                                    </div>
+                                </div>
 
-          .label-card {
-            width: 65mm !important;
-            height: 46mm !important;
-            display: flex !important;
-            margin: 0 !important;
-            padding: 4mm !important;
-            gap: 4mm !important;
-            border: 0.1pt solid #ccc !important;
-            page-break-inside: avoid !important;
-            background: white !important;
-            box-sizing: border-box !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-          }
-        }
-      `}</style>
+                                {/* RIGHT CONTENT */}
+                                <div className="flex-1 p-2 flex flex-col justify-center gap-1">
+                                    <div className="border-b-[0.5pt] border-black pb-1">
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="text-[20pt] font-black text-black leading-none tracking-tighter block whitespace-nowrap">
+                                                {label.size_code}
+                                            </span>
+                                            {label.size_code?.startsWith('101-') && (
+                                                <span className="text-[10pt] font-black text-black leading-none tracking-tighter">
+                                                    LOAN
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[5pt] font-black text-black uppercase tracking-widest">VALVE</span>
+                                            <span className="text-[7pt] font-black text-black px-1.5 py-0.5 rounded border-[0.5pt] border-black">
+                                                {label.type_name}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[5pt] font-black text-black uppercase tracking-widest">VOL</span>
+                                            <div className="flex items-baseline gap-0.5">
+                                                <span className="text-[28pt] font-black text-black leading-none tracking-tighter">{volNum}</span>
+                                                <span className="text-[8pt] font-black text-black">{volUnit}</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center justify-between pt-1 border-t-[0.5pt] border-black">
+                                            <span className="text-[5pt] font-black text-black uppercase tracking-widest">SN</span>
+                                            <span className="text-[7pt] font-mono font-black text-black">{label.serial_no}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
         </div>
     );
 };

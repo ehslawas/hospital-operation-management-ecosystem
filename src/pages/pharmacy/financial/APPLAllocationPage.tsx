@@ -483,8 +483,52 @@ export const APPLAllocationPage: React.FC = () => {
           </div>
         )}
 
-        {/* Expenses Table */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        {/* Mobile Card View */}
+        <div className="md:hidden space-y-4">
+          {isLoading ? (
+            <div className="text-center py-10 text-slate-400">Loading expenses...</div>
+          ) : filteredExpenses.length === 0 ? (
+            <div className="text-center py-10 text-slate-400 border border-dashed border-slate-300 rounded-xl bg-slate-50">
+              No expenses found matching your filters
+            </div>
+          ) : (
+            paginatedExpenses.map((expense) => (
+              <div key={expense.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="font-bold text-slate-800 text-sm">
+                      {expense.po_number || 'N/A'}
+                    </div>
+                    {expense.lpo_number && (
+                      <div className="text-[10px] text-slate-500 font-mono mt-0.5">
+                        LPO: {expense.lpo_number}
+                      </div>
+                    )}
+                    <div className="text-[10px] text-slate-400 mt-1">
+                      {formatDate(expense.expense_date)}
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    {getStatusBadge(expense.status)}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-slate-50 mt-2">
+                  <div className="flex gap-2">
+                    {getPoTypeBadge(expense.po_type)}
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-0.5">Amount</p>
+                    <p className="text-lg font-bold text-emerald-600">{formatCurrency(Number(expense.amount))}</p>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Expenses Table - Desktop */}
+        <div className="hidden md:block bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <Table
             data={paginatedExpenses}
             columns={columns}
@@ -492,7 +536,11 @@ export const APPLAllocationPage: React.FC = () => {
             emptyMessage="No expenses found matching your filters"
             onSort={(key) => console.log('Sort by', key)}
           />
-          {filteredExpenses.length > 0 && (
+        </div>
+
+        {/* Pagination - Shared */}
+        {filteredExpenses.length > 0 && (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 md:border-none md:shadow-none md:bg-transparent md:p-0">
             <Pagination
               currentPage={currentPage}
               totalPages={Math.ceil(filteredExpenses.length / pageSize)}
@@ -504,8 +552,8 @@ export const APPLAllocationPage: React.FC = () => {
                 setCurrentPage(1)
               }}
             />
-          )}
-        </div>
+          </div>
+        ) as React.ReactNode}
       </div>
     </FinancialPageLayout>
   )

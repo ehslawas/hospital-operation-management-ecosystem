@@ -6,6 +6,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { useAuthStore } from '@/stores/authStore'
 import { supabase } from '@/services/supabase'
 import { queryClient } from '@/lib/queryClient'
+import { ReloadPrompt } from '@/components/ReloadPrompt'
 
 function App() {
   const { setLoading, checkSession, logout, setSupabaseSessionReady } = useAuthStore()
@@ -95,6 +96,7 @@ function App() {
         <AppRouter />
         <ToastContainer />
         <Toaster />
+        <ReloadPrompt />
       </QueryClientProvider>
     </ErrorBoundary>
   )

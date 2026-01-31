@@ -684,16 +684,16 @@ export default function LPOManagementPage() {
                     />
 
                     <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="w-full">
-                        <div className="flex justify-between items-center mb-6">
-                            <TabsList className="bg-white/50 backdrop-blur-md p-1 border border-slate-200/60 rounded-xl">
-                                <TabsTrigger value="pending" className="data-[state=active]:bg-white data-[state=active]:text-amber-600 data-[state=active]:shadow-sm rounded-lg px-4 py-2 transition-all">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                            <TabsList className="bg-white/50 backdrop-blur-md p-1 border border-slate-200/60 rounded-xl w-full sm:w-auto flex overflow-x-auto">
+                                <TabsTrigger value="pending" className="flex-1 sm:flex-none data-[state=active]:bg-white data-[state=active]:text-amber-600 data-[state=active]:shadow-sm rounded-lg px-4 py-2 transition-all whitespace-nowrap">
                                     <Clock className="w-4 h-4 mr-2" />
                                     Pending LPO
                                     <Badge variant="warning" size="sm" className="ml-2 bg-amber-100 text-amber-700 border-none">
                                         {totalPending}
                                     </Badge>
                                 </TabsTrigger>
-                                <TabsTrigger value="approved" className="data-[state=active]:bg-white data-[state=active]:text-violet-600 data-[state=active]:shadow-sm rounded-lg px-4 py-2 transition-all">
+                                <TabsTrigger value="approved" className="flex-1 sm:flex-none data-[state=active]:bg-white data-[state=active]:text-violet-600 data-[state=active]:shadow-sm rounded-lg px-4 py-2 transition-all whitespace-nowrap">
                                     <CheckCircle2 className="w-4 h-4 mr-2" />
                                     Approved LPO
                                 </TabsTrigger>
@@ -724,7 +724,7 @@ export default function LPOManagementPage() {
                                     <>
                                         <Button
                                             onClick={() => setShowBulkUpload(true)}
-                                            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-sm gap-2"
+                                            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-sm gap-2 w-full sm:w-auto justify-center"
                                         >
                                             <div className="bg-white/20 p-1 rounded">
                                                 <Upload className="w-4 h-4 text-white" />
@@ -737,7 +737,7 @@ export default function LPOManagementPage() {
                                                     variant="outline"
                                                     onClick={handleFixDocumentDates}
                                                     disabled={isFixingDates}
-                                                    className="border-amber-300 text-amber-600 hover:bg-amber-50"
+                                                    className="border-amber-300 text-amber-600 hover:bg-amber-50 w-full sm:w-auto"
                                                 >
                                                     <FileCheck className={`w-4 h-4 mr-2 ${isFixingDates ? 'animate-spin' : ''}`} />
                                                     {isFixingDates ? 'Fixing...' : 'Fix LPO Dates'}
@@ -746,7 +746,7 @@ export default function LPOManagementPage() {
                                                     variant="outline"
                                                     onClick={handleSyncDates}
                                                     disabled={isSyncing}
-                                                    className="border-slate-300 text-slate-600 hover:bg-slate-50"
+                                                    className="border-slate-300 text-slate-600 hover:bg-slate-50 w-full sm:w-auto"
                                                 >
                                                     <Clock className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
                                                     {isSyncing ? 'Syncing...' : 'Sync Dates'}
@@ -760,7 +760,67 @@ export default function LPOManagementPage() {
 
                         {/* PENDING LPOS CONTENT */}
                         <TabsContent value="pending" className="mt-0 focus-visible:outline-none">
-                            <div className="glass-card rounded-xl overflow-hidden shadow-sm border border-slate-200/60 bg-white/60 backdrop-blur-md">
+                            {/* Mobile Card View for Pending */}
+                            <div className="md:hidden space-y-4">
+                                {isLoading ? (
+                                    <div className="text-center py-10 text-slate-400">Loading pending POs...</div>
+                                ) : filteredPending.length === 0 ? (
+                                    <div className="text-center py-10 text-slate-400 border border-dashed border-slate-300 rounded-xl bg-slate-50">
+                                        No pending LPOs found.
+                                    </div>
+                                ) : (
+                                    filteredPending.map((po) => (
+                                        <div key={po.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <div
+                                                        className="text-blue-600 font-bold text-sm flex items-center gap-1.5"
+                                                        onClick={() => setSelectedPOForItems(po)}
+                                                    >
+                                                        {po.po_number}
+                                                    </div>
+                                                    <div className="text-xs text-slate-500">{new Date(po.created_at).toLocaleDateString()}</div>
+                                                </div>
+                                                {false ? ( // Fixed: PurchaseOrderWithRelations doesn't have lpo_number
+                                                    <Badge variant="gray" className="text-[10px] bg-slate-50 font-mono">
+                                                        Draft
+                                                    </Badge>
+                                                ) : (
+                                                    <Badge variant="warning" className="text-[10px]">Pending Upload</Badge>
+                                                )}
+                                            </div>
+
+                                            <div>
+                                                <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-0.5">Supplier</p>
+                                                <p className="text-sm font-medium text-slate-700 truncate">
+                                                    {po.supplier?.company_name || po.manual_supplier_name || 'No Supplier'}
+                                                </p>
+                                            </div>
+
+                                            <div className="pt-2">
+                                                <Button
+                                                    size="sm"
+                                                    className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                                                    onClick={() => {
+                                                        setSelectedLpoForSend({
+                                                            id: 'temp-' + po.id,
+                                                            lpo_number: 'New LPO', // Fixed: Hardcode or generate temp
+                                                            purchase_order: po
+                                                        } as any)
+                                                        setShowBulkUpload(true)
+                                                    }}
+                                                >
+                                                    <Upload className="w-3 h-3 mr-2" />
+                                                    Upload LPO
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+
+                            {/* Desktop Table View */}
+                            <div className="hidden md:block glass-card rounded-xl overflow-hidden shadow-sm border border-slate-200/60 bg-white/60 backdrop-blur-md">
                                 {isLoading ? (
                                     <div className="flex items-center justify-center p-12">
                                         <Spinner size="lg" className="text-amber-500" />
@@ -835,7 +895,122 @@ export default function LPOManagementPage() {
 
                         {/* APPROVED LPOS CONTENT */}
                         <TabsContent value="approved" className="mt-0 focus-visible:outline-none">
-                            <div className="glass-card rounded-xl overflow-hidden shadow-sm border border-slate-200/60 bg-white/60 backdrop-blur-md">
+                            {/* Mobile Card View for Approved */}
+                            <div className="md:hidden space-y-4">
+                                {isLoading ? (
+                                    <div className="text-center py-10 text-slate-400">Loading approved LPOs...</div>
+                                ) : filteredApproved.length === 0 ? (
+                                    <div className="text-center py-10 text-slate-400 border border-dashed border-slate-300 rounded-xl bg-slate-50">
+                                        No approved LPOs found.
+                                    </div>
+                                ) : (
+                                    filteredApproved.map((lpo) => {
+                                        const statusVerified = (lpo.status === 'sent' || lpo.status === 'verified')
+                                        const dbVerified = (lpo as any).verify_tracking === true
+                                        const items = lpo.tracking_items as any[] || []
+                                        const hasTracking = items.length > 0 && (items[0].count > 0 || !!items[0].id)
+                                        const isFullyVerified = dbVerified || (statusVerified && hasTracking)
+                                        const isScanningThis = isAnalyzing && selectedLpoForVerify?.id === lpo.id
+
+                                        return (
+                                            <div key={lpo.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                                                <div className="flex justify-between items-start gap-4">
+                                                    <div>
+                                                        <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                                                            <FileCheck className="w-4 h-4 text-emerald-500" />
+                                                            {lpo.lpo_number}
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation()
+                                                                    handleRenameClick(lpo)
+                                                                }}
+                                                                className="text-slate-400 hover:text-blue-500 p-1 rounded-full bg-slate-50"
+                                                            >
+                                                                <Pencil className="w-3 h-3" />
+                                                            </button>
+                                                        </div>
+                                                        <div className="text-xs text-slate-500 mt-1">
+                                                            {new Date(lpo.document_date || lpo.created_at).toLocaleDateString()}
+                                                        </div>
+                                                    </div>
+                                                    {isFullyVerified ? (
+                                                        <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-none">
+                                                            Verified
+                                                        </Badge>
+                                                    ) : (
+                                                        <Badge variant="gray" className="text-slate-500">
+                                                            Unverified
+                                                        </Badge>
+                                                    )}
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                                    <div>
+                                                        <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-0.5">PO Number</p>
+                                                        <p className="font-mono text-slate-700">{lpo.purchase_order?.po_number}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-0.5">Supplier</p>
+                                                        <p className="font-medium text-slate-700 truncate">
+                                                            {lpo.purchase_order?.supplier?.company_name || lpo.purchase_order?.manual_supplier_name}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100">
+                                                    {lpo.document_url && (
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="flex-1 h-9 text-xs border-blue-200 text-blue-700 bg-blue-50"
+                                                            onClick={() => handleViewComparison(lpo)}
+                                                        >
+                                                            <Download className="w-3.5 h-3.5 mr-1.5" />
+                                                            PDF
+                                                        </Button>
+                                                    )}
+
+                                                    {(!isFullyVerified) && (
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            disabled={isAnalyzing}
+                                                            className={`flex-1 h-9 text-xs border-amber-200 text-amber-700 bg-amber-50 ${isScanningThis ? 'opacity-80' : ''}`}
+                                                            onClick={() => handleVerifyClick(lpo)}
+                                                        >
+                                                            {isScanningThis ? (
+                                                                <>
+                                                                    <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                                                                    Scanning
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
+                                                                    Verify
+                                                                </>
+                                                            )}
+                                                        </Button>
+                                                    )}
+
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-9 px-3 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                                                        onClick={() => {
+                                                            setSelectedLpoForDelete(lpo)
+                                                            setShowDeleteDialog(true)
+                                                        }}
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        )
+                                    })
+                                )}
+                            </div>
+
+                            <div className="hidden md:block glass-card rounded-xl overflow-hidden shadow-sm border border-slate-200/60 bg-white/60 backdrop-blur-md">
                                 {isLoading ? (
                                     <div className="flex items-center justify-center p-12">
                                         <Spinner size="lg" className="text-violet-500" />

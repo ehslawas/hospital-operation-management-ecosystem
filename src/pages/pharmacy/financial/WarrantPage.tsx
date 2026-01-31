@@ -274,35 +274,42 @@ export const WarrantPage: React.FC = () => {
     }
   }
 
-  const handleEdit = () => {
-    if (!selectedWarrant) return
+  const handleEdit = (warrant?: Warrant) => {
+    const target = warrant || selectedWarrant
+    if (!target) return
+
+    if (warrant) {
+      setSelectedWarrant(warrant as any)
+    }
+
     setIsEditing(true)
     setIsDetailsOpen(false)
     setIsFormOpen(true)
-    setValue('warrant_date', selectedWarrant.warrant_date)
-    setValue('document_no', selectedWarrant.document_no)
-    setValue('vote_code', selectedWarrant.vote_code)
-    setValue('vote_activity', selectedWarrant.vote_activity)
-    setValue('category', selectedWarrant.category)
-    setValue('department', selectedWarrant.department)
-    const amount = Number(selectedWarrant.amount)
+    setValue('warrant_date', target.warrant_date)
+    setValue('document_no', target.document_no)
+    setValue('vote_code', target.vote_code)
+    setValue('vote_activity', target.vote_activity)
+    setValue('category', target.category)
+    setValue('department', target.department)
+    const amount = Number(target.amount)
     setValue('amount', amount)
     setFormattedAmount(formatAmount(amount))
   }
 
-  const handleDeleteFromDetails = async () => {
-    if (!selectedWarrant) return
+  const handleDelete = async (warrant: Warrant) => {
     if (!confirm('Are you sure you want to delete this warrant?')) return
 
-    const result = await deleteWarrant(selectedWarrant.id)
+    const result = await deleteWarrant(warrant.id)
 
     if (result.error) {
       showError('Failed to delete warrant', result.error)
     } else {
       showSuccess('Warrant deleted successfully')
       setIsDetailsOpen(false)
-      setSelectedWarrant(null)
-      setWarrants((prev) => prev.filter((w) => w.id !== selectedWarrant.id))
+      if (selectedWarrant?.id === warrant.id) {
+        setSelectedWarrant(null)
+      }
+      setWarrants((prev) => prev.filter((w) => w.id !== warrant.id))
 
       // Reload summary
       if (hospitalId) {
@@ -612,8 +619,91 @@ export const WarrantPage: React.FC = () => {
           </>
         )}
 
-        {/* Warrants Table */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        {/* Mobile Card View */}
+        <div className="md:hidden space-y-4">
+          {isLoading ? (
+            <div className="text-center py-10 text-slate-400">Loading warrants...</div>
+          ) : filteredWarrants.length === 0 ? (
+            <div className="text-center py-10 text-slate-400 border border-dashed border-slate-300 rounded-xl bg-slate-50">
+              No warrants found matching your filters
+            </div>
+          ) : (
+            paginatedWarrants.map((warrant) => (
+              <div
+                key={warrant.id}
+                className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3 active:scale-[0.99] transition-transform"
+                onClick={() => handleRowClick(warrant)}
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-0.5">Document No</p>
+                    <p className="font-mono text-sm font-bold text-slate-800">{warrant.document_no}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-0.5">Date</p>
+                    <p className="text-sm font-medium text-slate-700">{formatDate(warrant.warrant_date)}</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-1 border-t border-slate-50 mt-2">
+                  <Badge variant="gray" className="text-[10px] font-mono bg-slate-100 text-slate-600 border-slate-200">
+                    {warrant.vote_code}
+                  </Badge>
+                  <Badge variant="gray" className="text-[10px] font-mono bg-slate-100 text-slate-600 border-slate-200">
+                    {warrant.vote_activity}
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 py-2">
+                  <div>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${CATEGORY_COLORS[warrant.category]}`}>
+                      {getCategoryLabel(warrant.category)}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${DEPARTMENT_COLORS[warrant.department]}`}>
+                      {getDepartmentLabel(warrant.department)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                  <div>
+                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-0.5">Amount</p>
+                    <p className="text-lg font-bold text-emerald-600">{formatCurrency(Number(warrant.amount))}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-slate-400 hover:text-blue-600 hover:bg-blue-50"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleEdit(warrant)
+                      }}
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDelete(warrant)
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Warrants Table - Desktop */}
+        <div className="hidden md:block bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <Table
             data={paginatedWarrants}
             columns={columns}
@@ -622,7 +712,11 @@ export const WarrantPage: React.FC = () => {
             emptyMessage="No warrants found matching your filters"
             onSort={(key) => console.log('Sort by', key)}
           />
-          {filteredWarrants.length > 0 && (
+        </div>
+
+        {/* Pagination - Shared */}
+        {filteredWarrants.length > 0 && (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 md:border-none md:shadow-none md:bg-transparent md:p-0">
             <Pagination
               currentPage={currentPage}
               totalPages={Math.ceil(filteredWarrants.length / pageSize)}
@@ -634,8 +728,8 @@ export const WarrantPage: React.FC = () => {
                 setCurrentPage(1)
               }}
             />
-          )}
-        </div>
+          </div>
+        ) as React.ReactNode}
       </div>
 
       {/* Warrant Details Modal */}
@@ -725,14 +819,14 @@ export const WarrantPage: React.FC = () => {
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
                 <Button
                   variant="outline"
-                  onClick={handleDeleteFromDetails}
+                  onClick={() => selectedWarrant && handleDelete(selectedWarrant)}
                   className="text-rose-600 border-rose-200 hover:bg-rose-50"
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
                   Delete
                 </Button>
                 <Button
-                  onClick={handleEdit}
+                  onClick={() => handleEdit()}
                   className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white"
                 >
                   <Edit className="w-4 h-4 mr-2" />

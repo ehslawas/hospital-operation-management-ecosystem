@@ -455,14 +455,12 @@ export const CylinderRequestPage: React.FC = () => {
                                                     onChange={(e) => updateItem(item.id, 'cylinder_size_id', e.target.value)}
                                                     options={sizes.map(s => {
                                                         const labelMap: Record<string, string> = {
-                                                            'P101-D': 'P101-D (PI 0.5m3)',
-                                                            'P101-E': 'P101-E (PI 0.7m3)',
-                                                            'P101-F': 'P101-F (PI 1.4m3)',
-                                                            '101-F': '101-F (PI 1.4m3)',
-                                                            'P101-G': 'P101-G (BN 3.4m3)',
-                                                            'P101-H': 'P101-H (BN 6.8m3)',
-                                                            'P101-HS': 'P101-HS (BN 6.4m3)',
-                                                            '101-N': '101-N (BN 8.0m3)'
+                                                            'P101-E': 'P101 - E (0.5m3)',
+                                                            'P101-D': 'P101 - D (0.7m3)',
+                                                            'P101-F': 'P101 - F (1.4m3)',
+                                                            'P101-HS': 'P101 -HS (6.4m3)',
+                                                            '101-N': '101 - N (8.0m3) Loan',
+                                                            '101-F': '101 - F (1.4m3) Loan'
                                                         }
                                                         return {
                                                             value: s.id,

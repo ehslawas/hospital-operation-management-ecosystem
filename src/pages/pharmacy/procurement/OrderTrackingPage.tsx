@@ -46,7 +46,10 @@ const DeliveryProgressCell = ({ items }: { items: any[] }) => {
 
     const total = items.length
     const delivered = items.filter(i => i.status === 'delivered').length
-    const percentage = Math.round((delivered / total) * 100)
+    const received = items.filter(i => i.status === 'received').length
+
+    const deliveredPercentage = Math.round((delivered / total) * 100)
+    const receivedPercentage = Math.round((received / total) * 100)
 
     const tooltipContent = (
         <div className="p-2 space-y-2 min-w-[200px]">
@@ -55,7 +58,7 @@ const DeliveryProgressCell = ({ items }: { items: any[] }) => {
                 <div key={idx} className="flex justify-between items-center text-[10px] gap-4">
                     <span className="truncate max-w-[100px]">{item.item_code}</span>
                     <Badge
-                        variant={item.status === 'delivered' ? 'success' : 'warning'}
+                        variant={item.status === 'delivered' ? 'success' : item.status === 'received' ? 'info' : 'warning'}
                         size="sm"
                         className="scale-90"
                     >
@@ -70,15 +73,24 @@ const DeliveryProgressCell = ({ items }: { items: any[] }) => {
         <ActionTooltip content={tooltipContent} position="top">
             <div className="w-full max-w-[140px] cursor-help">
                 <div className="flex justify-between text-[11px] mb-1">
-                    <span className="text-slate-500">{delivered}/{total} Items</span>
-                    <span className="font-bold text-slate-700">{percentage}%</span>
+                    <span className="text-slate-500">{delivered + received}/{total} Arrived</span>
+                    <span className="font-bold text-slate-700">{deliveredPercentage + receivedPercentage}%</span>
                 </div>
-                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner flex">
                     <div
-                        className={`h-full rounded-full transition-all duration-700 ${percentage === 100 ? 'bg-emerald-500' : percentage > 0 ? 'bg-amber-500' : 'bg-blue-400'}`}
-                        style={{ width: `${percentage}%` }}
+                        className="h-full bg-emerald-500 transition-all duration-700"
+                        style={{ width: `${deliveredPercentage}%` }}
+                    />
+                    <div
+                        className="h-full bg-blue-400 transition-all duration-700"
+                        style={{ width: `${receivedPercentage}%` }}
                     />
                 </div>
+                {received > 0 && (
+                    <div className="text-[9px] text-blue-600 font-medium mt-0.5">
+                        {received} Pending Verification
+                    </div>
+                )}
             </div>
         </ActionTooltip>
     )
@@ -187,14 +199,19 @@ export default function OrderTrackingPage() {
         if (!items || items.length === 0) return { label: 'Unknown', variant: 'gray' as const }
 
         const now = new Date()
-        const hasOverdue = items.some(i => i.is_overdue || (i.status !== 'delivered' && new Date(i.expected_delivery_date) < now))
+        const activeItems = items.filter(i => i.status !== 'delivered')
+        const hasOverdue = activeItems.some(i => i.is_overdue || new Date(i.expected_delivery_date) < now)
+
         if (hasOverdue) return { label: 'OVERDUE', variant: 'error' as const }
 
         const allDelivered = items.every(i => i.status === 'delivered')
         if (allDelivered) return { label: 'DELIVERED', variant: 'success' as const }
 
-        const hasPartial = items.some(i => i.status === 'delivered')
-        if (hasPartial) return { label: 'PARTIAL', variant: 'info' as const }
+        const hasReceived = items.some(i => i.status === 'received')
+        const allArrived = items.every(i => i.status === 'delivered' || i.status === 'received')
+
+        if (allArrived && hasReceived) return { label: 'WAIT VERIFY', variant: 'info' as const }
+        if (items.some(i => i.status === 'delivered' || i.status === 'received')) return { label: 'PARTIAL', variant: 'info' as const }
 
         return { label: 'PENDING', variant: 'warning' as const }
     }
@@ -492,24 +509,26 @@ export default function OrderTrackingPage() {
 
                 {/* Main Content Area */}
                 <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden min-h-[500px]">
-                    <div className="p-6 border-b border-slate-100 bg-slate-50/30">
-                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-fit">
-                                <TabsList className="bg-slate-200/50 p-1 rounded-xl">
-                                    <TabsTrigger value="990102" className="px-6 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                                        APPL (990102)
-                                    </TabsTrigger>
-                                    <TabsTrigger value="080702" className="px-6 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                                        CC (080702)
-                                    </TabsTrigger>
-                                    <TabsTrigger value="other" className="px-6 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                                        Other
-                                    </TabsTrigger>
-                                </TabsList>
+                    <div className="p-4 md:p-6 border-b border-slate-100 bg-slate-50/30">
+                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 md:gap-6">
+                            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full lg:w-fit">
+                                <div className="overflow-x-auto pb-2 lg:pb-0 -mx-4 px-4 lg:mx-0 lg:px-0">
+                                    <TabsList className="bg-slate-200/50 p-1 rounded-xl inline-flex w-auto">
+                                        <TabsTrigger value="990102" className="px-3 md:px-6 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm whitespace-nowrap text-xs md:text-sm">
+                                            APPL (990102)
+                                        </TabsTrigger>
+                                        <TabsTrigger value="080702" className="px-3 md:px-6 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm whitespace-nowrap text-xs md:text-sm">
+                                            CC (080702)
+                                        </TabsTrigger>
+                                        <TabsTrigger value="other" className="px-3 md:px-6 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm whitespace-nowrap text-xs md:text-sm">
+                                            Other
+                                        </TabsTrigger>
+                                    </TabsList>
+                                </div>
                             </Tabs>
 
-                            <div className="flex flex-col sm:flex-row items-center gap-3 flex-1 lg:justify-end">
-                                <div className="relative w-full sm:max-w-[500px] group">
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1 lg:justify-end">
+                                <div className="relative w-full sm:max-w-[300px] lg:max-w-[500px] group order-2 sm:order-1">
                                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                                     <input
                                         type="text"
@@ -520,14 +539,14 @@ export default function OrderTrackingPage() {
                                     />
                                 </div>
 
-                                <div className="flex items-center gap-2 bg-white border border-slate-200 p-1 rounded-2xl shadow-sm w-full sm:w-auto">
-                                    {['all', 'pending', 'overdue', 'partial', 'delivered'].map((f) => (
+                                <div className="flex items-center gap-1 bg-white border border-slate-200 p-1 rounded-2xl shadow-sm w-full sm:w-auto overflow-x-auto order-1 sm:order-2">
+                                    {['all', 'pending', 'overdue'].map((f) => (
                                         <button
                                             key={f}
                                             onClick={() => setStatusFilter(f)}
-                                            className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all capitalize
+                                            className={`flex-1 sm:flex-none px-3 md:px-4 py-1.5 rounded-xl text-xs font-bold transition-all capitalize whitespace-nowrap
                                                 ${statusFilter === f
-                                                    ? 'bg-slate-900 text-white shadow-md scale-105'
+                                                    ? 'bg-slate-900 text-white shadow-md'
                                                     : 'text-slate-500 hover:bg-slate-100'
                                                 }`}
                                         >
@@ -539,7 +558,8 @@ export default function OrderTrackingPage() {
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto">
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block overflow-x-auto">
                         <Table
                             data={paginatedLpos}
                             columns={columns}
@@ -548,21 +568,153 @@ export default function OrderTrackingPage() {
                         />
                     </div>
 
-                    <div className="p-4 border-t border-slate-100 flex items-center justify-between">
-                        <div className="text-xs text-slate-500">
+                    {/* Mobile Card View */}
+                    <div className="md:hidden p-4 space-y-4 bg-slate-50/50">
+                        {isLoading ? (
+                            <div className="text-center py-10 text-slate-400 text-sm">Loading orders...</div>
+                        ) : paginatedLpos.length === 0 ? (
+                            <div className="text-center py-10 text-slate-400 text-sm">No active orders found</div>
+                        ) : (
+                            paginatedLpos.map((lpo, idx) => {
+                                const status = getLpoStatus(lpo.tracking_items)
+                                const isDelivered = status.label === 'DELIVERED'
+                                const poRaw = lpo.purchase_order
+                                const po = Array.isArray(poRaw) ? poRaw[0] : poRaw
+
+                                // Calculate days remaining logic reuse
+                                const pendingItems = lpo.tracking_items?.filter((i: any) => i.status !== 'delivered') || []
+                                let daysRemaining: number | null = null
+                                let earliestDate: Date | null = null
+
+                                if (pendingItems.length > 0) {
+                                    earliestDate = pendingItems
+                                        .map((i: any) => new Date(i.expected_delivery_date))
+                                        .sort((a: any, b: any) => a - b)[0]
+                                    if (earliestDate) {
+                                        daysRemaining = Math.ceil((earliestDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+                                    }
+                                }
+
+                                return (
+                                    <div key={idx} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-4">
+                                        {/* Header: PO & LPO */}
+                                        <div className="flex justify-between items-start gap-4">
+                                            <div className="space-y-1">
+                                                <button
+                                                    onClick={() => handlePoClick(lpo.po_id)}
+                                                    className="flex items-center gap-1.5 text-blue-600 font-bold text-sm"
+                                                >
+                                                    {po?.po_number || 'No PO'}
+                                                    <ExternalLink className="w-3 h-3" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleLpoClick(lpo)}
+                                                    className="block text-slate-900 font-bold text-xs uppercase hover:text-blue-600 transition-colors"
+                                                >
+                                                    {lpo.lpo_number}
+                                                </button>
+                                            </div>
+                                            <Badge variant={status.variant} className="shrink-0 text-[10px] px-2 py-0.5 h-auto">
+                                                {status.label}
+                                            </Badge>
+                                        </div>
+
+                                        {/* Supplier */}
+                                        <div>
+                                            <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-0.5">Supplier</p>
+                                            <p className="text-sm font-medium text-slate-700 truncate">
+                                                {po?.supplier?.company_name || po?.manual_supplier_name || 'No Supplier'}
+                                            </p>
+                                        </div>
+
+                                        {/* Delivery Info Grid */}
+                                        <div className="grid grid-cols-2 gap-4 bg-slate-50 rounded-lg p-3">
+                                            <div>
+                                                <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Items</p>
+                                                <DeliveryProgressCell items={lpo.tracking_items || []} />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Est. Arrival</p>
+                                                {earliestDate ? (
+                                                    <div>
+                                                        <div className="text-xs font-medium text-slate-700">{format(earliestDate, 'dd/MM/yyyy')}</div>
+                                                        <div className={`text-[10px] ${daysRemaining! < 0 ? 'text-rose-600 font-bold' : 'text-slate-400'}`}>
+                                                            {daysRemaining! < 0 ? `${Math.abs(daysRemaining!)}d overdue` : `${daysRemaining}d left`}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-slate-400 text-xs">-</span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Actions */}
+                                        <div className="flex gap-2 pt-2 border-t border-slate-100">
+                                            {status.label === 'OVERDUE' && (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="flex-1 h-9 font-bold text-[10px] uppercase text-amber-600 border-amber-200 bg-amber-50"
+                                                    onClick={() => {
+                                                        setSelectedLpoForReminder(lpo)
+                                                        setIsReminderModalOpen(true)
+                                                    }}
+                                                >
+                                                    <BellRing className="w-3 h-3 mr-1.5" />
+                                                    Remind
+                                                </Button>
+                                            )}
+
+                                            <Button
+                                                variant={isDelivered ? "ghost" : "default"}
+                                                size="sm"
+                                                className={`flex-1 h-9 font-bold text-[10px] uppercase
+                                                    ${isDelivered
+                                                        ? 'bg-slate-50 text-slate-400 border border-slate-200'
+                                                        : 'bg-emerald-600 text-white'
+                                                    }
+                                                `}
+                                                onClick={() => {
+                                                    if (!isDelivered) {
+                                                        navigate(`/pharmacy/procurement/receiving?lpoId=${lpo.id}`)
+                                                    }
+                                                }}
+                                                disabled={isDelivered}
+                                            >
+                                                {isDelivered ? (
+                                                    <>
+                                                        <CheckCircle className="w-3 h-3 mr-1.5" /> Received
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Package className="w-3 h-3 mr-1.5" /> Receive
+                                                    </>
+                                                )}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )
+                            })
+                        )}
+                    </div>
+
+                    <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-white">
+                        <div className="text-xs text-slate-500 hidden sm:block">
                             Showing {Math.min(filteredLpos.length, (currentPage - 1) * pageSize + 1)} to {Math.min(filteredLpos.length, currentPage * pageSize)} of {filteredLpos.length} entries
                         </div>
-                        <Pagination
-                            currentPage={currentPage}
-                            totalPages={Math.ceil(filteredLpos.length / pageSize)}
-                            pageSize={pageSize}
-                            total={filteredLpos.length}
-                            onPageChange={setCurrentPage}
-                            onPageSizeChange={(size) => {
-                                setPageSize(size)
-                                setCurrentPage(1)
-                            }}
-                        />
+                        <div className="w-full sm:w-auto flex justify-center">
+                            <Pagination
+                                currentPage={currentPage}
+                                totalPages={Math.ceil(filteredLpos.length / pageSize)}
+                                pageSize={pageSize}
+                                total={filteredLpos.length}
+                                onPageChange={setCurrentPage}
+                                onPageSizeChange={(size) => {
+                                    setPageSize(size)
+                                    setCurrentPage(1)
+                                }}
+                            />
+                        </div>
                     </div>
                 </div>
             </div>

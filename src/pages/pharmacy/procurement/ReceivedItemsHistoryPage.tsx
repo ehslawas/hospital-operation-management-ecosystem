@@ -10,7 +10,8 @@ import {
     CheckCircle,
     CreditCard,
     Wallet,
-    CheckCircle2
+    CheckCircle2,
+    Trash2
 } from 'lucide-react'
 
 import {
@@ -26,11 +27,13 @@ import { FinancialPageLayout } from '@/components/pharmacy/financial/FinancialPa
 import { receivingService } from '@/services/pharmacy/receivingService'
 import { lpoService } from '@/services/pharmacy/lpoService'
 import { useToast } from '@/stores/toastStore'
+import { useUser } from '@/stores/authStore'
 import { SupplierAssessmentModal } from '@/components/pharmacy/procurement/SupplierAssessmentModal'
 
 export default function ReceivedItemsHistoryPage() {
     const navigate = useNavigate()
     const { success, error } = useToast()
+    const currentUser = useUser()
 
     // State
     const [isAssessmentOpen, setIsAssessmentOpen] = useState(false)
@@ -110,6 +113,22 @@ export default function ReceivedItemsHistoryPage() {
         }
     }
 
+    const handleDelete = async (id: string) => {
+        if (!confirm('Are you sure you want to delete this receiving record? This will revert the items to pending status.')) return
+
+        try {
+            setIsLoading(true)
+            await receivingService.deleteReceiving(id)
+            success('Receiving record deleted')
+            loadData()
+        } catch (err) {
+            console.error(err)
+            error('Failed to delete record')
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
     const filteredRecords = records.filter(record => {
         const ln = record.lpo?.lpo_number || ''
         const pn = record.lpo?.purchase_order?.po_number || ''
@@ -121,11 +140,14 @@ export default function ReceivedItemsHistoryPage() {
             (item.po_item?.item_name || '').toLowerCase().includes(searchTerm.toLowerCase())
         )
 
+        const docDoMatch = record.documents?.some((doc: any) => (doc.do_number || '').toLowerCase().includes(searchTerm.toLowerCase()))
+
         const matchesSearch = ln.toLowerCase().includes(searchTerm.toLowerCase()) ||
             pn.toLowerCase().includes(searchTerm.toLowerCase()) ||
             sn.toLowerCase().includes(searchTerm.toLowerCase()) ||
             dn.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            itemMatch
+            itemMatch ||
+            docDoMatch
 
         if (!matchesSearch) return false
 
@@ -146,8 +168,10 @@ export default function ReceivedItemsHistoryPage() {
             label: 'DO Number',
             render: (val: string, record: any) => (
                 <div className="flex flex-col">
-                    <span className="font-bold text-slate-800 uppercase">{val || 'N/A'}</span>
-                    <span className="text-[10px] text-slate-400 font-mono">ID: {val ? 'VALIDATED' : 'MANUAL'}</span>
+                    <span className="font-bold text-slate-800 uppercase">
+                        {val || (record.documents && record.documents.length > 0 ? record.documents[0].do_number : 'N/A')}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono">ID: {val || (record.documents && record.documents.length > 0) ? 'DO RECORDED' : 'MANUAL'}</span>
                     {record.has_missing_details && (
                         <Badge variant="gray" className="w-fit text-[10px] mt-1 px-1 py-0 h-4 bg-amber-50 text-amber-600 border-amber-200">
                             Incomplete
@@ -195,12 +219,21 @@ export default function ReceivedItemsHistoryPage() {
         {
             key: 'receiver',
             label: 'Received By',
-            render: (_: any, record: any) => (
-                <div className="flex flex-col">
-                    <span className="text-sm font-medium text-slate-700">{record.receiver?.full_name || 'N/A'}</span>
-                    <span className="text-[10px] text-slate-400">Authorized Personnel</span>
-                </div>
-            )
+            render: (_: any, record: any) => {
+                const receiverName = record.receiver?.full_name;
+                const hasReceiverId = !!record.received_by;
+
+                return (
+                    <div className="flex flex-col">
+                        <span className="text-sm font-medium text-slate-700">
+                            {receiverName || (hasReceiverId ? 'Digital User' : (currentUser?.full_name || 'Staff Not Recorded'))}
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                            {hasReceiverId ? 'Profile Linked' : (currentUser?.full_name ? 'Current User Session' : 'Historical Data')}
+                        </span>
+                    </div>
+                );
+            }
         },
         {
             key: 'lou',
@@ -227,6 +260,15 @@ export default function ReceivedItemsHistoryPage() {
                         </Badge>
                     )
                 }
+
+                if (record.status === 'pending') {
+                    return (
+                        <Badge variant="warning" className="bg-amber-50 text-amber-600 border-amber-200">
+                            Wait Verification
+                        </Badge>
+                    )
+                }
+
                 if (record.lpo?.payment_status === 'sent_for_payment') {
                     return (
                         <Badge variant="success" className="bg-emerald-50 text-emerald-600 border-emerald-200">
@@ -265,7 +307,7 @@ export default function ReceivedItemsHistoryPage() {
                         </Button>
                     )}
 
-                    {record.lpo?.payment_status === 'pending' && !record.has_missing_details && record.is_fully_received && (
+                    {record.lpo?.payment_status === 'pending' && !record.has_missing_details && record.is_fully_received && record.status === 'verified' && (
                         <Button
                             variant="outline"
                             size="sm"
@@ -286,6 +328,17 @@ export default function ReceivedItemsHistoryPage() {
                         Details
                         <ArrowRight className="w-4 h-4 ml-1" />
                     </Button>
+
+                    {record.lpo?.payment_status === 'pending' && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="hover:bg-rose-50 text-rose-600 p-2"
+                            onClick={() => handleDelete(record.id)}
+                        >
+                            <Trash2 className="w-4 h-4" />
+                        </Button>
+                    )}
                 </div>
             )
         }
@@ -372,8 +425,132 @@ export default function ReceivedItemsHistoryPage() {
                     </Card>
                 </div>
 
-                {/* Table */}
-                <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                {/* Mobile Card View */}
+                <div className="md:hidden space-y-4">
+                    {isLoading ? (
+                        <div className="text-center py-10 text-slate-400">Loading records...</div>
+                    ) : filteredRecords.length === 0 ? (
+                        <div className="text-center py-10 text-slate-400 border border-dashed border-slate-300 rounded-xl bg-slate-50">
+                            No receiving records found.
+                        </div>
+                    ) : (
+                        filteredRecords.map((record) => {
+                            const isIncomplete = record.has_missing_details || !record.is_fully_received;
+                            const itemsCount = record.items?.length || 0
+
+                            return (
+                                <div key={record.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <div className="font-bold text-slate-800 uppercase text-sm">
+                                                {record.do_number || (record.documents && record.documents.length > 0 ? record.documents[0].do_number : 'N/A')}
+                                            </div>
+                                            <div className="text-[10px] text-slate-400 font-mono">
+                                                ID: {record.do_number || (record.documents && record.documents.length > 0) ? 'DO RECORDED' : 'MANUAL'}
+                                            </div>
+                                            {record.receiving_date && (
+                                                <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1">
+                                                    <Calendar className="w-3 h-3" />
+                                                    {format(new Date(record.receiving_date), 'dd/MM/yyyy')}
+                                                </div>
+                                            )}
+                                        </div>
+                                        {/* Status Badge */}
+                                        {(() => {
+                                            if (isIncomplete) {
+                                                return <Badge variant="gray" className="bg-amber-50 text-amber-600 border-amber-200 text-[10px]">Incomplete</Badge>
+                                            }
+                                            if (record.status === 'pending') {
+                                                return (
+                                                    <Badge variant="warning" className="bg-amber-50 text-amber-600 border-amber-200 text-[10px]">
+                                                        Wait Verification
+                                                    </Badge>
+                                                )
+                                            }
+                                            if (record.lpo?.payment_status === 'sent_for_payment') {
+                                                return <Badge variant="success" className="bg-emerald-50 text-emerald-600 border-emerald-200 text-[10px]">Payment Sent</Badge>
+                                            }
+                                            if (record.lpo?.payment_status === 'paid') {
+                                                return <Badge variant="success" className="bg-emerald-50 text-emerald-600 border-emerald-200 text-[10px]">Paid</Badge>
+                                            }
+                                            return <Badge variant="info" className="bg-blue-50 text-blue-600 border-blue-200 text-[10px]">Pending Payment</Badge>
+                                        })()}
+                                    </div>
+
+                                    {/* LPO & Supplier Info */}
+                                    <div className="bg-slate-50/50 p-3 rounded-lg border border-slate-100">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div>
+                                                <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">LPO Number</p>
+                                                <p className="text-sm font-bold text-blue-600">{record.lpo?.lpo_number || 'N/A'}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Items</p>
+                                                <p className="text-sm font-medium text-slate-700">{itemsCount}</p>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-0.5">Supplier</p>
+                                            <p className="text-sm font-medium text-slate-700 truncate">
+                                                {record.lpo?.purchase_order?.supplier?.company_name || record.lpo?.purchase_order?.manual_supplier_name || 'N/A'}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Actions */}
+                                    <div className="flex gap-2 pt-2">
+                                        {record.has_missing_details && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="flex-1 h-9 text-xs text-amber-600 border-amber-200 hover:bg-amber-50"
+                                                onClick={() => navigate(`/pharmacy/procurement/receiving?lpoId=${record.lpo_id}&mode=complete&receivingId=${record.id}`)}
+                                            >
+                                                Complete
+                                            </Button>
+                                        )}
+
+                                        {record.lpo?.payment_status === 'pending' && !record.has_missing_details && record.is_fully_received && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="flex-1 h-9 text-xs text-emerald-600 border-emerald-200 hover:bg-emerald-50 whitespace-nowrap"
+                                                onClick={() => handleOpenAssessment(record)}
+                                            >
+                                                <CreditCard className="w-3.5 h-3.5 mr-1.5" />
+                                                Submit
+                                            </Button>
+                                        )}
+
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className={`h-9 text-xs text-blue-600 hover:bg-blue-50 ${(!record.has_missing_details && !(record.lpo?.payment_status === 'pending' && !record.has_missing_details && record.is_fully_received)) ? 'flex-1 border border-blue-100' : ''}`}
+                                            onClick={() => navigate(`/pharmacy/procurement/receiving?lpoId=${record.lpo_id}`)}
+                                        >
+                                            Details
+                                            <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                                        </Button>
+
+                                        {record.lpo?.payment_status === 'pending' && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="w-10 h-9 text-rose-600 hover:bg-rose-50 border border-rose-100"
+                                                onClick={() => handleDelete(record.id)}
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                            )
+                        })
+                    )}
+                </div>
+
+                {/* Desktop Table View */}
+                <div className="hidden md:block bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
                     <Table
                         data={filteredRecords}
                         columns={columns}

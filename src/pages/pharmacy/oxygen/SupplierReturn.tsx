@@ -4,22 +4,24 @@ import {
     Truck,
     CheckCircle2,
     QrCode,
+    ClipboardCheck,
     Search,
     ArrowRight,
     Activity
 } from 'lucide-react'
-import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import {
     Button,
     Card,
     Table,
     Badge,
-    Input
+    Input,
+    Modal
 } from '@/components/ui'
 import { useToast } from '@/stores/toastStore'
+import { supabase } from '@/services/supabase'
 import { QRScanner } from '@/components/medical-oxygen/QRScanner'
-import { getOxygenCylinderInventory, updateCylinderStatus } from '@/services/pharmacy/oxygenService'
+import { updateCylinderStatus } from '@/services/pharmacy/oxygenService'
 import { generateSupplierReturnPDF } from '@/services/pharmacy/SupplierReturnPDF'
 
 export const SupplierReturn: React.FC = () => {
@@ -39,16 +41,16 @@ export const SupplierReturn: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('')
     const [isScannerOpen, setIsScannerOpen] = useState(false)
     const [recentReturns, setRecentReturns] = useState<any[]>([])
+    const [selectedReturn, setSelectedReturn] = useState<any>(null)
     const toast = useToast()
 
     useEffect(() => {
-        if (user?.hospital_id) {
-            if (returnStep === 'selection') {
-                loadEmptyCylinders()
-            }
-            void loadReturnHistory()
+        void loadReturnHistory()
+
+        if (returnStep === 'selection') {
+            void loadEmptyCylinders()
         }
-    }, [user?.hospital_id, returnStep])
+    }, [returnStep])
 
     const loadReturnHistory = async () => {
         if (!user?.hospital_id) return
@@ -57,8 +59,8 @@ export const SupplierReturn: React.FC = () => {
             const { data, error } = await supabase
                 .from('pharmacy_oxygen_cylinder_movements')
                 .select(`
-                    id, 
-                    moved_at, 
+                    id,
+                    moved_at,
                     to_location,
                     remarks,
                     cylinder:pharmacy_oxygen_cylinder_inventory(
@@ -90,13 +92,21 @@ export const SupplierReturn: React.FC = () => {
                         existing.qty++
                         if (!existing.sizes[sizeCode]) existing.sizes[sizeCode] = 0
                         existing.sizes[sizeCode]++
+                        existing.cylinders.push({
+                            qr_code: move.cylinder?.qr_code,
+                            size: { code: sizeCode }
+                        })
                     } else {
                         groups.push({
                             id: move.id, // use first ID as key
                             date: move.moved_at,
                             remarks: move.remarks,
                             qty: 1,
-                            sizes: { [sizeCode]: 1 }
+                            sizes: { [sizeCode]: 1 },
+                            cylinders: [{
+                                qr_code: move.cylinder?.qr_code,
+                                size: { code: sizeCode }
+                            }]
                         })
                     }
                 })
@@ -110,14 +120,29 @@ export const SupplierReturn: React.FC = () => {
     const loadEmptyCylinders = async () => {
         if (!user?.hospital_id) return
         setIsLoading(true)
-        const res = await getOxygenCylinderInventory(
-            user.hospital_id,
-            { status: 'empty' },
-            1,
-            500
-        )
-        if (res.data) setEmptyCylinders(res.data.data)
-        setIsLoading(false)
+        try {
+            const { data, error } = await supabase
+                .from('pharmacy_oxygen_cylinder_inventory')
+                .select(`
+                    id,
+                    qr_code,
+                    serial_number,
+                    status,
+                    size:pharmacy_oxygen_cylinder_sizes(code, capacity, unit),
+                    type:pharmacy_oxygen_cylinder_types(name)
+                `)
+                .eq('hospital_id', user.hospital_id)
+                .eq('status', 'empty')
+
+            if (error) throw error
+
+            setEmptyCylinders(data || [])
+        } catch (e) {
+            console.error('Failed to load empty cylinders', e)
+            toast.error('Error', 'Failed to load inventory')
+        } finally {
+            setIsLoading(false)
+        }
     }
 
     const handleProceedToSelection = () => {
@@ -174,10 +199,10 @@ export const SupplierReturn: React.FC = () => {
                 await updateCylinderStatus(
                     user.hospital_id,
                     cyl.id,
-                    'returned',
+                    'returned_to_supplier',
                     'Supplier',
                     user.id,
-                    `Returned to ${returnForm.vendor_name}`
+                    `Returned to ${returnForm.vendor_name} `
                 )
             }
 
@@ -287,10 +312,10 @@ export const SupplierReturn: React.FC = () => {
                                     </div>
 
                                     <Button
-                                        className={`w-full h-14 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] transition-all duration-300 ${selectedIds.size > 0
+                                        className={`w - full h - 14 rounded - 2xl font - black uppercase tracking - [0.2em] text - [10px] transition - all duration - 300 ${selectedIds.size > 0
                                             ? 'bg-slate-900 text-white hover:bg-black shadow-xl'
                                             : 'bg-slate-100 text-slate-400 cursor-not-allowed border-none'
-                                            }`}
+                                            } `}
                                         onClick={handleProcessReturn}
                                         disabled={isProcessing || selectedIds.size === 0}
                                         isLoading={isProcessing}
@@ -357,10 +382,10 @@ export const SupplierReturn: React.FC = () => {
                                             render: (_: any, row: any) => (
                                                 <div
                                                     onClick={() => toggleSelection(row.id)}
-                                                    className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center cursor-pointer transition-all ${selectedIds.has(row.id)
+                                                    className={`w - 8 h - 8 rounded - xl border - 2 flex items - center justify - center cursor - pointer transition - all ${selectedIds.has(row.id)
                                                         ? 'bg-slate-900 border-slate-900 text-white'
                                                         : 'border-slate-200 hover:border-slate-400 bg-white'
-                                                        }`}
+                                                        } `}
                                                 >
                                                     {selectedIds.has(row.id) && <CheckCircle2 className="w-5 h-5" />}
                                                 </div>
@@ -377,9 +402,9 @@ export const SupplierReturn: React.FC = () => {
                                             render: (v) => <span className="font-black text-slate-500 text-xs">{v || 'NOT REGISTERED'}</span>
                                         },
                                         {
-                                            key: 'size_info',
+                                            key: 'size',
                                             label: 'SIZE',
-                                            render: (v: any) => <Badge className="bg-slate-100 text-slate-900 border-none font-black text-[10px] px-3 py-1">{v?.code || 'N/A'}</Badge>
+                                            render: (v: any) => <Badge className="bg-slate-100 text-slate-900 border-none font-black text-[10px] px-3 py-1">{v ? `${v.code} (${v.capacity}${v.unit})` : 'N/A'}</Badge>
                                         },
                                         {
                                             key: 'status',
@@ -408,6 +433,7 @@ export const SupplierReturn: React.FC = () => {
                     </div>
                     <Table
                         data={recentReturns}
+                        onRowClick={(item) => setSelectedReturn(item)}
                         columns={[
                             {
                                 key: 'date',
@@ -441,6 +467,181 @@ export const SupplierReturn: React.FC = () => {
                         emptyMessage="No recent return records found in registry."
                     />
                 </Card>
+
+                {/* OFFICIAL GOVERNMENT STANDARD MANIFEST MODAL */}
+                <Modal
+                    isOpen={!!selectedReturn}
+                    onClose={() => setSelectedReturn(null)}
+                    title="Official Logistics Manifest"
+                    size="full"
+                >
+                    {selectedReturn && (
+                        <div className="min-h-screen bg-slate-50 p-8 font-sans text-slate-900">
+                            {/* Document Container */}
+                            <div className="max-w-5xl mx-auto bg-white shadow-2xl rounded-sm border border-slate-200 overflow-hidden">
+
+                                {/* Formal Header Section */}
+                                <div className="p-12 border-b-2 border-slate-100 flex justify-between items-start gap-12 bg-slate-50/50">
+                                    <div className="space-y-6 flex-1">
+                                        <div className="space-y-2">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Offical Documentation</p>
+                                            <h2 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                                                <ClipboardCheck className="w-8 h-8 text-blue-600" />
+                                                LOGISTICS RETURN MANIFEST
+                                            </h2>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-8 pt-4">
+                                            <div className="space-y-1">
+                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">LOGISTICS VENDOR</p>
+                                                <p className="text-sm font-bold text-slate-900">LINDE EOX SDN BHD (CAW. MIRI)</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">MANIFEST SERIAL NO.</p>
+                                                <p className="text-sm font-mono font-bold text-blue-700 uppercase tracking-tighter">{selectedReturn.id}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">TIMESTAMP</p>
+                                                <p className="text-sm font-bold text-slate-900">{new Date(selectedReturn.date).toLocaleString('en-GB')}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">TRANSACTION REF</p>
+                                                <p className="text-sm font-bold text-slate-900 uppercase">{selectedReturn.remarks}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="w-40 h-40 border-2 border-slate-200 rounded-xl flex flex-col items-center justify-center bg-white shadow-sm shrink-0">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Total Load</p>
+                                        <p className="text-6xl font-black text-slate-900 tracking-tighter tabular-nums leading-none">{selectedReturn.qty}</p>
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-2">CYLINDERS</p>
+                                    </div>
+                                </div>
+
+                                {/* Content Body */}
+                                <div className="p-12 space-y-12">
+
+                                    {/* Summary Breakdown Section */}
+                                    <section className="space-y-6">
+                                        <h3 className="text-xs font-black text-slate-900 uppercase tracking-[0.2em] pb-2 border-b border-slate-100 flex items-center gap-2">
+                                            I. LOAD SUMMARY & DISTRIBUTION
+                                        </h3>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                            {Object.entries(selectedReturn.sizes).map(([code, count]) => (
+                                                <div key={code} className="p-6 rounded-lg bg-slate-50 border border-slate-200 group">
+                                                    <div className="flex justify-between items-center mb-4">
+                                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">CYLINDER CLASS</span>
+                                                        <Badge className="bg-white border-slate-200 text-slate-900 font-black text-[10px] rounded-md px-3">SIZE {code}</Badge>
+                                                    </div>
+                                                    <div className="flex items-end justify-between">
+                                                        <p className="text-3xl font-black text-slate-900 tracking-tighter leading-none">{String(count)} <span className="text-[10px] text-slate-400 uppercase tracking-widest ml-1">Units</span></p>
+                                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                                            {Math.round((Number(count) / selectedReturn.qty) * 100)}% VOL
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </section>
+
+                                    {/* Detailed Registry Section */}
+                                    <section className="space-y-6">
+                                        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                                            <h3 className="text-xs font-black text-slate-900 uppercase tracking-[0.2em]">
+                                                II. RECONCILIATION REGISTRY
+                                            </h3>
+                                        </div>
+
+                                        <div className="overflow-hidden border border-slate-200 rounded-lg shadow-sm">
+                                            <table className="w-full text-left border-collapse bg-white">
+                                                <thead>
+                                                    <tr className="bg-slate-50 border-b border-slate-200">
+                                                        <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">NO.</th>
+                                                        <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">IDENTIFICATION CODE</th>
+                                                        <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">MFG SERIAL NO.</th>
+                                                        <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">SIZE</th>
+                                                        <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">STATUS</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100 text-sm">
+                                                    {selectedReturn.cylinders.map((cyl: any, i: number) => (
+                                                        <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                                                            <td className="px-6 py-4 text-slate-400 font-mono text-[10px]">{String(i + 1).padStart(2, '0')}</td>
+                                                            <td className="px-6 py-4 font-mono font-bold text-slate-900 uppercase tracking-tighter">{cyl.qr_code}</td>
+                                                            <td className="px-6 py-4 font-bold text-slate-600 uppercase tracking-tight">{cyl.serial_number}</td>
+                                                            <td className="px-6 py-4">
+                                                                <span className="px-2 py-0.5 bg-slate-100 text-[10px] font-black text-slate-600 rounded-sm">TYPE {cyl.size.code}</span>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-right">
+                                                                <Badge className="bg-green-50 text-green-700 border-green-100 font-black text-[9px] tracking-widest uppercase px-3 py-1">ARCHIVED</Badge>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </section>
+
+                                    {/* Authorization Footer */}
+                                    <section className="pt-12 grid grid-cols-2 gap-24">
+                                        <div className="space-y-12">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">AUTHORIZED REPRESENTATIVE (SIGNATURE)</p>
+                                            <div className="w-full h-px bg-slate-900" />
+                                            <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                                <span>NAME: __________________</span>
+                                                <span>DATE: __________________</span>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-12">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">PHARMACY DEPARTMENT VERIFICATION</p>
+                                            <div className="w-64 h-32 border border-slate-200 border-dashed rounded-lg bg-slate-50/50 flex items-center justify-center">
+                                                <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">OFFICIAL STAMP</p>
+                                            </div>
+                                        </div>
+                                    </section>
+                                </div>
+
+                                {/* System UI Controls (Sticky Footer) */}
+                                <div className="p-8 border-t-2 border-slate-100 bg-slate-50/80 backdrop-blur-md flex justify-between items-center">
+                                    <div className="flex flex-col gap-1">
+                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Medical Oxygen Supply Ecosystem</p>
+                                        <p className="text-[9px] text-slate-400 uppercase font-bold tracking-widest">Digitally Signed & Verified Logistics Protocol</p>
+                                    </div>
+                                    <div className="flex gap-4">
+                                        <Button
+                                            variant="outline"
+                                            className="border-slate-300 text-slate-600 hover:bg-slate-200 px-8 h-12 rounded-lg font-black uppercase tracking-widest text-xs"
+                                            onClick={() => setSelectedReturn(null)}
+                                        >
+                                            Exit Viewer
+                                        </Button>
+                                        <Button
+                                            className="bg-slate-900 hover:bg-black text-white px-10 h-12 rounded-lg font-black uppercase tracking-widest text-xs shadow-xl"
+                                            onClick={() => {
+                                                toast.info('Generating PDF', 'Preparing formal manifest document for export.')
+                                                generateSupplierReturnPDF(
+                                                    selectedReturn.cylinders.map((c: any) => ({
+                                                        qr_code: c.qr_code,
+                                                        serial_number: c.serial_number,
+                                                        size_info: c.size
+                                                    })),
+                                                    {
+                                                        vendor_name: 'LINDE EOX SDN BHD (CAW. MIRI)',
+                                                        return_date: selectedReturn.date
+                                                    },
+                                                    user
+                                                )
+                                            }}
+                                        >
+                                            <Printer className="w-4 h-4 mr-3" />
+                                            Print Manifest
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </Modal>
             </div>
         </div>
     )

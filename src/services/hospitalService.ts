@@ -169,3 +169,32 @@ export async function getAllHospitals(): Promise<Hospital[]> {
   }
 }
 
+/**
+ * Get full hospital details including users and departments
+ */
+export async function getHospitalDetails(id: string) {
+  try {
+    const [hospital, users, departments] = await Promise.all([
+      getHospitalById(id),
+      supabase
+        .from('users')
+        .select(`
+          *,
+          role:roles(role_name, role_code)
+        `)
+        .eq('hospital_id', id),
+      supabase.from('departments').select('*').eq('hospital_id', id)
+    ])
+
+    if (!hospital) throw new Error('Hospital not found')
+
+    return {
+      hospital,
+      users: users.data || [],
+      departments: departments.data || []
+    }
+  } catch (error) {
+    console.error('Error fetching hospital details:', error)
+    throw error
+  }
+}

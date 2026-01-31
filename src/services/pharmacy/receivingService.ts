@@ -99,10 +99,14 @@ export const receivingService = {
     async createReceiving(
         lpoId: string,
         items: Partial<ReceivingItem>[],
-        documents: { doUrl?: string, invoiceUrl?: string, doNumber?: string, doEntries?: any[] },
+        documents: { doUrl?: string, invoiceUrl?: string, doNumber?: string, doEntries?: any[], receivedBy?: string },
         receivingDate?: string,
         notes?: string
     ) {
+        // Explicitly get current user to ensure we capture WHO is doing the receiving
+        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { user } } = await supabase.auth.getUser();
+        const currentUserId = session?.user?.id || user?.id;
         // 1. Calculate partial vs full
         const isPartial = items.some(i => (i.outstanding_quantity || 0) > 0)
 
@@ -123,11 +127,12 @@ export const receivingService = {
                 receiving_type: isPartial ? 'partial' : 'full',
                 status: 'pending', // Pending verification
                 do_document_url: documents.doUrl, // Legacy/Fallback
-                do_number: documents.doNumber,    // Legacy/Fallback
+                do_number: documents.doNumber || (documents.doEntries && documents.doEntries.length > 0 ? documents.doEntries[0].doNumber : undefined),
                 invoice_document_url: documents.invoiceUrl,
                 notes,
                 is_fully_received: !isPartial,
-                has_missing_details: hasMissingDetails
+                has_missing_details: hasMissingDetails,
+                received_by: currentUserId || documents.receivedBy
             })
             .select()
             .single()
@@ -236,7 +241,7 @@ export const receivingService = {
             if (item.received_quantity && item.received_quantity > 0) {
                 const tracking = trackingRecords.find(t => t.item_id === item.item_id)
                 if (tracking) {
-                    await orderTrackingService.updateTrackingStatus(tracking.id, 'delivered', new Date().toISOString())
+                    await orderTrackingService.updateTrackingStatus(tracking.id, 'received', new Date().toISOString())
                 }
             }
         }
@@ -250,7 +255,7 @@ export const receivingService = {
                     await louService.createLOUFromReceiving({
                         lpoId,
                         receivingId: receiving.id,
-                        lpo,
+                        lpo: lpo!,
                         items: louItems,
                         doEntries: documents.doEntries || []
                     })
@@ -342,6 +347,16 @@ export const receivingService = {
 
     // Verify a receiving record
     async verifyReceiving(receivingId: string, verifiedBy: string) {
+        // 1. Get the record and its items
+        const { data: record, error: recordError } = await supabase
+            .from(RECEIVING_TABLE)
+            .select('lpo_id, items:pharmacy_receiving_items(*)')
+            .eq('id', receivingId)
+            .single()
+
+        if (recordError) throw recordError
+
+        // 2. Update Receiving Status
         const { data, error } = await supabase
             .from(RECEIVING_TABLE)
             .update({
@@ -354,6 +369,15 @@ export const receivingService = {
             .single()
 
         if (error) throw error
+
+        // 3. Update Order Tracking items to 'delivered'
+        const trackingRecords = await orderTrackingService.getTrackingByLPO(record.lpo_id)
+        for (const item of record.items) {
+            const tracking = trackingRecords.find(t => t.item_id === item.item_id)
+            if (tracking && tracking.status === 'received') {
+                await orderTrackingService.updateTrackingStatus(tracking.id, 'delivered', new Date().toISOString())
+            }
+        }
 
         // Trigger generic inventory update here (placeholder)
         // inventoryService.updateStock(...)
@@ -388,8 +412,8 @@ export const receivingService = {
         if (!receivingRecords || receivingRecords.length === 0) return { isComplete: false, message: 'No receiving records found' }
 
         // 3. Check if all receiving records are verified and complete
-        const allReceivingsVerified = receivingRecords.every((r: any) => r.status === 'verified' && !r.has_missing_details)
-        if (!allReceivingsVerified) return { isComplete: false, message: 'Some receiving records are pending verification or incomplete' }
+        const allReceivingsVerified = (receivingRecords || []).every((r: any) => r.status === 'verified' && !r.has_missing_details)
+        if (!allReceivingsVerified && receivingRecords.length > 0) return { isComplete: false, message: 'Some receiving records are pending verification or incomplete' }
 
         // 4. Check if all ordered items are fully received
         // Aggregate received quantities
@@ -441,6 +465,59 @@ export const receivingService = {
 
         if (error) throw error
         return data
+    },
+
+    // Delete a receiving record
+    async deleteReceiving(id: string) {
+        // 1. Get record to handle tracking rollback - fetch everything first
+        const { data: record, error: fetchError } = await supabase
+            .from(RECEIVING_TABLE)
+            .select(`
+                lpo_id,
+                items:pharmacy_receiving_items(*)
+            `)
+            .eq('id', id)
+            .single()
+
+        if (fetchError || !record) throw new Error('Receiving record not found or could not be loaded for deletion')
+
+        // 2. Rollback tracking items to 'pending' BEFORE deleting anything
+        // This is safer because if anything fails later, the status is already reset
+        const trackingRecords = await orderTrackingService.getTrackingByLPO(record.lpo_id)
+        if (record.items && record.items.length > 0) {
+            for (const item of record.items) {
+                const tracking = trackingRecords.find(t => t.item_id === item.item_id)
+                if (tracking) {
+                    await orderTrackingService.updateTrackingStatus(tracking.id, 'pending', null)
+                }
+            }
+        }
+
+        // 3. Delete associated items explicitly
+        const { error: itemsError } = await supabase
+            .from(RECEIVING_ITEMS_TABLE)
+            .delete()
+            .eq('receiving_id', id)
+
+        if (itemsError) throw itemsError
+
+        // 4. Delete associated documents explicitly
+        const { error: docsError } = await supabase
+            .from(RECEIVING_DOCUMENTS_TABLE)
+            .delete()
+            .eq('receiving_id', id)
+
+        if (docsError) throw docsError
+
+        // 5. Delete main record
+        const { error: deleteError } = await supabase
+            .from(RECEIVING_TABLE)
+            .delete()
+            .eq('id', id)
+
+        if (deleteError) throw deleteError
+
+        return true
     },
 
     // Get KPI Stats

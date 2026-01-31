@@ -1,3 +1,3 @@
-export { DepartmentListPage } from './DepartmentListPage'
+export { default as DepartmentListPage } from './DepartmentsPage'
 export { DepartmentDetailPage } from './DepartmentDetailPage'
 

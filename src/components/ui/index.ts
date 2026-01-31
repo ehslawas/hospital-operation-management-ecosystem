@@ -4,10 +4,12 @@ export type { ButtonProps, IconButtonProps } from './Button'
 export { Input } from './Input'
 export type { InputProps } from './Input'
 
-export { Select } from './Select'
+export { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './Select'
 export type { SelectProps, SelectOption } from './Select'
 
-export { Textarea } from './Textarea'
+// Export Table (explicitly exported below)
+export * from './Tabs'
+export * from './Textarea'
 export { AutoExpandingTextarea } from './AutoExpandingTextarea'
 export type { TextareaProps } from './Textarea'
 export type { AutoExpandingTextareaProps } from './AutoExpandingTextarea'

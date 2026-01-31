@@ -291,5 +291,33 @@ export const penaltyService = {
 
         if (error) throw error
         return data as OrderTracking[]
+    },
+
+    // Create a penalty from a receiving event
+    async createPenaltyFromReceiving(data: any) {
+        const payload = {
+            lpo_id: data.lpo_id,
+            receiving_id: data.receiving_id,
+            receiving_item_id: data.receiving_item_id,
+            item_id: data.item_id,
+            item_name: data.item_name,
+            item_code: data.item_code,
+            item_type: data.item_type,
+            quantity: data.quantity,
+            unit_price: data.unit_price,
+            days_late: data.days_late,
+            penalty_amount: data.penalty_amount,
+            penalty_type: data.penalty_type,
+            status: 'issued'
+        }
+
+        const { data: result, error } = await supabase
+            .from(TABLE_NAME)
+            .insert(payload)
+            .select()
+            .single()
+
+        if (error) throw error
+        return result
     }
 }
