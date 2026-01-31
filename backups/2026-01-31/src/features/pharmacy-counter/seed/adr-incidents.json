@@ -1,0 +1,39 @@
+[
+  {
+    "id": "ADR001",
+    "patientId": "PAT007",
+    "medicationCode": "DICLO50",
+    "description": "Patient developed gastric pain and black tarry stools after 3 days of diclofenac use. Endoscopy confirmed gastric ulceration.",
+    "seriousness": "severe",
+    "reportedTo": ["QA", "research.pharmacy.gov.my"],
+    "date": "2025-10-05T10:00:00Z",
+    "status": "closed",
+    "reportedBy": "Pharmacist Sarah Tan",
+    "notes": "Patient had history of NSAID allergy which was not documented. System flag updated."
+  },
+  {
+    "id": "ADR002",
+    "patientId": "PAT004",
+    "medicationCode": "FLUOX20",
+    "description": "Patient reported increased anxiety and insomnia in first week of fluoxetine therapy. Symptoms resolved with dose timing adjustment.",
+    "seriousness": "mild",
+    "reportedTo": ["QA"],
+    "date": "2025-10-08T14:30:00Z",
+    "status": "closed",
+    "reportedBy": "Pharmacist Dr. Kumar Velan",
+    "notes": "Counseled patient on timing (morning vs evening). Changed to morning dosing - symptoms improved."
+  },
+  {
+    "id": "ADR003",
+    "patientId": "PAT005",
+    "medicationCode": "ATOR20",
+    "description": "Patient complained of severe muscle pain and weakness. CPK levels elevated at 2500 U/L. Suspected statin-induced rhabdomyolysis.",
+    "seriousness": "severe",
+    "reportedTo": ["QA", "research.pharmacy.gov.my"],
+    "date": "2025-10-09T11:00:00Z",
+    "status": "investigating",
+    "reportedBy": "Pharmacist Aisha Rahman",
+    "notes": "Statin discontinued. Patient referred back to cardiologist. Monitoring CPK and renal function."
+  }
+]
+

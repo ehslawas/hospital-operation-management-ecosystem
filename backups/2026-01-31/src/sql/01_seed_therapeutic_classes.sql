@@ -1,0 +1,299 @@
+-- 1. Insert Standard Therapeutic Categories
+-- Seed for all hospitals to ensure visibility
+INSERT INTO public.drug_categories (hospital_id, category_code, category_name, description, updated_at)
+SELECT h.id, t.category_code, t.category_name, t.description, NOW()
+FROM public.hospitals h
+CROSS JOIN (VALUES 
+    ('ANTIHYPERTENSIVE', 'Anti-hypertensive', 'Medications for high blood pressure'),
+    ('ANTIBIOTIC', 'Antibiotic', 'Antibacterial medications'),
+    ('ART', 'Anti-Retroviral Therapy', 'HIV/AIDS medications'),
+    ('ANTIDIABETIC', 'Anti-diabetic', 'Diabetes medications'),
+    ('ANALGESIC', 'Analgesic/Antipyretic', 'Pain relief and fever medications'),
+    ('RESPIRATORY', 'Respiratory', 'Asthma and respiratory medications'),
+    ('CARDIOVASCULAR', 'Cardiovascular', 'Heart conditions excluding hypertension'),
+    ('GASTROINTESTINAL', 'Gastrointestinal', 'Stomach and digestive medications'),
+    ('CNS', 'Central Nervous System', 'Neurological and psychiatric medications'),
+    ('DERMATOLOGICAL', 'Dermatological', 'Skin medications'),
+    ('VITAMIN', 'Vitamin/Supplement', 'Nutritional supplements'),
+    ('VACCINE', 'Vaccine', 'Immunizations'),
+    ('ANESTHETIC', 'Anesthetic', 'Anesthesia medications'),
+    ('ONCOLOGY', 'Oncology', 'Cancer medications')
+) AS t(category_code, category_name, description)
+ON CONFLICT (hospital_id, category_code) DO NOTHING;
+
+-- Also insert a global version (hospital_id is NULL) 
+-- Note: ON CONFLICT might not catch NULL conflicts depending on PG version/index settings,
+-- but this is a safe fallback for systems using global categories.
+INSERT INTO public.drug_categories (hospital_id, category_code, category_name, description, updated_at)
+VALUES 
+    (NULL, 'ANTIHYPERTENSIVE', 'Anti-hypertensive', 'Medications for high blood pressure', NOW()),
+    (NULL, 'ANTIBIOTIC', 'Antibiotic', 'Antibacterial medications', NOW()),
+    (NULL, 'ART', 'Anti-Retroviral Therapy', 'HIV/AIDS medications', NOW()),
+    (NULL, 'ANTIDIABETIC', 'Anti-diabetic', 'Diabetes medications', NOW()),
+    (NULL, 'ANALGESIC', 'Analgesic/Antipyretic', 'Pain relief and fever medications', NOW()),
+    (NULL, 'RESPIRATORY', 'Respiratory', 'Asthma and respiratory medications', NOW()),
+    (NULL, 'CARDIOVASCULAR', 'Cardiovascular', 'Heart conditions excluding hypertension', NOW()),
+    (NULL, 'GASTROINTESTINAL', 'Gastrointestinal', 'Stomach and digestive medications', NOW()),
+    (NULL, 'CNS', 'Central Nervous System', 'Neurological and psychiatric medications', NOW()),
+    (NULL, 'DERMATOLOGICAL', 'Dermatological', 'Skin medications', NOW()),
+    (NULL, 'VITAMIN', 'Vitamin/Supplement', 'Nutritional supplements', NOW()),
+    (NULL, 'VACCINE', 'Vaccine', 'Immunizations', NOW()),
+    (NULL, 'ANESTHETIC', 'Anesthetic', 'Anesthesia medications', NOW()),
+    (NULL, 'ONCOLOGY', 'Oncology', 'Cancer medications', NOW())
+ON CONFLICT (hospital_id, category_code) DO NOTHING;
+
+-- 2. Automatic Mapping based on Drug Names
+-- This uses case-insensitive pattern matching to assign categories.
+-- We correlate with the drug's hospital_id and prefer hospital-specific categories.
+
+-- Helper function or just use correlated subqueries for robustness
+DO $$
+BEGIN
+
+-- ANTIBIOTICS
+UPDATE public.drugs
+SET therapeutic_class_id = (
+    SELECT id FROM public.drug_categories 
+    WHERE category_code = 'ANTIBIOTIC' 
+    AND (hospital_id = public.drugs.hospital_id OR hospital_id IS NULL)
+    ORDER BY hospital_id DESC NULLS LAST 
+    LIMIT 1
+)
+WHERE therapeutic_class_id IS NULL 
+AND (
+    drug_name ILIKE '%Amoxicillin%' OR
+    drug_name ILIKE '%Ampicilin%' OR
+    drug_name ILIKE '%Ampicillin%' OR
+    drug_name ILIKE '%Cef%' OR
+    drug_name ILIKE '%Meropenem%' OR
+    drug_name ILIKE '%Azithromycin%' OR
+    drug_name ILIKE '%Erythromycin%' OR
+    drug_name ILIKE '%Ciprofloxacin%' OR
+    drug_name ILIKE '%Doxycycline%' OR
+    drug_name ILIKE '%Metronidazole%' OR
+    drug_name ILIKE '%Gentamicin%' OR
+    drug_name ILIKE '%Cloxacillin%' OR
+    drug_name ILIKE '%Penicillin%' OR
+    drug_name ILIKE '%Sulbactam%'
+);
+
+-- ANTI-HYPERTENSIVE
+UPDATE public.drugs
+SET therapeutic_class_id = (
+    SELECT id FROM public.drug_categories 
+    WHERE category_code = 'ANTIHYPERTENSIVE' 
+    AND (hospital_id = public.drugs.hospital_id OR hospital_id IS NULL)
+    ORDER BY hospital_id DESC NULLS LAST 
+    LIMIT 1
+)
+WHERE therapeutic_class_id IS NULL 
+AND (
+    drug_name ILIKE '%Amlodipine%' OR
+    drug_name ILIKE '%Losartan%' OR
+    drug_name ILIKE '%Perindopril%' OR
+    drug_name ILIKE '%Enalapril%' OR
+    drug_name ILIKE '%Atenolol%' OR
+    drug_name ILIKE '%Bisoprolol%' OR
+    drug_name ILIKE '%Metoprolol%' OR
+    drug_name ILIKE '%Nifedipine%' OR
+    drug_name ILIKE '%Valsartan%' OR
+    drug_name ILIKE '%Telmisartan%' OR
+    drug_name ILIKE '%Prazosin%' OR
+    drug_name ILIKE '%Labetalol%'
+);
+
+-- ANTI-RETROVIRAL THERAPY (ART)
+UPDATE public.drugs
+SET therapeutic_class_id = (
+    SELECT id FROM public.drug_categories 
+    WHERE category_code = 'ART' 
+    AND (hospital_id = public.drugs.hospital_id OR hospital_id IS NULL)
+    ORDER BY hospital_id DESC NULLS LAST 
+    LIMIT 1
+)
+WHERE therapeutic_class_id IS NULL 
+AND (
+    drug_name ILIKE '%Abacavir%' OR
+    drug_name ILIKE '%Lamivudine%' OR
+    drug_name ILIKE '%Tenofovir%' OR
+    drug_name ILIKE '%Efavirenz%' OR
+    drug_name ILIKE '%Zidovudine%' OR
+    drug_name ILIKE '%Lopinavir%' OR
+    drug_name ILIKE '%Ritonavir%' OR
+    drug_name ILIKE '%Nevirapine%' OR
+    drug_name ILIKE '%Dolutegravir%'
+);
+
+-- ANTI-DIABETIC
+UPDATE public.drugs
+SET therapeutic_class_id = (
+    SELECT id FROM public.drug_categories 
+    WHERE category_code = 'ANTIDIABETIC' 
+    AND (hospital_id = public.drugs.hospital_id OR hospital_id IS NULL)
+    ORDER BY hospital_id DESC NULLS LAST 
+    LIMIT 1
+)
+WHERE therapeutic_class_id IS NULL 
+AND (
+    drug_name ILIKE '%Metformin%' OR
+    drug_name ILIKE '%Gliclazide%' OR
+    drug_name ILIKE '%Insulin%' OR
+    drug_name ILIKE '%Glibenclamide%' OR
+    drug_name ILIKE '%Dapagliflozin%' OR
+    drug_name ILIKE '%Empagliflozin%' OR
+    drug_name ILIKE '%Sitagliptin%'
+);
+
+-- ANALGESIC / ANTIPYRETIC
+UPDATE public.drugs
+SET therapeutic_class_id = (
+    SELECT id FROM public.drug_categories 
+    WHERE category_code = 'ANALGESIC' 
+    AND (hospital_id = public.drugs.hospital_id OR hospital_id IS NULL)
+    ORDER BY hospital_id DESC NULLS LAST 
+    LIMIT 1
+)
+WHERE therapeutic_class_id IS NULL 
+AND (
+    drug_name ILIKE '%Paracetamol%' OR
+    drug_name ILIKE '%Ibuprofen%' OR
+    drug_name ILIKE '%Diclofenac%' OR
+    drug_name ILIKE '%Tramadol%' OR
+    drug_name ILIKE '%Morphine%' OR
+    drug_name ILIKE '%Fentanyl%' OR
+    drug_name ILIKE '%Aspirin%' OR
+    drug_name ILIKE '%Ketoprofen%' OR
+    drug_name ILIKE '%Celecoxib%' OR
+    drug_name ILIKE '%Mefenamic%'
+);
+
+-- RESPIRATORY
+UPDATE public.drugs
+SET therapeutic_class_id = (
+    SELECT id FROM public.drug_categories 
+    WHERE category_code = 'RESPIRATORY' 
+    AND (hospital_id = public.drugs.hospital_id OR hospital_id IS NULL)
+    ORDER BY hospital_id DESC NULLS LAST 
+    LIMIT 1
+)
+WHERE therapeutic_class_id IS NULL 
+AND (
+    drug_name ILIKE '%Salbutamol%' OR
+    drug_name ILIKE '%Budesonide%' OR
+    drug_name ILIKE '%Ipratropium%' OR
+    drug_name ILIKE '%Fluticasone%' OR
+    drug_name ILIKE '%Beclomethasone%' OR
+    drug_name ILIKE '%Montelukast%' OR
+    drug_name ILIKE '%Theophylline%'
+);
+
+-- CARDIOVASCULAR
+UPDATE public.drugs
+SET therapeutic_class_id = (
+    SELECT id FROM public.drug_categories 
+    WHERE category_code = 'CARDIOVASCULAR' 
+    AND (hospital_id = public.drugs.hospital_id OR hospital_id IS NULL)
+    ORDER BY hospital_id DESC NULLS LAST 
+    LIMIT 1
+)
+WHERE therapeutic_class_id IS NULL 
+AND (
+    drug_name ILIKE '%Simvastatin%' OR
+    drug_name ILIKE '%Atorvastatin%' OR
+    drug_name ILIKE '%Rosuvastatin%' OR
+    drug_name ILIKE '%Digoxin%' OR
+    drug_name ILIKE '%Isosorbide%' OR
+    drug_name ILIKE '%Glyceryl Trinitrate%' OR
+    drug_name ILIKE '%Warfarin%' OR
+    drug_name ILIKE '%Clopidogrel%' OR
+    drug_name ILIKE '%Heparin%'
+);
+
+-- GASTROINTESTINAL
+UPDATE public.drugs
+SET therapeutic_class_id = (
+    SELECT id FROM public.drug_categories 
+    WHERE category_code = 'GASTROINTESTINAL' 
+    AND (hospital_id = public.drugs.hospital_id OR hospital_id IS NULL)
+    ORDER BY hospital_id DESC NULLS LAST 
+    LIMIT 1
+)
+WHERE therapeutic_class_id IS NULL 
+AND (
+    drug_name ILIKE '%Omeprazole%' OR
+    drug_name ILIKE '%Pantoprazole%' OR
+    drug_name ILIKE '%Ranitidine%' OR
+    drug_name ILIKE '%Metoclopramide%' OR
+    drug_name ILIKE '%Domperidone%' OR
+    drug_name ILIKE '%Lactulose%' OR
+    drug_name ILIKE '%Bisacodyl%' OR
+    drug_name ILIKE '%Hyoscine%'
+);
+
+-- CNS
+UPDATE public.drugs
+SET therapeutic_class_id = (
+    SELECT id FROM public.drug_categories 
+    WHERE category_code = 'CNS' 
+    AND (hospital_id = public.drugs.hospital_id OR hospital_id IS NULL)
+    ORDER BY hospital_id DESC NULLS LAST 
+    LIMIT 1
+)
+WHERE therapeutic_class_id IS NULL 
+AND (
+    drug_name ILIKE '%Diazepam%' OR
+    drug_name ILIKE '%Lorazepam%' OR
+    drug_name ILIKE '%Midazolam%' OR
+    drug_name ILIKE '%Phenytoin%' OR
+    drug_name ILIKE '%Valproate%' OR
+    drug_name ILIKE '%Carbamazepine%' OR
+    drug_name ILIKE '%Amitriptyline%' OR
+    drug_name ILIKE '%Fluoxetine%' OR
+    drug_name ILIKE '%Sertraline%' OR
+    drug_name ILIKE '%Haloperidol%' OR
+    drug_name ILIKE '%Risperidone%' OR
+    drug_name ILIKE '%Olanzapine%'
+);
+
+-- VITAMINS & MINERALS
+UPDATE public.drugs
+SET therapeutic_class_id = (
+    SELECT id FROM public.drug_categories 
+    WHERE category_code = 'VITAMIN' 
+    AND (hospital_id = public.drugs.hospital_id OR hospital_id IS NULL)
+    ORDER BY hospital_id DESC NULLS LAST 
+    LIMIT 1
+)
+WHERE therapeutic_class_id IS NULL 
+AND (
+    drug_name ILIKE '%Vitamin%' OR
+    drug_name ILIKE '%Calcium%' OR
+    drug_name ILIKE '%Ferrous%' OR
+    drug_name ILIKE '%Folic Acid%' OR
+    drug_name ILIKE '%Multivitamin%' OR
+    drug_name ILIKE '%Thiamine%' OR
+    drug_name ILIKE '%Ascorbic%' OR
+    drug_name ILIKE '%Potassium Chloride%'
+);
+
+-- DERMATOLOGICAL
+UPDATE public.drugs
+SET therapeutic_class_id = (
+    SELECT id FROM public.drug_categories 
+    WHERE category_code = 'DERMATOLOGICAL' 
+    AND (hospital_id = public.drugs.hospital_id OR hospital_id IS NULL)
+    ORDER BY hospital_id DESC NULLS LAST 
+    LIMIT 1
+)
+WHERE therapeutic_class_id IS NULL 
+AND (
+    drug_name ILIKE '%Cream%' OR
+    drug_name ILIKE '%Ointment%' OR
+    drug_name ILIKE '%Lotion%' OR
+    drug_name ILIKE '%Gel%' OR
+    drug_name ILIKE '%Betamethasone%' OR
+    drug_name ILIKE '%Hydrocortisone%' OR
+    drug_name ILIKE '%Calamine%'
+);
+
+END $$;
