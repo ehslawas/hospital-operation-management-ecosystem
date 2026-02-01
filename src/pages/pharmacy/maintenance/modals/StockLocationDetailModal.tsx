@@ -40,7 +40,10 @@ import type {
 const locationSchema = z.object({
     location_code: z.string().min(1, 'Location code is required'),
     location_name: z.string().min(1, 'Location name is required'),
-    location_type: z.enum(['warehouse', 'pharmacy', 'ward', 'cold_room', 'controlled'] as const),
+    location_type: z.enum([
+        'warehouse', 'pharmacy', 'ward', 'cold_room', 'controlled',
+        'unit', 'store', 'zone', 'fridge', 'shelf', 'bin'
+    ] as const),
     temperature_required: z.enum(['ambient', '2-8C', '-20C', '-80C'] as const).optional(),
     capacity: z.coerce.number().min(0, 'Capacity must be positive').optional(),
 })
@@ -146,16 +149,6 @@ export const StockLocationDetailModal: React.FC<StockLocationDetailModalProps> =
         }
     }
 
-    const handleUpdateParLevel = async (itemId: string, field: 'min_stock' | 'max_stock', value: string) => {
-        const numValue = parseInt(value) || 0
-        try {
-            const { error } = await updateLocationItem(itemId, { [field]: numValue })
-            if (error) throw new Error(error)
-            setItems(prev => prev.map(item => item.id === itemId ? { ...item, [field]: numValue } : item))
-        } catch (err) {
-            toast.error('Failed to update stock levels')
-        }
-    }
 
     return (
         <>
@@ -176,7 +169,7 @@ export const StockLocationDetailModal: React.FC<StockLocationDetailModalProps> =
                             <List className="w-4 h-4" />
                             Authorized Items
                             {items.length > 0 && (
-                                <Badge variant="info" size="sm" className="ml-1">
+                                <Badge className="ml-1 bg-teal-50 text-teal-700 border-teal-100" size="sm">
                                     {items.length}
                                 </Badge>
                             )}
@@ -213,6 +206,12 @@ export const StockLocationDetailModal: React.FC<StockLocationDetailModalProps> =
                                         { value: 'ward', label: 'Ward' },
                                         { value: 'cold_room', label: 'Cold Room' },
                                         { value: 'controlled', label: 'Controlled Storage' },
+                                        { value: 'unit', label: 'Unit/Clinic' },
+                                        { value: 'store', label: 'Store Room' },
+                                        { value: 'zone', label: 'Zone/Area' },
+                                        { value: 'fridge', label: 'Fridge' },
+                                        { value: 'shelf', label: 'Shelf' },
+                                        { value: 'bin', label: 'Bin' },
                                     ]}
                                     required
                                 />
@@ -241,7 +240,7 @@ export const StockLocationDetailModal: React.FC<StockLocationDetailModalProps> =
                                 <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
                                     Close
                                 </Button>
-                                <Button type="submit" disabled={isSubmitting || !isDirty}>
+                                <Button type="submit" disabled={isSubmitting || !isDirty} className="bg-teal-600 hover:bg-teal-700 text-white">
                                     {isSubmitting ? (
                                         <>
                                             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -262,7 +261,7 @@ export const StockLocationDetailModal: React.FC<StockLocationDetailModalProps> =
                         <div className="space-y-4">
                             <div className="flex justify-between items-center">
                                 <h3 className="text-sm font-semibold text-gray-700">Authorized Stock List</h3>
-                                <Button size="sm" onClick={() => setIsSearchModalOpen(true)}>
+                                <Button size="sm" onClick={() => setIsSearchModalOpen(true)} className="bg-teal-600 hover:bg-teal-700 text-white">
                                     <Plus className="w-4 h-4 mr-2" />
                                     Add Items
                                 </Button>
@@ -280,7 +279,6 @@ export const StockLocationDetailModal: React.FC<StockLocationDetailModalProps> =
                                             <thead className="bg-gray-50 border-b">
                                                 <tr>
                                                     <th className="px-4 py-3 text-left font-medium text-gray-500">Item Name</th>
-                                                    <th className="px-4 py-3 text-left font-medium text-gray-500">Min/Max Stock</th>
                                                     <th className="px-4 py-3 text-right font-medium text-gray-500 text-transparent">Actions</th>
                                                 </tr>
                                             </thead>
@@ -304,28 +302,11 @@ export const StockLocationDetailModal: React.FC<StockLocationDetailModalProps> =
                                                                     </div>
                                                                 </div>
                                                             </td>
-                                                            <td className="px-4 py-3">
-                                                                <div className="flex items-center gap-2">
-                                                                    <input
-                                                                        type="number"
-                                                                        className="w-16 px-2 py-1 border rounded text-center"
-                                                                        defaultValue={item.min_stock}
-                                                                        onBlur={(e) => handleUpdateParLevel(item.id, 'min_stock', e.target.value)}
-                                                                    />
-                                                                    <span className="text-gray-400">/</span>
-                                                                    <input
-                                                                        type="number"
-                                                                        className="w-16 px-2 py-1 border rounded text-center"
-                                                                        defaultValue={item.max_stock}
-                                                                        onBlur={(e) => handleUpdateParLevel(item.id, 'max_stock', e.target.value)}
-                                                                    />
-                                                                </div>
-                                                            </td>
                                                             <td className="px-4 py-3 text-right">
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="sm"
-                                                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                    className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-opacity"
                                                                     onClick={() => handleRemoveItem(item.id)}
                                                                 >
                                                                     <Trash2 className="w-4 h-4" />
@@ -342,7 +323,7 @@ export const StockLocationDetailModal: React.FC<StockLocationDetailModalProps> =
                                         <Package className="w-12 h-12 mb-2 opacity-20" />
                                         <p>No items assigned to this location yet.</p>
                                         <p className="text-xs">Authorized items define what can be stored here.</p>
-                                        <Button variant="outline" size="sm" className="mt-4" onClick={() => setIsSearchModalOpen(true)}>
+                                        <Button variant="outline" size="sm" className="mt-4 border-teal-600 text-teal-600 hover:bg-teal-50" onClick={() => setIsSearchModalOpen(true)}>
                                             <Plus className="w-4 h-4 mr-2" />
                                             Add First Item
                                         </Button>

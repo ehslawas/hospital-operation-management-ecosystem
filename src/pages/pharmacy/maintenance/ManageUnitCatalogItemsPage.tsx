@@ -623,20 +623,14 @@ const ManageUnitCatalogItemsPage: React.FC = () => {
             className: '!px-2 w-[100px]',
             render: (_: any, item: UnitCatalogItemWithRelations) => {
                 const itemCode = activeTab === 'drug'
-                    ? (item.drug?.drug_code || item.appl_drug?.item_code || item.lp_drug?.item_code)
-                    : (item.non_drug?.item_code || item.appl_non_drug?.item_code || item.lp_non_drug?.item_code);
-                const contractNumber = item.contract_number;
+                    ? (item.drug?.drug_code || item.appl_drug?.item_code || item.lp_drug?.item_code || item.contract?.item_code)
+                    : (item.non_drug?.item_code || item.appl_non_drug?.item_code || item.lp_non_drug?.item_code || item.contract?.item_code);
 
                 return (
                     <div className="flex flex-col">
                         <span className="font-mono text-sm font-semibold text-slate-700">
                             {itemCode}
                         </span>
-                        {contractNumber && (
-                            <span className="text-[10px] font-bold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded border border-violet-100 w-fit mt-1">
-                                {contractNumber}
-                            </span>
-                        )}
                     </div>
                 )
             },
@@ -653,11 +647,11 @@ const ManageUnitCatalogItemsPage: React.FC = () => {
                     <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-slate-900 line-clamp-2 group-hover:text-violet-700 transition-colors"
                             title={activeTab === 'drug'
-                                ? (item.drug?.drug_name || item.appl_drug?.item_name || item.lp_drug?.item_name)
-                                : (item.non_drug?.item_name || item.appl_non_drug?.item_name || item.lp_non_drug?.item_name)}>
+                                ? (item.drug?.drug_name || item.appl_drug?.item_name || item.lp_drug?.item_name || item.contract?.item_name)
+                                : (item.non_drug?.item_name || item.appl_non_drug?.item_name || item.lp_non_drug?.item_name || item.contract?.item_name)}>
                             {activeTab === 'drug'
-                                ? (item.drug?.drug_name || item.appl_drug?.item_name || item.lp_drug?.item_name)
-                                : (item.non_drug?.item_name || item.appl_non_drug?.item_name || item.lp_non_drug?.item_name)}
+                                ? (item.drug?.drug_name || item.appl_drug?.item_name || item.lp_drug?.item_name || item.contract?.item_name)
+                                : (item.non_drug?.item_name || item.appl_non_drug?.item_name || item.lp_non_drug?.item_name || item.contract?.item_name)}
                         </span>
                         <Edit2 className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
@@ -678,7 +672,7 @@ const ManageUnitCatalogItemsPage: React.FC = () => {
                     return <span className="text-xs text-slate-300">—</span>
                 }
 
-                const categoryName = (item.drug as any)?.category?.category_name
+                const categoryName = item.unit_category?.category_name || (item.drug as any)?.category?.category_name
 
                 if (!categoryName) {
                     return <span className="text-xs text-slate-300 italic">—</span>
@@ -705,7 +699,7 @@ const ManageUnitCatalogItemsPage: React.FC = () => {
                     return <span className="text-xs text-slate-300">—</span>
                 }
 
-                const therapeuticClassName = (item.drug as any)?.therapeutic_class?.category_name
+                const therapeuticClassName = item.unit_therapeutic_class?.category_name || (item.drug as any)?.therapeutic_class?.category_name
 
                 if (!therapeuticClassName) {
                     return <span className="text-xs text-slate-300 italic">—</span>
@@ -782,8 +776,8 @@ const ManageUnitCatalogItemsPage: React.FC = () => {
             render: (_: any, item: UnitCatalogItemWithRelations) => (
                 <span className="text-xs text-slate-600">
                     {(activeTab === 'drug'
-                        ? (item.drug?.packaging_description || item.appl_drug?.packaging_description || item.lp_drug?.packaging_description)
-                        : (item.non_drug?.packaging_description || item.appl_non_drug?.packaging_description || item.lp_non_drug?.packaging_description)
+                        ? (item.drug?.packaging_description || item.appl_drug?.packaging_description || item.lp_drug?.packaging_description || item.contract?.packaging_description || item.contract?.unit)
+                        : (item.non_drug?.packaging_description || item.appl_non_drug?.packaging_description || item.lp_non_drug?.packaging_description || item.contract?.packaging_description || item.contract?.unit)
                     ) || '—'}
                 </span>
             )
@@ -844,7 +838,7 @@ const ManageUnitCatalogItemsPage: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex items-center gap-3">
                     <Button
                         variant="outline"
                         onClick={async () => {
@@ -883,7 +877,7 @@ const ManageUnitCatalogItemsPage: React.FC = () => {
                             }
                         }}
                         disabled={isPrinting || isLoading}
-                        className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                        className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50 whitespace-nowrap"
                     >
                         {isPrinting ? (
                             <Spinner size="sm" className="mr-2" />
@@ -968,7 +962,7 @@ const ManageUnitCatalogItemsPage: React.FC = () => {
                             setCurrentPage(1)
                         }}
                         disabled={isLoading}
-                        className="bg-violet-600 hover:bg-violet-700 text-white shadow-lg shadow-violet-100"
+                        className="bg-violet-600 hover:bg-violet-700 text-white shadow-lg shadow-violet-100 whitespace-nowrap"
                     >
                         <Plus className="w-4 h-4 mr-2" />
                         Add Items to Unit

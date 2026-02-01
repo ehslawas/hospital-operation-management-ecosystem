@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { AlertTriangle, Truck, Search, Filter, ChevronLeft, ChevronRight, Plus, ArrowRightLeft } from 'lucide-react'
+import { Truck, Plus, ArrowRightLeft, Search, Filter, AlertTriangle, ChevronRight, Inbox, LogOut, Clock } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
-import { Table, Spinner, Input, Badge, Select, Button } from '@/components/ui'
+import { Table, Spinner, Input, Badge, Select, Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogBody, DialogFooter, StatCard, Pagination } from '@/components/ui'
+import { StandardPageLayout } from '@/components/layouts/StandardPageLayout'
 import { getTransferRequests, getPendingTransfersCount } from '@/services/pharmacy/distributionService'
 import type { TransferRequestWithRelations, TransferFilter, TransferStatus, TransferType } from '@/types/pharmacy'
 import type { Column } from '@/types'
@@ -18,6 +19,7 @@ export const TransferRequestListPage: React.FC = () => {
   const [pendingCounts, setPendingCounts] = useState({ incoming: 0, outgoing: 0 })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isNewTransferDialogOpen, setIsNewTransferDialogOpen] = useState(false)
 
   // Filters
   const [search, setSearch] = useState('')
@@ -79,28 +81,28 @@ export const TransferRequestListPage: React.FC = () => {
   }, [search, statusFilter, typeFilter])
 
   const renderStatusBadge = (status: TransferStatus) => {
-    const map: Record<TransferStatus, { color: 'success' | 'warning' | 'error' | 'info' | 'secondary'; label: string }> = {
-      pending: { color: 'warning', label: 'Pending' },
-      approved: { color: 'info', label: 'Approved' },
-      preparing: { color: 'info', label: 'Preparing' },
-      in_transit: { color: 'info', label: 'In Transit' },
-      received: { color: 'success', label: 'Received' },
-      completed: { color: 'success', label: 'Completed' },
-      rejected: { color: 'error', label: 'Rejected' },
+    switch (status) {
+      case 'pending': return <Badge variant="warning">In Review</Badge>
+      case 'approved': return <Badge variant="info">Preparing</Badge>
+      case 'preparing': return <Badge variant="info">Preparing</Badge>
+      case 'in_transit': return <Badge variant="info">In Transit</Badge>
+      case 'received': return <Badge variant="success">Received</Badge>
+      case 'completed': return <Badge variant="success">Completed</Badge>
+      case 'rejected': return <Badge variant="error">Declined</Badge>
+      case 'cancelled': return <Badge variant="gray">Cancelled</Badge>
+      default: return <Badge variant="gray">{status}</Badge>
     }
-    const cfg = map[status] || { color: 'secondary', label: status }
-    return <Badge variant={cfg.color}>{cfg.label}</Badge>
   }
 
   const renderPriorityBadge = (priority: string) => {
-    const map: Record<string, { color: 'success' | 'warning' | 'error' | 'info' | 'secondary'; label: string }> = {
-      low: { color: 'secondary', label: 'Low' },
-      normal: { color: 'info', label: 'Normal' },
-      high: { color: 'warning', label: 'High' },
-      urgent: { color: 'error', label: 'Urgent' },
+    switch (priority) {
+      case 'high': return <Badge variant="warning">High</Badge>
+      case 'medium': return <Badge variant="info">Medium</Badge>
+      case 'normal': return <Badge variant="gray">Normal</Badge>
+      case 'low': return <Badge variant="gray">Low</Badge>
+      case 'urgent': return <Badge variant="error">Urgent</Badge>
+      default: return <Badge variant="gray">{priority}</Badge>
     }
-    const cfg = map[priority] || { color: 'secondary', label: priority }
-    return <Badge variant={cfg.color}>{cfg.label}</Badge>
   }
 
   const formatDate = (dateStr?: string) => {
@@ -134,11 +136,17 @@ export const TransferRequestListPage: React.FC = () => {
       label: 'From → To',
       className: 'text-sm text-gray-900',
       render: (_, row) => (
-        <span>
-          {row.from_hospital?.nama || row.from_department?.department_name || '—'}
-          <span className="text-gray-400 mx-1">→</span>
-          {row.to_hospital?.nama || row.to_department?.department_name || '—'}
-        </span>
+        <div className="flex items-center">
+          <div className="flex-1 overflow-hidden">
+            <span className="font-bold text-slate-900">{row.from_hospital?.hospital_name || row.from_department?.department_name || '—'}</span>
+            {row.from_hospital?.hospital_code && <div className="text-[10px] text-slate-500">{row.from_hospital?.hospital_code}</div>}
+          </div>
+          <ArrowRightLeft className="w-3 h-3 text-slate-300 mx-1 shrink-0" />
+          <div className="flex-1 overflow-hidden">
+            <span className="font-bold text-slate-900">{row.to_hospital?.hospital_name || row.to_department?.department_name || '—'}</span>
+            {row.to_hospital?.hospital_code && <div className="text-[10px] text-slate-500">{row.to_hospital?.hospital_code}</div>}
+          </div>
+        </div>
       ),
     },
     {
@@ -167,78 +175,140 @@ export const TransferRequestListPage: React.FC = () => {
     },
   ]
 
-  return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Truck className="w-6 h-6 text-purple-600" />
-            Transfer Requests
-          </h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Manage inter-facility and intra-facility stock transfers.
-          </p>
-        </div>
+  const breadcrumbs = [
+    { label: 'Pharmacy Logistics' },
+    { label: 'Distribution', href: ROUTES.PHARMACY_DISTRIBUTION_DASHBOARD },
+    { label: 'Transfer Requests' }
+  ]
 
-        <Button onClick={() => navigate(ROUTES.PHARMACY_TRANSFER_REQUEST)} className="flex items-center gap-2">
-          <Plus className="w-4 h-4" />
-          New Transfer
-        </Button>
-      </div>
+  const headerActions = (
+    <Button onClick={() => setIsNewTransferDialogOpen(true)} className="flex items-center gap-2">
+      <Plus className="w-4 h-4" />
+      New Transfer
+    </Button>
+  )
+
+  return (
+    <StandardPageLayout
+      title="Transfer Requests"
+      description="Manage and track stock transfers between facilities and departments."
+      breadcrumbs={breadcrumbs}
+      actions={headerActions}
+    >
+      {/* New Transfer Dialog */}
+      <Dialog open={isNewTransferDialogOpen} onOpenChange={setIsNewTransferDialogOpen} size="sm">
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New Transfer</DialogTitle>
+            <DialogDescription>Select the type of transfer you want to create.</DialogDescription>
+          </DialogHeader>
+          <DialogBody className="space-y-3">
+            <button
+              onClick={() => {
+                setIsNewTransferDialogOpen(false)
+                navigate(ROUTES.PHARMACY_INTRA_FACILITY)
+              }}
+              className="w-full text-left p-4 rounded-xl border border-slate-200 hover:border-purple-500 hover:bg-purple-50 transition-all group"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-slate-900 group-hover:text-purple-700">Intrafacility Request</div>
+                  <div className="text-xs text-slate-500 mt-1">Department requesting items from Pharmacy Store</div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-purple-500" />
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                setIsNewTransferDialogOpen(false)
+                navigate(ROUTES.PHARMACY_INTRA_FACILITY_ISSUE)
+              }}
+              className="w-full text-left p-4 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 transition-all group"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-slate-900 group-hover:text-emerald-700">Pharmacy Issue (Push)</div>
+                  <div className="text-xs text-slate-500 mt-1">Pharmacy Store proactively pushing items to Department</div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-500" />
+              </div>
+            </button>
+
+            <div className="p-3 bg-gray-50 rounded-lg text-[10px] text-gray-500 flex items-center gap-2 italic">
+              <AlertTriangle className="w-3 h-3" />
+              Inter-facility transfers (borrow/lend) will be available in the next phase.
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsNewTransferDialogOpen(false)}>Cancel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
-          <span className="text-sm font-medium text-purple-700">Total Transfers</span>
-          <p className="text-2xl font-bold text-purple-800 mt-1">{total}</p>
-        </div>
-
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-          <span className="text-sm font-medium text-blue-700">Incoming Pending</span>
-          <p className="text-2xl font-bold text-blue-800 mt-1">{pendingCounts.incoming}</p>
-        </div>
-
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-          <span className="text-sm font-medium text-amber-700">Outgoing Pending</span>
-          <p className="text-2xl font-bold text-amber-800 mt-1">{pendingCounts.outgoing}</p>
-        </div>
-
-        <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-          <span className="text-sm font-medium text-green-700">In Transit</span>
-          <p className="text-2xl font-bold text-green-800 mt-1">
-            {transfers.filter(t => t.status === 'in_transit').length}
-          </p>
-        </div>
+        <StatCard
+          title="Total Transfers"
+          value={total}
+          icon={Truck}
+          color="primary"
+        />
+        <StatCard
+          title="Incoming Pending"
+          value={pendingCounts.incoming}
+          icon={Inbox}
+          color="info"
+        />
+        <StatCard
+          title="Outgoing Pending"
+          value={pendingCounts.outgoing}
+          icon={LogOut}
+          color="warning"
+        />
+        <StatCard
+          title="In Transit"
+          value={transfers.filter(t => t.status === 'in_transit').length}
+          icon={Clock}
+          color="success"
+        />
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col md:flex-row md:items-end gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
+      <div className="flex flex-col md:flex-row md:items-end gap-4 bg-white/50 backdrop-blur-sm p-4 rounded-2xl border border-slate-200 shadow-sm">
         <div className="flex-1">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Search</label>
+          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1">Search</label>
           <div className="relative">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
             <Input
               placeholder="Transfer number..."
-              className="pl-9"
+              className="pl-10 h-11 bg-white border-slate-200 hover:border-purple-300 focus:border-purple-500 focus:ring-purple-200 transition-all rounded-xl"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
         </div>
 
-        <div className="w-full md:w-44">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Type</label>
-          <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as TransferType | 'all')}>
+        <div className="w-full md:w-56">
+          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1">Type</label>
+          <Select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value as TransferType | 'all')}
+            className="h-11 bg-white border-slate-200 rounded-xl"
+          >
             <option value="all">All Types</option>
             <option value="inter_facility">Inter-Facility</option>
             <option value="intra_facility">Intra-Facility</option>
           </Select>
         </div>
 
-        <div className="w-full md:w-44">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
-          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as TransferStatus | 'all')}>
+        <div className="w-full md:w-56">
+          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1">Status</label>
+          <Select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as TransferStatus | 'all')}
+            className="h-11 bg-white border-slate-200 rounded-xl"
+          >
             <option value="all">All Status</option>
             <option value="pending">Pending</option>
             <option value="approved">Approved</option>
@@ -248,68 +318,63 @@ export const TransferRequestListPage: React.FC = () => {
           </Select>
         </div>
 
-        <div className="flex items-center gap-1 text-xs text-gray-500">
-          <Filter className="w-3 h-3" />
-          <span>{total} transfers</span>
+        <div className="flex items-center gap-2 bg-slate-50 px-3 py-3 rounded-xl border border-slate-100 h-11">
+          <Filter className="w-3.5 h-3.5 text-slate-400" />
+          <span className="text-[12px] font-bold text-slate-600">{total} <span className="text-slate-400 font-medium">RECORDS</span></span>
         </div>
       </div>
 
-      {/* Loading */}
-      {isLoading && (
-        <div className="flex items-center justify-center py-16">
-          <Spinner size="lg" />
-        </div>
-      )}
-
-      {/* Error */}
+      {/* Error Message */}
       {!isLoading && error && (
-        <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-          <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+        <div className="flex items-start gap-3 rounded-2xl border border-rose-100 bg-rose-50/50 p-4 text-sm text-rose-700 animate-in fade-in slide-in-from-top-2">
+          <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0" />
           <div>
-            <p className="font-medium">Failed to load transfers</p>
-            <p className="mt-0.5">{error}</p>
+            <p className="font-bold uppercase tracking-tight">Failed to load transfers</p>
+            <p className="mt-1 opacity-80">{error}</p>
           </div>
         </div>
       )}
 
-      {/* Table */}
-      {!isLoading && !error && (
-        <>
-          <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+      {/* Main Content Area */}
+      <div className="relative min-h-[400px]">
+        {isLoading ? (
+          <div className="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-[1px] z-10 rounded-2xl">
+            <div className="flex flex-col items-center gap-3">
+              <Spinner size="lg" className="text-purple-600" />
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest animate-pulse">Loading transfers...</span>
+            </div>
+          </div>
+        ) : null}
+
+        <div className={isLoading ? 'opacity-50 pointer-events-none transition-opacity' : 'transition-opacity'}>
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
             <Table
               data={transfers}
               columns={columns}
               emptyMessage="No transfer requests found."
+              onRowClick={(row) => {
+                if (row.transfer_type === 'inter_facility') {
+                  navigate(ROUTES.PHARMACY_INTER_FACILITY_DETAIL(row.id))
+                } else {
+                  navigate(ROUTES.PHARMACY_INTRA_FACILITY_DETAIL(row.id))
+                }
+              }}
             />
           </div>
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between text-sm text-gray-600">
-              <span>
-                Page {page} of {totalPages}
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="p-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  className="p-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              total={total}
+              onPageChange={(p) => setPage(p)}
+            />
           )}
-        </>
-      )}
-    </div>
+        </div>
+      </div>
+    </StandardPageLayout>
   )
 }
 

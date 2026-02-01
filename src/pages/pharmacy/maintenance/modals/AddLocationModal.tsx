@@ -2,17 +2,20 @@ import React, { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { AlertTriangle, Building2, Save } from 'lucide-react'
+import { AlertTriangle, Save } from 'lucide-react'
 import { Modal, Button, Input, Select, Textarea, Spinner } from '@/components/ui'
 import { createStockLocation } from '@/services/pharmacy/inventoryService'
 import { useAuthStore } from '@/stores/authStore'
 import { toast } from 'sonner'
-import type { LocationType, TemperatureRequirement } from '@/types/pharmacy'
+import type { TemperatureRequirement } from '@/types/pharmacy'
 
 const locationSchema = z.object({
     location_code: z.string().min(1, 'Location code is required'),
     location_name: z.string().min(1, 'Location name is required'),
-    location_type: z.enum(['warehouse', 'pharmacy', 'ward', 'cold_room', 'controlled'] as const),
+    location_type: z.enum([
+        'warehouse', 'pharmacy', 'ward', 'cold_room', 'controlled',
+        'unit', 'store', 'zone', 'fridge', 'shelf', 'bin'
+    ] as const),
     temperature_required: z.enum(['ambient', '2-8C', '-20C', '-80C'] as const).optional(),
     capacity: z.coerce.number().min(0, 'Capacity must be positive').optional(),
     description: z.string().optional(),
@@ -24,12 +27,14 @@ interface AddLocationModalProps {
     isOpen: boolean
     onClose: () => void
     onSuccess: () => void
+    parentId?: string
 }
 
 export const AddLocationModal: React.FC<AddLocationModalProps> = ({
     isOpen,
     onClose,
     onSuccess,
+    parentId,
 }) => {
     const { user } = useAuthStore()
     const [isSubmitting, setIsSubmitting] = useState(false)
@@ -60,6 +65,7 @@ export const AddLocationModal: React.FC<AddLocationModalProps> = ({
                 location_code: data.location_code,
                 location_name: data.location_name,
                 location_type: data.location_type,
+                parent_location_id: parentId,
                 temperature_required: data.temperature_required as TemperatureRequirement,
                 capacity: data.capacity,
                 // description: data.description, // Not in StockLocation type yet, omit for now
@@ -129,6 +135,12 @@ export const AddLocationModal: React.FC<AddLocationModalProps> = ({
                             { value: 'ward', label: 'Ward' },
                             { value: 'cold_room', label: 'Cold Room' },
                             { value: 'controlled', label: 'Controlled Storage' },
+                            { value: 'unit', label: 'Unit/Clinic' },
+                            { value: 'store', label: 'Store Room' },
+                            { value: 'zone', label: 'Zone/Area' },
+                            { value: 'fridge', label: 'Fridge' },
+                            { value: 'shelf', label: 'Shelf' },
+                            { value: 'bin', label: 'Bin' },
                         ]}
                         required
                     />

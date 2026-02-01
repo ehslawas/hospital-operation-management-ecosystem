@@ -83,9 +83,13 @@ const EmergencyDashboard = lazy(() => import('@/features/emergency/routes/Emerge
 const InventoryOverviewPage = lazy(() => import('@/pages/pharmacy/inventory/InventoryOverviewPage'))
 const DrugInventoryPage = lazy(() => import('@/pages/pharmacy/inventory/DrugInventoryPage'))
 const BufferDrugInventoryPage = lazy(() => import('@/pages/pharmacy/inventory/BufferDrugInventoryPage'))
+const BufferNonDrugInventoryPage = lazy(() => import('@/pages/pharmacy/inventory/BufferNonDrugInventoryPage'))
 const NonDrugInventoryPage = lazy(() => import('@/pages/pharmacy/inventory/NonDrugInventoryPage'))
 const NearExpiryPage = lazy(() => import('@/pages/pharmacy/inventory/NearExpiryPage'))
 const SlowMovingPage = lazy(() => import('@/pages/pharmacy/inventory/SlowMovingPage'))
+const ItemMovementPage = lazy(() => import('@/pages/pharmacy/inventory/ItemMovementPage'))
+const PhysicalReceivingPage = lazy(() => import('@/pages/pharmacy/inventory/PhysicalReceivingPage'))
+const PhysicalIssuingPage = lazy(() => import('@/pages/pharmacy/inventory/PhysicalIssuingPage'))
 const OxygenDashboardPage = lazy(() => import('@/pages/pharmacy/oxygen/OxygenDashboardPage'))
 const CylinderInventoryPage = lazy(() => import('@/pages/pharmacy/oxygen/InventoryDashboard'))
 const CylinderRequestPage = lazy(() => import('@/pages/pharmacy/oxygen/CylinderRequestPage'))
@@ -112,7 +116,12 @@ const WarrantPage = lazy(() => import('@/pages/pharmacy/financial/WarrantPage'))
 const APPLAllocationPage = lazy(() => import('@/pages/pharmacy/financial/APPLAllocationPage'))
 const CCAllocationPage = lazy(() => import('@/pages/pharmacy/financial/CCAllocationPage'))
 const ReportsPage = lazy(() => import('@/pages/pharmacy/reports/ReportsPage'))
+const IntrafacilityRequestPage = lazy(() => import('@/pages/pharmacy/distribution/IntrafacilityRequestPage'))
+const PharmacyIssuePage = lazy(() => import('@/pages/pharmacy/distribution/PharmacyIssuePage'))
+const IntrafacilityDetailPage = lazy(() => import('./../pages/pharmacy/distribution/IntrafacilityDetailPage'))
+
 const StockLocationPage = lazy(() => import('@/pages/pharmacy/maintenance/StockLocationPage'))
+const StockLocationItemsPage = lazy(() => import('@/pages/pharmacy/maintenance/StockLocationItemsPage'))
 const StockVerificationPage = lazy(() => import('@/pages/pharmacy/maintenance/StockVerificationPage'))
 const UnitCatalogPage = lazy(() => import('@/pages/pharmacy/maintenance/UnitCatalogPage'))
 const ManageUnitCatalogItemsPage = lazy(() => import('@/pages/pharmacy/maintenance/ManageUnitCatalogItemsPage'))
@@ -129,6 +138,16 @@ const ApplDrugCatalogPage = lazy(() => import('@/pages/pharmacy/catalog/ApplDrug
 const ApplNonDrugCatalogPage = lazy(() => import('@/pages/pharmacy/catalog/ApplNonDrugCatalogPage'))
 const LpDrugCatalogPage = lazy(() => import('@/pages/pharmacy/catalog/LpDrugCatalogPage'))
 const LpNonDrugCatalogPage = lazy(() => import('@/pages/pharmacy/catalog/LpNonDrugCatalogPage'))
+const ItemQRGeneratorPage = lazy(() => import('@/pages/pharmacy/item-tracking/ItemQRGeneratorPage'))
+const ItemListPage = lazy(() => import('@/pages/pharmacy/item-tracking/ItemListPage'))
+const ItemDetailPage = lazy(() => import('@/pages/pharmacy/item-tracking/ItemDetailPage'))
+const ManualItemRegistrationPage = lazy(() => import('@/pages/pharmacy/item-tracking/ManualItemRegistrationPage'))
+
+const FacilityBorrowPage = lazy(() => import('@/pages/pharmacy/distribution/FacilityBorrowPage'))
+const FacilityLendPage = lazy(() => import('@/pages/pharmacy/distribution/FacilityLendPage'))
+const LoanLedgerPage = lazy(() => import('@/pages/pharmacy/distribution/LoanLedgerPage'))
+const InterfacilityListPage = lazy(() => import('@/pages/pharmacy/distribution/InterfacilityListPage'))
+const InterfacilityDetailPage = lazy(() => import('@/pages/pharmacy/distribution/InterfacilityDetailPage'))
 
 // Fallback loading component
 const PageLoader = () => <LoadingOverlay fullScreen message="Loading page..." />
@@ -917,9 +936,8 @@ const router = createBrowserRouter(
         { path: 'oxygen/qr-generator', element: <Navigate to={ROUTES.PHARMACY_OXYGEN_QR_GEN} replace /> },
 
         // Distribution Redirects (Gold Standard)
-        { path: 'distribution/requests', element: <Navigate to={ROUTES.PHARMACY_DISTRIBUTION} replace /> },
-        { path: 'distribution/inter-facility', element: <Navigate to={ROUTES.PHARMACY_INTER_FACILITY} replace /> },
-        { path: 'distribution/intra-facility', element: <Navigate to={ROUTES.PHARMACY_INTRA_FACILITY} replace /> },
+        { path: 'pharmacy/distribution', element: <Navigate to={ROUTES.PHARMACY_DISTRIBUTION_REQUESTS} replace /> },
+
 
         // Inventory sub-pages
         {
@@ -978,17 +996,37 @@ const router = createBrowserRouter(
           element: (
             <ProtectedRoute>
               <Suspense fallback={<PageLoader />}>
-                <ModulePlaceholderPage />
+                <BufferNonDrugInventoryPage />
               </Suspense>
             </ProtectedRoute>
           ),
         },
         {
-          path: 'pharmacy/inventory/movement',
+          path: ROUTES.PHARMACY_ITEM_MOVEMENT,
           element: (
             <ProtectedRoute>
               <Suspense fallback={<PageLoader />}>
-                <ModulePlaceholderPage />
+                <ItemMovementPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.PHARMACY_PHYSICAL_RECEIVING,
+          element: (
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <PhysicalReceivingPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.PHARMACY_PHYSICAL_ISSUING,
+          element: (
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <PhysicalIssuingPage />
               </Suspense>
             </ProtectedRoute>
           ),
@@ -1006,6 +1044,46 @@ const router = createBrowserRouter(
         {
           path: 'pharmacy/inventory/expiry',
           element: <Navigate to={ROUTES.PHARMACY_NEAR_EXPIRY} replace />,
+        },
+        {
+          path: ROUTES.PHARMACY_ITEM_REGISTRY,
+          element: (
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <ItemListPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.PHARMACY_ITEM_DETAILS,
+          element: (
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <ItemDetailPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.PHARMACY_ITEM_REGISTRATION,
+          element: (
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <ManualItemRegistrationPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.PHARMACY_ITEM_QR_GEN,
+          element: (
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <ItemQRGeneratorPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
         },
         // Procurement routes
         {
@@ -1131,7 +1209,7 @@ const router = createBrowserRouter(
         },
         // Distribution routes
         {
-          path: 'pharmacy/distribution',
+          path: ROUTES.PHARMACY_DISTRIBUTION_REQUESTS.substring(1),
           element: (
             <ProtectedRoute>
               <Suspense fallback={<PageLoader />}>
@@ -1141,21 +1219,93 @@ const router = createBrowserRouter(
           ),
         },
         {
-          path: 'pharmacy/distribution/inter-facility',
+          path: ROUTES.PHARMACY_INTER_FACILITY_LIST,
           element: (
             <ProtectedRoute>
               <Suspense fallback={<PageLoader />}>
-                <ModulePlaceholderPage />
+                <InterfacilityListPage />
               </Suspense>
             </ProtectedRoute>
           ),
         },
         {
-          path: 'pharmacy/distribution/intra-facility',
+          path: ROUTES.PHARMACY_INTER_FACILITY_DETAIL,
           element: (
             <ProtectedRoute>
               <Suspense fallback={<PageLoader />}>
-                <ModulePlaceholderPage />
+                <InterfacilityDetailPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.PHARMACY_DISTRIBUTION_BORROW,
+          element: (
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <FacilityBorrowPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.PHARMACY_DISTRIBUTION_LEND,
+          element: (
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <FacilityLendPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.PHARMACY_DISTRIBUTION_LOAN_LEDGER,
+          element: (
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <LoanLedgerPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.PHARMACY_INTRA_FACILITY_LIST,
+          element: (
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <IntrafacilityRequestPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.PHARMACY_INTRA_FACILITY_DETAIL,
+          element: (
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <IntrafacilityDetailPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+
+
+        {
+          path: 'pharmacy/distribution/intra-facility/issue',
+          element: (
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <PharmacyIssuePage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: 'pharmacy/distribution/intra-facility/:id',
+          element: (
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <IntrafacilityDetailPage />
               </Suspense>
             </ProtectedRoute>
           ),
@@ -1259,6 +1409,16 @@ const router = createBrowserRouter(
             <ProtectedRoute>
               <Suspense fallback={<PageLoader />}>
                 <StockLocationPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: ROUTES.PHARMACY_STOCK_LOCATION_ITEMS,
+          element: (
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <StockLocationItemsPage />
               </Suspense>
             </ProtectedRoute>
           ),

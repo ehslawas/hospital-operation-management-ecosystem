@@ -22,28 +22,7 @@ export const Sidebar: React.FC = () => {
   const isMobile = useIsMobile(1024)
 
 
-  // Debug menus
-  useEffect(() => {
-    if (menus.length > 0) {
-      console.log('[Sidebar] Current Menus Logic Path:')
-      console.table(menus.map(m => ({
-        label: m.label,
-        path: m.path,
-        hasChildren: m.children && m.children.length > 0,
-        isHeader: !!m.isHeader
-      })))
 
-      // Also log the first level of children for the header
-      if (menus[0].children) {
-        console.log('[Sidebar] Header Children:')
-        console.table(menus[0].children.map(m => ({
-          label: m.label,
-          path: m.path,
-          hasChildren: m.children && m.children.length > 0
-        })))
-      }
-    }
-  }, [menus])
 
   // Auto-fetch menus on mount if empty but user logged in AND Supabase session is ready
   const supabaseSessionReady = useAuthStore((state) => state.supabaseSessionReady)
@@ -113,22 +92,50 @@ export const Sidebar: React.FC = () => {
 
   // Auto-expand items with active children on mount and path change
   useEffect(() => {
+    if (!menus || menus.length === 0) return
+
+    // Helper defined inside effect to avoid dependency issues
+    const isItemActive = (item: MenuItem): boolean => {
+      if (!item.children || item.children.length === 0) return false
+      return item.children.some((child) => {
+        const childMatch = currentPath === child.path || currentPath.startsWith(child.path + '/')
+        return childMatch || isItemActive(child)
+      })
+    }
+
     const newExpanded = new Set<string>()
 
-    const checkAndExpand = (items: MenuItem[]) => {
+    const traverseAndExpand = (items: MenuItem[]) => {
       items.forEach((item) => {
         if (item.children && item.children.length > 0) {
-          if (hasActiveChild(item)) {
+          if (isItemActive(item)) {
             newExpanded.add(item.id)
           }
-          checkAndExpand(item.children)
+          traverseAndExpand(item.children)
         }
       })
     }
 
-    checkAndExpand(menus)
-    setExpandedItems(newExpanded)
-  }, [currentPath, menus, hasActiveChild])
+    traverseAndExpand(menus)
+
+    // Safety check: Prevent infinite update loops by checking if state actually changed
+    let shouldUpdate = false
+    if (newExpanded.size !== expandedItems.size) {
+      shouldUpdate = true
+    } else {
+      for (const id of newExpanded) {
+        if (!expandedItems.has(id)) {
+          shouldUpdate = true
+          break
+        }
+      }
+    }
+
+    if (shouldUpdate) {
+      setExpandedItems(newExpanded)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPath, menus])
 
   const toggleExpanded = React.useCallback((id: string) => {
     setExpandedItems((prev) => {

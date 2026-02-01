@@ -8,6 +8,7 @@ import type { ApiResponse, PaginatedResponse } from '@/types'
 import type {
   UnitOfMeasure,
   StockLocation,
+  StockLocationWithRelations,
   StockVerification,
   StockVerificationWithRelations,
   StockVerificationItem,
@@ -78,6 +79,7 @@ export async function getStockLocations(
   filter?: {
     location_type?: string
     is_active?: boolean
+    parent_location_id?: string | null
   }
 ): Promise<ApiResponse<StockLocation[]>> {
   try {
@@ -92,6 +94,14 @@ export async function getStockLocations(
 
     if (filter?.is_active !== undefined) {
       query = query.eq('is_active', filter.is_active)
+    }
+
+    if (filter?.parent_location_id !== undefined) {
+      if (filter.parent_location_id === null) {
+        query = query.is('parent_location_id', null)
+      } else {
+        query = query.eq('parent_location_id', filter.parent_location_id)
+      }
     }
 
     const { data, error } = await query.order('location_name', { ascending: true })
@@ -334,7 +344,7 @@ export async function completeStockVerification(
   approverId: string
 ): Promise<ApiResponse<StockVerification>> {
   try {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('pharmacy_stock_verifications')
       .update({
         status: 'completed',
@@ -344,8 +354,6 @@ export async function completeStockVerification(
       .eq('id', verificationId)
       .select()
       .single()
-
-    if (error) throw error
 
     return {
       data: data as StockVerification,
@@ -358,5 +366,47 @@ export async function completeStockVerification(
       error: error instanceof Error ? error.message : 'Failed to complete stock verification',
     }
   }
+}
+
+/**
+ * Build a hierarchical tree from a flat list of stock locations
+ */
+export function buildLocationTree(locations: StockLocation[]): StockLocationWithRelations[] {
+  const map: { [key: string]: StockLocationWithRelations } = {}
+  const roots: StockLocationWithRelations[] = []
+
+  // Create map entries for all locations
+  locations.forEach(loc => {
+    map[loc.id] = { ...loc, children: [] }
+  })
+
+  // Build the tree
+  locations.forEach(loc => {
+    if (loc.parent_location_id && map[loc.parent_location_id]) {
+      map[loc.parent_location_id].children?.push(map[loc.id])
+    } else {
+      roots.push(map[loc.id])
+    }
+  })
+
+  return roots
+}
+
+/**
+ * Get the full path of a location from root to the specified location
+ */
+export function getLocationPath(locationId: string, allLocations: StockLocation[]): StockLocation[] {
+  const path: StockLocation[] = []
+  const map = new Map(allLocations.map(loc => [loc.id, loc]))
+
+  let currentId: string | undefined = locationId
+  while (currentId) {
+    const loc = map.get(currentId)
+    if (!loc) break
+    path.unshift(loc)
+    currentId = loc.parent_location_id
+  }
+
+  return path
 }
 

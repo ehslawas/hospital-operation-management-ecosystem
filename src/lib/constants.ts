@@ -385,6 +385,12 @@ export const ROUTES = {
   PHARMACY_LPO_CREATE: '/pharmacy/procurement/lpo/create',
   PHARMACY_DELIVERY: '/pharmacy/procurement/delivery',
   PHARMACY_RECEIVING: '/pharmacy/procurement/receiving',
+  PHARMACY_PHYSICAL_RECEIVING: '/pharmacy/inventory/receiving',
+  PHARMACY_PHYSICAL_ISSUING: '/pharmacy/inventory/issuing',
+  PHARMACY_ITEM_REGISTRY: '/pharmacy/inventory/registry',
+  PHARMACY_ITEM_REGISTRATION: '/pharmacy/inventory/registry/new',
+  PHARMACY_ITEM_DETAILS: '/pharmacy/inventory/registry/:id',
+  PHARMACY_ITEM_QR_GEN: '/pharmacy/item-tracking/qr-gen',
   PHARMACY_PAYMENT: '/pharmacy/procurement/payment',
   PHARMACY_ORDER_TRACKING: '/pharmacy/procurement/tracking',
   PHARMACY_PENALTY: '/pharmacy/procurement/penalty',
@@ -392,9 +398,18 @@ export const ROUTES = {
 
   // Distribution
   PHARMACY_DISTRIBUTION: '/pharmacy/distribution',
-  PHARMACY_INTER_FACILITY: '/pharmacy/distribution/inter-facility',
+  PHARMACY_INTRA_FACILITY_LIST: '/pharmacy/distribution/intra-facility',
   PHARMACY_INTRA_FACILITY: '/pharmacy/distribution/intra-facility',
-  PHARMACY_TRANSFER_REQUEST: '/pharmacy/distribution/transfer-request',
+  PHARMACY_INTRA_FACILITY_ISSUE: '/pharmacy/distribution/intra-facility/issue',
+  PHARMACY_INTRA_FACILITY_DETAIL: '/pharmacy/distribution/intra-facility/:id',
+  // Inter-facility
+  PHARMACY_INTER_FACILITY_LIST: '/pharmacy/distribution/inter-facility',
+  PHARMACY_INTER_FACILITY_DETAIL: '/pharmacy/distribution/inter-facility/:id',
+  PHARMACY_DISTRIBUTION_BORROW: '/pharmacy/distribution/inter-facility/borrow',
+  PHARMACY_DISTRIBUTION_LEND: '/pharmacy/distribution/inter-facility/lend',
+  PHARMACY_DISTRIBUTION_LOAN_LEDGER: '/pharmacy/distribution/inter-facility/ledger',
+  PHARMACY_DISTRIBUTION_REQUESTS: '/pharmacy/distribution/requests',
+  PHARMACY_TRANSFER_REQUEST: '/pharmacy/distribution/intra-facility',
 
   // Catalog
   PHARMACY_CATALOG: '/pharmacy/catalog',
@@ -411,6 +426,7 @@ export const ROUTES = {
   PHARMACY_UNIT_CATALOG: '/pharmacy/maintenance/units',
   PHARMACY_UNIT_CATALOG_ITEMS: '/pharmacy/maintenance/units/:id/items',
   PHARMACY_STOCK_LOCATION: '/pharmacy/maintenance/locations',
+  PHARMACY_STOCK_LOCATION_ITEMS: '/pharmacy/maintenance/locations/:id/items',
   PHARMACY_STOCK_VERIFICATION: '/pharmacy/maintenance/verification',
 
   // Reports & Logs

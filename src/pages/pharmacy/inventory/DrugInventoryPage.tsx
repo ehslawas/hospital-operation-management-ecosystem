@@ -6,6 +6,7 @@ import { getDrugCatalog as getDrugs } from '@/services/pharmacy/drugCatalogServi
 import { getDrugCategories } from '@/services/pharmacy/inventoryService'
 import type { DrugWithRelations, DrugCategory } from '@/types/pharmacy'
 import type { DrugCatalogFilter } from '@/services/pharmacy/drugCatalogService'
+import { DrugDetailsModal } from './components/DrugDetailsModal'
 
 export const DrugInventoryPage: React.FC = () => {
   const { user } = useAuthStore()
@@ -23,6 +24,10 @@ export const DrugInventoryPage: React.FC = () => {
   const [categoryId, setCategoryId] = useState('')
   const [therapeuticClassId, setTherapeuticClassId] = useState('')
   const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('all')
+
+  // Details Modal
+  const [selectedDrug, setSelectedDrug] = useState<DrugWithRelations | null>(null)
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false)
 
   // Pagination
   const [page, setPage] = useState(1)
@@ -106,6 +111,12 @@ export const DrugInventoryPage: React.FC = () => {
     }
     const cfg = map[stockStatus] || { color: 'secondary', label: stockStatus }
     return <Badge variant={cfg.color as any}>{cfg.label}</Badge>
+  }
+
+  const handleDrugClick = (drug: DrugWithRelations) => {
+    console.log('Drug clicked:', drug.drug_name, drug.id)
+    setSelectedDrug(drug)
+    setIsDetailsModalOpen(true)
   }
 
   return (
@@ -227,7 +238,12 @@ export const DrugInventoryPage: React.FC = () => {
                       {drug.drug_code}
                     </TableCell>
                     <TableCell className="text-sm font-medium text-gray-900">
-                      {drug.drug_name}
+                      <button
+                        onClick={() => handleDrugClick(drug)}
+                        className="text-teal-600 hover:text-teal-800 hover:underline text-left transition-colors duration-150"
+                      >
+                        {drug.drug_name}
+                      </button>
                     </TableCell>
                     <TableCell className="text-sm text-gray-600">
                       {drug.generic_name || '—'}
@@ -289,6 +305,13 @@ export const DrugInventoryPage: React.FC = () => {
           )}
         </>
       )}
+
+      {/* Item Details Modal */}
+      <DrugDetailsModal
+        isOpen={isDetailsModalOpen}
+        onClose={() => setIsDetailsModalOpen(false)}
+        drug={selectedDrug}
+      />
     </div>
   )
 }

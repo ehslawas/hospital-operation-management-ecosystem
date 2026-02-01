@@ -27,7 +27,7 @@ export type DrugDosageForm =
 
 export type ItemStatus = 'active' | 'inactive'
 export type BatchStatus = 'available' | 'quarantine' | 'expired' | 'depleted'
-export type LocationType = 'warehouse' | 'pharmacy' | 'ward' | 'cold_room' | 'controlled'
+export type LocationType = 'warehouse' | 'pharmacy' | 'ward' | 'cold_room' | 'controlled' | 'unit' | 'store' | 'zone' | 'fridge' | 'shelf' | 'bin'
 export type TemperatureRequirement = 'ambient' | '2-8C' | '-20C' | '-80C'
 
 export type StockTransactionType =
@@ -61,6 +61,7 @@ export type TransferStatus =
   | 'received'
   | 'completed'
   | 'rejected'
+  | 'cancelled'
 
 export type TransferType = 'inter_facility' | 'intra_facility'
 
@@ -280,10 +281,11 @@ export interface StockBatch extends BaseEntity {
 }
 
 export interface StockBatchWithRelations extends StockBatch {
-  drug?: Drug
-  non_drug?: NonDrug
+  drug?: DrugWithRelations
+  non_drug?: NonDrugWithRelations
   location?: StockLocation
   supplier?: Supplier
+  unit_catalog_item?: UnitCatalogItem
 }
 
 export interface StockTransaction extends BaseEntity {
@@ -317,6 +319,13 @@ export interface StockTransactionWithRelations extends StockTransaction {
 // =====================================================
 // INVENTORY SUMMARY TYPES
 // =====================================================
+
+export interface InventoryStats {
+  totalItems: number
+  outOfStock: number
+  expiringSoon: number // 90 days
+  totalValue: number
+}
 
 export interface InventorySummary {
   total_items: number
@@ -610,6 +619,10 @@ export interface StockLocationItem {
   unit_catalog_item_id: string
   min_stock: number
   max_stock: number
+  shelf?: string
+  row_name?: string
+  level?: string
+  column_name?: string
   is_active: boolean
   created_at: string
   updated_at: string
@@ -617,6 +630,7 @@ export interface StockLocationItem {
 
 export interface StockLocationItemWithRelations extends StockLocationItem {
   unit_catalog_item?: UnitCatalogItemWithRelations
+  location?: StockLocation
 }
 
 export interface BudgetWithRelations extends Budget {
@@ -1148,6 +1162,8 @@ export interface DepartmentBreakdownItem {
 // DISTRIBUTION TYPES
 // =====================================================
 
+export type TransferFlowDirection = 'request' | 'issue' | 'borrow' | 'lend'
+
 export interface TransferRequest extends BaseEntity {
   transfer_number: string
   transfer_type: TransferType
@@ -1168,6 +1184,13 @@ export interface TransferRequest extends BaseEntity {
   received_at?: string
   notes?: string
   rejection_reason?: string
+
+  // Enhanced fields
+  flow_direction?: TransferFlowDirection
+  from_facility_id?: string
+  to_facility_id?: string
+  issued_by?: string
+  issued_at?: string
 }
 
 export interface TransferRequestWithRelations extends TransferRequest {
@@ -1177,10 +1200,13 @@ export interface TransferRequestWithRelations extends TransferRequest {
   to_department?: Department
   from_location?: StockLocation
   to_location?: StockLocation
-  items?: TransferRequestItem[]
+  from_facility?: HospitalFacility | ClinicFacility
+  to_facility?: HospitalFacility | ClinicFacility
+  items?: TransferRequestItemWithRelations[]
   requested_by_user?: User
   approved_by_user?: User
   received_by_user?: User
+  issued_by_user?: User
 }
 
 export interface TransferRequestItem extends BaseEntity {
@@ -1208,6 +1234,60 @@ export interface DistributionSummary {
   completed_this_month: number
   inter_facility_pending: number
   intra_facility_pending: number
+}
+
+export interface LoanRecord extends BaseEntity {
+  hospital_id: string
+  transfer_id?: string
+  loan_number: string
+  loan_type: 'borrowed' | 'lent'
+  counterparty_facility_id: string
+  counterparty_name?: string
+  loan_date: string
+  expected_return_date?: string
+  status: 'active' | 'partial_return' | 'fully_returned' | 'written_off'
+  total_value?: number
+  notes?: string
+  created_by: string
+}
+
+export interface LoanRecordWithRelations extends LoanRecord {
+  transfer?: TransferRequest
+  counterparty_facility?: HospitalFacility | ClinicFacility
+  items?: LoanRecordItem[] // This is a virtual relation, technically it links back to TransferItems often
+  returns?: LoanReturn[]
+  created_by_user?: User
+}
+
+export interface LoanRecordItem { // Virtual item for display
+  id: string
+  loan_id: string
+  item_name: string
+  quantity_loaned: number
+  quantity_returned: number
+  balance: number
+}
+
+export interface LoanReturn extends BaseEntity {
+  loan_id: string
+  return_number: string
+  return_date: string
+  received_by?: string
+  notes?: string
+  created_by: string
+}
+
+export interface LoanReturnItem extends BaseEntity {
+  return_id: string
+  loan_item_id: string
+  quantity_returned: number
+  condition_notes?: string
+}
+
+export interface LoanReturnWithRelations extends LoanReturn {
+  items?: LoanReturnItem[]
+  received_by_user?: User
+  created_by_user?: User
 }
 
 // =====================================================
@@ -1582,6 +1662,8 @@ export interface UnitCatalogItem extends BaseEntity {
   reorder_qty?: number | null
   last_updated_at?: string | null
   last_updated_by?: string | null
+  category_id?: string | null
+  therapeutic_class_id?: string | null
 }
 
 export interface UnitCatalogItemWithRelations extends UnitCatalogItem {
@@ -1592,8 +1674,11 @@ export interface UnitCatalogItemWithRelations extends UnitCatalogItem {
   appl_non_drug?: ApplNonDrug
   lp_drug?: LpDrug
   lp_non_drug?: LpNonDrug
+  unit_category?: DrugCategory
+  unit_therapeutic_class?: DrugCategory
   last_updated_by_user?: User
   catalog?: UnitCatalog
+  current_inventory_count?: number | null
 }
 
 export interface UnitCatalogItemFormData {
@@ -1798,6 +1883,7 @@ export interface TransferRequestFormData {
     item_id: string
     batch_id?: string
     quantity: number
+    notes?: string
   }[]
 }
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Search, Package, Plus, Check, Loader2, X } from 'lucide-react'
+import { Search, Package, Plus, Check, Loader2, Trash2 } from 'lucide-react'
 import { Modal, Button, Input, Badge, Spinner } from '@/components/ui'
 import { searchCatalogItems } from '@/services/pharmacy/unitCatalogItemService'
 import { useAuthStore } from '@/stores/authStore'
@@ -24,13 +24,14 @@ export const LocationItemSearchModal: React.FC<LocationItemSearchModalProps> = (
     const [submitting, setSubmitting] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
     const [items, setItems] = useState<UnitCatalogItemWithRelations[]>([])
-    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+    // Map of selected items for summary view
+    const [selectedItemsMap, setSelectedItemsMap] = useState<Map<string, UnitCatalogItemWithRelations>>(new Map())
     const [itemType, setItemType] = useState<CatalogItemType | 'all'>('all')
 
     useEffect(() => {
         if (isOpen) {
             void loadItems()
-            setSelectedIds(new Set())
+            setSelectedItemsMap(new Map())
             setSearchQuery('')
         }
     }, [isOpen, itemType])
@@ -64,21 +65,31 @@ export const LocationItemSearchModal: React.FC<LocationItemSearchModalProps> = (
         void loadItems()
     }
 
-    const toggleSelection = (id: string) => {
-        const newSelected = new Set(selectedIds)
-        if (newSelected.has(id)) {
-            newSelected.delete(id)
+    const toggleSelection = (item: UnitCatalogItemWithRelations) => {
+        const newMap = new Map(selectedItemsMap)
+        if (newMap.has(item.id)) {
+            newMap.delete(item.id)
         } else {
-            newSelected.add(id)
+            newMap.set(item.id, item)
         }
-        setSelectedIds(newSelected)
+        setSelectedItemsMap(newMap)
+    }
+
+    const clearSelection = () => {
+        setSelectedItemsMap(new Map())
+    }
+
+    const removeSelectedItem = (id: string) => {
+        const newMap = new Map(selectedItemsMap)
+        newMap.delete(id)
+        setSelectedItemsMap(newMap)
     }
 
     const handleConfirm = async () => {
-        if (selectedIds.size === 0) return
+        if (selectedItemsMap.size === 0) return
         setSubmitting(true)
         try {
-            await onSelect(Array.from(selectedIds))
+            await onSelect(Array.from(selectedItemsMap.keys()))
             onClose()
         } catch (err) {
             toast.error('Failed to add items')
@@ -93,7 +104,7 @@ export const LocationItemSearchModal: React.FC<LocationItemSearchModalProps> = (
             onClose={onClose}
             title="Add Items from Unit Catalog"
             description="Select drugs or non-drugs from the authorized catalog to associate with this location."
-            size="xl"
+            size="4xl"
         >
             <div className="space-y-4">
                 {/* Filters */}
@@ -103,7 +114,7 @@ export const LocationItemSearchModal: React.FC<LocationItemSearchModalProps> = (
                             placeholder="Search by name or code..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            icon={<Search className="w-4 h-4" />}
+                            leftIcon={<Search className="w-4 h-4" />}
                         />
                     </form>
                     <div className="flex gap-2">
@@ -142,36 +153,53 @@ export const LocationItemSearchModal: React.FC<LocationItemSearchModalProps> = (
                             </thead>
                             <tbody className="divide-y">
                                 {items.map((item) => {
-                                    const isSelected = selectedIds.has(item.id)
-                                    const name = item.item_type === 'drug' ? item.drug?.drug_name : item.non_drug?.item_name
-                                    const code = item.item_type === 'drug' ? item.drug?.drug_code : item.non_drug?.item_code
+                                    const isSelected = selectedItemsMap.has(item.id)
+                                    const name =
+                                        item.drug?.drug_name ||
+                                        item.non_drug?.item_name ||
+                                        item.contract?.item_name ||
+                                        item.appl_drug?.item_name ||
+                                        item.appl_non_drug?.item_name ||
+                                        item.lp_drug?.item_name ||
+                                        item.lp_non_drug?.item_name ||
+                                        'Unknown Item'
+
+                                    const code =
+                                        item.drug?.drug_code ||
+                                        item.non_drug?.item_code ||
+                                        item.contract?.item_code ||
+                                        item.appl_drug?.item_code ||
+                                        item.appl_non_drug?.item_code ||
+                                        item.lp_drug?.item_code ||
+                                        item.lp_non_drug?.item_code ||
+                                        'N/A'
 
                                     return (
                                         <tr
                                             key={item.id}
-                                            className={`hover:bg-blue-50 cursor-pointer transition-colors ${isSelected ? 'bg-blue-50/50' : ''
+                                            className={`hover:bg-teal-50 cursor-pointer transition-colors ${isSelected ? 'bg-teal-50/50' : ''
                                                 }`}
-                                            onClick={() => toggleSelection(item.id)}
+                                            onClick={() => toggleSelection(item)}
                                         >
-                                            <td className="px-4 py-3">
+                                            <td className="px-4 py-4">
                                                 <div
                                                     className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isSelected
-                                                        ? 'bg-blue-600 border-blue-600'
+                                                        ? 'bg-teal-600 border-teal-600'
                                                         : 'bg-white border-gray-300'
                                                         }`}
                                                 >
                                                     {isSelected && <Check className="w-3 h-3 text-white" />}
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-3">
+                                            <td className="px-4 py-4">
                                                 <div className="flex items-center gap-3">
                                                     <Package className="w-4 h-4 text-gray-400" />
                                                     <span className="font-medium text-gray-900">{name}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-3 text-gray-500 font-mono text-xs">{code}</td>
-                                            <td className="px-4 py-3">
-                                                <Badge variant={item.item_type === 'drug' ? 'info' : 'warning'} size="sm">
+                                            <td className="px-4 py-4 text-gray-500 font-mono text-xs">{code}</td>
+                                            <td className="px-4 py-4">
+                                                <Badge className={item.item_type === 'drug' ? 'bg-teal-50 text-teal-700 border-teal-100' : 'bg-amber-50 text-amber-700 border-amber-100'} size="sm">
                                                     {item.item_type === 'drug' ? 'Drug' : 'Non-Drug'}
                                                 </Badge>
                                             </td>
@@ -188,10 +216,69 @@ export const LocationItemSearchModal: React.FC<LocationItemSearchModalProps> = (
                     )}
                 </div>
 
+                {/* Selected Items Summary */}
+                {selectedItemsMap.size > 0 && (
+                    <div className="bg-teal-50/50 rounded-lg border border-teal-100 p-4">
+                        <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-sm font-semibold text-teal-900 flex items-center gap-2">
+                                <Check className="w-4 h-4" />
+                                Selected Items ({selectedItemsMap.size})
+                            </h4>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={clearSelection}
+                                className="h-6 text-xs text-teal-600 hover:text-teal-800 hover:bg-teal-100"
+                            >
+                                Clear All
+                            </Button>
+                        </div>
+                        <div className="flex flex-wrap gap-2 max-h-[120px] overflow-y-auto">
+                            {Array.from(selectedItemsMap.values()).map(item => {
+                                const name =
+                                    item.drug?.drug_name ||
+                                    item.non_drug?.item_name ||
+                                    item.contract?.item_name ||
+                                    item.appl_drug?.item_name ||
+                                    item.appl_non_drug?.item_name ||
+                                    item.lp_drug?.item_name ||
+                                    item.lp_non_drug?.item_name ||
+                                    'Unknown Item'
+
+                                const code =
+                                    item.drug?.drug_code ||
+                                    item.non_drug?.item_code ||
+                                    item.contract?.item_code ||
+                                    item.appl_drug?.item_code ||
+                                    item.appl_non_drug?.item_code ||
+                                    item.lp_drug?.item_code ||
+                                    item.lp_non_drug?.item_code ||
+                                    'N/A'
+                                return (
+                                    <div key={item.id} className="flex items-center gap-2 bg-white border border-teal-200 rounded-md pl-3 pr-1 py-1.5 shadow-sm">
+                                        <div className="flex flex-col">
+                                            <span className="text-xs font-medium text-slate-700 max-w-[200px] truncate" title={name}>{name}</span>
+                                            <span className="text-[10px] text-slate-500 font-mono">{code}</span>
+                                        </div>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => removeSelectedItem(item.id)}
+                                            className="h-6 w-6 p-0 rounded-full hover:bg-red-50 hover:text-red-600 ml-1"
+                                        >
+                                            <Trash2 className="w-3 h-3" />
+                                        </Button>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </div>
+                )}
+
                 {/* Footer */}
                 <div className="flex items-center justify-between pt-4 border-t">
                     <span className="text-sm text-gray-500">
-                        {selectedIds.size} item(s) selected
+                        {items.length} result(s) found
                     </span>
                     <div className="flex gap-3">
                         <Button variant="ghost" onClick={onClose} disabled={submitting}>
@@ -199,8 +286,8 @@ export const LocationItemSearchModal: React.FC<LocationItemSearchModalProps> = (
                         </Button>
                         <Button
                             onClick={handleConfirm}
-                            disabled={selectedIds.size === 0 || submitting}
-                            className="min-w-[120px]"
+                            disabled={selectedItemsMap.size === 0 || submitting}
+                            className="bg-teal-600 hover:bg-teal-700 text-white min-w-[120px]"
                         >
                             {submitting ? (
                                 <>

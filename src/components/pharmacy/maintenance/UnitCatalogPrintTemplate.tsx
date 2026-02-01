@@ -60,24 +60,33 @@ export const UnitCatalogPrintTemplate = forwardRef<HTMLDivElement, UnitCatalogPr
             const applDrug = item.appl_drug || itemAny.appl_drug
             const lpDrug = item.lp_drug || itemAny.lp_drug
 
-            // Try to get category name from nested object first (most reliable), then fallback to ID lookups
+            // Try to get category name from:
+            // 1. Unit catalog override (most specific)
+            // 2. Nested drug object (master data)
+            // 3. ID lookup (fallback)
             let fukkmName = '-'
-            if (drugWithRelations?.category?.category_name) {
+            if (item.unit_category?.category_name) {
+                fukkmName = item.unit_category.category_name
+            } else if (drugWithRelations?.category?.category_name) {
                 fukkmName = drugWithRelations.category.category_name
             } else if (drug?.category_id) {
                 fukkmName = categories.find(c => c.id === drug.category_id)?.category_name || '-'
             }
 
             let therapeuticName = '-'
-            if (drugWithRelations?.therapeutic_class?.category_name) {
+            if (item.unit_therapeutic_class?.category_name) {
+                therapeuticName = item.unit_therapeutic_class.category_name
+            } else if (drugWithRelations?.therapeutic_class?.category_name) {
                 therapeuticName = drugWithRelations.therapeutic_class.category_name
+            } else if (item.therapeutic_class_id) {
+                therapeuticName = categories.find(c => c.id === item.therapeutic_class_id)?.category_name || '-'
             } else if (drug?.therapeutic_class_id) {
                 therapeuticName = categories.find(c => c.id === drug.therapeutic_class_id)?.category_name || '-'
             }
 
             return {
-                code: drug?.drug_code || applDrug?.item_code || lpDrug?.item_code || contract?.contract_number || '-',
-                name: drug?.drug_name || applDrug?.item_name || lpDrug?.item_name || contract?.item_name || '-',
+                code: drug?.drug_code || contract?.item_code || applDrug?.item_code || lpDrug?.item_code || contract?.contract_number || '-',
+                name: drug?.drug_name || contract?.item_name || applDrug?.item_name || lpDrug?.item_name || '-',
                 fukkm: fukkmName,
                 therapeutic: therapeuticName
             }
@@ -87,8 +96,8 @@ export const UnitCatalogPrintTemplate = forwardRef<HTMLDivElement, UnitCatalogPr
             const lpNonDrug = item.lp_non_drug || itemAny.lp_non_drug
 
             return {
-                code: nonDrug?.item_code || applNonDrug?.item_code || lpNonDrug?.item_code || contract?.contract_number || '-',
-                name: nonDrug?.item_name || applNonDrug?.item_name || lpNonDrug?.item_name || contract?.item_name || '-',
+                code: nonDrug?.item_code || contract?.item_code || applNonDrug?.item_code || lpNonDrug?.item_code || contract?.contract_number || '-',
+                name: nonDrug?.item_name || contract?.item_name || applNonDrug?.item_name || lpNonDrug?.item_name || '-',
                 fukkm: '-', // Not applicable
                 therapeutic: '-' // Not applicable
             }

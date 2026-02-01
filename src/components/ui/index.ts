@@ -6,6 +6,9 @@ export type { InputProps } from './Input'
 
 export { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './Select'
 export type { SelectProps, SelectOption } from './Select'
+export { CustomSelect } from './CustomSelect'
+export type { CustomSelectProps } from './CustomSelect'
+
 
 // Export Table (explicitly exported below)
 export * from './Tabs'
@@ -57,9 +60,11 @@ export type { ResponsiveImageProps, LogoImageProps } from './ResponsiveImage'
 export { DynamicTable } from './DynamicTable'
 export type { DynamicTableProps, DynamicColumn } from './DynamicTable'
 
-export { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from './dialog'
+export { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter, DialogDescription } from './dialog'
 export { Label } from './label'
 export { ActionTooltip } from './Tooltip'
 export { OfficialJataNegara } from './OfficialJataNegara'
 export { Checkbox } from './checkbox'
 export { Separator } from './separator'
+export { ScrollArea } from './scroll-area'
+export { Skeleton, SkeletonText, SkeletonCard, SkeletonTable, SkeletonButton, SkeletonAvatar, SkeletonForm } from './skeleton'

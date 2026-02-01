@@ -55,9 +55,11 @@ export async function getCatalogItems(
       .select(
         `
         *,
+        unit_category:drug_categories!category_id(*),
+        unit_therapeutic_class:drug_categories!therapeutic_class_id(*),
         drug:drugs${drugJoinType}(id, drug_code, drug_name, generic_name, brand_name, unit_of_measure, status, packaging_description, sku, pku, procurement_vote, category:drug_categories!category_id(*), therapeutic_class:drug_categories!therapeutic_class_id(*)),
         non_drug:non_drugs(id, item_code, item_name, unit_of_measure, status, packaging_description, sku, pku, procurement_vote),
-        contract:contracts(id, contract_number, item_name, supplier_name),
+        contract:contracts(id, contract_number, item_code, item_name, supplier_name, packaging_description, unit),
         appl_drug:appl_drugs(id, item_code, item_name, packaging_description, price),
         appl_non_drug:appl_non_drugs(id, item_code, item_name, packaging_description, price),
         lp_drug:lp_drugs(id, item_code, item_name, packaging_description, price),
@@ -122,9 +124,11 @@ export async function getCatalogItem(
       .select(
         `
         *,
+        unit_category:drug_categories!category_id(*),
+        unit_therapeutic_class:drug_categories!therapeutic_class_id(*),
         drug:drugs(id, drug_code, drug_name, generic_name, brand_name, unit_of_measure, status, packaging_description, sku, pku, procurement_vote, category_id, therapeutic_class_id, category:drug_categories!category_id(*), therapeutic_class:drug_categories!therapeutic_class_id(*)),
         non_drug:non_drugs(id, item_code, item_name, unit_of_measure, status, packaging_description, sku, pku, procurement_vote, category_id),
-        contract:contracts(id, contract_number, item_name, supplier_name),
+        contract:contracts(id, contract_number, item_code, item_name, supplier_name, packaging_description, unit),
         appl_drug:appl_drugs(id, item_code, item_name, packaging_description, price),
         appl_non_drug:appl_non_drugs(id, item_code, item_name, packaging_description, price),
         lp_drug:lp_drugs(id, item_code, item_name, packaging_description, price),
@@ -178,6 +182,8 @@ export async function addCatalogItem(
       lp_drug_id: itemData.lp_drug_id || null,
       lp_non_drug_id: itemData.lp_non_drug_id || null,
       procurement_vote: itemData.procurement_vote || null,
+      category_id: itemData.category_id || null,
+      therapeutic_class_id: itemData.therapeutic_class_id || null,
     }
 
     if (itemData.item_type === 'drug') {
@@ -258,6 +264,8 @@ export async function addCatalogItems(
         lp_drug_id: itemData.lp_drug_id || null,
         lp_non_drug_id: itemData.lp_non_drug_id || null,
         procurement_vote: itemData.procurement_vote || null,
+        category_id: itemData.category_id || null,
+        therapeutic_class_id: itemData.therapeutic_class_id || null,
       }
 
       if (itemData.item_type === 'drug') {
@@ -351,30 +359,14 @@ export async function updateCatalogItem(
       updateData.reorder_level = updates.reorder_level
     }
 
-    // Update drug/non-drug classifications if provided
-    if (oldItem.item_type === 'drug' && oldItem.drug_id) {
-      const drugUpdates: any = {}
-      if (updates.category_id !== undefined) drugUpdates.category_id = updates.category_id
-      if (updates.therapeutic_class_id !== undefined) drugUpdates.therapeutic_class_id = updates.therapeutic_class_id
-      if (updates.procurement_vote !== undefined) drugUpdates.procurement_vote = updates.procurement_vote
-
-      if (Object.keys(drugUpdates).length > 0) {
-        const { error: drugError } = await supabase
-          .from('drugs')
-          .update(drugUpdates)
-          .eq('id', oldItem.drug_id)
-
-        if (drugError) throw drugError
-      }
-    } else if (oldItem.item_type === 'non_drug' && oldItem.non_drug_id) {
-      if (updates.procurement_vote !== undefined) {
-        const { error: nonDrugError } = await supabase
-          .from('non_drugs')
-          .update({ procurement_vote: updates.procurement_vote })
-          .eq('id', oldItem.non_drug_id)
-
-        if (nonDrugError) throw nonDrugError
-      }
+    if (updates.category_id !== undefined) {
+      updateData.category_id = updates.category_id || null
+    }
+    if (updates.therapeutic_class_id !== undefined) {
+      updateData.therapeutic_class_id = updates.therapeutic_class_id || null
+    }
+    if (updates.procurement_vote !== undefined) {
+      updateData.procurement_vote = updates.procurement_vote || null
     }
 
     const { data, error } = await supabase
@@ -446,34 +438,31 @@ export async function updateCatalogItem(
     }
 
     // Log classification changes
-    if (oldItem.item_type === 'drug') {
-      const oldDrug = oldItem.drug
-      if (updates.category_id !== undefined && updates.category_id !== oldDrug?.category_id) {
-        await logCatalogItemChange(
-          catalogId,
-          hospitalId,
-          userId,
-          'category_id',
-          oldDrug?.category_id,
-          updates.category_id,
-          itemId,
-          itemName,
-          'Category updated'
-        )
-      }
-      if (updates.therapeutic_class_id !== undefined && updates.therapeutic_class_id !== oldDrug?.therapeutic_class_id) {
-        await logCatalogItemChange(
-          catalogId,
-          hospitalId,
-          userId,
-          'therapeutic_class_id',
-          oldDrug?.therapeutic_class_id,
-          updates.therapeutic_class_id,
-          itemId,
-          itemName,
-          'Therapeutic class updated'
-        )
-      }
+    if (updates.category_id !== undefined && updates.category_id !== oldItem.category_id) {
+      await logCatalogItemChange(
+        catalogId,
+        hospitalId,
+        userId,
+        'category_id',
+        oldItem.category_id,
+        updates.category_id,
+        itemId,
+        itemName,
+        'Category updated'
+      )
+    }
+    if (updates.therapeutic_class_id !== undefined && updates.therapeutic_class_id !== oldItem.therapeutic_class_id) {
+      await logCatalogItemChange(
+        catalogId,
+        hospitalId,
+        userId,
+        'therapeutic_class_id',
+        oldItem.therapeutic_class_id,
+        updates.therapeutic_class_id,
+        itemId,
+        itemName,
+        'Therapeutic class updated'
+      )
     }
 
     // Log procurement vote changes
@@ -654,10 +643,14 @@ async function logCatalogItemChange(
 /**
  * Search all active catalog items for a hospital
  */
+/**
+ * Search all active catalog items for a hospital
+ */
 export async function searchCatalogItems(
   hospitalId: string,
   searchQuery: string,
-  itemType?: CatalogItemType
+  itemType?: CatalogItemType,
+  catalogId?: string
 ): Promise<ApiResponse<UnitCatalogItemWithRelations[]>> {
   try {
     let query = supabase
@@ -665,13 +658,22 @@ export async function searchCatalogItems(
       .select(`
         *,
         drug:drugs(*, category:drug_categories!category_id(*), therapeutic_class:drug_categories!therapeutic_class_id(*)),
-        non_drug:non_drugs(*)
+        non_drug:non_drugs(*),
+        contract:contracts(*),
+        appl_drug:appl_drugs(*),
+        appl_non_drug:appl_non_drugs(*),
+        lp_drug:lp_drugs(*),
+        lp_non_drug:lp_non_drugs(*)
       `)
       .eq('hospital_id', hospitalId)
       .eq('is_active', true)
 
     if (itemType) {
       query = query.eq('item_type', itemType)
+    }
+
+    if (catalogId) {
+      query = query.eq('catalog_id', catalogId)
     }
 
     const { data, error } = await query.limit(100)
@@ -683,14 +685,29 @@ export async function searchCatalogItems(
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
       items = items.filter(item => {
-        const name = item.item_type === 'drug'
-          ? item.drug?.drug_name
-          : item.non_drug?.item_name
-        const code = item.item_type === 'drug'
-          ? item.drug?.drug_code
-          : item.non_drug?.item_code
+        // Resolve name
+        const name =
+          item.drug?.drug_name ||
+          item.non_drug?.item_name ||
+          item.contract?.item_name ||
+          item.appl_drug?.item_name ||
+          item.appl_non_drug?.item_name ||
+          item.lp_drug?.item_name ||
+          item.lp_non_drug?.item_name ||
+          ''
 
-        return name?.toLowerCase().includes(q) || code?.toLowerCase().includes(q)
+        // Resolve code
+        const code =
+          item.drug?.drug_code ||
+          item.non_drug?.item_code ||
+          item.contract?.item_code ||
+          item.appl_drug?.item_code ||
+          item.appl_non_drug?.item_code ||
+          item.lp_drug?.item_code ||
+          item.lp_non_drug?.item_code ||
+          ''
+
+        return name.toLowerCase().includes(q) || code.toLowerCase().includes(q)
       })
     }
 
