@@ -1,0 +1,3394 @@
+import React, { useEffect, useState } from 'react'
+import { useLocation, Link } from 'react-router-dom'
+import { 
+  Activity, 
+  AirVent, 
+  Wind, 
+  AlertTriangle, 
+  Database, 
+  ShoppingCart, 
+  ClipboardList, 
+  FileText,
+  Search,
+  Plus,
+  QrCode,
+  RefreshCw,
+  CheckCircle,
+  Printer,
+  DollarSign,
+  TrendingUp,
+  Percent,
+  Layers,
+  ArrowUpRight,
+  Download,
+  Calendar,
+  ChevronDown,
+  X,
+  Info,
+  Sparkles,
+  Trash2
+} from 'lucide-react'
+import { useAuthStore } from '@/stores/authStore'
+import { Spinner, StatCard, Table, Badge, DataTable } from '@/components/ui'
+import { CylinderKpiCards } from '@/components/oxygen/CylinderKpiCards'
+import { StoreBalanceGrid } from '@/components/oxygen/StoreBalanceGrid'
+import { UnitDistributionTable } from '@/components/oxygen/UnitDistributionTable'
+import { StoreUsageBalanceTable } from '@/components/oxygen/StoreUsageBalanceTable'
+import { SupplierReturnsSection } from '@/components/oxygen/SupplierReturnsSection'
+import { CreateReturnDocumentModal } from '@/components/oxygen/CreateReturnDocumentModal'
+import { ReturnDocumentPrintView } from '@/components/oxygen/ReturnDocumentPrintView'
+import { CreateRequestDocumentModal } from '@/components/oxygen/CreateRequestDocumentModal'
+import { RequestDocumentPrintView } from '@/components/oxygen/RequestDocumentPrintView'
+import { CylinderDispatchKpiCards } from '@/components/oxygen/CylinderDispatchKpiCards'
+import { CylinderDispatchTable } from '@/components/oxygen/CylinderDispatchTable'
+import { ManualIssueModal } from '@/components/oxygen/ManualIssueModal'
+import { UnitRequestModal } from '@/components/oxygen/UnitRequestModal'
+import { DispatchRequestDetailModal } from '@/components/oxygen/DispatchRequestDetailModal'
+import { CylinderDispatchPrintView } from '@/components/oxygen/CylinderDispatchPrintView'
+import {
+  getCylinderDispatchRequests,
+  getCylinderDispatchKPI,
+  createManualIssue,
+  createUnitRequest,
+  approveRequest,
+  rejectRequest,
+  issueRequest,
+  completeRequest,
+  cancelRequest
+} from '@/services/pharmacy/cylinderDispatchService'
+import { 
+  getOxygenCylinders, 
+  getOxygenSummary, 
+  getOxygenConsumptionHistory,
+  updateOxygenCylinderStatus,
+  getOxygenFinancialSummary,
+  getOxygenLatestPricing,
+  updateCylinderPrices,
+  getOxygenPricingHistory,
+  getOxygenReceptionsList,
+  createOxygenReceptionRecord,
+  getOxygenSystemSettings,
+  getCylinderInventoryByType,
+  getCylindersByDepartment,
+  getStoreUsageBalance,
+  getReturnDocuments,
+  getRequestDocuments,
+} from '@/services/pharmacy/oxygenService'
+import { 
+  generateOxygenPoPdf, 
+  generateOxygenReceptionReportPdf 
+} from '@/services/pharmacy/oxygenPdfService'
+import { 
+  getPharmacyPOSignatures, 
+  updatePharmacyPOSignatures, 
+  type PharmacyPOSignatures 
+} from '@/services/pharmacy/pharmacySettingsService'
+import type { 
+  OxygenCylinderWithRelations, 
+  OxygenSummary, 
+  OxygenConsumptionWithRelations,
+  OxygenFinancialSummary,
+  OxygenPricingConfig,
+  OxygenSystemSettings,
+  OxygenReceptionRecord,
+  OxygenReceptionItem,
+  OxygenReturnDocumentWithRelations,
+  OxygenRequestDocumentWithRelations,
+} from '@/types/pharmacy'
+import type { ApiResponse, Paginated, Column } from '@/types'
+import { supabase } from '@/services/supabase'
+
+export const OxygenDashboardPage: React.FC = () => {
+  const { user } = useAuthStore()
+  const hospitalId = user?.hospital_id
+  const location = useLocation()
+  const currentPath = location.pathname
+
+  // Existing distribution and inventory states
+  const [summary, setSummary] = useState<OxygenSummary | null>(null)
+  const [cylinders, setCylinders] = useState<OxygenCylinderWithRelations[]>([])
+  const [consumptionHistory, setConsumptionHistory] = useState<OxygenConsumptionWithRelations[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Cylinder Inventory Dashboard states (implementation plan)
+  const [cylinderAggregates, setCylinderAggregates] = useState<any[]>([])
+  const [deptDistribution, setDeptDistribution] = useState<any[]>([])
+  const [ledgerData, setLedgerData] = useState<any[]>([])
+  const [returnDocs, setReturnDocs] = useState<OxygenReturnDocumentWithRelations[]>([])
+  const [requestDocs, setRequestDocs] = useState<OxygenRequestDocumentWithRelations[]>([])
+  const [cylinderActiveTab, setCylinderActiveTab] = useState<'overview' | 'unit_monitor' | 'store_balance' | 'supplier_returns'>('overview')
+  const [supplierReturnsTab, setSupplierReturnsTab] = useState<'returns' | 'requests'>('returns')
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [ledgerStartDate, setLedgerStartDate] = useState(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - 30)
+    return d.toISOString().split('T')[0]
+  })
+  const [ledgerEndDate, setLedgerEndDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [isLedgerLoading, setIsLedgerLoading] = useState(false)
+  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false)
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false)
+  const [printDocId, setPrintDocId] = useState<string | null>(null)
+  const [printRequestId, setPrintRequestId] = useState<string | null>(null)
+
+  // Filters for Cylinder Registry
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+
+  // QR Label Generator State
+  const [qrCategory, setQrCategory] = useState<'assets' | 'loans'>('assets')
+  const [selectedCylinderId, setSelectedCylinderId] = useState('')
+  const [generatedLabel, setGeneratedLabel] = useState<OxygenCylinderWithRelations | null>(null)
+  
+  // Bulk QR Generator States
+  const [selectedComboIndex, setSelectedComboIndex] = useState<string>('')
+  const [generateQuantity, setGenerateQuantity] = useState<number>(1)
+  const [generatedLabelsList, setGeneratedLabelsList] = useState<OxygenCylinderWithRelations[]>([])
+  const [isGeneratingQRs, setIsGeneratingQRs] = useState(false)
+  const [generatedLabelsPage, setGeneratedLabelsPage] = useState<number>(1)
+  const [registryPages, setRegistryPages] = useState<Record<string, number>>({
+    'BN-1.4': 1,
+    'PI-1.4': 1,
+    'PI-0.5': 1,
+    'PI-0.7': 1,
+    'BN-0.7': 1,
+    'BN-6.4': 1
+  })
+
+  // Reconciliation Audit States
+  const [physicalCounts, setPhysicalCounts] = useState<Record<string, string>>({})
+  const [auditSuccessMsg, setAuditSuccessMsg] = useState<string | null>(null)
+
+  // --- NEW FINANCIAL STATES ---
+  const fmt = (val: number) => `RM ${val.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`
+  const [financials, setFinancials] = useState<OxygenFinancialSummary | null>(null)
+  const [pricingConfigs, setPricingConfigs] = useState<OxygenPricingConfig[]>([])
+  const [pricingHistory, setPricingHistory] = useState<any[]>([])
+  const [receptionsList, setReceptionsList] = useState<OxygenReceptionRecord[]>([])
+  const [systemSettings, setSystemSettings] = useState<OxygenSystemSettings | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+
+  // Modals visibility
+  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false)
+  const [isReceiveModalOpen, setIsReceiveModalOpen] = useState(false)
+  const [pdfSuccessModalOpen, setPdfSuccessModalOpen] = useState(false)
+  const [justCreatedReception, setJustCreatedReception] = useState<OxygenReceptionRecord | null>(null)
+
+  // Officer Signatures state
+  const [signatures, setSignatures] = useState<PharmacyPOSignatures>({
+    applicantName: 'KAMRIAH BT HAJI MAIL',
+    applicantPosition: 'PENOLONG PEGAWAI FARMASI U7 TBK 2',
+    headName: 'TAN YUANG ZHANG',
+    headPosition: 'PEGAWAI FARMASI UF 12',
+  })
+  const [tempSignatures, setTempSignatures] = useState<PharmacyPOSignatures>(signatures)
+  const [isOfficerModalOpen, setIsOfficerModalOpen] = useState(false)
+  const [isSavingOfficers, setIsSavingOfficers] = useState(false)
+
+  // PO Preview & Custom Signatures states
+  const [isPoPreviewModalOpen, setIsPoPreviewModalOpen] = useState(false)
+  const [previewRecord, setPreviewRecord] = useState<OxygenReceptionRecord | null>(null)
+  const [previewSignatures, setPreviewSignatures] = useState<PharmacyPOSignatures>({
+    applicantName: '',
+    applicantPosition: '',
+    headName: '',
+    headPosition: ''
+  })
+  const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null)
+  const [hospitalUsers, setHospitalUsers] = useState<{ id: string; full_name: string; jawatan?: string; role?: { role_name: string } }[]>([])
+  const [lindeSupplier, setLindeSupplier] = useState<any>(null)
+
+  // Cylinder Request & Dispatch States
+  const [dispatchRequests, setDispatchRequests] = useState<CylinderDispatchRequestWithRelations[]>([])
+  const [dispatchKpi, setDispatchKpi] = useState<CylinderDispatchKPI | null>(null)
+  const [departmentsList, setDepartmentsList] = useState<{ id: string; department_name: string }[]>([])
+  const [isManualModalOpen, setIsManualModalOpen] = useState(false)
+  const [isUnitModalOpen, setIsUnitModalOpen] = useState(false)
+  const [detailRequest, setDetailRequest] = useState<CylinderDispatchRequestWithRelations | null>(null)
+  const [printDispatchRequestId, setPrintDispatchRequestId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchLinde = async () => {
+      try {
+        const { data } = await supabase
+          .from('suppliers')
+          .select('*')
+          .ilike('company_name', '%LINDE%')
+          .limit(1)
+        if (data && data.length > 0) {
+          setLindeSupplier(data[0])
+        }
+      } catch (err) {
+        console.error('Error fetching Linde details:', err)
+      }
+    }
+    void fetchLinde()
+  }, [])
+
+  useEffect(() => {
+    if (!isPoPreviewModalOpen || !previewRecord) return
+
+    let active = true
+    const generatePreview = async () => {
+      try {
+        const { data: rawItems } = await supabase
+          .from('pharmacy_oxygen_reception_items')
+          .select('*, size_info:pharmacy_oxygen_cylinder_sizes(*)')
+          .in('reception_id', previewRecord.ids || [previewRecord.id])
+
+        const formattedItems: OxygenPdfItem[] = []
+        const groupMap: Record<string, { size_code: string; is_loan: boolean; qty: number; price: number }> = {}
+        
+        ;(rawItems || []).forEach((itm: any) => {
+          const sizeCode = itm.size_info?.code || 'Standard'
+          const isLoan = itm.size_info?.is_loan || false
+          const key = `${sizeCode}-${isLoan}`
+          
+          if (!groupMap[key]) {
+            groupMap[key] = {
+              size_code: sizeCode,
+              is_loan: isLoan,
+              qty: 1,
+              price: Number(itm.unit_price)
+            }
+          } else {
+            groupMap[key].qty += 1
+          }
+        })
+
+        Object.values(groupMap).forEach((val) => {
+          formattedItems.push({
+            size_code: val.size_code,
+            is_loan: val.is_loan,
+            quantity: val.qty,
+            unit_price: val.price,
+            total_price: val.qty * val.price
+          })
+        })
+
+        const totalAmount = formattedItems.reduce((sum, item) => sum + item.total_price, 0)
+        const currentBalance = financials?.current_balance ?? 274000.0
+        const calculatedBalanceBefore = currentBalance + totalAmount
+        const calculatedBalanceAfter = currentBalance
+
+        const blob = await generateOxygenPoPdf({
+          reception: previewRecord,
+          items: formattedItems,
+          applicantName: previewSignatures.applicantName,
+          applicantPosition: previewSignatures.applicantPosition,
+          headName: previewSignatures.headName,
+          headPosition: previewSignatures.headPosition,
+          balanceBefore: calculatedBalanceBefore,
+          balanceAfter: calculatedBalanceAfter,
+          ...(lindeSupplier ? {
+            supplierName: lindeSupplier.company_name,
+            supplierAddress: lindeSupplier.address,
+            supplierPhone: lindeSupplier.phone
+          } : {})
+        })
+
+        if (active) {
+          const url = URL.createObjectURL(blob)
+          setPreviewPdfUrl(url)
+        }
+      } catch (err) {
+        console.error('Error generating preview PDF:', err)
+      }
+    }
+
+    void generatePreview()
+
+    return () => {
+      active = false
+    }
+  }, [isPoPreviewModalOpen, previewRecord, previewSignatures.applicantName, previewSignatures.applicantPosition, previewSignatures.headName, previewSignatures.headPosition])
+
+  // Pricing Form state
+  const [editedPrices, setEditedPrices] = useState<Record<string, string>>({})
+  const [effectiveFrom, setEffectiveFrom] = useState(new Date().toISOString().split('T')[0])
+  const [isSavingPrices, setIsSavingPrices] = useState(false)
+
+  // Reception Form state
+  const [doNumber, setDoNumber] = useState('')
+  const [soNumber, setSoNumber] = useState('')
+  const [receptionDate, setReceptionDate] = useState(new Date().toISOString().split('T')[0])
+  const [voteCode, setVoteCode] = useState('080702')
+  const [voteActivity, setVoteActivity] = useState('27402')
+  const [receptionStatus, setReceptionStatus] = useState<'completed' | 'pending_invoice' | 'outstanding_po'>('completed')
+  const [receiveQuantities, setReceiveQuantities] = useState<Record<string, number>>({})
+  const [receiveLoans, setReceiveLoans] = useState<Record<string, number>>({})
+  const [isSubmittingReception, setIsSubmittingReception] = useState(false)
+
+  // Fetch real data
+  const loadData = async () => {
+    if (!hospitalId) return
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const [
+        summaryRes, 
+        listRes, 
+        historyRes,
+        finRes,
+        pricingRes,
+        pricingHistoryRes,
+        receptionsRes,
+        settingsRes
+      ]: [
+        ApiResponse<OxygenSummary>,
+        ApiResponse<Paginated<OxygenCylinderWithRelations>>,
+        ApiResponse<OxygenConsumptionWithRelations[]>,
+        ApiResponse<OxygenFinancialSummary>,
+        ApiResponse<OxygenPricingConfig[]>,
+        ApiResponse<any[]>,
+        ApiResponse<OxygenReceptionRecord[]>,
+        ApiResponse<OxygenSystemSettings>
+      ] = await Promise.all([
+        getOxygenSummary(hospitalId),
+        getOxygenCylinders(hospitalId, {}, 1, 2000) as any,
+        getOxygenConsumptionHistory(hospitalId),
+        getOxygenFinancialSummary(hospitalId),
+        getOxygenLatestPricing(hospitalId),
+        getOxygenPricingHistory(hospitalId),
+        getOxygenReceptionsList(hospitalId),
+        getOxygenSystemSettings(hospitalId)
+      ])
+
+      if (summaryRes.error) {
+        setError(summaryRes.error)
+      } else {
+        setSummary(summaryRes.data || null)
+      }
+
+      if (listRes.error) {
+        setError((prev) => prev ?? listRes.error)
+      } else {
+        setCylinders(listRes.data?.data || [])
+      }
+
+      if (historyRes.error) {
+        console.error('Error fetching consumption history:', historyRes.error)
+      } else {
+        setConsumptionHistory(historyRes.data || [])
+      }
+
+      // Populate Financials
+      if (finRes.data) setFinancials(finRes.data)
+      if (pricingRes.data) {
+        setPricingConfigs(pricingRes.data)
+        // Set initial edited prices
+        const priceMap: Record<string, string> = {}
+        pricingRes.data.forEach(p => {
+          priceMap[p.cylinder_size_code] = p.refill_price.toString()
+        })
+        setEditedPrices(priceMap)
+      }
+      if (pricingHistoryRes.data) {
+        setPricingHistory(pricingHistoryRes.data)
+      }
+      if (receptionsRes.data) setReceptionsList(receptionsRes.data)
+      if (settingsRes.data) setSystemSettings(settingsRes.data)
+
+      const sigsRes = await getPharmacyPOSignatures(hospitalId)
+      if (sigsRes.data) {
+        setSignatures(sigsRes.data)
+        setTempSignatures(sigsRes.data)
+      }
+
+      const { data: rawUsers } = await supabase
+        .from('users')
+        .select('id, full_name, jawatan, role:roles(role_name)')
+        .eq('hospital_id', hospitalId)
+      if (rawUsers) {
+        setHospitalUsers(rawUsers as any)
+      }
+
+      // Load Cylinder Request & Dispatch Data
+      const dispatchRes = await getCylinderDispatchRequests(hospitalId)
+      if (dispatchRes.data) setDispatchRequests(dispatchRes.data)
+
+      const kpiRes = await getCylinderDispatchKPI(hospitalId)
+      if (kpiRes.data) setDispatchKpi(kpiRes.data)
+
+      const { data: depts } = await supabase
+        .from('departments')
+        .select('id, department_name')
+        .eq('hospital_id', hospitalId)
+      if (depts) setDepartmentsList(depts)
+
+    } catch (err) {
+      console.error(err)
+      setError('An unexpected error occurred while loading oxygen records.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadData()
+    if (currentPath === '/pharmacy/oxygen/cylinders' && hospitalId) {
+      const loadInventoryDashboardData = async () => {
+        const [aggRes, deptRes, docsRes, reqsRes, ledgerRes] = await Promise.all([
+          getCylinderInventoryByType(hospitalId),
+          getCylindersByDepartment(hospitalId),
+          getReturnDocuments(hospitalId),
+          getRequestDocuments(hospitalId),
+          getStoreUsageBalance(hospitalId, ledgerStartDate, ledgerEndDate),
+        ])
+        if (aggRes.data) setCylinderAggregates(aggRes.data)
+        if (deptRes.data) setDeptDistribution(deptRes.data)
+        if (docsRes.data) setReturnDocs(docsRes.data)
+        if (reqsRes.data) setRequestDocs(reqsRes.data)
+        if (ledgerRes.data) setLedgerData(ledgerRes.data)
+      }
+      void loadInventoryDashboardData()
+    }
+  }, [hospitalId, currentPath, ledgerStartDate, ledgerEndDate])
+
+  const renderStatusBadge = (status: string) => {
+    switch (status) {
+      case 'full':
+        return <Badge variant="success">Full</Badge>
+      case 'empty':
+        return <Badge variant="secondary">Empty</Badge>
+      case 'in_use':
+        return <Badge variant="info">In Use</Badge>
+      case 'maintenance':
+        return <Badge variant="warning">Maintenance</Badge>
+      case 'disposed':
+        return <Badge variant="error">Disposed</Badge>
+      default:
+        return <Badge variant="secondary">{status}</Badge>
+    }
+  }
+
+  // Filtered cylinders based on user inputs
+  const filteredCylinders = cylinders.filter(c => {
+    const matchesSearch = c.serial_number.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesStatus = statusFilter ? c.status === statusFilter : true
+    return matchesSearch && matchesStatus
+  })
+
+  // Columns for Cylinder Table
+  const cylinderColumns: Column<OxygenCylinderWithRelations>[] = [
+    {
+      key: 'serial_number',
+      label: 'Serial Number',
+      className: 'font-mono text-xs text-gray-700 font-bold',
+    },
+    {
+      key: 'type_info',
+      label: 'Cylinder Size & Type',
+      className: 'text-sm text-gray-900',
+      render: (_, row) => row.type_info?.type_name || 'Standard Cylinder',
+    },
+    {
+      key: 'current_location',
+      label: 'Storage Location',
+      className: 'text-sm text-gray-600',
+      render: (_, row) => row.current_location?.location_name || 'Central Pharmacy Store',
+    },
+    {
+      key: 'assigned_ward',
+      label: 'Assigned Department',
+      className: 'text-sm text-gray-600',
+      render: (_, row) => row.assigned_ward?.department_name || '-',
+    },
+    {
+      key: 'status',
+      label: 'Current Status',
+      className: 'text-right',
+      render: (value) => renderStatusBadge(String(value)),
+    },
+  ]
+
+  // Columns for Consumption/Refill History Table
+  const consumptionColumns: Column<OxygenConsumptionWithRelations>[] = [
+    {
+      key: 'consumption_date',
+      label: 'Date',
+      className: 'text-sm text-gray-900',
+      render: (value) => value ? new Date(String(value)).toLocaleDateString() : '-',
+    },
+    {
+      key: 'cylinder',
+      label: 'Cylinder Serial',
+      className: 'font-mono text-xs text-gray-700 font-bold',
+      render: (_, row) => row.cylinder?.serial_number || 'BULK DISPATCH',
+    },
+    {
+      key: 'department',
+      label: 'Requesting Unit',
+      className: 'text-sm text-gray-600',
+      render: (_, row) => row.department?.department_name || 'Emergency Trauma Unit',
+    },
+    {
+      key: 'quantity_used',
+      label: 'Quantity Refilled',
+      className: 'text-sm text-gray-900 font-semibold',
+      render: (val, row) => `${val} ${row.unit || 'liters'}`,
+    },
+    {
+      key: 'notes',
+      label: 'Remarks / Notes',
+      className: 'text-sm text-gray-500 italic',
+      render: (val) => val || 'Scheduled ward refill',
+    }
+  ]
+
+  const handleAuditSubmit = () => {
+    setAuditSuccessMsg('Stock reconciliation verified. Discrepancies logged successfully.')
+    setTimeout(() => setAuditSuccessMsg(null), 5000)
+  }
+
+  // --- NEW FINANCIAL LOGIC ---
+  const handleSavePrices = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!hospitalId || !user?.id) return
+    setIsSavingPrices(true)
+    try {
+      const pricesToInsert = Object.keys(editedPrices).map(sizeCode => ({
+        size_code: sizeCode,
+        refill_price: parseFloat(editedPrices[sizeCode]) || 0
+      }))
+
+      const res = await updateCylinderPrices(hospitalId, pricesToInsert, effectiveFrom, user.id)
+      if (res.error) {
+        alert(res.error)
+      } else {
+        setIsPricingModalOpen(false)
+        await loadData()
+      }
+    } catch (err) {
+      console.error(err)
+      alert('Failed to save prices.')
+    } finally {
+      setIsSavingPrices(false)
+    }
+  }
+
+  const handleSaveSignatures = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!hospitalId || !user?.id) return
+    setIsSavingOfficers(true)
+    try {
+      const res = await updatePharmacyPOSignatures(tempSignatures, hospitalId, user.id)
+      if (res.error) {
+        alert(res.error)
+      } else {
+        setSignatures(tempSignatures)
+        setIsOfficerModalOpen(false)
+      }
+    } catch (err) {
+      console.error(err)
+      alert('Failed to save signatures.')
+    } finally {
+      setIsSavingOfficers(false)
+    }
+  }
+
+  const handleOpenPoPreview = (record: OxygenReceptionRecord) => {
+    setPreviewRecord(record)
+    setPreviewSignatures({
+      applicantName: signatures.applicantName,
+      applicantPosition: signatures.applicantPosition,
+      headName: signatures.headName,
+      headPosition: signatures.headPosition
+    })
+    setIsPoPreviewModalOpen(true)
+  }
+
+  const handleGeneratePoWithCustomSignatures = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if (!previewRecord) return
+    try {
+      // Fetch received items dynamically
+      const { data: rawItems } = await supabase
+        .from('pharmacy_oxygen_reception_items')
+        .select('*, size_info:pharmacy_oxygen_cylinder_sizes(*)')
+        .in('reception_id', previewRecord.ids || [previewRecord.id])
+
+      const formattedItems: OxygenPdfItem[] = []
+      const groupMap: Record<string, { size_code: string; is_loan: boolean; qty: number; price: number }> = {}
+      
+      ;(rawItems || []).forEach((itm: any) => {
+        const sizeCode = itm.size_info?.code || 'Standard'
+        const isLoan = itm.size_info?.is_loan || false
+        const key = `${sizeCode}-${isLoan}`
+        
+        if (!groupMap[key]) {
+          groupMap[key] = {
+            size_code: sizeCode,
+            is_loan: isLoan,
+            qty: 1,
+            price: Number(itm.unit_price)
+          }
+        } else {
+          groupMap[key].qty += 1
+        }
+      })
+
+      Object.values(groupMap).forEach((val) => {
+        formattedItems.push({
+          size_code: val.size_code,
+          is_loan: val.is_loan,
+          quantity: val.qty,
+          unit_price: val.price,
+          total_price: val.qty * val.price
+        })
+      })
+
+      const totalAmount = formattedItems.reduce((sum, item) => sum + item.total_price, 0)
+      const currentBalance = financials?.current_balance ?? 274000.0
+      const calculatedBalanceBefore = currentBalance + totalAmount
+      const calculatedBalanceAfter = currentBalance
+
+      const blob = await generateOxygenPoPdf({
+        reception: previewRecord,
+        items: formattedItems,
+        applicantName: previewSignatures.applicantName,
+        applicantPosition: previewSignatures.applicantPosition,
+        headName: previewSignatures.headName,
+        headPosition: previewSignatures.headPosition,
+        balanceBefore: calculatedBalanceBefore,
+        balanceAfter: calculatedBalanceAfter,
+        ...(lindeSupplier ? {
+          supplierName: lindeSupplier.company_name,
+          supplierAddress: lindeSupplier.address,
+          supplierPhone: lindeSupplier.phone
+        } : {})
+      })
+
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank')
+      setIsPoPreviewModalOpen(false)
+    } catch (err) {
+      console.error('Error generating PO PDF:', err)
+      alert('Failed to generate PO PDF.')
+    }
+  }
+
+  const getActivePrice = (sizeCode: string): number => {
+    const config = pricingConfigs.find(p => p.cylinder_size_code === sizeCode)
+    return config ? config.refill_price : 0
+  }
+
+  // Dynamic cost calculations for key-in form
+  const getRefillCostForSize = (sizeCode: string): number => {
+    const qty = receiveQuantities[sizeCode] || 0
+    const price = getActivePrice(sizeCode)
+    return qty * price
+  }
+
+  const getLoanCostForSize = (sizeCode: string): number => {
+    const isLoanSize = sizeCode.startsWith('101-')
+    const rate = systemSettings?.loan_cylinder_rate || 18.36
+    if (isLoanSize) {
+      const qtyRefilled = receiveQuantities[sizeCode] || 0
+      const qtyLoaned = receiveLoans[sizeCode] || 0
+      return (qtyRefilled + qtyLoaned) * rate
+    }
+    const qtyLoaned = receiveLoans[sizeCode] || 0
+    return qtyLoaned * rate
+  }
+
+  const calculateFormRefillTotal = (): number => {
+    return Object.keys(editedPrices).reduce((sum, sizeCode) => {
+      return sum + getRefillCostForSize(sizeCode)
+    }, 0)
+  }
+
+  const calculateFormLoanTotal = (): number => {
+    const rate = systemSettings?.loan_cylinder_rate || 18.36
+    return Object.keys(editedPrices).reduce((sum, sizeCode) => {
+      const isLoanSize = sizeCode.startsWith('101-')
+      if (isLoanSize) {
+        const qtyRefilled = receiveQuantities[sizeCode] || 0
+        const qtyLoaned = receiveLoans[sizeCode] || 0
+        return sum + (qtyRefilled + qtyLoaned) * rate
+      }
+      const qtyLoaned = receiveLoans[sizeCode] || 0
+      return sum + qtyLoaned * rate
+    }, 0)
+  }
+
+  const handleCreateReception = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!hospitalId || !user?.id) return
+    if (!doNumber || !soNumber) {
+      alert('Please fill in Delivery Order and Sales Order numbers.')
+      return
+    }
+
+    setIsSubmittingReception(true)
+    try {
+      const refillAmt = calculateFormRefillTotal()
+      const loanAmt = calculateFormLoanTotal()
+      const grandTotal = refillAmt + loanAmt
+
+      // Formulate items
+      const itemsToCreate: Omit<OxygenReceptionItem, 'id' | 'reception_id' | 'created_at'>[] = []
+      
+      // Retrieve sizes from DB
+      const { data: sizesList } = await supabase.from('pharmacy_oxygen_cylinder_sizes').select('*')
+      const { data: typesList } = await supabase.from('pharmacy_oxygen_cylinder_types').select('*')
+      const defaultType = typesList?.[0]?.id || ''
+
+      for (const sizeCode of Object.keys(editedPrices)) {
+        const qtyRefilled = receiveQuantities[sizeCode] || 0
+        const qtyLoaned = receiveLoans[sizeCode] || 0
+        
+        const sizeObj = sizesList?.find(s => s.code === sizeCode)
+        if (!sizeObj) continue
+
+        const basePrice = getActivePrice(sizeCode)
+        const loanRate = systemSettings?.loan_cylinder_rate || 18.36
+
+        // Insert refilled items
+        if (qtyRefilled > 0) {
+          const isLoan = sizeObj.is_loan
+          const itemPrice = isLoan ? (basePrice + loanRate) : basePrice
+          for (let i = 0; i < qtyRefilled; i++) {
+            itemsToCreate.push({
+              cylinder_size_id: sizeObj.id,
+              cylinder_type_id: defaultType,
+              unit_price: itemPrice
+            })
+          }
+        }
+
+        // Insert loaned items
+        if (qtyLoaned > 0) {
+          const itemPrice = loanRate
+          for (let i = 0; i < qtyLoaned; i++) {
+            itemsToCreate.push({
+              cylinder_size_id: sizeObj.id,
+              cylinder_type_id: defaultType,
+              unit_price: itemPrice
+            })
+          }
+        }
+      }
+
+      const res = await createOxygenReceptionRecord(
+        hospitalId,
+        {
+          reception_date: receptionDate,
+          delivery_order_no: doNumber,
+          sales_order_no: soNumber,
+          refill_amount: refillAmt,
+          loan_amount: loanAmt,
+          total_amount: grandTotal,
+          vote_code: voteCode,
+          vote_activity: voteActivity,
+          status: receptionStatus
+        },
+        itemsToCreate,
+        user.id
+      )
+
+      if (res.error) {
+        alert(res.error)
+      } else {
+        setIsReceiveModalOpen(false)
+        setJustCreatedReception(res.data)
+        setPdfSuccessModalOpen(true)
+        
+        // Reset form
+        setDoNumber('')
+        setSoNumber('')
+        setReceiveQuantities({})
+        setReceiveLoans({})
+        
+        await loadData()
+      }
+    } catch (err) {
+      console.error(err)
+      alert('Failed to log oxygen reception.')
+    } finally {
+      setIsSubmittingReception(false)
+    }
+  }
+
+  // PDF Generation Triggers
+  const handleDownloadPO = async (record: OxygenReceptionRecord) => {
+    try {
+      // Fetch received items dynamically
+      const { data: rawItems } = await supabase
+        .from('pharmacy_oxygen_reception_items')
+        .select('*, size_info:pharmacy_oxygen_cylinder_sizes(*)')
+        .in('reception_id', record.ids || [record.id])
+
+      const formattedItems: OxygenPdfItem[] = []
+      
+      // Group items by size to aggregate quantities
+      const groupMap: Record<string, { size_code: string; is_loan: boolean; qty: number; price: number }> = {}
+      
+      ;(rawItems || []).forEach((itm: any) => {
+        const sizeCode = itm.size_info?.code || 'Standard'
+        const isLoan = itm.size_info?.is_loan || false
+        const key = `${sizeCode}-${isLoan}`
+        
+        if (!groupMap[key]) {
+          groupMap[key] = {
+            size_code: sizeCode,
+            is_loan: isLoan,
+            qty: 1,
+            price: Number(itm.unit_price)
+          }
+        } else {
+          groupMap[key].qty += 1
+        }
+      })
+
+      Object.values(groupMap).forEach((val) => {
+        formattedItems.push({
+          size_code: val.size_code,
+          is_loan: val.is_loan,
+          quantity: val.qty,
+          unit_price: val.price,
+          total_price: val.qty * val.price
+        })
+      })
+
+      const totalAmount = formattedItems.reduce((sum, item) => sum + item.total_price, 0)
+      const currentBalance = financials?.current_balance ?? 274000.0
+      const calculatedBalanceBefore = currentBalance + totalAmount
+      const calculatedBalanceAfter = currentBalance
+
+      const blob = await generateOxygenPoPdf({
+        reception: record,
+        items: formattedItems,
+        applicantName: signatures.applicantName,
+        applicantPosition: signatures.applicantPosition,
+        headName: signatures.headName,
+        headPosition: signatures.headPosition,
+        balanceBefore: calculatedBalanceBefore,
+        balanceAfter: calculatedBalanceAfter,
+        ...(lindeSupplier ? {
+          supplierName: lindeSupplier.company_name,
+          supplierAddress: lindeSupplier.address,
+          supplierPhone: lindeSupplier.phone
+        } : {})
+      })
+
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank')
+    } catch (err) {
+      console.error('Error generating PO PDF:', err)
+      alert('Failed to generate PO PDF.')
+    }
+  }
+
+  const handleDownloadReport = async (record: OxygenReceptionRecord) => {
+    try {
+      // Fetch received items dynamically
+      const { data: rawItems } = await supabase
+        .from('pharmacy_oxygen_reception_items')
+        .select('*, size_info:pharmacy_oxygen_cylinder_sizes(*)')
+        .in('reception_id', record.ids || [record.id])
+
+      const formattedItems: OxygenPdfItem[] = []
+      const groupMap: Record<string, { size_code: string; is_loan: boolean; qty: number; price: number }> = {}
+      
+      ;(rawItems || []).forEach((itm: any) => {
+        const sizeCode = itm.size_info?.code || 'Standard'
+        const isLoan = itm.size_info?.is_loan || false
+        const key = `${sizeCode}-${isLoan}`
+        
+        if (!groupMap[key]) {
+          groupMap[key] = {
+            size_code: sizeCode,
+            is_loan: isLoan,
+            qty: 1,
+            price: Number(itm.unit_price)
+          }
+        } else {
+          groupMap[key].qty += 1
+        }
+      })
+
+      Object.values(groupMap).forEach((val) => {
+        formattedItems.push({
+          size_code: val.size_code,
+          is_loan: val.is_loan,
+          quantity: val.qty,
+          unit_price: val.price,
+          total_price: val.qty * val.price
+        })
+      })
+
+      const blob = await generateOxygenReceptionReportPdf({
+        reception: record,
+        items: formattedItems,
+        applicantName: user?.full_name || 'Ahmad Bin Ismail',
+        applicantPosition: user?.role?.role_name || 'Pharmacist'
+      })
+
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank')
+    } catch (err) {
+      console.error('Error generating Reception Report PDF:', err)
+      alert('Failed to generate Reception Report PDF.')
+    }
+  }
+
+  const renderActiveView = () => {
+    // 1. CYLINDER INVENTORY VIEW (Implementation Plan Dashboard)
+    if (currentPath === '/pharmacy/oxygen/cylinders') {
+      // Compute KPI totals from aggregates
+      const kpiTotals = cylinderAggregates.reduce(
+        (acc, curr) => ({
+          total: acc.total + (curr.total || 0),
+          available: acc.available + (curr.available || 0),
+          inUse: acc.inUse + (curr.in_use || 0),
+          returned: acc.returned + (curr.returned || 0),
+        }),
+        { total: 0, available: 0, inUse: 0, returned: 0 }
+      )
+
+      return (
+        <div className="space-y-8">
+          {/* Header */}
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 bg-white/20 backdrop-blur-xl border border-white/30 rounded-3xl p-6 shadow-xl">
+            <div className="flex items-center space-x-6">
+              <div className="relative">
+                <div className="w-14 h-14 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-xl border border-white/20">
+                  <Database className="w-7 h-7 text-white" />
+                </div>
+                <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-400 rounded-full border-2 border-white shadow-lg animate-pulse" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-extrabold text-slate-800 tracking-tight">
+                  Cylinder Inventory
+                </h2>
+                <p className="text-slate-500 font-semibold text-xs">
+                  Real-time oxygen cylinder tracking ΓÇó All data live from Supabase
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={async () => {
+                if (!hospitalId) return
+                setCylinderAggregates([])
+                setDeptDistribution([])
+                setReturnDocs([])
+                setRequestDocs([])
+                setLedgerData([])
+                const [aggRes, deptRes, docsRes, reqsRes, ledgerRes] = await Promise.all([
+                  getCylinderInventoryByType(hospitalId),
+                  getCylindersByDepartment(hospitalId),
+                  getReturnDocuments(hospitalId),
+                  getRequestDocuments(hospitalId),
+                  getStoreUsageBalance(hospitalId, ledgerStartDate, ledgerEndDate),
+                ])
+                if (aggRes.data) setCylinderAggregates(aggRes.data)
+                if (deptRes.data) setDeptDistribution(deptRes.data)
+                if (docsRes.data) setReturnDocs(docsRes.data)
+                if (reqsRes.data) setRequestDocs(reqsRes.data)
+                if (ledgerRes.data) setLedgerData(ledgerRes.data)
+              }}
+              className="p-3 bg-white/80 border border-slate-200 text-slate-700 hover:text-teal-600 rounded-2xl font-bold shadow-md hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-300 flex items-center gap-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span className="text-xs uppercase tracking-wider font-bold">Refresh</span>
+            </button>
+          </div>
+
+          {/* Tab Navigation */}
+          <div className="flex bg-white/20 backdrop-blur-xl border border-white/30 p-1.5 rounded-3xl shadow-xl max-w-2xl relative z-30">
+            {[
+              { id: 'overview', label: 'Overview Store Grid' },
+              { id: 'unit_monitor', label: 'Unit Distribution' },
+              { id: 'store_balance', label: 'Store Usage Ledger' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setCylinderActiveTab(tab.id as any);
+                  setIsDropdownOpen(false);
+                }}
+                className={`flex-1 py-3.5 rounded-2xl text-xs font-bold transition-all duration-300 ${
+                  cylinderActiveTab === tab.id
+                    ? 'bg-[#00a68a] text-white shadow-xl'
+                    : 'text-slate-600 hover:bg-white/40'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+
+            {/* Supplier Returns Dropdown Tab */}
+            <div className="flex-1 relative">
+              <button
+                onClick={() => {
+                  setCylinderActiveTab('supplier_returns');
+                  setIsDropdownOpen(!isDropdownOpen);
+                }}
+                className={`w-full py-3.5 rounded-2xl text-xs font-bold transition-all duration-300 flex items-center justify-center gap-1.5 ${
+                  cylinderActiveTab === 'supplier_returns'
+                    ? 'bg-[#00a68a] text-white shadow-xl'
+                    : 'text-slate-600 hover:bg-white/40'
+                }`}
+              >
+                <span>Supplier Returns</span>
+                <ChevronDown className={`w-3 h-3 transition-transform duration-300 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isDropdownOpen && (
+                <>
+                  {/* Backdrop overlay to close dropdown on click outside */}
+                  <div 
+                    className="fixed inset-0 z-40 cursor-default" 
+                    onClick={() => setIsDropdownOpen(false)}
+                  />
+                  <div className="absolute right-0 left-0 mt-2 bg-white/95 backdrop-blur-xl border border-slate-200/80 rounded-2xl shadow-xl z-50 p-1.5">
+                    <button
+                      onClick={() => {
+                        setCylinderActiveTab('supplier_returns');
+                        setSupplierReturnsTab('returns');
+                        setIsDropdownOpen(false);
+                      }}
+                      className={`w-full py-2 px-3 rounded-xl text-left text-xs font-bold transition-all duration-200 flex items-center justify-between ${
+                        cylinderActiveTab === 'supplier_returns' && supplierReturnsTab === 'returns'
+                          ? 'bg-rose-500 text-white shadow-md'
+                          : 'text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span>Returns</span>
+                      {cylinderActiveTab === 'supplier_returns' && supplierReturnsTab === 'returns' && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                      )}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setCylinderActiveTab('supplier_returns');
+                        setSupplierReturnsTab('requests');
+                        setIsDropdownOpen(false);
+                      }}
+                      className={`w-full py-2 px-3 mt-1 rounded-xl text-left text-xs font-bold transition-all duration-200 flex items-center justify-between ${
+                        cylinderActiveTab === 'supplier_returns' && supplierReturnsTab === 'requests'
+                          ? 'bg-blue-600 text-white shadow-md'
+                          : 'text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span>Requests</span>
+                      {cylinderActiveTab === 'supplier_returns' && supplierReturnsTab === 'requests' && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Tab Content */}
+          <div className="transition-all duration-500">
+            {cylinderActiveTab === 'overview' && <StoreBalanceGrid data={cylinderAggregates} />}
+
+            {cylinderActiveTab === 'unit_monitor' && <UnitDistributionTable data={deptDistribution} />}
+
+            {cylinderActiveTab === 'store_balance' && (
+              <StoreUsageBalanceTable
+                data={ledgerData}
+                startDate={ledgerStartDate}
+                endDate={ledgerEndDate}
+                onDateChange={(start, end) => {
+                  setLedgerStartDate(start)
+                  setLedgerEndDate(end)
+                }}
+                isLoading={isLedgerLoading}
+              />
+            )}
+
+            {cylinderActiveTab === 'supplier_returns' && (
+              <SupplierReturnsSection
+                documents={returnDocs}
+                requestDocuments={requestDocs}
+                onCreateClick={() => setIsReturnModalOpen(true)}
+                onCreateRequestClick={() => setIsRequestModalOpen(true)}
+                onPrintClick={(docId) => setPrintDocId(docId)}
+                onPrintRequestClick={(docId) => setPrintRequestId(docId)}
+                isViewOnly={false}
+                subTab={supplierReturnsTab}
+              />
+            )}
+          </div>
+
+          {/* Return Document Modals */}
+          <CreateReturnDocumentModal
+            hospitalId={hospitalId || ''}
+            isOpen={isReturnModalOpen}
+            onClose={() => setIsReturnModalOpen(false)}
+            onSuccess={async () => {
+              if (!hospitalId) return
+              const [aggRes, docsRes, reqsRes] = await Promise.all([
+                getCylinderInventoryByType(hospitalId),
+                getReturnDocuments(hospitalId),
+                getRequestDocuments(hospitalId),
+              ])
+              if (aggRes.data) setCylinderAggregates(aggRes.data)
+              if (docsRes.data) setReturnDocs(docsRes.data)
+              if (reqsRes.data) setRequestDocs(reqsRes.data)
+            }}
+          />
+
+          {/* Request Document Modals */}
+          <CreateRequestDocumentModal
+            hospitalId={hospitalId || ''}
+            isOpen={isRequestModalOpen}
+            onClose={() => setIsRequestModalOpen(false)}
+            onSuccess={async () => {
+              if (!hospitalId) return
+              const [aggRes, docsRes, reqsRes] = await Promise.all([
+                getCylinderInventoryByType(hospitalId),
+                getReturnDocuments(hospitalId),
+                getRequestDocuments(hospitalId),
+              ])
+              if (aggRes.data) setCylinderAggregates(aggRes.data)
+              if (docsRes.data) setReturnDocs(docsRes.data)
+              if (reqsRes.data) setRequestDocs(reqsRes.data)
+            }}
+          />
+
+          {printDocId && (
+            <ReturnDocumentPrintView
+              documentId={printDocId}
+              isOpen={!!printDocId}
+              onClose={() => setPrintDocId(null)}
+            />
+          )}
+
+          {printRequestId && (
+            <RequestDocumentPrintView
+              documentId={printRequestId}
+              isOpen={!!printRequestId}
+              onClose={() => setPrintRequestId(null)}
+            />
+          )}
+        </div>
+      )
+    }
+
+    // 2. CYLINDER REQUEST VIEW (CONSUMPTION)
+    if (currentPath === '/pharmacy/oxygen/consumption') {
+      return (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <ShoppingCart className="w-5 h-5 text-[#00a68a]" />
+                Cylinder Request & Dispatch Module
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Manage medical cylinder requests, approvals, manual dispatches, and print official documents.
+              </p>
+            </div>
+            <div className="flex gap-2.5">
+              <button
+                onClick={() => setIsUnitModalOpen(true)}
+                className="flex-1 sm:flex-none px-4 py-2.5 text-xs sm:text-sm font-semibold bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-all flex items-center justify-center gap-1.5 shadow-sm focus:outline-none"
+              >
+                <Plus className="w-4 h-4" /> Request Cylinders
+              </button>
+              <button
+                onClick={() => setIsManualModalOpen(true)}
+                className="flex-1 sm:flex-none px-4 py-2.5 text-xs sm:text-sm font-semibold bg-[#00a68a] text-white rounded-xl hover:bg-[#008f76] transition-all flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/10 focus:outline-none"
+              >
+                <Plus className="w-4 h-4" /> Manual Dispatch
+              </button>
+            </div>
+          </div>
+
+          {dispatchKpi && <CylinderDispatchKpiCards kpi={dispatchKpi} />}
+
+          <CylinderDispatchTable
+            requests={dispatchRequests}
+            departments={departmentsList}
+            onViewDetails={(req) => setDetailRequest(req)}
+            onPrint={(req) => setPrintDispatchRequestId(req.id)}
+          />
+
+          <ManualIssueModal
+            isOpen={isManualModalOpen}
+            onClose={() => setIsManualModalOpen(false)}
+            onSubmit={async (data) => {
+              if (hospitalId) {
+                await createManualIssue(hospitalId, {
+                  ...data,
+                  issuer_id: user?.id || ''
+                })
+                await loadData()
+              }
+            }}
+            departments={departmentsList}
+            currentUser={user as any}
+            users={hospitalUsers}
+          />
+
+          <UnitRequestModal
+            isOpen={isUnitModalOpen}
+            onClose={() => setIsUnitModalOpen(false)}
+            onSubmit={async (data) => {
+              if (hospitalId) {
+                await createUnitRequest(hospitalId, {
+                  ...data,
+                  requester_id: user?.id || '',
+                  priority: data.priority
+                })
+                await loadData()
+              }
+            }}
+            departments={departmentsList}
+            currentUser={user as any}
+          />
+
+          <DispatchRequestDetailModal
+            isOpen={!!detailRequest}
+            onClose={() => setDetailRequest(null)}
+            request={detailRequest}
+            currentUser={user as any}
+            onApprove={async (id) => {
+              await approveRequest(id, user?.id || '')
+              await loadData()
+            }}
+            onReject={async (id, reason) => {
+              await rejectRequest(id, user?.id || '', reason)
+              await loadData()
+            }}
+            onIssue={async (id, items) => {
+              await issueRequest(id, user?.id || '', items)
+              await loadData()
+            }}
+            onComplete={async (id) => {
+              await completeRequest(id)
+              await loadData()
+            }}
+            onCancel={async (id) => {
+              await cancelRequest(id)
+              await loadData()
+            }}
+          />
+
+          {printDispatchRequestId && (
+            <CylinderDispatchPrintView
+              requestId={printDispatchRequestId}
+              isOpen={!!printDispatchRequestId}
+              onClose={() => setPrintDispatchRequestId(null)}
+            />
+          )}
+        </div>
+      )
+    }
+
+    // 3. QR CODE LABEL GENERATOR
+    if (currentPath === '/pharmacy/oxygen/qr') {
+      const ALLOWED_COMBINATIONS = [
+        { type: 'BN', capacity: 1.4, label: 'BN 1.4m³' },
+        { type: 'PI', capacity: 1.4, label: 'PI 1.4m³' },
+        { type: 'PI', capacity: 0.5, label: 'PI 0.5m³' },
+        { type: 'PI', capacity: 0.7, label: 'PI 0.7m³' },
+        { type: 'BN', capacity: 0.7, label: 'BN 0.7m³' },
+        { type: 'BN', capacity: 6.4, label: 'BN 6.4m³' }
+      ];
+
+      const isMonitored = (c: any) => {
+        const typeCode = c.type_info?.code || c.type_info?.type_code || '';
+        const capacity = parseFloat(c.size_info?.capacity || '0');
+        return ALLOWED_COMBINATIONS.some(
+          item => item.type === typeCode && Math.abs(item.capacity - capacity) < 0.01
+        );
+      };
+
+      const standardCylinders = cylinders.filter(
+        c => !c.size_info?.is_loan && !c.serial_number?.startsWith('101-') && isMonitored(c)
+      );
+
+      const generatedLabelsPerPage = 5;
+      const totalGeneratedLabelsPages = Math.ceil(generatedLabelsList.length / generatedLabelsPerPage);
+      const startIndex = (generatedLabelsPage - 1) * generatedLabelsPerPage;
+      const paginatedGeneratedLabels = generatedLabelsList.slice(startIndex, startIndex + generatedLabelsPerPage);
+      
+      const handleGenerateLabel = async () => {
+        if (qrCategory === 'loans') {
+          if (selectedCylinderId === 'generic-loan-1.4') {
+            setGeneratedLabel({
+              id: 'generic-loan-1.4',
+              serial_number: 'LOAN-1.4M3-GENERIC',
+              status: 'available',
+              qr_code: 'LOAN-1.4M3-GENERIC',
+              type_info: { type_code: 'F', type_name: 'Loan 101-F (1.4M³)' },
+              size_info: { code: '101-F', capacity: '1.40', unit: 'm3', is_loan: true }
+            } as any)
+          } else if (selectedCylinderId === 'generic-loan-8.0') {
+            setGeneratedLabel({
+              id: 'generic-loan-8.0',
+              serial_number: 'LOAN-8.0M3-GENERIC',
+              status: 'available',
+              qr_code: 'LOAN-8.0M3-GENERIC',
+              type_info: { type_code: 'N', type_name: 'Loan 101-N (8.0M³)' },
+              size_info: { code: '101-N', capacity: '8.00', unit: 'm3', is_loan: true }
+            } as any)
+          }
+          return
+        }
+
+        const comboIdx = parseInt(selectedComboIndex)
+        if (isNaN(comboIdx)) {
+          alert('Please select a cylinder type.')
+          return
+        }
+
+        const combo = ALLOWED_COMBINATIONS[comboIdx]
+        setIsGeneratingQRs(true)
+
+        try {
+          const sizeCode = combo.type === 'BN' && combo.capacity === 6.4 ? 'P101-HS' :
+                           combo.capacity === 1.4 ? 'P101-F' :
+                           combo.capacity === 0.5 ? 'P101-E' : 'P101-D'
+
+          const { data: sizes } = await supabase
+            .from('pharmacy_oxygen_cylinder_sizes')
+            .select('id')
+            .eq('code', sizeCode)
+            .eq('is_loan', false)
+            .limit(1)
+
+          const { data: types } = await supabase
+            .from('pharmacy_oxygen_cylinder_types')
+            .select('id')
+            .eq('code', combo.type)
+            .limit(1)
+
+          if (!sizes || sizes.length === 0 || !types || types.length === 0) {
+            throw new Error('Size or Type not found in database.')
+          }
+
+          const sizeId = sizes[0].id
+          const typeId = types[0].id
+
+          const { data: existingCylinders } = await supabase
+            .from('pharmacy_oxygen_cylinder_inventory')
+            .select('serial_number')
+            .like('serial_number', `${sizeCode}-%`)
+
+          let maxSeq = 0
+          ;(existingCylinders || []).forEach(c => {
+            const parts = c.serial_number.split('-')
+            const seqStr = parts[parts.length - 1]
+            const seq = parseInt(seqStr)
+            if (!isNaN(seq) && seq > maxSeq) {
+              maxSeq = seq
+            }
+          })
+
+          const newLabels: any[] = []
+          for (let i = 1; i <= generateQuantity; i++) {
+            const nextSeq = maxSeq + i
+            const paddedSeq = String(nextSeq).padStart(4, '0')
+            const serialNumber = `${sizeCode}-${paddedSeq}`
+            const qrCode = `O2-${serialNumber}`
+
+            newLabels.push({
+              hospital_id: hospitalId,
+              cylinder_size_id: sizeId,
+              cylinder_type_id: typeId,
+              serial_number: serialNumber,
+              qr_code: qrCode,
+              status: 'available',
+              current_location: 'Central Store'
+            })
+          }
+
+          const { data: insertedData, error: insertError } = await supabase
+            .from('pharmacy_oxygen_cylinder_inventory')
+            .insert(newLabels)
+            .select(`
+              *,
+              size_info:pharmacy_oxygen_cylinder_sizes(*),
+              type_info:pharmacy_oxygen_cylinder_types(*),
+              department:departments(*)
+            `)
+
+          if (insertError) throw insertError
+
+          const formattedRows = (insertedData || []).map((row: any) => ({
+            ...row,
+            type_info: {
+              ...row.type_info,
+              type_name: row.size_info 
+                ? `${row.size_info.is_loan ? 'Loan' : 'Standard'} ${row.size_info.code} (${row.size_info.capacity}M³)`
+                : row.type_info?.name || 'Standard Cylinder'
+            },
+            current_location: {
+              location_name: row.current_location || 'Central Store'
+            }
+          }))
+
+          setGeneratedLabelsList(formattedRows)
+          setGeneratedLabelsPage(1)
+          await loadData()
+        } catch (err: any) {
+          console.error(err)
+          alert('Failed to generate QRs: ' + err.message)
+        } finally {
+          setIsGeneratingQRs(false)
+        }
+      }
+
+      const handlePrintLabel = (label: OxygenCylinderWithRelations) => {
+        const isGeneric = label.id?.startsWith('generic-loan-')
+        const payload = label.qr_code || label.serial_number
+        const title = isGeneric ? 'Generic Loan Cylinder Scan Label' : 'Tracked Asset Cylinder Scan Label'
+        const subtitle = isGeneric ? 'KKM LOAN CYLINDER' : 'KKM STANDARD CYLINDER'
+        const badge = isGeneric ? 'GENERIC QUANTITY SCAN ONLY' : `SERIAL: ${label.serial_number}`
+
+        const printWindow = window.open('', '_blank', 'width=450,height=450')
+        if (!printWindow) {
+          alert('Please allow popups to print labels.')
+          return
+        }
+
+        printWindow.document.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Print Label - ${label.serial_number}</title>
+              <style>
+                @page {
+                  size: 2in 2in;
+                  margin: 0;
+                }
+                body {
+                  margin: 0;
+                  padding: 8px;
+                  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                  text-align: center;
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  justify-content: center;
+                  height: 100vh;
+                  box-sizing: border-box;
+                  background: #fff;
+                }
+                .title {
+                  font-size: 8px;
+                  font-weight: 900;
+                  letter-spacing: 0.1em;
+                  text-transform: uppercase;
+                  margin-bottom: 4px;
+                  color: #000;
+                }
+                .subtitle {
+                  font-size: 6px;
+                  font-weight: 700;
+                  color: #555;
+                  margin-bottom: 6px;
+                  letter-spacing: 0.05em;
+                }
+                .qr-img {
+                  width: 80px;
+                  height: 80px;
+                  display: block;
+                  margin: 0 auto;
+                }
+                .serial {
+                  font-family: monospace;
+                  font-weight: 700;
+                  font-size: 8px;
+                  margin-top: 6px;
+                  letter-spacing: 0.05em;
+                  color: #000;
+                }
+                .badge {
+                  font-size: 6px;
+                  font-weight: 900;
+                  text-transform: uppercase;
+                  color: #000;
+                  border: 1px solid #000;
+                  padding: 2px 4px;
+                  border-radius: 2px;
+                  margin-top: 4px;
+                  display: inline-block;
+                  letter-spacing: 0.05em;
+                }
+                @media print {
+                  body {
+                    height: auto;
+                  }
+                }
+              </style>
+            </head>
+            <body>
+              <div class="title">${subtitle}</div>
+              <div class="subtitle">${label.type_info?.type_name || 'Standard Cylinder'}</div>
+              <img class="qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(payload)}" alt="QR Code" />
+              <div class="serial">${label.serial_number}</div>
+              <div class="badge">${badge}</div>
+              <script>
+                window.onload = function() {
+                  setTimeout(function() {
+                    window.print();
+                    window.close();
+                  }, 300);
+                };
+              </script>
+            </body>
+          </html>
+        `)
+        printWindow.document.close()
+      }
+
+      const isGenericLabel = generatedLabel?.id?.startsWith('generic-loan-')
+
+      return (
+        <div className="space-y-10 relative">
+          {/* Decorative ambient light gradients */}
+          <div className="absolute -top-20 -left-20 w-80 h-80 bg-teal-400/[0.05] rounded-full blur-[100px] pointer-events-none -z-10" />
+          <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-indigo-500/[0.04] rounded-full blur-[100px] pointer-events-none -z-10" />
+
+          {/* Page Title & Hero Header */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-100">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-tr from-slate-900 to-indigo-950 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-950/10">
+                  <QrCode className="w-5.5 h-5.5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-black text-slate-800 tracking-tight text-wrap balance">
+                    Cylinder QR Label Generator
+                  </h2>
+                  <p className="text-xs font-semibold text-slate-500 flex items-center gap-1.5 mt-0.5">
+                    <Sparkles className="w-3.5 h-3.5 text-teal-600 animate-pulse" />
+                    Deploy unique scannable assets and print custom high-contrast barcode labels.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* LEFT COLUMN: Input controls workspace (7 cols) */}
+            <div className="lg:col-span-7 bg-white border border-slate-200/80 rounded-[2.5rem] p-8 shadow-xl shadow-slate-100/40 space-y-8 relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-teal-500 via-emerald-500 to-indigo-500" />
+              
+              {/* Category Pill Switcher */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-teal-50 border border-teal-100 flex items-center justify-center text-[10px] font-black text-teal-600 font-mono">01</span>
+                  <h3 className="text-xs font-black text-slate-400 tracking-widest uppercase">Select Category</h3>
+                </div>
+                
+                <div className="flex bg-slate-50 p-1.5 rounded-2xl border border-slate-200/40 shadow-inner">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQrCategory('assets')
+                      setSelectedComboIndex('')
+                      setGeneratedLabelsList([])
+                    }}
+                    className={`flex-1 py-3 rounded-xl text-xs font-black tracking-wide transition-all duration-300 ${
+                      qrCategory === 'assets'
+                        ? 'bg-slate-900 text-white shadow-md'
+                        : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/50'
+                    }`}
+                  >
+                    Tracked Assets (Individual tag)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQrCategory('loans')
+                      setSelectedCylinderId('')
+                      setGeneratedLabel(null)
+                    }}
+                    className={`flex-1 py-3 rounded-xl text-xs font-black tracking-wide transition-all duration-300 ${
+                      qrCategory === 'loans'
+                        ? 'bg-slate-900 text-white shadow-md'
+                        : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/50'
+                    }`}
+                  >
+                    Supplier Loans (Bulk scan)
+                  </button>
+                </div>
+              </div>
+
+              {/* Main Configuration form */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-teal-50 border border-teal-100 flex items-center justify-center text-[10px] font-black text-teal-600 font-mono">02</span>
+                  <h3 className="text-xs font-black text-slate-400 tracking-widest uppercase">Configure Details</h3>
+                </div>
+
+                {qrCategory === 'assets' ? (
+                  <div className="space-y-6">
+                    {/* Visual Card Grid Selection for Cylinder Types */}
+                    <div className="grid grid-cols-2 gap-3">
+                      {ALLOWED_COMBINATIONS.map((combo, idx) => {
+                        const isSelected = selectedComboIndex === String(idx);
+                        return (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                              setSelectedComboIndex(String(idx));
+                              setGeneratedLabelsList([]);
+                            }}
+                            className={`p-4 rounded-2xl border-2 text-left transition-all duration-200 relative overflow-hidden group ${
+                              isSelected
+                                ? 'border-teal-500 bg-teal-500/[0.02] shadow-md shadow-teal-500/5'
+                                : 'border-slate-100 hover:border-slate-350 hover:bg-slate-50/50 bg-white'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <span className={`px-2 py-0.5 rounded text-[9px] font-black tracking-wider uppercase ${
+                                combo.type === 'BN' ? 'bg-indigo-50 text-indigo-700' : 'bg-teal-50 text-teal-700'
+                              }`}>
+                                {combo.type === 'BN' ? 'Bullnose' : 'Pin Index'}
+                              </span>
+                              {isSelected && (
+                                <div className="w-4 h-4 bg-teal-500 rounded-full flex items-center justify-center">
+                                  <CheckCircle className="w-2.5 h-2.5 text-white" />
+                                </div>
+                              )}
+                            </div>
+                            <span className="text-sm font-black text-slate-800 tracking-tight block">
+                              {combo.capacity} m³ Size
+                            </span>
+                            <span className="text-[10px] font-semibold text-slate-400 block mt-0.5">
+                              {combo.type} Standard
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Custom Quantity Stepper Control */}
+                    <div className="bg-slate-50 p-4 border border-slate-150 rounded-2xl flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
+                          Quantity to Generate
+                        </label>
+                        <span className="text-xs font-semibold text-slate-500">
+                          Create unique sequential numbers
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
+                        <button
+                          type="button"
+                          onClick={() => setGenerateQuantity(prev => Math.max(1, prev - 1))}
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-600 hover:bg-slate-100 font-bold active:scale-95 transition-all"
+                        >
+                          -
+                        </button>
+                        <span className="w-12 text-center text-sm font-black text-slate-800 font-mono">
+                          {generateQuantity}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setGenerateQuantity(prev => Math.min(50, prev + 1))}
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-600 hover:bg-slate-100 font-bold active:scale-95 transition-all"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
+                      Select Loan Cylinder Size
+                    </label>
+                    <select
+                      value={selectedCylinderId}
+                      onChange={(e) => setSelectedCylinderId(e.target.value)}
+                      className="w-full border-2 border-slate-200 hover:border-slate-350 rounded-2xl p-4 text-xs outline-none bg-white text-slate-700 focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 transition-all font-mono font-black shadow-sm"
+                    >
+                      <option value="">-- Choose Loan Cylinder Size --</option>
+                      <option value="generic-loan-1.4">1.4m³ Loan Cylinder (Generic)</option>
+                      <option value="generic-loan-8.0">8.0m³ Loan Cylinder (Generic)</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* Submit Action button */}
+                <button
+                  type="button"
+                  onClick={handleGenerateLabel}
+                  disabled={qrCategory === 'assets' ? !selectedComboIndex : !selectedCylinderId}
+                  className="w-full py-4 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-[1.25rem] text-xs font-black uppercase tracking-wider shadow-lg shadow-teal-500/10 active:scale-[0.98] hover:scale-[1.01] transition-all duration-200 flex items-center justify-center gap-2"
+                >
+                  <QrCode className="w-4 h-4" />
+                  Generate Printable QR Labels
+                </button>
+              </div>
+            {/* RIGHT COLUMN: Output display sticker simulation (5 cols) */}
+            <div className="lg:col-span-5 bg-white border border-slate-200/80 rounded-[2.5rem] p-6 shadow-xl shadow-slate-100/40 min-h-[500px] flex flex-col items-center justify-center text-center relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-teal-500/[0.02] to-transparent rounded-bl-full pointer-events-none" />
+
+              {isGeneratingQRs ? (
+                <div className="space-y-4 text-slate-400 py-6 animate-pulse">
+                  <div className="w-12 h-12 bg-teal-50 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto flex items-center justify-center shadow-md shadow-teal-500/5" />
+                  <p className="text-xs font-black text-slate-700 uppercase tracking-widest">Generating Labels</p>
+                  <p className="text-[11px] text-slate-400 font-semibold max-w-[200px]">Securing unique serial database increments...</p>
+                </div>
+              ) : qrCategory === 'loans' && generatedLabel ? (
+                <div className="space-y-6 flex flex-col items-center w-full animate-fadeIn">
+                  {/* Outer sticker boundary simulating physical sticky label */}
+                  <div className="p-6 border-2 border-dashed border-slate-350 bg-amber-50/[0.05] hover:bg-amber-50/[0.08] rounded-3xl flex flex-col items-center max-w-[280px] w-full shadow-md transition-all duration-300 relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-2 h-full bg-slate-100/40" />
+                    
+                    {/* QR Code image container */}
+                    <div className="bg-white p-3.5 border border-slate-150 rounded-2xl shadow-sm relative group">
+                      <img
+                        className="w-36 h-36 object-contain rounded-lg"
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(
+                          generatedLabel.qr_code || generatedLabel.serial_number
+                        )}`}
+                        alt="Scannable QR Label"
+                      />
+                    </div>
+                    
+                    <div className="mt-5 text-center space-y-1 w-full">
+                      <p className="text-xs font-mono font-black text-slate-800 tracking-wider">
+                        {generatedLabel.serial_number}
+                      </p>
+                      <p className="text-[10px] text-slate-500 font-bold">
+                        {generatedLabel.type_info?.type_name || 'Standard Cylinder'}
+                      </p>
+                      <div className="pt-2.5">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-blue-50 text-blue-750 border border-blue-150">
+                          <Info className="w-3 h-3 text-blue-500" />
+                          Generic Loan
+                        </span>
+                      </div>
+                      <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest pt-3.5 block">
+                        KKM MEDICAL OXYGEN
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handlePrintLabel(generatedLabel)}
+                    className="px-6 py-3 border border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-slate-700 rounded-2xl text-xs font-black uppercase tracking-wider active:scale-[0.98] transition-all shadow-sm flex items-center gap-2"
+                  >
+                    <Printer className="w-4 h-4 text-slate-500" />
+                    Print Scan Label
+                  </button>
+                </div>
+              ) : qrCategory === 'assets' && generatedLabelsList.length > 0 ? (
+                <div className="space-y-4 flex flex-col items-center w-full animate-fadeIn max-h-[490px]">
+                  <div className="flex items-center justify-between w-full border-b border-slate-100 pb-3 mb-2">
+                    <span className="text-xs font-black text-slate-700 uppercase tracking-widest font-mono">
+                      {generatedLabelsList.length} Generated Labels
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Print all sequential labels
+                          generatedLabelsList.forEach((lbl, index) => {
+                            setTimeout(() => handlePrintLabel(lbl), index * 500);
+                          });
+                        }}
+                        className="px-3 py-1.5 bg-[#00a68a] hover:bg-[#008f76] text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-md shadow-emerald-500/10 transition-all flex items-center gap-1"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                        Print All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!window.confirm(`Are you sure you want to delete all ${generatedLabelsList.length} generated cylinders?`)) return
+                          try {
+                            const idsToDelete = generatedLabelsList.map(l => l.id)
+                            const { error: deleteErr } = await supabase
+                              .from('pharmacy_oxygen_cylinder_inventory')
+                              .delete()
+                              .in('id', idsToDelete)
+
+                            if (deleteErr) throw deleteErr
+
+                            setGeneratedLabelsList([])
+                            await loadData()
+                          } catch (err: any) {
+                            console.error('Failed to delete generated cylinders:', err)
+                            alert('Failed to delete cylinders: ' + err.message)
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-red-500 hover:bg-red-650 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-md shadow-red-500/10 transition-all flex items-center gap-1"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Delete All
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="w-full space-y-2 pr-1">
+                    {paginatedGeneratedLabels.map((lbl) => (
+                      <div key={lbl.id} className="flex items-center justify-between border border-slate-150 rounded-2xl py-2 px-3 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                        <div className="flex flex-col text-left">
+                          <span className="font-mono text-xs font-black text-slate-800 tracking-wide">{lbl.serial_number}</span>
+                          <span className="text-[9px] text-slate-400 font-bold mt-0.5">{lbl.type_info?.type_name || 'Standard'}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handlePrintLabel(lbl)}
+                            className="p-2 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-slate-500 hover:text-teal-650 shadow-sm transition-all"
+                            title="Print Label"
+                          >
+                            <Printer className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!window.confirm(`Are you sure you want to delete cylinder ${lbl.serial_number}?`)) return
+                              try {
+                                const { error: deleteErr } = await supabase
+                                  .from('pharmacy_oxygen_cylinder_inventory')
+                                  .delete()
+                                  .eq('id', lbl.id)
+
+                                if (deleteErr) throw deleteErr
+
+                                setGeneratedLabelsList(prev => {
+                                  const updated = prev.filter(x => x.id !== lbl.id);
+                                  // Adjust page if we deleted the last item on the current page
+                                  const newTotalPages = Math.ceil(updated.length / generatedLabelsPerPage);
+                                  if (generatedLabelsPage > newTotalPages && newTotalPages > 0) {
+                                    setGeneratedLabelsPage(newTotalPages);
+                                  }
+                                  return updated;
+                                })
+                                await loadData()
+                              } catch (err: any) {
+                                console.error('Failed to delete generated cylinder:', err)
+                                alert('Failed to delete cylinder: ' + err.message)
+                              }
+                            }}
+                            className="p-2 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-slate-400 hover:text-red-650 shadow-sm transition-all"
+                            title="Delete Cylinder"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {totalGeneratedLabelsPages > 1 && (
+                    <div className="flex items-center justify-between w-full pt-3 border-t border-slate-100 mt-2">
+                      <button
+                        type="button"
+                        disabled={generatedLabelsPage === 1}
+                        onClick={() => setGeneratedLabelsPage(prev => Math.max(1, prev - 1))}
+                        className="px-2.5 py-1 text-[10px] font-black uppercase text-slate-500 hover:text-slate-850 disabled:opacity-30 disabled:cursor-not-allowed border border-slate-200 rounded-lg shadow-sm transition-all"
+                      >
+                        Prev
+                      </button>
+                      <span className="text-[10px] font-black text-slate-400 font-mono">
+                        Page {generatedLabelsPage} of {totalGeneratedLabelsPages}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={generatedLabelsPage === totalGeneratedLabelsPages}
+                        onClick={() => setGeneratedLabelsPage(prev => Math.min(totalGeneratedLabelsPages, prev + 1))}
+                        className="px-2.5 py-1 text-[10px] font-black uppercase text-slate-500 hover:text-slate-850 disabled:opacity-30 disabled:cursor-not-allowed border border-slate-200 rounded-lg shadow-sm transition-all"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4 text-slate-400 py-6 max-w-[280px]">
+                  <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
+                    <div className="absolute inset-0 bg-indigo-50 rounded-2xl -rotate-6 scale-95 transition-transform group-hover:rotate-0" />
+                    <QrCode className="w-10 h-10 stroke-1.5 text-slate-400 relative z-10" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-black text-slate-700 uppercase tracking-widest">No Label Generated</p>
+                    <p className="text-[11px] text-slate-400 font-semibold leading-relaxed">
+                      Select your configuration parameters on the left and trigger label production.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+              {/* LOWER SECTION: Live Cylinder QR Registry Card */}
+          <div className="lg:col-span-12 bg-white border border-slate-200 rounded-[2rem] p-6 sm:p-8 shadow-xl shadow-slate-100/40 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-base font-black text-slate-800 tracking-tight flex items-center gap-2">
+                  <Database className="w-5 h-5 text-teal-600 animate-pulse" />
+                  Live Cylinder QR Registry
+                </h3>
+                <p className="text-xs font-semibold text-slate-500 mt-1">
+                  Overview of generated scannable QR tags grouped by monitored cylinder type and capacity.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {ALLOWED_COMBINATIONS.map((combo) => {
+                const matchingCylinders = cylinders.filter(c => {
+                  const typeCode = c.type_info?.code || c.type_info?.type_code || '';
+                  const capacity = parseFloat(c.size_info?.capacity || '0');
+                  const isStandard = !c.size_info?.is_loan && !c.serial_number?.startsWith('101-');
+                  return isStandard && typeCode === combo.type && Math.abs(capacity - combo.capacity) < 0.01;
+                });
+
+                const pageKey = `${combo.type}-${combo.capacity}`;
+                const currentPage = registryPages[pageKey] || 1;
+                const itemsPerPage = 3;
+                const totalPages = Math.ceil(matchingCylinders.length / itemsPerPage);
+                const comboStartIndex = (currentPage - 1) * itemsPerPage;
+                const paginatedCylinders = matchingCylinders.slice(comboStartIndex, comboStartIndex + itemsPerPage);
+
+                return (
+                  <div 
+                    key={combo.label} 
+                    className={`bg-slate-50/40 border border-slate-200 border-l-4 rounded-3xl p-5 flex flex-col justify-between h-[340px] hover:shadow-soft hover:bg-white transition-all duration-300
+                      ${combo.type === 'BN' ? 'border-l-secondary-500' : 'border-l-primary-500'}`}
+                  >
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2.5 py-0.5 rounded-lg text-[9px] font-black tracking-wide uppercase border ${
+                          combo.type === 'BN' 
+                            ? 'bg-secondary-50 text-secondary-700 border-secondary-100' 
+                            : 'bg-primary-50 text-primary-700 border-primary-100'
+                        }`}>
+                          {combo.type === 'BN' ? 'Bullnose' : 'Pin Index'}
+                        </span>
+                        <span className="text-xs font-black text-slate-700">{combo.capacity} m³</span>
+                      </div>
+                      <span className="text-[10px] font-black text-slate-500 bg-white border border-slate-200 px-2.5 py-1 rounded-full shadow-sm">
+                        {matchingCylinders.length} Assets
+                      </span>
+                    </div>
+
+                    <div className="flex-1 space-y-2 pr-1 overflow-y-auto">
+                      {matchingCylinders.length === 0 ? (
+                        <div className="h-full flex items-center justify-center text-[9px] font-black text-slate-400 uppercase tracking-widest bg-white/40 border border-dashed border-slate-200 rounded-2xl">
+                          No QR Generated
+                        </div>
+                      ) : (
+                        paginatedCylinders.map((cyl) => {
+                          const status = (cyl.status || '').toLowerCase();
+                          let displayStatus = 'Unknown';
+                          let badgeStyle = 'bg-slate-50 text-slate-600 border border-slate-200';
+                          
+                          if (status === 'available' || status === 'full') {
+                            displayStatus = 'Available';
+                            badgeStyle = 'bg-emerald-50 text-emerald-700 border border-emerald-200/80';
+                          } else if (status === 'issued' || status === 'in_use') {
+                            displayStatus = 'In Use';
+                            badgeStyle = 'bg-amber-50 text-amber-700 border border-amber-200/80';
+                          } else if (status === 'returned_to_supplier') {
+                            displayStatus = 'Returned';
+                            badgeStyle = 'bg-rose-50 text-rose-700 border border-rose-200/80';
+                          } else if (status === 'disposed') {
+                            displayStatus = 'Disposed';
+                            badgeStyle = 'bg-rose-50 text-rose-700 border border-rose-200/80';
+                          } else if (status === 'maintenance') {
+                            displayStatus = 'Repair';
+                            badgeStyle = 'bg-blue-50 text-blue-700 border border-blue-200/80';
+                          } else {
+                            displayStatus = status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ');
+                          }
+
+                          return (
+                            <div key={cyl.id} className="flex items-center justify-between bg-white border border-slate-100 rounded-2xl p-3 shadow-sm hover:border-slate-300 hover:shadow-md transition-all duration-200 group">
+                              <div className="flex flex-col gap-0.5 min-w-0">
+                                <span className="font-mono text-xs font-black text-slate-800 tracking-wide truncate">{cyl.serial_number}</span>
+                                <span className="text-[9px] font-semibold text-slate-400 font-mono truncate">{cyl.qr_code}</span>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${badgeStyle}`}>
+                                  {displayStatus}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handlePrintLabel(cyl)}
+                                  className="p-1.5 bg-slate-50 hover:bg-slate-100 hover:text-teal-600 border border-slate-200 rounded-xl text-slate-500 transition-all duration-150 active:scale-95"
+                                  title="Print Label"
+                                >
+                                  <Printer className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between w-full pt-3 border-t border-slate-100 mt-3">
+                        <button
+                          type="button"
+                          disabled={currentPage === 1}
+                          onClick={() => setRegistryPages(prev => ({ ...prev, [pageKey]: Math.max(1, currentPage - 1) }))}
+                          className="px-2.5 py-1 text-[10px] font-black uppercase text-slate-500 hover:text-slate-800 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed border border-slate-200 rounded-lg shadow-sm transition-all active:scale-95"
+                        >
+                          Prev
+                        </button>
+                        <span className="text-[10px] font-black text-slate-400 font-mono">
+                          Page {currentPage} of {totalPages}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={currentPage === totalPages}
+                          onClick={() => setRegistryPages(prev => ({ ...prev, [pageKey]: Math.min(totalPages, currentPage + 1) }))}
+                          className="px-2.5 py-1 text-[10px] font-black uppercase text-slate-500 hover:text-slate-800 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed border border-slate-200 rounded-lg shadow-sm transition-all active:scale-95"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+      )
+    }
+
+    // 4. STOCK RECONCILIATION AUDIT VIEW
+    if (currentPath === '/pharmacy/oxygen/reconciliation') {
+      return (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-[#00a68a]" />
+                Physical Stock Reconciliation Audit
+              </h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Audit and mismatch verification between Supabase records and physical ward assets.
+              </p>
+            </div>
+            <button 
+              onClick={handleAuditSubmit}
+              className="px-4 py-2.5 bg-[#00a68a] hover:bg-[#008f76] text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Save Reconciliation Audit
+            </button>
+          </div>
+
+          {auditSuccessMsg && (
+            <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs text-emerald-800 font-bold">
+              <CheckCircle className="w-4 h-4 flex-shrink-0 text-emerald-600" />
+              {auditSuccessMsg}
+            </div>
+          )}
+
+          {/* Audit Verification Table */}
+          <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+            <div className="px-4 py-3.5 border-b border-gray-100 bg-slate-50/50">
+              <h3 className="text-xs font-black text-gray-800 uppercase tracking-wider">Cylinder Physical Count Check</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left text-xs text-gray-500">
+                <thead className="bg-slate-50 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 font-semibold">Cylinder Serial</th>
+                    <th scope="col" className="px-6 py-3 font-semibold">Size</th>
+                    <th scope="col" className="px-6 py-3 font-semibold">Expected State</th>
+                    <th scope="col" className="px-6 py-3 font-semibold">Physical Count / Status</th>
+                    <th scope="col" className="px-6 py-3 font-semibold text-right">Audit Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 border-t border-gray-100">
+                  {cylinders.map(cyl => {
+                    const currentPhysical = physicalCounts[cyl.id] || cyl.status
+                    const isMatched = currentPhysical === cyl.status
+
+                    return (
+                      <tr key={cyl.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-6 py-4 font-mono font-bold text-gray-900">{cyl.serial_number}</td>
+                        <td className="px-6 py-4 font-medium text-gray-600">{cyl.type_info?.type_name || 'Standard Cylinder'}</td>
+                        <td className="px-6 py-4 font-semibold text-gray-600 uppercase">{cyl.status}</td>
+                        <td className="px-6 py-4">
+                          <select 
+                            value={currentPhysical}
+                            onChange={(e) => setPhysicalCounts(prev => ({ ...prev, [cyl.id]: e.target.value }))}
+                            className="border border-gray-200 rounded-lg p-1.5 bg-white font-bold text-gray-800 text-[11px] outline-none"
+                          >
+                            <option value="full">Full</option>
+                            <option value="empty">Empty</option>
+                            <option value="in_use">In Use</option>
+                            <option value="maintenance">Maintenance</option>
+                          </select>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider 
+                            ${isMatched ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-red-100 text-red-700 border border-red-200'}`}
+                          >
+                            {isMatched ? 'Matched' : 'Mismatch'}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    // DEFAULT MAIN OXYGEN DASHBOARD VIEW
+
+    return (
+      <div className="space-y-8">
+        
+        {/* ========================================================
+            REAMPED PREMIUM GLASSMORPHIC FINANCIAL CARDS (Tall, rich layout)
+           ======================================================== */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+          {/* Card 1: Total Allocation */}
+          <div className="relative bg-white/80 border border-slate-100 rounded-[28px] p-6 shadow-[0_8px_30px_rgb(0,0,0,0.01)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.03)] hover:-translate-y-1 transition-all duration-300 backdrop-blur-xl">
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase">Total Allocation</span>
+                <h4 className="text-2xl lg:text-3xl font-extrabold text-slate-800 tracking-tight mt-2.5">
+                  {fmt(financials?.total_allocation || 274000.00)}
+                </h4>
+                <div className="flex items-center gap-1.5 mt-3 text-[10px] font-bold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg w-max border border-slate-100">
+                  <Database className="w-3.5 h-3.5 text-teal-600" />
+                  <span>VOTE: 080702 / 27402</span>
+                </div>
+              </div>
+              <div className="w-11 h-11 bg-teal-50 border border-teal-100 rounded-2xl flex items-center justify-center shadow-sm shadow-teal-500/5">
+                <DollarSign className="w-5 h-5 text-teal-600" />
+              </div>
+            </div>
+          </div>
+
+          {/* Card 2: Total Expenses */}
+          <div className="relative bg-white/80 border border-slate-100 rounded-[28px] p-6 shadow-[0_8px_30px_rgb(0,0,0,0.01)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.03)] hover:-translate-y-1 transition-all duration-300 backdrop-blur-xl">
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase">Total Expenses</span>
+                <h4 className="text-2xl lg:text-3xl font-extrabold text-slate-800 tracking-tight mt-2.5">
+                  {fmt(financials?.total_expenses || 261037.70)}
+                </h4>
+                <div className="flex items-center gap-1.5 mt-3 text-[10px] font-bold text-rose-600 bg-rose-50 px-2.5 py-1 rounded-lg w-max border border-rose-100/50">
+                  <TrendingUp className="w-3.5 h-3.5" />
+                  <span>Refills: {fmt(financials?.total_expenses || 261037.70)}</span>
+                </div>
+              </div>
+              <div className="w-11 h-11 bg-rose-50 border border-rose-100 rounded-2xl flex items-center justify-center shadow-sm shadow-rose-500/5">
+                <TrendingUp className="w-5 h-5 text-rose-600" />
+              </div>
+            </div>
+          </div>
+
+          {/* Card 3: Liabilities */}
+          <div className="relative bg-white/80 border border-slate-100 rounded-[28px] p-6 shadow-[0_8px_30px_rgb(0,0,0,0.01)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.03)] hover:-translate-y-1 transition-all duration-300 backdrop-blur-xl">
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase">Liabilities</span>
+                <h4 className="text-2xl lg:text-3xl font-extrabold text-slate-800 tracking-tight mt-2.5">
+                  {fmt(financials?.liabilities || 0.00)}
+                </h4>
+                <span className="text-[10px] font-bold text-slate-400 mt-3.5 block italic">Committed PO / SO</span>
+              </div>
+              <div className="w-11 h-11 bg-sky-50 border border-sky-100 rounded-2xl flex items-center justify-center shadow-sm shadow-sky-500/5">
+                <Layers className="w-5 h-5 text-sky-600" />
+              </div>
+            </div>
+          </div>
+
+          {/* Card 4: Current Balance */}
+          {(() => {
+            const bal = financials?.current_balance ?? -2717.14
+            const isOverBudget = bal < 0
+            return (
+              <div className={`relative border rounded-[28px] p-6 shadow-[0_8px_30px_rgb(0,0,0,0.01)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.03)] hover:-translate-y-1 transition-all duration-300 backdrop-blur-xl
+                ${isOverBudget 
+                  ? 'bg-rose-50/70 border-rose-200/50 shadow-[0_8px_30px_rgba(244,63,94,0.03)]' 
+                  : 'bg-white/80 border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.01)]'}`}
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase">Current Balance</span>
+                    <h4 className={`text-2xl lg:text-3xl font-extrabold tracking-tight mt-2.5 ${isOverBudget ? 'text-rose-600' : 'text-slate-800'}`}>
+                      {fmt(bal)}
+                    </h4>
+                    <span className={`inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider mt-3 px-2 py-0.5 rounded-full
+                      ${isOverBudget ? 'bg-rose-100/60 text-[#e11d48] animate-pulse' : 'bg-emerald-50 text-[#10b981]'}`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${isOverBudget ? 'bg-rose-500' : 'bg-emerald-500'}`}></span>
+                      {isOverBudget ? 'Deficit Overdraft' : 'Healthy Allocation'}
+                    </span>
+                  </div>
+                  <div className={`w-11 h-11 border rounded-2xl flex items-center justify-center shadow-sm
+                    ${isOverBudget ? 'bg-rose-100/60 border-rose-200 text-rose-500' : 'bg-emerald-50 border-emerald-100 text-emerald-600'}`}>
+                    <ArrowUpRight className="w-5 h-5" />
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* Card 5: Loan Charges */}
+          <div className="relative bg-white/80 border border-slate-100 rounded-[28px] p-6 shadow-[0_8px_30px_rgb(0,0,0,0.01)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.03)] hover:-translate-y-1 transition-all duration-300 backdrop-blur-xl">
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase">Loan Charges</span>
+                <h4 className="text-2xl lg:text-3xl font-extrabold text-slate-800 tracking-tight mt-2.5">
+                  {fmt(financials?.loan_charges || 15679.44)}
+                </h4>
+                <span className="text-[10px] font-bold text-purple-600 mt-3.5 block bg-purple-50 border border-purple-100/50 px-2 py-0.5 rounded-lg w-max">
+                  Rate: {fmt(systemSettings?.loan_cylinder_rate || 18.36)} / cyl
+                </span>
+              </div>
+              <div className="w-11 h-11 bg-purple-50 border border-purple-100 rounded-2xl flex items-center justify-center shadow-sm shadow-purple-500/5">
+                <Percent className="w-5 h-5 text-purple-600" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ========================================================
+            MODERN ACTION BAR
+           ======================================================== */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white/70 border border-slate-200/40 p-6 rounded-[28px] shadow-sm backdrop-blur-md">
+          <div>
+            <h3 className="text-lg font-bold text-slate-800 tracking-tight">Medical Oxygen Operations</h3>
+            <p className="text-xs text-slate-500 mt-1 flex items-center gap-2 font-medium">
+              Monitor real-time cylinder distribution, key in deliveries, and manage government warrants.
+              <span className="inline-block w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+              <span className="text-[10px] font-bold text-slate-400">LAST SYNC: {new Date().toLocaleTimeString()}</span>
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button 
+              onClick={() => setIsReceiveModalOpen(true)}
+              className="px-6 py-3.5 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white rounded-2xl text-xs font-black tracking-wider uppercase shadow-md shadow-emerald-500/10 active:scale-95 transition-all flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Key In Received Oxygen
+            </button>
+
+          </div>
+        </div>
+
+        {/* ========================================================
+            TWO COLUMN LAYOUT GRID
+           ======================================================== */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+          
+          {/* LEFT SIDE: TRANSACTION LEDGER TABLE (2/3 width) */}
+          <div className="lg:col-span-2 bg-white/80 border border-slate-200/40 rounded-[28px] shadow-sm overflow-hidden backdrop-blur-md">
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/40">
+              <div>
+                <h2 className="text-sm font-bold text-slate-800">Recent Oxygen Deliveries (Received Log)</h2>
+                <p className="text-[11px] text-slate-400 font-medium mt-0.5">Official transactions recorded under governmental budget allocation.</p>
+              </div>
+              <span className="px-3 py-1 bg-teal-50 text-teal-700 border border-teal-100 rounded-full text-[9px] font-black tracking-wider uppercase">KKM Audit Ledger</span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left text-xs text-gray-500">
+                <thead className="bg-slate-50/50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                  <tr>
+                    <th className="px-6 py-4">RECEPTION DATE</th>
+                    <th className="px-6 py-4">DELIVERY ORDER</th>
+                    <th className="px-6 py-4">REFILL COST</th>
+                    <th className="px-6 py-4">LOAN CHARGES</th>
+                    <th className="px-6 py-4">TOTAL COST</th>
+                    <th className="px-6 py-4 text-center">STATUS</th>
+                    <th className="px-6 py-4 text-right">DOCUMENTS</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {receptionsList.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-10 text-center text-slate-400 font-medium italic">No oxygen deliveries logged yet.</td>
+                    </tr>
+                  ) : (
+                    (() => {
+                      const itemsPerPage = 5
+                      const paginatedList = receptionsList.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                      return paginatedList.map((rec) => (
+                        <tr key={rec.id} className="hover:bg-slate-50/40 transition-colors">
+                          <td className="px-6 py-4 text-slate-900 font-semibold">
+                            {new Date(rec.reception_date).toLocaleDateString('ms-MY', { day: '2-digit', month: 'short', year: 'numeric' })}
+                          </td>
+                          <td className="px-6 py-4 font-mono font-bold text-teal-600">{rec.delivery_order_no}</td>
+                          <td className="px-6 py-4 text-slate-700 font-semibold">{fmt(rec.refill_amount)}</td>
+                          <td className="px-6 py-4 text-purple-600 font-semibold">{fmt(rec.loan_amount)}</td>
+                          <td className="px-6 py-4 text-slate-950 font-black">{fmt(rec.total_amount)}</td>
+                          <td className="px-6 py-4 text-center">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border
+                              ${rec.status === 'completed' 
+                                ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
+                                : 'bg-amber-50 text-amber-600 border-amber-100'}`}
+                            >
+                              {rec.status.replace('_', ' ')}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button 
+                                onClick={() => handleOpenPoPreview(rec)}
+                                className="px-2.5 py-1.5 hover:bg-slate-100 text-slate-600 hover:text-slate-800 rounded-xl font-black text-[9px] uppercase tracking-wider transition-all duration-200 flex items-center gap-1 active:scale-95 border border-slate-200/50"
+                                title="Generate KKM PO PDF"
+                              >
+                                <FileText className="w-3.5 h-3.5 text-slate-400" />
+                                PO
+                              </button>
+                              <button 
+                                onClick={() => handleDownloadReport(rec)}
+                                className="px-2.5 py-1.5 hover:bg-teal-50 text-slate-600 hover:text-teal-600 rounded-xl font-black text-[9px] uppercase tracking-wider transition-all duration-200 flex items-center gap-1 active:scale-95 border border-slate-200/50"
+                                title="Generate Reception Report PDF"
+                              >
+                                <Download className="w-3.5 h-3.5 text-slate-400" />
+                                Report
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    })()
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls */}
+            {receptionsList.length > 5 && (
+              <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/30 flex items-center justify-between text-xs">
+                <span className="text-slate-400 font-bold">
+                  Showing <span className="text-slate-700 font-black">{((currentPage - 1) * 5) + 1}</span> to <span className="text-slate-700 font-black">{Math.min(currentPage * 5, receptionsList.length)}</span> of <span className="text-slate-700 font-black">{receptionsList.length}</span> entries
+                </span>
+                <div className="flex items-center gap-2">
+                  <button 
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    className="px-3 py-1.5 border border-slate-200 bg-white hover:bg-slate-50 active:scale-95 disabled:opacity-50 text-slate-600 rounded-xl font-bold tracking-wider uppercase text-[10px] transition-all"
+                  >
+                    PREV
+                  </button>
+                  <button 
+                    disabled={currentPage * 5 >= receptionsList.length}
+                    onClick={() => setCurrentPage(prev => prev + 1)}
+                    className="px-3 py-1.5 border border-slate-200 bg-white hover:bg-slate-50 active:scale-95 disabled:opacity-50 text-slate-600 rounded-xl font-bold tracking-wider uppercase text-[10px] transition-all"
+                  >
+                    NEXT
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* RIGHT SIDE: SIDEBAR WIDGETS (1/3 width) */}
+          <div className="space-y-6">
+            
+            {/* Widget A: Active Pricing Matrix config list */}
+            <div className="bg-white/80 border border-slate-200/40 rounded-[28px] p-6 shadow-sm backdrop-blur-md">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3.5 mb-4">
+                <div>
+                  <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">Active Cylinder Prices</h4>
+                  <p className="text-[10px] text-slate-400 font-medium">Standard refill costs per size code</p>
+                </div>
+                <button 
+                  onClick={() => setIsPricingModalOpen(true)}
+                  className="px-3.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-[#0284c7] rounded-xl text-[10px] font-black tracking-wider transition-all duration-200 flex items-center gap-1 active:scale-95 border border-sky-100"
+                >
+                  <DollarSign className="w-3.5 h-3.5" />
+                  ADJUST
+                </button>
+              </div>
+              
+              <div className="space-y-2.5">
+                {pricingConfigs.slice(0, 6).map((config) => (
+                  <div key={config.id} className="flex items-center justify-between py-2.5 border-b border-slate-50 hover:bg-slate-50/50 px-2 rounded-lg transition-colors">
+                    <span className="text-xs font-bold text-slate-700 tracking-tight">{config.cylinder_size_code}</span>
+                    <span className="font-mono text-xs font-extrabold text-slate-900">
+                      RM {config.refill_price.toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+                
+                {/* Flat cylinder loan rate row */}
+                <div className="flex items-center justify-between py-2.5 border-t border-slate-100 hover:bg-slate-50/50 px-2 rounded-lg transition-colors mt-1 bg-slate-50/40">
+                  <span className="text-xs font-black text-purple-700 tracking-tight uppercase">Cylinder Loan Rate</span>
+                  <span className="font-mono text-xs font-black text-purple-700">
+                    RM {(systemSettings?.loan_cylinder_rate || 18.36).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Widget B: Government Budget Deficit visual block */}
+            {(() => {
+              const allocation = financials?.total_allocation || 274000.00
+              const expenses = financials?.total_expenses || 261037.70
+              const liabilities = financials?.liabilities || 0
+              const totalSpending = expenses + liabilities
+              const percentage = allocation > 0 ? (totalSpending / allocation) * 100 : 0
+              const isOverBudget = totalSpending > allocation
+
+              return (
+                <div className={`border rounded-[28px] p-6 shadow-sm backdrop-blur-md relative overflow-hidden transition-all duration-300
+                  ${isOverBudget 
+                    ? 'bg-rose-50/60 border-rose-200/50 shadow-[0_8px_30px_rgba(244,63,94,0.03)]' 
+                    : 'bg-emerald-50/60 border-emerald-200/50 shadow-[0_8px_30px_rgba(16,185,129,0.03)]'}`}
+                >
+                  <div className="absolute right-0 top-0 w-24 h-24 bg-teal-500/5 rounded-full blur-xl pointer-events-none"></div>
+                  <div className={`flex items-center gap-2 font-black text-xs uppercase tracking-wider mb-3
+                    ${isOverBudget ? 'text-rose-700' : 'text-emerald-700'}`}
+                  >
+                    {isOverBudget ? (
+                      <>
+                        <AlertTriangle className="w-4 h-4 text-rose-500 animate-pulse" />
+                        <span>Government Warrant Deficit</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4 text-emerald-500 animate-pulse" />
+                        <span>Government Warrant Healthy</span>
+                      </>
+                    )}
+                  </div>
+                  <p className={`text-[11px] font-medium leading-relaxed ${isOverBudget ? 'text-rose-600' : 'text-emerald-600'}`}>
+                    {isOverBudget ? (
+                      <>
+                        Oxygen spending (<strong>{fmt(totalSpending)}</strong>) has exceeded the Warrant Allocation (<strong>{fmt(allocation)}</strong>) by <strong>{percentage.toFixed(1)}%</strong> under Vote Code 080702 / Activity 27402.
+                      </>
+                    ) : (
+                      <>
+                        Oxygen spending (<strong>{fmt(totalSpending)}</strong>) is well within the Warrant Allocation (<strong>{fmt(allocation)}</strong>) at <strong>{percentage.toFixed(1)}%</strong> utilization under Vote Code 080702 / Activity 27402.
+                      </>
+                    )}
+                  </p>
+                  
+                  {/* Progress Indicator */}
+                  <div className="mt-4">
+                    <div className={`flex justify-between text-[10px] font-bold mb-1 ${isOverBudget ? 'text-rose-500' : 'text-emerald-500'}`}>
+                      <span>{isOverBudget ? 'WARRANT CAP EXCEEDED' : 'SAFE BUDGET UTILIZATION'}</span>
+                      <span>{percentage.toFixed(1)}%</span>
+                    </div>
+                    <div className={`w-full rounded-full h-2 overflow-hidden shadow-inner ${isOverBudget ? 'bg-rose-100' : 'bg-emerald-100'}`}>
+                      <div 
+                        className={`h-full rounded-full transition-all duration-500 ${isOverBudget ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} 
+                        style={{ width: `${Math.min(percentage, 100)}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Sidebar content end */}
+            
+          </div>
+        </div>
+
+        {/* Real Cylinder Live List Table (Audited mini list) */}
+        <div className="bg-white/80 border border-slate-200/40 rounded-[28px] shadow-sm overflow-hidden backdrop-blur-md mt-6">
+          <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/40">
+            <div>
+              <h2 className="text-sm font-bold text-slate-800">Cylinder Registry (Top 10 Live Inventory)</h2>
+              <p className="text-[11px] text-slate-400 font-medium mt-0.5">Detailed catalog of all active medical oxygen cylinders from Supabase.</p>
+            </div>
+            <span className="px-3 py-1 bg-slate-100 text-slate-600 border border-slate-200/50 rounded-full text-[9px] font-black tracking-wider uppercase">Live Database</span>
+          </div>
+          <Table
+            data={cylinders.slice(0, 10)}
+            columns={cylinderColumns}
+            emptyMessage="No cylinders found in the inventory."
+          />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-8 space-y-8 bg-slate-50/50 min-h-screen relative font-sans">
+      {/* Title Header */}
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 text-[10px] font-black text-teal-600 uppercase tracking-widest">
+            <span>Pharmacy</span>
+            <span>&gt;</span>
+            <span>Inventory</span>
+            <span>&gt;</span>
+            <span className="text-slate-400">Distribution</span>
+          </div>
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight mt-1 flex items-center gap-2.5">
+            <Wind className="w-8 h-8 text-teal-600" />
+            Medical Oxygen Distribution
+          </h1>
+          <p className="text-sm text-slate-500 mt-1 font-medium">
+            Overview of live oxygen cylinder capacity, utilization, and status tracked via Supabase.
+          </p>
+        </div>
+      </div>
+
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-24">
+          <Spinner size="lg" />
+        </div>
+      ) : error ? (
+        <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700 shadow-sm">
+          <AlertTriangle className="w-5 h-5 flex-shrink-0 text-rose-500" />
+          <div>
+            <p className="font-bold">Failed to load oxygen data</p>
+            <p className="mt-1 font-medium">{error}</p>
+          </div>
+        </div>
+      ) : (
+        renderActiveView()
+      )}
+
+      {/* ========================================================
+          MODAL 1: SET CYLINDER PRICES
+         ======================================================== */}
+      {isPricingModalOpen && (
+        <div 
+          className="fixed inset-0 z-50 flex justify-end bg-slate-900/50 backdrop-blur-xs transition-all duration-300"
+          onClick={() => setIsPricingModalOpen(false)}
+        >
+          {/* Injected style tag for premium slide-in animation */}
+          <style>{`
+            @keyframes slideInRight {
+              from { transform: translateX(100%); }
+              to { transform: translateX(0); }
+            }
+          `}</style>
+          
+          <div 
+            className="bg-white text-slate-800 w-full max-w-3xl md:max-w-3xl lg:max-w-4xl h-full shadow-2xl border-l border-slate-200 flex flex-col p-6 overflow-hidden relative"
+            style={{ animation: 'slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5 flex-shrink-0">
+              <div>
+                <span className="text-[10px] font-black text-teal-700 uppercase tracking-widest block mb-0.5">Bahagian Perolehan & Logistik</span>
+                <h3 className="text-base font-extrabold text-slate-900 tracking-tight">Set Cylinder Refill Prices</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Configure official standard warrant refill rates per cylinder capacity index.</p>
+              </div>
+              <button 
+                onClick={() => setIsPricingModalOpen(false)}
+                className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-lg transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePrices} className="flex flex-col flex-grow overflow-hidden min-h-0">
+              <div className="flex flex-col md:flex-row gap-6 flex-grow overflow-hidden min-h-0">
+                {/* Left Side: Pricing List */}
+                <div className="flex-1 overflow-y-auto pr-2 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {pricingConfigs.map((config) => (
+                      <div 
+                        key={config.id} 
+                        className="flex items-center justify-between p-4.5 bg-slate-50/50 border border-slate-200/80 hover:bg-white hover:border-slate-350 hover:border-l-4 hover:border-l-sky-500 rounded-xl hover:shadow-sm transition-all duration-200 group"
+                      >
+                        <div>
+                          <span className="px-2.5 py-1 border border-sky-200 bg-sky-50 text-sky-700 rounded-md font-bold text-[10px] block w-max font-mono mb-1.5 shadow-xxs">
+                            {config.cylinder_size_code}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block">Standard Rate</span>
+                        </div>
+                        <div className="relative w-32 flex items-center border border-slate-250 rounded-lg bg-white overflow-hidden shadow-xs h-9.5 focus-within:border-sky-600 focus-within:ring-2 focus-within:ring-sky-600/10 transition-all">
+                          <span className="pl-3.5 text-[11px] font-bold text-slate-400">RM</span>
+                          <input 
+                            type="number" 
+                            step="0.01"
+                            value={editedPrices[config.cylinder_size_code] || ''}
+                            onChange={(e) => setEditedPrices(prev => ({ ...prev, [config.cylinder_size_code]: e.target.value }))}
+                            required
+                            className="w-full pr-3.5 py-2.5 bg-transparent text-xs font-mono font-bold outline-none border-0 text-right text-slate-800 focus:ring-0"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Elegant Divider */}
+                  <div className="pt-6 border-t border-slate-100 flex flex-col gap-1">
+                    <span className="text-[10px] font-black text-sky-700 uppercase tracking-widest block">Audit Trail & Revision Logs</span>
+                    <h4 className="text-sm font-bold text-slate-800 tracking-tight">Pricing Update History</h4>
+                    <p className="text-[11px] text-slate-400 font-medium">Tracks who, when, and what changed in previous official price revisions.</p>
+                  </div>
+
+                  {/* Grouped logs display */}
+                  <div className="space-y-4 pt-2">
+                    {(() => {
+                      interface GroupedLog {
+                        created_at: string
+                        effective_from: string
+                        creator: { full_name: string; email: string; jawatan?: string } | null
+                        changes: { cylinder_size_code: string; refill_price: number }[]
+                      }
+
+                      const groupedLogs: GroupedLog[] = []
+                      pricingHistory.forEach((log) => {
+                        const logTime = new Date(log.created_at || log.effective_from).getTime()
+                        const matchingGroup = groupedLogs.find((group) => {
+                          const groupTime = new Date(group.created_at).getTime()
+                          return (
+                            Math.abs(groupTime - logTime) < 5000 &&
+                            group.effective_from === log.effective_from &&
+                            (group.creator?.email === log.creator?.email || (!group.creator && !log.creator))
+                          )
+                        })
+
+                        if (matchingGroup) {
+                          matchingGroup.changes.push({
+                            cylinder_size_code: log.cylinder_size_code,
+                            refill_price: Number(log.refill_price)
+                          })
+                        } else {
+                          groupedLogs.push({
+                            created_at: log.created_at || new Date().toISOString(),
+                            effective_from: log.effective_from,
+                            creator: log.creator || null,
+                            changes: [{
+                              cylinder_size_code: log.cylinder_size_code,
+                              refill_price: Number(log.refill_price)
+                            }]
+                          })
+                        }
+                      })
+
+                      if (groupedLogs.length === 0) {
+                        return (
+                          <div className="p-6 bg-slate-50 rounded-2xl text-center text-xs text-slate-400 font-semibold italic">
+                            No pricing revision logs recorded.
+                          </div>
+                        )
+                      }
+
+                      return groupedLogs.map((group, idx) => (
+                        <div 
+                          key={idx} 
+                          className="bg-white border border-slate-250 p-4.5 rounded-[20px] shadow-[0_4px_20px_rgba(0,0,0,0.01)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.02)] hover:border-slate-350 transition-all duration-200"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-slate-100 pb-3">
+                            <div className="flex items-start gap-2.5">
+                              {/* Avatar monolith circle */}
+                              <div className="w-9 h-9 bg-slate-100 border border-slate-200 rounded-xl flex items-center justify-center text-slate-600 font-extrabold text-xs flex-shrink-0">
+                                {(group.creator?.full_name || 'System').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                              </div>
+                              <div>
+                                <h5 className="text-xs font-extrabold text-slate-800">
+                                  {group.creator?.full_name || 'System Administrator'}
+                                </h5>
+                                <span className="text-[10px] text-slate-400 font-bold block mt-0.5 leading-tight">
+                                  {group.creator?.jawatan || 'Authorized Personnel'} ΓÇó <span className="font-mono text-[9.5px]">{group.creator?.email || 'admin@hospital.gov.my'}</span>
+                                </span>
+                              </div>
+                            </div>
+                            
+                            <div className="text-left sm:text-right flex flex-col sm:items-end gap-1 flex-shrink-0">
+                              <span className="text-[9px] font-black px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-md block w-max shadow-xxs">
+                                EFFECTIVE: {new Date(group.effective_from).toLocaleDateString('ms-MY', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              </span>
+                              <span className="text-[9px] text-slate-400 font-bold">
+                                Revised {new Date(group.created_at).toLocaleString('ms-MY', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="mt-3">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Refill Cost Updates</span>
+                            <div className="flex flex-wrap gap-2">
+                              {group.changes.map((chg, cIdx) => (
+                                <div key={cIdx} className="px-3 py-1.5 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center gap-2 shadow-xxs">
+                                  <span className="font-mono text-[10px] font-black text-slate-700">{chg.cylinder_size_code}</span>
+                                  <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                                  <span className="font-mono text-xs font-black text-[#0284c7]">RM {chg.refill_price.toFixed(2)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    })()}
+                  </div>
+                </div>
+
+                {/* Right Side: Form inputs */}
+                <div className="w-full md:w-[320px] flex flex-col justify-between border-t md:border-t-0 md:border-l border-slate-100 pt-5 md:pt-0 md:pl-5 flex-shrink-0">
+                  <div className="space-y-5">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Effective Start Date</label>
+                      <div className="relative">
+                        <Calendar className="absolute left-3.5 top-2.5 w-4 h-4 text-slate-400" />
+                        <input 
+                          type="date" 
+                          value={effectiveFrom}
+                          onChange={(e) => setEffectiveFrom(e.target.value)}
+                          required
+                          className="w-full pl-10 pr-3.5 py-2.5 border border-slate-250 focus:border-sky-600 focus:ring-2 focus:ring-sky-600/10 transition-all text-xs font-semibold text-slate-800 rounded-lg outline-none bg-white shadow-xs"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="p-4 bg-sky-50 border border-sky-100/50 rounded-xl text-xs text-sky-800 leading-relaxed font-semibold">
+                      <p className="font-extrabold text-sky-900 mb-1 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+                        Warrant Administration Notice
+                      </p>
+                      Adjusting prices sets base rates for new PO generations. Historically processed receptions will remain unchanged.
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 mt-6">
+                    <button 
+                      type="button" 
+                      onClick={() => setIsPricingModalOpen(false)}
+                      className="flex-1 py-3 border border-slate-200 hover:bg-slate-50 text-slate-650 hover:text-slate-800 rounded-lg text-xs font-bold transition-all active:scale-98"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit"
+                      disabled={isSavingPrices}
+                      className="flex-1 py-3 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white rounded-lg text-xs font-extrabold shadow-sm transition-all active:scale-98 flex items-center justify-center gap-1.5"
+                    >
+                      {isSavingPrices ? <Spinner size="sm" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                      Save Prices
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          MODAL 2: KEY IN RECEIVED OXYGEN DELIVERY
+         ======================================================== */}
+      {isReceiveModalOpen && (
+        <div 
+          className="fixed inset-0 z-50 flex justify-end bg-slate-900/50 backdrop-blur-xs transition-all duration-300"
+          onClick={() => setIsReceiveModalOpen(false)}
+        >
+          {/* Injected style tag for premium slide-in animation */}
+          <style>{`
+            @keyframes slideInRight {
+              from { transform: translateX(100%); }
+              to { transform: translateX(0); }
+            }
+          `}</style>
+          
+          <div 
+            className="bg-white text-slate-800 w-full max-w-4xl lg:max-w-5xl h-full shadow-2xl border-l border-slate-200 flex flex-col p-6 overflow-hidden relative"
+            style={{ animation: 'slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4 flex-shrink-0">
+              <div>
+                <span className="text-[10px] font-black text-teal-700 uppercase tracking-widest block mb-0.5">Kementerian Kesihatan Malaysia (KKM)</span>
+                <h3 className="text-base font-extrabold text-slate-900 tracking-tight">Key In Received Oxygen Delivery</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Record incoming batches to update official government warrant allocations.</p>
+              </div>
+              <button 
+                onClick={() => setIsReceiveModalOpen(false)}
+                className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-lg transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateReception} className="flex flex-col flex-grow overflow-hidden min-h-0">
+              
+              <div className="flex flex-col md:flex-row gap-6 flex-grow overflow-hidden min-h-0">
+                {/* Left Side: Cyber-styled Cylinder Inventory list of gorgeous Glass Cards */}
+                <div className="flex-1 overflow-y-auto pr-2 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">CYLINDERS RECEIVED CATALOG</span>
+                    <span className="flex items-center gap-1 text-[9px] text-teal-700 font-extrabold bg-teal-50 px-2 py-0.5 border border-teal-200 rounded-md">
+                      Live Warrant Rates
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    {pricingConfigs.map((config) => {
+                      const isLoanSize = config.cylinder_size_code.startsWith('101-')
+                      const basePrice = config.refill_price
+                      const loanRate = systemSettings?.loan_cylinder_rate || 18.36
+                      const priceToDisplay = isLoanSize ? (basePrice + loanRate) : basePrice
+                      
+                      const sub = isLoanSize 
+                        ? (receiveQuantities[config.cylinder_size_code] || 0) * (basePrice + loanRate) + (receiveLoans[config.cylinder_size_code] || 0) * loanRate
+                        : (receiveQuantities[config.cylinder_size_code] || 0) * basePrice + (receiveLoans[config.cylinder_size_code] || 0) * loanRate
+
+                      return (
+                        <div 
+                          key={config.id} 
+                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4.5 bg-slate-50/50 border border-slate-200/60 hover:bg-white hover:border-slate-350 hover:border-l-4 hover:border-l-teal-600 rounded-xl hover:shadow-sm transition-all duration-200 group"
+                        >
+                          {/* Size Info with capsule styling */}
+                          <div className="flex items-center gap-3.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-teal-500 shadow-[0_0_4px_rgba(20,184,166,0.4)]" />
+                            <div>
+                              <span className="font-mono text-sm font-extrabold text-slate-800 block group-hover:text-teal-700 transition-colors">
+                                {config.cylinder_size_code}
+                              </span>
+                              <span className="text-[9px] text-slate-400 uppercase tracking-wider block mt-0.5 font-bold">Standard Capacity</span>
+                            </div>
+                          </div>
+
+                          {/* Unit price with nice formatting */}
+                          <div className="flex flex-col">
+                            <span className="text-[9px] text-slate-400 uppercase tracking-widest font-bold">Warrant Rate</span>
+                            <span className="font-mono text-xs font-bold text-slate-655 mt-0.5">
+                              RM {priceToDisplay.toFixed(2)}
+                            </span>
+                          </div>
+
+                          {/* Stepper controls scaled up for spaciousness */}
+                          <div className="flex items-center gap-4">
+                            <div className="flex flex-col items-center">
+                              <span className="text-[9px] text-slate-400 uppercase tracking-widest font-bold mb-1.5">Refilled</span>
+                              <div className="inline-flex items-center border border-slate-250 bg-white rounded-lg overflow-hidden h-9 shadow-xxs">
+                                <button 
+                                  type="button"
+                                  onClick={() => setReceiveQuantities(prev => ({ ...prev, [config.cylinder_size_code]: Math.max(0, (prev[config.cylinder_size_code] || 0) - 1) }))}
+                                  className="px-3 h-full text-slate-455 hover:bg-slate-100 hover:text-slate-800 transition-all text-xs font-semibold"
+                                >
+                                  ΓêÆ
+                                </button>
+                                <input 
+                                  type="number" 
+                                  min="0"
+                                  value={receiveQuantities[config.cylinder_size_code] || 0}
+                                  onChange={(e) => setReceiveQuantities(prev => ({ ...prev, [config.cylinder_size_code]: Math.max(0, parseInt(e.target.value) || 0) }))}
+                                  className="w-10 text-center font-mono font-extrabold text-teal-700 text-xs bg-transparent outline-none border-0 p-0 focus:ring-0"
+                                />
+                                <button 
+                                  type="button"
+                                  onClick={() => setReceiveQuantities(prev => ({ ...prev, [config.cylinder_size_code]: (prev[config.cylinder_size_code] || 0) + 1 }))}
+                                  className="px-3 h-full text-slate-455 hover:bg-slate-100 hover:text-slate-800 transition-all text-xs font-semibold"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Loan Stepper widget */}
+                            <div className="flex flex-col items-center">
+                              <span className="text-[9px] text-slate-400 uppercase tracking-widest font-bold mb-1.5">Loaned</span>
+                              {isLoanSize ? (
+                                <span className="text-[9px] text-teal-800 font-extrabold uppercase tracking-wider px-3 bg-teal-50 border border-teal-200 rounded-md shadow-xxs h-9 flex items-center justify-center">
+                                  Self Loaned
+                                </span>
+                              ) : (
+                                <div className="inline-flex items-center border border-slate-250 bg-white rounded-lg overflow-hidden h-9 shadow-xxs">
+                                  <button 
+                                    type="button"
+                                    onClick={() => setReceiveLoans(prev => ({ ...prev, [config.cylinder_size_code]: Math.max(0, (prev[config.cylinder_size_code] || 0) - 1) }))}
+                                    className="px-3 h-full text-slate-455 hover:bg-slate-100 hover:text-slate-800 transition-all text-xs font-semibold"
+                                  >
+                                    ΓêÆ
+                                  </button>
+                                  <input 
+                                    type="number" 
+                                    min="0"
+                                    value={receiveLoans[config.cylinder_size_code] || 0}
+                                    onChange={(e) => setReceiveLoans(prev => ({ ...prev, [config.cylinder_size_code]: Math.max(0, parseInt(e.target.value) || 0) }))}
+                                    className="w-10 text-center font-mono font-extrabold text-teal-850 text-xs bg-transparent outline-none border-0 p-0 focus:ring-0"
+                                  />
+                                  <button 
+                                    type="button"
+                                    onClick={() => setReceiveLoans(prev => ({ ...prev, [config.cylinder_size_code]: (prev[config.cylinder_size_code] || 0) + 1 }))}
+                                    className="px-3 h-full text-slate-455 hover:bg-slate-100 hover:text-slate-800 transition-all text-xs font-semibold"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Subtotal calculation column */}
+                          <div className="text-right sm:w-28 flex flex-col justify-end items-end">
+                            <span className="text-[9px] text-slate-455 uppercase tracking-widest font-bold">Subtotal</span>
+                            <span className="font-mono text-sm font-black text-slate-800 group-hover:text-teal-700 transition-colors mt-0.5">
+                              RM {sub.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Right Side: Receipt & Logistics metadata panel (Shopify/Stripe Checkout-inspired) */}
+                <div className="w-full md:w-[330px] lg:w-[355px] flex flex-col justify-between border-t md:border-t-0 md:border-l border-slate-150 pt-4 md:pt-0 md:pl-5 flex-shrink-0 overflow-y-auto pr-1">
+                  
+                  <div className="space-y-5">
+                    {/* Section 1: Delivery & Warrant Information */}
+                    <div className="bg-slate-50/70 border border-slate-200/80 p-5 rounded-xl space-y-4 shadow-xxs">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block border-b border-slate-200/80 pb-2">Delivery & Warrant Info</span>
+                      
+                      <div className="grid grid-cols-2 gap-3.5">
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">DO No.</label>
+                          <input 
+                            type="text" 
+                            placeholder="DO-998877"
+                            value={doNumber}
+                            onChange={(e) => setDoNumber(e.target.value)}
+                            required
+                            className="bg-white border border-slate-250 text-slate-800 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10 placeholder-slate-400 transition-all text-xs font-mono font-bold rounded-lg outline-none w-full px-3 py-2.5 shadow-xxs"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">SO No.</label>
+                          <input 
+                            type="text" 
+                            placeholder="SO-112233"
+                            value={soNumber}
+                            onChange={(e) => setSoNumber(e.target.value)}
+                            required
+                            className="bg-white border border-slate-250 text-slate-800 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10 placeholder-slate-400 transition-all text-xs font-mono font-bold rounded-lg outline-none w-full px-3 py-2.5 shadow-xxs"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">Date Received</label>
+                        <input 
+                          type="date" 
+                          value={receptionDate}
+                          onChange={(e) => setReceptionDate(e.target.value)}
+                          required
+                          className="bg-white border border-slate-250 text-slate-800 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10 transition-all text-xs font-medium rounded-lg outline-none w-full px-3 py-2.5 shadow-xxs"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3.5">
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">Vote Code</label>
+                          <input 
+                            type="text" 
+                            value={voteCode}
+                            onChange={(e) => setVoteCode(e.target.value)}
+                            required
+                            className="bg-white border border-slate-250 text-slate-800 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10 placeholder-slate-400 transition-all text-xs font-mono font-bold rounded-lg outline-none w-full px-3 py-2.5 shadow-xxs"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-bold text-slate-505 uppercase tracking-wider block">Vote Act</label>
+                          <input 
+                            type="text" 
+                            value={voteActivity}
+                            onChange={(e) => setVoteActivity(e.target.value)}
+                            required
+                            className="bg-white border border-slate-255 text-slate-800 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10 placeholder-slate-400 transition-all text-xs font-mono font-bold rounded-lg outline-none w-full px-3 py-2.5 shadow-xxs"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-bold text-slate-505 uppercase tracking-wider block">Budget Status</label>
+                        <select 
+                          value={receptionStatus}
+                          onChange={(e) => setReceptionStatus(e.target.value as any)}
+                          className="bg-white border border-slate-250 text-slate-800 focus:ring-2 focus:ring-teal-600/10 focus:border-teal-500 transition-all cursor-pointer shadow-xxs text-xs font-semibold rounded-lg w-full p-2.5"
+                        >
+                          <option value="completed">Completed</option>
+                          <option value="pending_invoice">Pending Invoice</option>
+                          <option value="outstanding_po">Outstanding PO</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Section 2: Premium Warrant Receipt Summary Card (expanded) */}
+                    <div className="bg-teal-50/70 border border-teal-150 p-5 rounded-xl flex flex-col gap-3.5 shadow-xxs">
+                      <span className="text-[10px] font-bold text-teal-800 uppercase tracking-widest block border-b border-teal-200 pb-2">Warrant Receipt Summary</span>
+                      
+                      <div className="space-y-3">
+                        <div className="flex justify-between text-xs text-teal-850 font-semibold">
+                          <span>Refill Charges:</span>
+                          <span className="font-mono text-teal-900 font-bold">{fmt(calculateFormRefillTotal())}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-teal-850 font-semibold">
+                          <span>Loan Charges:</span>
+                          <span className="font-mono text-teal-900 font-bold">+{fmt(calculateFormLoanTotal())}</span>
+                        </div>
+                        
+                        <div className="border-t border-dashed border-teal-300 pt-3.5 mt-2">
+                          <div className="flex justify-between text-[10px] font-extrabold text-teal-700 uppercase tracking-wider">
+                            <span>Grand Total Cost:</span>
+                          </div>
+                          <h4 className="font-mono text-teal-600 text-3xl font-black mt-1 tracking-tight">
+                            {fmt(calculateFormRefillTotal() + calculateFormLoanTotal())}
+                          </h4>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2 mt-6 flex-shrink-0">
+                    <button 
+                      type="button" 
+                      onClick={() => setIsReceiveModalOpen(false)}
+                      className="w-full py-3 border border-slate-200 hover:bg-slate-50 text-slate-650 hover:text-slate-800 rounded-lg text-xs font-bold transition-all active:scale-98"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit"
+                      disabled={isSubmittingReception}
+                      className="w-full py-3 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white rounded-lg text-xs font-extrabold shadow-sm transition-all active:scale-98 flex items-center justify-center gap-1.5"
+                    >
+                      {isSubmittingReception ? <Spinner size="sm" /> : <ShoppingCart className="w-3.5 h-3.5" />}
+                      Log Received Oxygen
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          MODAL 3: PDF DOWNLOAD CONGRATULATION SCREEN
+         ======================================================== */}
+      {pdfSuccessModalOpen && justCreatedReception && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-[28px] w-full max-w-md p-6 shadow-2xl text-center relative border border-slate-200/50 animate-bounce-short">
+            <button 
+              onClick={() => setPdfSuccessModalOpen(false)}
+              className="absolute right-5 top-5 p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-50 transition-all active:scale-95"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="w-16 h-16 bg-emerald-50 border border-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
+              <CheckCircle className="w-8 h-8 text-emerald-600" />
+            </div>
+
+            <h3 className="text-lg font-black text-slate-800">Oxygen Received Successfully!</h3>
+            <p className="text-xs text-slate-500 mt-2 px-4 leading-relaxed">
+              The oxygen delivery was successfully recorded into Supabase. You can now download the KKM-compliant documents.
+            </p>
+
+            <div className="flex flex-col gap-3 mt-6">
+              <button 
+                onClick={() => {
+                  setPdfSuccessModalOpen(false)
+                  handleOpenPoPreview(justCreatedReception)
+                }}
+                className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 active:scale-95"
+              >
+                <Printer className="w-4 h-4 text-slate-300" />
+                Print Purchase Order (PO) PDF
+              </button>
+              <button 
+                onClick={() => handleDownloadReport(justCreatedReception)}
+                className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 active:scale-95"
+              >
+                <Download className="w-4 h-4 text-white" />
+                Download Reception Report
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ========================================================
+          MODAL 4: OFFICERS SIGNATURE SETTINGS drawer
+         ======================================================== */}
+      {isOfficerModalOpen && (
+        <div 
+          className="fixed inset-0 z-50 flex justify-end bg-slate-900/50 backdrop-blur-xs transition-all duration-300"
+          onClick={() => setIsOfficerModalOpen(false)}
+        >
+          <div 
+            className="bg-white text-slate-800 w-full max-w-md h-full shadow-2xl border-l border-slate-200 flex flex-col p-6 overflow-hidden relative"
+            style={{ animation: 'slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5 flex-shrink-0">
+              <div>
+                <span className="text-[10px] font-black text-teal-700 uppercase tracking-widest block mb-0.5">Warrant Administration Settings</span>
+                <h3 className="text-base font-extrabold text-slate-900 tracking-tight">Edit Officer Signatures</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Configure signees for the KKM Purchase Order.</p>
+              </div>
+              <button 
+                onClick={() => setIsOfficerModalOpen(false)}
+                className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-lg transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSignatures} className="flex-grow flex flex-col justify-between overflow-y-auto pr-1">
+              <div className="space-y-6">
+                {/* Pegawai Memohon */}
+                <div className="space-y-3.5 border-b border-slate-100 pb-5">
+                  <h4 className="text-xs font-black text-teal-700 uppercase tracking-widest">1. Pegawai Yang Memohon</h4>
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">Officer Name</label>
+                    <input 
+                      type="text" 
+                      value={tempSignatures.applicantName}
+                      onChange={(e) => setTempSignatures(prev => ({ ...prev, applicantName: e.target.value }))}
+                      required
+                      className="bg-white border border-slate-250 text-slate-800 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10 placeholder-slate-400 transition-all text-xs font-bold rounded-lg outline-none w-full px-3.5 py-2.5 shadow-xxs"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">Position / Jawatan</label>
+                    <input 
+                      type="text" 
+                      value={tempSignatures.applicantPosition}
+                      onChange={(e) => setTempSignatures(prev => ({ ...prev, applicantPosition: e.target.value }))}
+                      required
+                      className="bg-white border border-slate-250 text-slate-800 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10 placeholder-slate-400 transition-all text-xs font-semibold rounded-lg outline-none w-full px-3.5 py-2.5 shadow-xxs"
+                    />
+                  </div>
+                </div>
+
+                {/* Ketua Bahagian */}
+                <div className="space-y-3.5 pb-5">
+                  <h4 className="text-xs font-black text-teal-700 uppercase tracking-widest">2. Ketua Bahagian</h4>
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">Officer Name</label>
+                    <input 
+                      type="text" 
+                      value={tempSignatures.headName}
+                      onChange={(e) => setTempSignatures(prev => ({ ...prev, headName: e.target.value }))}
+                      required
+                      className="bg-white border border-slate-250 text-slate-800 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10 placeholder-slate-400 transition-all text-xs font-bold rounded-lg outline-none w-full px-3.5 py-2.5 shadow-xxs"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">Position / Jawatan</label>
+                    <input 
+                      type="text" 
+                      value={tempSignatures.headPosition}
+                      onChange={(e) => setTempSignatures(prev => ({ ...prev, headPosition: e.target.value }))}
+                      required
+                      className="bg-white border border-slate-250 text-slate-800 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10 placeholder-slate-400 transition-all text-xs font-semibold rounded-lg outline-none w-full px-3.5 py-2.5 shadow-xxs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6 border-t border-slate-100 pt-5">
+                <button 
+                  type="button" 
+                  onClick={() => setIsOfficerModalOpen(false)}
+                  className="flex-1 py-3 border border-slate-200 hover:bg-slate-50 text-slate-655 hover:text-slate-800 rounded-lg text-xs font-bold transition-all active:scale-98"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  disabled={isSavingOfficers}
+                  className="flex-1 py-3 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white rounded-lg text-xs font-extrabold shadow-sm transition-all active:scale-98 flex items-center justify-center gap-1.5"
+                >
+                  {isSavingOfficers ? <Spinner size="sm" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* ========================================================
+          MODAL 5: PO PREVIEW & EDIT SIGNATURES BEFORE PRINT
+         ======================================================== */}
+      {isPoPreviewModalOpen && previewRecord && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4"
+          onClick={() => setIsPoPreviewModalOpen(false)}
+        >
+          <div 
+            className="bg-white rounded-[28px] w-full max-w-7xl h-[90vh] shadow-2xl relative border border-slate-200/50 flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 flex-shrink-0 bg-slate-50/50">
+              <div>
+                <span className="text-[10px] font-black text-teal-700 uppercase tracking-widest block mb-0.5">LPO Document Workspace</span>
+                <h3 className="text-base font-extrabold text-slate-900 tracking-tight">KKM Purchase Order Document Verification</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Select signees and verify the generated PDF document live before printing.</p>
+              </div>
+              <button 
+                onClick={() => setIsPoPreviewModalOpen(false)}
+                className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-lg transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Split Content Body */}
+            <div className="flex-grow flex flex-col lg:flex-row overflow-hidden min-h-0">
+              
+              {/* Left Column: Live PDF Document Viewer (2/3 width) */}
+              <div className="flex-1 lg:flex-[2] bg-slate-100 p-4 flex items-center justify-center border-r border-slate-200/50 overflow-hidden relative">
+                {previewPdfUrl ? (
+                  <iframe 
+                    src={`${previewPdfUrl}#navpanes=0`} 
+                    className="w-full h-full border border-slate-200 rounded-2xl shadow-lg bg-white" 
+                    title="Live PO PDF Preview"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-slate-400 gap-3">
+                    <Spinner size="lg" />
+                    <span className="text-xs font-semibold">Generating document preview...</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Right Column: Interactive Dropdown Controls (1/3 width) */}
+              <form 
+                onSubmit={handleGeneratePoWithCustomSignatures} 
+                className="w-full lg:w-[380px] p-6 flex flex-col justify-between overflow-y-auto bg-white flex-shrink-0 min-h-0"
+              >
+                <div className="space-y-6">
+                  {/* Summary Box */}
+                  <div className="bg-teal-50/40 border border-teal-100 rounded-2xl p-4 space-y-2">
+                    <span className="text-[10px] font-black text-teal-800 uppercase tracking-widest block">PO Reference</span>
+                    <div className="flex justify-between text-xs font-semibold text-slate-700">
+                      <span>Delivery Order No:</span>
+                      <span className="font-mono text-teal-700 font-bold">{previewRecord.delivery_order_no}</span>
+                    </div>
+                    <div className="flex justify-between text-xs font-semibold text-slate-700">
+                      <span>Total Amount:</span>
+                      <span className="font-mono text-teal-850 font-black">{fmt(previewRecord.total_amount)}</span>
+                    </div>
+                  </div>
+
+                  {/* Dropdown 1: Pegawai Memohon */}
+                  <div className="space-y-3.5 border-b border-slate-100 pb-5">
+                    <h4 className="text-xs font-black text-teal-700 uppercase tracking-widest flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+                      1. Pegawai Yang Memohon
+                    </h4>
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Select Officer</label>
+                      <select
+                        onChange={(e) => {
+                          const chosen = hospitalUsers.find(u => u.full_name === e.target.value)
+                          if (chosen) {
+                            setPreviewSignatures(prev => ({
+                              ...prev,
+                              applicantName: chosen.full_name,
+                              applicantPosition: chosen.jawatan || chosen.role?.role_name || 'Assistant Pharmacist'
+                            }))
+                          }
+                        }}
+                        value={previewSignatures.applicantName}
+                        className="w-full border border-slate-250 rounded-xl p-2.5 text-xs outline-none bg-white text-gray-700 focus:ring-2 focus:ring-teal-600/10 focus:border-teal-500 transition-all font-semibold"
+                      >
+                        <option value="">-- Select Officer --</option>
+                        {hospitalUsers.map(user => (
+                          <option key={user.id} value={user.full_name}>
+                            {user.full_name} ({user.jawatan || user.role?.role_name || 'Staff'})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Officer Position (Custom)</label>
+                      <input 
+                        type="text" 
+                        value={previewSignatures.applicantPosition}
+                        onChange={(e) => setPreviewSignatures(prev => ({ ...prev, applicantPosition: e.target.value }))}
+                        required
+                        className="bg-white border border-slate-250 text-slate-800 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10 transition-all text-xs font-semibold rounded-lg outline-none w-full px-3 py-2"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Dropdown 2: Ketua Bahagian */}
+                  <div className="space-y-3.5 pb-4">
+                    <h4 className="text-xs font-black text-teal-700 uppercase tracking-widest flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+                      2. Ketua Bahagian
+                    </h4>
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Select Head of Dept</label>
+                      <select
+                        onChange={(e) => {
+                          const chosen = hospitalUsers.find(u => u.full_name === e.target.value)
+                          if (chosen) {
+                            setPreviewSignatures(prev => ({
+                              ...prev,
+                              headName: chosen.full_name,
+                              headPosition: chosen.jawatan || chosen.role?.role_name || 'Pharmacist'
+                            }))
+                          }
+                        }}
+                        value={previewSignatures.headName}
+                        className="w-full border border-slate-250 rounded-xl p-2.5 text-xs outline-none bg-white text-gray-700 focus:ring-2 focus:ring-teal-600/10 focus:border-teal-500 transition-all font-semibold"
+                      >
+                        <option value="">-- Select Head --</option>
+                        {hospitalUsers.map(user => (
+                          <option key={user.id} value={user.full_name}>
+                            {user.full_name} ({user.jawatan || user.role?.role_name || 'Staff'})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Position (Custom)</label>
+                      <input 
+                        type="text" 
+                        value={previewSignatures.headPosition}
+                        onChange={(e) => setPreviewSignatures(prev => ({ ...prev, headPosition: e.target.value }))}
+                        required
+                        className="bg-white border border-slate-250 text-slate-800 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10 transition-all text-xs font-semibold rounded-lg outline-none w-full px-3 py-2"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer Controls */}
+                <div className="flex gap-3 mt-6 border-t border-slate-100 pt-5 flex-shrink-0">
+                  <button 
+                    type="button" 
+                    onClick={() => setIsPoPreviewModalOpen(false)}
+                    className="flex-1 py-3 border border-slate-200 hover:bg-slate-50 text-slate-650 hover:text-slate-800 rounded-lg text-xs font-bold transition-all active:scale-98"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit"
+                    className="flex-1 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-extrabold shadow-md transition-all active:scale-98 flex items-center justify-center gap-1.5"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    Print PO
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default OxygenDashboardPage
+

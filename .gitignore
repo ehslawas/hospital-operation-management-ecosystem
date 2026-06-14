@@ -33,3 +33,16 @@ dist-ssr
 # TypeScript
 *.tsbuildinfo
 
+.vercel
+
+# Corrupted/Unused directory
+src/app/
+
+# Build artifacts and logs
+tsc_output.txt
+tsc_errors*.txt
+*.log
+
+# Backups
+backups/
+

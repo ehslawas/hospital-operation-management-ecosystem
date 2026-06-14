@@ -1,0 +1,138 @@
+Created At: 2026-06-13T22:19:13Z
+Completed At: 2026-06-13T22:19:13Z
+File Path: `file:///c:/Users/60113/Downloads/My%20Home/hospital-operation-management-ecosystem/scratch/pre_cutoff_versions/oxygendashboardpage.tsx`
+Total Lines: 130
+Total Bytes: 8220
+Showing lines 1 to 130
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: # Implementation Plan: Cylinder QR Label Generator Modernization
+2: 
+3: Redesign the **Cylinder QR Label Generator** sub-module inside the Medical Oxygen Dashboard to match the project's premium golden reference design system (PO style). Additionally, refactor the cylinder selection logic to separate tracked asset cylinders from supplier loan cylinders (1.4m³ and 8.0m³), providing generic quantity-scan QR codes for loans instead of tracking individual cylinders.
+4: 
+5: ## User Review Required
+6: 
+7: Document anything that requires user review or feedback.
+8: > [!IMPORTANT]
+9: > - **Generic QR Payload Representation**: For the 1.4m³ and 8.0m³ loan cylinders, scanning will produce a generic text payload (`LOAN-1.4M3-GENERIC` and `LOAN-8.0M3-GENERIC`) rather than an individual database asset ID.
+10: > - **Print Layout Scale**: The printable window will format a standard 2" x 2" (50mm x 50mm) label layout with print-only media stylesheets to fit thermal sticker printers natively.
+11: 
+12: ## Workflow & Logic Architecture
+13: 
+14: ### Mermaid Diagram
+15: ```mermaid
+16: graph TD
+17:     A[User visits QR Generator Page] --> B{Select Category}
+18:     B -- Tracked Assets --> C[Dropdown: Individual Cylinders]
+19:     B -- Supplier Loans --> D[Dropdown: Generic Loan Sizes]
+20:     C --> E[Select specific cylinder e.g. OXY-2024-001]
+21:     D --> F[Select generic size e.g. 1.4m³ Loan]
+22:     E --> G[Generate label with unique QR & Serial Number]
+23:     F --> H[Generate label with generic bulk QR & Quantity only]
+24:     G --> I[Preview realistic sticker & print label]
+25:     H --> I
+26:     I --> J[Trigger Print Window with 2x2 Label Layout]
+27: ```
+28: 
+29: ### ASCII Layout Design
+30: ```text
+31: +---------------------------------------------------------------------------------------------------------+
+32: |                                  CYLINDER QR LABEL GENERATOR REDESIGN                                  |
+33: +---------------------------------------------------------------------------------------------------------+
+34: | [ Ambient Radial Light Blur ]                                                                           |
+35: |                                                                                                         |
+36: | PHARMACY > INVENTORY > DISTRIBUTION                                                                     |
+37: |                                                                                                         |
+38: | ( Rotating Icon )   Cylinder QR Label Generator                                                         |
+39: |                     Generate unique tracking labels for assets or generic quantity labels for loans.    |
+40: |                                                                                                         |
+41: | +-------------------------------------------------------+ +-------------------------------------------+ |
+42: | | [Selector Card: Rounded-[2.5rem]]                     | | [Preview Card: Rounded-[2.5rem]]          | |
+43: | |                                                       | |                                           | |
+44: | |   1. Select Category (Tactile Slide Toggle)           | |   If Empty:                               | |
+45: | |   [ Tracked Assets ] [ Supplier Loans ]               | |   +-----------------------------------+   | |
+46: | |                                                       | |   | [ Pulsing Scan Line ]             |   | |
+47: | |   2. Choose Cylinder (Custom Rounded Dropdown)        | |   | Please select a cylinder to ...   |   | |
+48: | |   +-----------------------------------------------+   | |   +-----------------------------------+   | |
+49: | |   | -- Choose Cylinder --                       v |   | |                                           | |
+50: | |   +-----------------------------------------------+   | |   If Generated:                           | |
+51: | |                                                       | |   +-----------------------------------+   | |
+52: | |   [Button: Generate Printable Label]                  | |   |        KKM MEDICAL OXYGEN         |   | |
+53: | |   - Tactile scale, hover glow animation               | |   |                                   |   | |
+54: | |                                                       | |   |      [ REAL DYNAMIC QR CODE ]     |   | |
+55: | |                                                       | |   |       (api.qrserver.com API)      |   | |
+56: | |                                                       | |   |                                   |   | |
+57: | |                                                       | |   |  Serial: LOAN-1.4M3-GENERIC       |   | |
+58: | |                                                       | |   |  Type: Loan 101-F (1.4M³)         |   | |
+59: | |                                                       | |   |  [Badge: GENERIC QUANTITY ONLY]   |   | |
+60: | |                                                       | |   +-----------------------------------+   | |
+61: | |   [Button: Print Scan Label]                          | |   | [Icon] Print Scan Label           |   | |
+62: | +-------------------------------------------------------+ +-------------------------------------------+ |
+63: +---------------------------------------------------------------------------------------------------------+
+64: ```
+65: 
+66: ---
+67: 
+68: ## Proposed Changes
+69: 
+70: ### UI & Styling Modernization
+71: 
+72: #### [MODIFY] [OxygenDashboardPage.tsx](file:///c:/Users/60113/Downloads/My%20Home/hospital-operation-management-ecosystem/src/pages/pharmacy/oxygen/OxygenDashboardPage.tsx)
+73: 
+74: 1. **State Addition**:
+75:    - `const [qrCategory, setQrCategory] = useState<'assets' | 'loans'>('assets')`
+76:    - Automatically reset selection when switching tabs.
+77: 
+78: 2. **Dropdown Filtering & Selection**:
+79:    - Filter out cylinders belonging to loan sizes from the individual selector:
+80:      `const standardCylinders = cylinders.filter(c => !c.size_info?.is_loan)`
+81:    - When **Tracked Assets** is active:
+82:      - Render standard select element populated with `standardCylinders`.
+83:    - When **Supplier Loans** is active:
+84:      - Render dropdown populated with two static options:
+85:        - Value `generic-loan-1.4`: "1.4m³ Loan Cylinder (Generic)"
+86:        - Value `generic-loan-8.0`: "8.0m³ Loan Cylinder (Generic)"
+87: 
+88: 3. **Generate Action Handlers**:
+89:    - When generating from a standard asset: Set `generatedLabel` to selected cylinder database record (standard behavior).
+90:    - When generating from a generic loan size:
+91:      - Create a mock `OxygenCylinderWithRelations` payload:
+92:        ```typescript
+93:        {
+94:          id: 'generic-loan-1.4',
+95:          serial_number: 'LOAN-1.4M3-GENERIC',
+96:          status: 'available',
+97:          qr_code: 'LOAN-1.4M3-GENERIC',
+98:          type_info: { type_code: 'F', type_name: 'Loan 101-F (1.4M³)' },
+99:          size_info: { code: '101-F', capacity: '1.40', unit: 'm3', is_loan: true }
+100:        }
+101:        ```
+102:        (And similar for `8.0` with code `101-N` and capacity `8.00`).
+103: 
+104: 4. **Realistic Label Preview Panel**:
+105:    - Add a subtle background scanner pulse animation in empty state.
+106:    - Use dynamic real QR code image:
+107:      `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(generatedLabel.qr_code || generatedLabel.serial_number)}`
+108:    - Render a pill status badge:
+109:      - Standard: "ASSET TAGGED" (emerald color).
+110:      - Loan: "GENERIC LOAN • QUANTITY ONLY" (blue color).
+111: 
+112: 5. **Thermal Print Dialog Implementation**:
+113:    - Clicking "Print Scan Label" opens a print window:
+114:      - Renders a clean sticker layout with CSS print media overrides (`@page { size: 2in 2in; margin: 0; }`).
+115:      - Loads a clean QR image and uses clean sans-serif/monospace typography.
+116:      - Triggers window print and automatically closes the dialog after window focus.
+117: 
+118: ---
+119: 
+120: ## Verification Plan
+121: 
+122: ### Automated Build Checks
+123: - Run compiler checks: `npm run build` or Vite typechecks.
+124: 
+125: ### Manual Verification
+126: - Select "Tracked Assets" -> Check that loan cylinders (serial numbers starting with `101-N-` or `101-F-`) are excluded.
+127: - Select "Supplier Loans" -> Check that "1.4m³ Loan Cylinder (Generic)" and "8.0m³ Loan Cylinder (Generic)" are shown.
+128: - Click "Generate Printable Label" for both types, check that the dynamic QR code is rendered and is scan-ready.
+129: - Click "Print Scan Label" -> Check that the browser print dialog is triggered with a clean sticker layout.
+130: 
+The above content shows the entire, complete file contents of the requested file.

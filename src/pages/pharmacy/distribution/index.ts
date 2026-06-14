@@ -1,2 +1,10 @@
-export { TransferRequestListPage } from './TransferRequestListPage'
-
+export { default as TransferRequestListPage } from './TransferRequestListPage'
+export { default as IntrafacilityListPage } from './IntrafacilityListPage'
+export { default as IntrafacilityDetailPage } from './IntrafacilityDetailPage'
+export { default as IntrafacilityRequestPage } from './IntrafacilityRequestPage'
+export { default as PharmacyIssuePage } from './PharmacyIssuePage'
+export { default as InterfacilityListPage } from './InterfacilityListPage'
+export { default as InterfacilityDetailPage } from './InterfacilityDetailPage'
+export { default as FacilityBorrowPage } from './FacilityBorrowPage'
+export { default as FacilityLendPage } from './FacilityLendPage'
+export { default as LoanLedgerPage } from './LoanLedgerPage'

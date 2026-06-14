@@ -3,15 +3,16 @@
  * Handles unit catalog, stock locations, and stock verification
  */
 
+import { supabase } from '../supabase'
 import type { ApiResponse, PaginatedResponse } from '@/types'
 import type {
   UnitOfMeasure,
   StockLocation,
+  StockLocationWithRelations,
   StockVerification,
   StockVerificationWithRelations,
   StockVerificationItem,
 } from '@/types/pharmacy'
-import { mockStockLocations, mockUnitsOfMeasure } from './mockData'
 
 // =====================================================
 // UNIT OF MEASURE MANAGEMENT
@@ -22,7 +23,15 @@ import { mockStockLocations, mockUnitsOfMeasure } from './mockData'
  */
 export async function getUnitsOfMeasure(): Promise<ApiResponse<UnitOfMeasure[]>> {
   try {
-    return { data: mockUnitsOfMeasure, error: null }
+    const { data, error } = await supabase
+      .from('pharmacy_units_of_measure')
+      .select('*')
+      .eq('is_active', true)
+      .order('unit_name', { ascending: true })
+
+    if (error) throw error
+
+    return { data: (data || []) as UnitOfMeasure[], error: null }
   } catch (error) {
     console.error('Error fetching units of measure:', error)
     return {
@@ -39,8 +48,16 @@ export async function getUnitsByType(
   unitType: 'quantity' | 'volume' | 'weight' | 'pack'
 ): Promise<ApiResponse<UnitOfMeasure[]>> {
   try {
-    const units = mockUnitsOfMeasure.filter(u => u.unit_type === unitType)
-    return { data: units, error: null }
+    const { data, error } = await supabase
+      .from('pharmacy_units_of_measure')
+      .select('*')
+      .eq('is_active', true)
+      .eq('unit_type', unitType)
+      .order('unit_name', { ascending: true })
+
+    if (error) throw error
+
+    return { data: (data || []) as UnitOfMeasure[], error: null }
   } catch (error) {
     console.error('Error fetching units by type:', error)
     return {
@@ -62,20 +79,36 @@ export async function getStockLocations(
   filter?: {
     location_type?: string
     is_active?: boolean
+    parent_location_id?: string | null
   }
 ): Promise<ApiResponse<StockLocation[]>> {
   try {
-    let locations = [...mockStockLocations]
+    let query = supabase
+      .from('pharmacy_stock_locations')
+      .select('*')
+      .eq('hospital_id', hospitalId)
 
     if (filter?.location_type) {
-      locations = locations.filter(l => l.location_type === filter.location_type)
+      query = query.eq('location_type', filter.location_type)
     }
 
     if (filter?.is_active !== undefined) {
-      locations = locations.filter(l => l.is_active === filter.is_active)
+      query = query.eq('is_active', filter.is_active)
     }
 
-    return { data: locations, error: null }
+    if (filter?.parent_location_id !== undefined) {
+      if (filter.parent_location_id === null) {
+        query = query.is('parent_location_id', null)
+      } else {
+        query = query.eq('parent_location_id', filter.parent_location_id)
+      }
+    }
+
+    const { data, error } = await query.order('location_name', { ascending: true })
+
+    if (error) throw error
+
+    return { data: (data || []) as StockLocation[], error: null }
   } catch (error) {
     console.error('Error fetching stock locations:', error)
     return {
@@ -93,16 +126,18 @@ export async function createStockLocation(
   data: Omit<StockLocation, 'id' | 'created_at' | 'hospital_id'>
 ): Promise<ApiResponse<StockLocation>> {
   try {
-    await new Promise(resolve => setTimeout(resolve, 500))
+    const { data: newLocation, error } = await supabase
+      .from('pharmacy_stock_locations')
+      .insert({
+        hospital_id: hospitalId,
+        ...data,
+      })
+      .select()
+      .single()
 
-    const newLocation: StockLocation = {
-      id: `loc-${Date.now()}`,
-      hospital_id: hospitalId,
-      ...data,
-      created_at: new Date().toISOString(),
-    }
+    if (error) throw error
 
-    return { data: newLocation, error: null }
+    return { data: newLocation as StockLocation, error: null }
   } catch (error) {
     console.error('Error creating stock location:', error)
     return {
@@ -130,60 +165,44 @@ export async function getStockVerifications(
   pageSize: number = 10
 ): Promise<ApiResponse<PaginatedResponse<StockVerificationWithRelations>>> {
   try {
-    // Mock verifications
-    let verifications: StockVerificationWithRelations[] = [
-      {
-        id: 'ver-001',
-        hospital_id: hospitalId,
-        verification_number: 'VER-2024-001',
-        verification_type: 'cycle',
-        location_id: 'loc-001',
-        scheduled_date: '2024-03-15',
-        started_at: '2024-03-15T08:00:00Z',
-        completed_at: '2024-03-15T12:00:00Z',
-        status: 'completed',
-        performed_by: 'user-003',
-        approved_by: 'user-002',
-        created_at: '2024-03-10T00:00:00Z',
-        location: mockStockLocations[0],
-      },
-      {
-        id: 'ver-002',
-        hospital_id: hospitalId,
-        verification_number: 'VER-2024-002',
-        verification_type: 'spot',
-        location_id: 'loc-002',
-        scheduled_date: '2024-03-25',
-        status: 'scheduled',
-        created_at: '2024-03-20T00:00:00Z',
-        location: mockStockLocations[1],
-      },
-    ]
+    let query = supabase
+      .from('pharmacy_stock_verifications')
+      .select(`
+        *,
+        location:pharmacy_stock_locations (*),
+        performed_by_user:users!performed_by (id, first_name, last_name, email),
+        approved_by_user:users!approved_by (id, first_name, last_name, email)
+      `, { count: 'exact' })
+      .eq('hospital_id', hospitalId)
 
     if (filter?.status) {
-      verifications = verifications.filter(v => v.status === filter.status)
+      query = query.eq('status', filter.status)
     }
 
     if (filter?.verification_type) {
-      verifications = verifications.filter(v => v.verification_type === filter.verification_type)
+      query = query.eq('verification_type', filter.verification_type)
     }
 
     if (filter?.location_id) {
-      verifications = verifications.filter(v => v.location_id === filter.location_id)
+      query = query.eq('location_id', filter.location_id)
     }
 
-    const total = verifications.length
-    const totalPages = Math.ceil(total / pageSize)
-    const start = (page - 1) * pageSize
-    const data = verifications.slice(start, start + pageSize)
+    const from = (page - 1) * pageSize
+    const to = from + pageSize - 1
+
+    const { data, error, count } = await query
+      .order('created_at', { ascending: false })
+      .range(from, to)
+
+    if (error) throw error
 
     return {
       data: {
-        data,
-        total,
+        data: (data || []) as StockVerificationWithRelations[],
+        total: count || 0,
         page,
         pageSize,
-        totalPages,
+        totalPages: Math.ceil((count || 0) / pageSize),
       },
       error: null,
     }
@@ -210,21 +229,26 @@ export async function createStockVerification(
   }
 ): Promise<ApiResponse<StockVerification>> {
   try {
-    await new Promise(resolve => setTimeout(resolve, 500))
+    const verificationNumber = `VER-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`
 
-    const newVerification: StockVerification = {
-      id: `ver-${Date.now()}`,
-      hospital_id: hospitalId,
-      verification_number: `VER-${new Date().getFullYear()}-${String(Date.now()).slice(-3)}`,
-      verification_type: data.verification_type,
-      location_id: data.location_id,
-      scheduled_date: data.scheduled_date,
-      status: 'scheduled',
-      notes: data.notes,
-      created_at: new Date().toISOString(),
-    }
+    const { data: newVerification, error } = await supabase
+      .from('pharmacy_stock_verifications')
+      .insert({
+        hospital_id: hospitalId,
+        verification_number: verificationNumber,
+        verification_type: data.verification_type,
+        location_id: data.location_id,
+        scheduled_date: data.scheduled_date,
+        notes: data.notes,
+        status: 'scheduled',
+        performed_by: userId
+      })
+      .select()
+      .single()
 
-    return { data: newVerification, error: null }
+    if (error) throw error
+
+    return { data: newVerification as StockVerification, error: null }
   } catch (error) {
     console.error('Error creating stock verification:', error)
     return {
@@ -242,19 +266,21 @@ export async function startStockVerification(
   userId: string
 ): Promise<ApiResponse<StockVerification>> {
   try {
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    return {
-      data: {
-        id: verificationId,
-        hospital_id: 'hosp-001',
-        verification_number: 'VER-2024-003',
-        verification_type: 'cycle',
+    const { data, error } = await supabase
+      .from('pharmacy_stock_verifications')
+      .update({
         status: 'in_progress',
         started_at: new Date().toISOString(),
-        performed_by: userId,
-        created_at: new Date().toISOString(),
-      },
+        performed_by: userId
+      })
+      .eq('id', verificationId)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    return {
+      data: data as StockVerification,
       error: null,
     }
   } catch (error) {
@@ -281,10 +307,7 @@ export async function recordVerificationCount(
   }[]
 ): Promise<ApiResponse<StockVerificationItem[]>> {
   try {
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    const verificationItems: StockVerificationItem[] = items.map((item, index) => ({
-      id: `vi-${Date.now()}-${index}`,
+    const itemsToInsert = items.map(item => ({
       verification_id: verificationId,
       item_type: item.item_type,
       item_id: item.item_id,
@@ -293,11 +316,17 @@ export async function recordVerificationCount(
       counted_quantity: item.counted_quantity,
       variance: item.counted_quantity - item.system_quantity,
       variance_reason: item.variance_reason,
-      adjustment_approved: false,
-      created_at: new Date().toISOString(),
+      adjustment_approved: false
     }))
 
-    return { data: verificationItems, error: null }
+    const { data, error } = await supabase
+      .from('pharmacy_stock_verification_items')
+      .insert(itemsToInsert)
+      .select()
+
+    if (error) throw error
+
+    return { data: (data || []) as StockVerificationItem[], error: null }
   } catch (error) {
     console.error('Error recording verification count:', error)
     return {
@@ -315,19 +344,19 @@ export async function completeStockVerification(
   approverId: string
 ): Promise<ApiResponse<StockVerification>> {
   try {
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    return {
-      data: {
-        id: verificationId,
-        hospital_id: 'hosp-001',
-        verification_number: 'VER-2024-003',
-        verification_type: 'cycle',
+    const { data } = await supabase
+      .from('pharmacy_stock_verifications')
+      .update({
         status: 'completed',
         completed_at: new Date().toISOString(),
-        approved_by: approverId,
-        created_at: new Date().toISOString(),
-      },
+        approved_by: approverId
+      })
+      .eq('id', verificationId)
+      .select()
+      .single()
+
+    return {
+      data: data as StockVerification,
       error: null,
     }
   } catch (error) {
@@ -337,5 +366,47 @@ export async function completeStockVerification(
       error: error instanceof Error ? error.message : 'Failed to complete stock verification',
     }
   }
+}
+
+/**
+ * Build a hierarchical tree from a flat list of stock locations
+ */
+export function buildLocationTree(locations: StockLocation[]): StockLocationWithRelations[] {
+  const map: { [key: string]: StockLocationWithRelations } = {}
+  const roots: StockLocationWithRelations[] = []
+
+  // Create map entries for all locations
+  locations.forEach(loc => {
+    map[loc.id] = { ...loc, children: [] }
+  })
+
+  // Build the tree
+  locations.forEach(loc => {
+    if (loc.parent_location_id && map[loc.parent_location_id]) {
+      map[loc.parent_location_id].children?.push(map[loc.id])
+    } else {
+      roots.push(map[loc.id])
+    }
+  })
+
+  return roots
+}
+
+/**
+ * Get the full path of a location from root to the specified location
+ */
+export function getLocationPath(locationId: string, allLocations: StockLocation[]): StockLocation[] {
+  const path: StockLocation[] = []
+  const map = new Map(allLocations.map(loc => [loc.id, loc]))
+
+  let currentId: string | undefined = locationId
+  while (currentId) {
+    const loc = map.get(currentId)
+    if (!loc) break
+    path.unshift(loc)
+    currentId = loc.parent_location_id
+  }
+
+  return path
 }
 

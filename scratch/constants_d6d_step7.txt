@@ -1,0 +1,742 @@
+Created At: 2026-06-13T15:55:46Z
+Completed At: 2026-06-13T15:55:47Z
+File Path: `file:///c:/Users/60113/Downloads/My%20Home/hospital-operation-management-ecosystem/src/lib/constants.ts`
+Total Lines: 734
+Total Bytes: 20900
+Showing lines 1 to 734
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: // Application Constants
+2: 
+3: export const APP_NAME = 'HOME'
+4: export const APP_FULL_NAME = 'Hospital Operation Management Ecosystem'
+5: export const APP_VERSION = '1.0.0'
+6: 
+7: // Authentication
+8: export const MAX_LOGIN_ATTEMPTS = 5
+9: export const LOCKOUT_DURATION_MINUTES = 30
+10: export const SESSION_TIMEOUT_MINUTES = 60
+11: export const PASSWORD_MIN_LENGTH = 8
+12: 
+13: // Validation
+14: export const MAX_FILE_SIZE_MB = 5
+15: export const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+16: export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+17: 
+18: // Pagination
+19: export const DEFAULT_PAGE_SIZE = 10
+20: export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
+21: 
+22: // Status Options
+23: export const USER_STATUS = {
+24:   ACTIVE: 'active',
+25:   INACTIVE: 'inactive',
+26:   SUSPENDED: 'suspended',
+27:   PENDING: 'pending',
+28: } as const
+29: 
+30: export const ACCESS_REQUEST_STATUS = {
+31:   PENDING: 'pending',
+32:   APPROVED: 'approved',
+33:   REJECTED: 'rejected',
+34: } as const
+35: 
+36: export const HOSPITAL_STATUS = {
+37:   ACTIVE: 'active',
+38:   INACTIVE: 'inactive',
+39: } as const
+40: 
+41: export const DEPARTMENT_STATUS = {
+42:   ACTIVE: 'active',
+43:   INACTIVE: 'inactive',
+44: } as const
+45: 
+46: export const INQUIRY_STATUS = {
+47:   NEW: 'new',
+48:   IN_PROGRESS: 'in_progress',
+49:   RESOLVED: 'resolved',
+50:   CLOSED: 'closed',
+51: } as const
+52: 
+53: export const INQUIRY_TYPES = {
+54:   GENERAL: 'general',
+55:   TECHNICAL: 'technical',
+56:   ACCESS: 'access',
+57:   COMPLAINT: 'complaint',
+58: } as const
+59: 
+60: // Roles
+61: export const SYSTEM_ROLES = {
+62:   SYSTEM_ADMIN: 'system_admin',
+63:   HOSPITAL_ADMIN: 'hospital_admin',
+64:   
+65:   // Pharmacy Roles
+66:   PHARMACY_DIRECTOR: 'pharmacy_director',
+67:   PHARMACY_MANAGER: 'pharmacy_manager',
+68:   PHARMACIST: 'pharmacist',
+69:   PHARMACY_ASSISTANT: 'pharmacy_assistant',
+70:   PHARMACY_STOREKEEPER: 'pharmacy_storekeeper',
+71:   PHARMACY_STAFF: 'pharmacy_staff',
+72:   
+73:   // Clinical Roles
+74:   NURSE: 'nurse',
+75:   DOCTOR: 'doctor',
+76:   
+77:   // General
+78:   STAFF: 'staff',
+79: } as const
+80: 
+81: // Role Display Names
+82: export const ROLE_DISPLAY_NAMES: Record<string, string> = {
+83:   [SYSTEM_ROLES.SYSTEM_ADMIN]: 'System Administrator',
+84:   [SYSTEM_ROLES.HOSPITAL_ADMIN]: 'Hospital Administrator',
+85:   [SYSTEM_ROLES.PHARMACY_DIRECTOR]: 'Pharmacy Director',
+86:   [SYSTEM_ROLES.PHARMACY_MANAGER]: 'Pharmacy Manager',
+87:   [SYSTEM_ROLES.PHARMACIST]: 'Pharmacist',
+88:   [SYSTEM_ROLES.PHARMACY_ASSISTANT]: 'Pharmacy Assistant',
+89:   [SYSTEM_ROLES.PHARMACY_STOREKEEPER]: 'Store Keeper',
+90:   [SYSTEM_ROLES.PHARMACY_STAFF]: 'Pharmacy Staff',
+91:   [SYSTEM_ROLES.NURSE]: 'Nurse',
+92:   [SYSTEM_ROLES.DOCTOR]: 'Doctor',
+93:   [SYSTEM_ROLES.STAFF]: 'Staff',
+94: } as const
+95: 
+96: // Pharmacy Logistics Status Constants
+97: export const PHARMACY_STOCK_STATUS = {
+98:   IN_STOCK: 'in_stock',
+99:   LOW_STOCK: 'low_stock',
+100:   CRITICAL: 'critical',
+101:   OUT_OF_STOCK: 'out_of_stock',
+102: } as const
+103: 
+104: export const PHARMACY_BATCH_STATUS = {
+105:   AVAILABLE: 'available',
+106:   QUARANTINE: 'quarantine',
+107:   EXPIRED: 'expired',
+108:   DEPLETED: 'depleted',
+109: } as const
+110: 
+111: export const PHARMACY_PO_STATUS = {
+112:   DRAFT: 'draft',
+113:   PENDING_APPROVAL: 'pending_approval',
+114:   APPROVED: 'approved',
+115:   SENT: 'sent',
+116:   PARTIAL_RECEIVED: 'partial_received',
+117:   COMPLETED: 'completed',
+118:   CANCELLED: 'cancelled',
+119: } as const
+120: 
+121: export const PHARMACY_GR_STATUS = {
+122:   PENDING: 'pending',
+123:   INSPECTING: 'inspecting',
+124:   ACCEPTED: 'accepted',
+125:   PARTIAL: 'partial',
+126:   REJECTED: 'rejected',
+127: } as const
+128: 
+129: export const PHARMACY_TRANSFER_STATUS = {
+130:   PENDING: 'pending',
+131:   APPROVED: 'approved',
+132:   PREPARING: 'preparing',
+133:   IN_TRANSIT: 'in_transit',
+134:   RECEIVED: 'received',
+135:   COMPLETED: 'completed',
+136:   REJECTED: 'rejected',
+137: } as const
+138: 
+139: export const PHARMACY_OXYGEN_STATUS = {
+140:   FULL: 'full',
+141:   EMPTY: 'empty',
+142:   IN_USE: 'in_use',
+143:   MAINTENANCE: 'maintenance',
+144:   DISPOSED: 'disposed',
+145: } as const
+146: 
+147: export const PHARMACY_APPL_STATUS = {
+148:   DRAFT: 'draft',
+149:   SUBMITTED: 'submitted',
+150:   APPROVED: 'approved',
+151:   REJECTED: 'rejected',
+152: } as const
+153: 
+154: export const PHARMACY_BUDGET_TYPE = {
+155:   APPL: 'appl',
+156:   CC: 'cc',
+157:   DP: 'dp',
+158: } as const
+159: 
+160: export const PHARMACY_TRANSACTION_TYPE = {
+161:   RECEIPT: 'receipt',
+162:   ISSUE: 'issue',
+163:   TRANSFER_IN: 'transfer_in',
+164:   TRANSFER_OUT: 'transfer_out',
+165:   ADJUST: 'adjust',
+166:   RETURN: 'return',
+167:   DISPOSE: 'dispose',
+168: } as const
+169: 
+170: // Gender Options
+171: export const GENDER_OPTIONS = [
+172:   { value: 'male', label: 'Male / Lelaki' },
+173:   { value: 'female', label: 'Female / Perempuan' },
+174: ] as const
+175: 
+176: // Relationship Options for Emergency Contact
+177: export const RELATIONSHIP_OPTIONS = [
+178:   { value: 'spouse', label: 'Spouse / Pasangan' },
+179:   { value: 'parent', label: 'Parent / Ibu/Bapa' },
+180:   { value: 'sibling', label: 'Sibling / Adik-beradik' },
+181:   { value: 'child', label: 'Child / Anak' },
+182:   { value: 'relative', label: 'Relative / Saudara' },
+183:   { value: 'friend', label: 'Friend / Rakan' },
+184:   { value: 'other', label: 'Other / Lain-lain' },
+185: ] as const
+186: 
+187: // Priority Levels
+188: export const PRIORITY_LEVELS = {
+189:   LOW: 'low',
+190:   MEDIUM: 'medium',
+191:   HIGH: 'high',
+192:   URGENT: 'urgent',
+193: } as const
+194: 
+195: // Procurement Status
+196: export const PR_STATUS = {
+197:   DRAFT: 'draft',
+198:   PENDING: 'pending',
+199:   APPROVED: 'approved',
+200:   REJECTED: 'rejected',
+201:   ORDERED: 'ordered',
+202: } as const
+203: 
+204: export const PO_STATUS = {
+205:   DRAFT: 'draft',
+206:   SENT: 'sent',
+207:   PARTIAL: 'partial',
+208:   COMPLETED: 'completed',
+209:   CANCELLED: 'cancelled',
+210: } as const
+211: 
+212: // Storage Location Types
+213: export const STORAGE_LOCATION_TYPES = {
+214:   WAREHOUSE: 'warehouse',
+215:   PHARMACY: 'pharmacy',
+216:   WARD: 'ward',
+217:   COLD_ROOM: 'cold_room',
+218: } as const
+219: 
+220: // Transaction Types
+221: export const TRANSACTION_TYPES = {
+222:   RECEIPT: 'receipt',
+223:   ISSUE: 'issue',
+224:   TRANSFER: 'transfer',
+225:   ADJUST: 'adjust',
+226:   RETURN: 'return',
+227:   DISPOSE: 'dispose',
+228:   STOCK_TAKE: 'stock_take',
+229: } as const
+230: 
+231: // Toast Duration (milliseconds)
+232: export const TOAST_DURATION = {
+233:   SHORT: 3000,
+234:   MEDIUM: 5000,
+235:   LONG: 8000,
+236: } as const
+237: 
+238: // Routes
+239: export const ROUTES = {
+240:   LOGIN: '/login',
+241:   DASHBOARD: '/hub',
+242:   HUB: '/hub',
+243:   MYWARRANT_DASHBOARD: '/mywarrant',
+244:   HUB_SURAT: '/hub/surat',
+245:   HUB_BORANG: '/hub/borang',
+246:   HUB_SUHU: '/hub/suhu',
+247:   HUB_ADMIN: '/hub/admin',
+248:   HUB_GALLERY: '/hub/gallery',
+249:   HUB_MEMO: '/hub/memo',
+250:   HUB_CROSSBORDER: '/hub/crossborder',
+251:   HUB_FILE: '/hub/file',
+252:   HUB_FORMULARI: '/hub/formulari',
+253:   HUB_PORTER: '/hub/porter',
+254:   HUB_TRANSPORTER: '/hub/transporter',
+255:   HUB_PRIVILEDGING: '/hub/priviledging',
+256:   HUB_TEMPAHAN: '/hub/tempahan',
+257:   HUB_PERHIMPUNAN: '/hub/perhimpunan',
+258:   HUB_KUNCI: '/hub/kunci',
+259:   HUB_CUTI: '/hub/cuti',
+260:   HUB_TIMEOFF: '/hub/timeoff',
+261:   RESET_PASSWORD: '/reset-password',
+262:   PROFILE: '/profile',
+263: 
+264:   
+265:   // Admin Routes (Shared by System Admin & Hospital Admin)
+266:   ADMIN: '/admin',
+267:   ADMIN_USERS: '/admin/users',
+268:   ADMIN_USER_SESSIONS: '/admin/users/sessions',
+269:   ADMIN_USER_ACTIVITY: '/admin/users/activity',
+270:   ADMIN_ACCESS_REQUESTS: '/admin/access-requests',
+271:   ADMIN_HOSPITALS: '/admin/hospitals',
+272:   ADMIN_CLINICS: '/admin/clinics',
+273:   ADMIN_DEPARTMENTS: '/admin/departments',
+274:   ADMIN_ROLES: '/admin/roles',
+275:   ADMIN_PERMISSIONS: '/admin/permissions',
+276:   ADMIN_SETTINGS: '/admin/settings',
+277:   ADMIN_AUDIT_LOGS: '/admin/audit-logs',
+278:   
+279:   // System Admin Routes
+280:   ADMIN_MODULES: '/admin/modules',
+281:   ADMIN_MONITORING: '/admin/monitoring',
+282:   ADMIN_BACKUPS: '/admin/backups',
+283:   ADMIN_ALERTS: '/admin/alerts',
+284:   ADMIN_SYSTEM_LOGS: '/admin/system-logs',
+285:   
+286:   // Hospital Admin Routes
+287:   ADMIN_MEMOS: '/admin/memos',
+288:   ADMIN_MEMO_CREATE: '/admin/memos/create',
+289:   ADMIN_SENSITIVE_DATA_REQUESTS: '/admin/sensitive-data-requests',
+290:   ADMIN_PATIENT_DATABASE: '/admin/patient-database',
+291:   ADMIN_PATIENT_ACCESS_LOGS: '/admin/patient-database/access-logs',
+292:   ADMIN_HOSPITAL_MODULES: '/admin/hospital-modules',
+293:   ADMIN_REPORTS: '/admin/reports',
+294:   ADMIN_REPORTS_USERS: '/admin/reports/users',
+295:   ADMIN_REPORTS_ACCESS: '/admin/reports/access',
+296:   ADMIN_REPORTS_USAGE: '/admin/reports/usage',
+297:   ADMIN_REPORTS_SECURITY: '/admin/reports/security',
+298:   ADMIN_HOSPITAL_HEALTH: '/admin/hospital-health',
+299:   ADMIN_HOSPITAL_LOGS: '/admin/hospital-logs',
+300:   ADMIN_HOSPITAL_BACKUPS: '/admin/hospital-backups',
+301:   
+302:   // Pharmacy Logistics Routes
+303:   PHARMACY: '/pharmacy',
+304:   PHARMACY_DASHBOARD: '/pharmacy/dashboard',
+305:   
+306:   // Inventory Management
+307:   PHARMACY_INVENTORY: '/pharmacy/inventory',
+308:   PHARMACY_DRUGS: '/pharmacy/inventory/drugs',
+309:   PHARMACY_NON_DRUGS: '/pharmacy/inventory/non-drugs',
+310:   PHARMACY_BUFFER_LEVEL: '/pharmacy/inventory/buffer-level',
+311:   PHARMACY_ITEM_MOVEMENT: '/pharmacy/inventory/movement',
+312:   PHARMACY_SLOW_MOVING: '/pharmacy/inventory/slow-moving',
+313:   PHARMACY_NEAR_EXPIRY: '/pharmacy/inventory/near-expiry',
+314:   PHARMACY_BAD_STOCK: '/pharmacy/inventory/bad-stock',
+315:   
+316:   // Medical Oxygen
+317:   PHARMACY_OXYGEN: '/pharmacy/oxygen',
+318:   PHARMACY_OXYGEN_CYLINDERS: '/pharmacy/oxygen/cylinders',
+319:   PHARMACY_OXYGEN_CONSUMPTION: '/pharmacy/oxygen/consumption',
+320:   
+321:   // Financial
+322:   PHARMACY_FINANCIAL: '/pharmacy/financial',
+323:   PHARMACY_BUDGET: '/pharmacy/financial/budget',
+324:   PHARMACY_WARRANT: '/pharmacy/financial/warrant',
+325:   PHARMACY_APPL_ALLOCATION: '/pharmacy/financial/appl-allocation',
+326:   PHARMACY_CC_ALLOCATION: '/pharmacy/financial/cc-allocation',
+327:   PHARMACY_LP_ALLOCATION: '/pharmacy/financial/lp-allocation',
+328:   // Legacy routes (kept for backward compatibility)
+329:   PHARMACY_FORECAST: '/pharmacy/financial/forecast',
+330:   PHARMACY_APPL: '/pharmacy/financial/appl',
+331:   PHARMACY_CCDP: '/pharmacy/financial/ccdp',
+332:   
+333:   // Procurement
+334:   PHARMACY_PROCUREMENT: '/pharmacy/procurement',
+335:   PHARMACY_PO: '/pharmacy/procurement/orders',
+336:   PHARMACY_PO_CREATE: '/pharmacy/procurement/orders/create',
+337:   PHARMACY_PO_DETAIL: '/pharmacy/procurement/orders/:id',
+338:   PHARMACY_LPO: '/pharmacy/procurement/lpo',
+339:   PHARMACY_LPO_CREATE: '/pharmacy/procurement/lpo/create',
+340:   PHARMACY_DELIVERY: '/pharmacy/procurement/delivery',
+341:   PHARMACY_RECEIVING: '/pharmacy/procurement/receiving',
+342:   PHARMACY_PAYMENT: '/pharmacy/procurement/payment',
+343:   PHARMACY_ORDER_TRACKING: '/pharmacy/procurement/tracking',
+344:   PHARMACY_PENALTY: '/pharmacy/procurement/penalty',
+345:   PHARMACY_LOU: '/pharmacy/procurement/lou',
+346:   
+347:   // Distribution
+348:   PHARMACY_DISTRIBUTION: '/pharmacy/distribution',
+349:   PHARMACY_INTER_FACILITY: '/pharmacy/distribution/inter-facility',
+350:   PHARMACY_INTRA_FACILITY: '/pharmacy/distribution/intra-facility',
+351:   PHARMACY_TRANSFER_REQUEST: '/pharmacy/distribution/transfer-request',
+352:   
+353:   // Catalog
+354:   PHARMACY_CATALOG: '/pharmacy/catalog',
+355:   PHARMACY_DRUG_CATALOG: '/pharmacy/catalog/drugs',
+356:   PHARMACY_NON_DRUG_CATALOG: '/pharmacy/catalog/non-drugs',
+357:   PHARMACY_SUPPLIER_CATALOG: '/pharmacy/catalog/suppliers',
+358:   PHARMACY_CONTRACT_CATALOG: '/pharmacy/catalog/contracts',
+359:   PHARMACY_HOSPITAL_FACILITY: '/pharmacy/catalog/hospitals',
+360:   PHARMACY_CLINIC_FACILITY: '/pharmacy/catalog/clinics',
+361:   
+362:   // Maintenance
+363:   PHARMACY_MAINTENANCE: '/pharmacy/maintenance',
+364:   PHARMACY_UNIT_CATALOG: '/pharmacy/maintenance/units',
+365:   PHARMACY_STOCK_LOCATION: '/pharmacy/maintenance/locations',
+366:   PHARMACY_STOCK_VERIFICATION: '/pharmacy/maintenance/verification',
+367:   
+368:   // Reports & Logs
+369:   PHARMACY_REPORTS: '/pharmacy/reports',
+370:   PHARMACY_REPORTS_INVENTORY: '/pharmacy/reports/inventory',
+371:   PHARMACY_REPORTS_PROCUREMENT: '/pharmacy/reports/procurement',
+372:   PHARMACY_REPORTS_FINANCIAL: '/pharmacy/reports/financial',
+373:   PHARMACY_REPORTS_DISTRIBUTION: '/pharmacy/reports/distribution',
+374:   PHARMACY_LOGS: '/pharmacy/logs',
+375:   
+376:   // Legacy routes (for backward compatibility)
+377:   PHARMACY_PRODUCTS: '/pharmacy/products',
+378:   PHARMACY_CATEGORIES: '/pharmacy/categories',
+379:   PHARMACY_SUPPLIERS: '/pharmacy/suppliers',
+380:   PHARMACY_PR: '/pharmacy/requisitions',
+381:   PHARMACY_GR: '/pharmacy/receipts',
+382:   
+383:   // Legal Pages
+384:   PRIVACY_POLICY: '/privacy-policy',
+385:   TERMS_OF_SERVICE: '/terms-of-service',
+386: } as const
+387: 
+388: // Malaysian States
+389: export const MALAYSIAN_STATES = [
+390:   { value: 'JHR', label: 'Johor' },
+391:   { value: 'KDH', label: 'Kedah' },
+392:   { value: 'KTN', label: 'Kelantan' },
+393:   { value: 'MLK', label: 'Melaka' },
+394:   { value: 'NSN', label: 'Negeri Sembilan' },
+395:   { value: 'PHG', label: 'Pahang' },
+396:   { value: 'PNG', label: 'Pulau Pinang' },
+397:   { value: 'PRK', label: 'Perak' },
+398:   { value: 'PLS', label: 'Perlis' },
+399:   { value: 'SBH', label: 'Sabah' },
+400:   { value: 'SWK', label: 'Sarawak' },
+401:   { value: 'SGR', label: 'Selangor' },
+402:   { value: 'TRG', label: 'Terengganu' },
+403:   { value: 'KUL', label: 'Kuala Lumpur' },
+404:   { value: 'LBN', label: 'Labuan' },
+405:   { value: 'PJY', label: 'Putrajaya' },
+406: ] as const
+407: 
+408: // Copyright
+409: export const COPYRIGHT_YEAR = new Date().getFullYear()
+410: export const COPYRIGHT_TEXT = `© ${COPYRIGHT_YEAR} ${APP_NAME}. All rights reserved.`
+411: 
+412: // System Modules - All available modules that can be enabled per hospital
+413: export const SYSTEM_MODULES = {
+414:   // Pharmacy Modules
+415:   PHARMACY_LOGISTICS: 'pharmacy_logistics',
+416:   PHARMACY_SUBSTORE: 'pharmacy_substore',
+417:   PHARMACY_OUTPATIENT: 'pharmacy_outpatient',
+418:   PHARMACY_EMERGENCY: 'pharmacy_emergency',
+419:   PHARMACY_INPATIENT: 'pharmacy_inpatient',
+420:   PHARMACY_GALENICAL: 'pharmacy_galenical',
+421:   
+422:   // Ward Modules
+423:   GENERAL_WARD: 'general_ward',
+424:   PAEDIATRIC_WARD: 'paediatric_ward',
+425:   MATERNITY_WARD: 'maternity_ward',
+426:   
+427:   // Clinical Modules
+428:   EMERGENCY_TRAUMA: 'emergency_trauma',
+429:   LABORATORY: 'laboratory',
+430:   OPERATION_THEATER: 'operation_theater',
+431:   CSSU_CSSD: 'cssu_cssd',
+432:   RADIOLOGY: 'radiology',
+433:   KLINIK_PAKAR: 'klinik_pakar',
+434:   HAEMODIALYSIS: 'haemodialysis',
+435:   
+436:   // Support Modules
+437:   DRIVER_ROOM: 'driver_room',
+438:   HOSPITAL_OFFICE: 'hospital_office',
+439:   FRONT_DESK: 'front_desk',
+440:   
+441:   // Legacy (to be deprecated)
+442:   PHARMACY: 'pharmacy',
+443:   WARD: 'ward',
+444:   BILLING: 'billing',
+445:   HR: 'hr',
+446:   ASSET: 'asset',
+447:   REPORTS: 'reports',
+448: } as const
+449: 
+450: export const MODULE_DEFINITIONS = [
+451:   // Pharmacy Modules
+452:   {
+453:     code: SYSTEM_MODULES.PHARMACY_LOGISTICS,
+454:     name: 'Pharmacy Logistics',
+455:     description: 'Central pharmacy logistics, inventory, procurement, and distribution',
+456:     icon: 'Package',
+457:     category: 'pharmacy',
+458:   },
+459:   {
+460:     code: SYSTEM_MODULES.PHARMACY_SUBSTORE,
+461:     name: 'Pharmacy Substore',
+462:     description: 'Substore inventory and stock management',
+463:     icon: 'Warehouse',
+464:     category: 'pharmacy',
+465:   },
+466:   {
+467:     code: SYSTEM_MODULES.PHARMACY_OUTPATIENT,
+468:     name: 'Pharmacy Outpatient',
+469:     description: 'Outpatient dispensing and prescription management',
+470:     icon: 'Pill',
+471:     category: 'pharmacy',
+472:   },
+473:   {
+474:     code: SYSTEM_MODULES.PHARMACY_EMERGENCY,
+475:     name: 'Pharmacy Emergency',
+476:     description: 'Emergency pharmacy operations',
+477:     icon: 'AlertCircle',
+478:     category: 'pharmacy',
+479:   },
+480:   {
+481:     code: SYSTEM_MODULES.PHARMACY_INPATIENT,
+482:     name: 'Pharmacy In Patient',
+483:     description: 'Inpatient medication management',
+484:     icon: 'Bed',
+485:     category: 'pharmacy',
+486:   },
+487:   {
+488:     code: SYSTEM_MODULES.PHARMACY_GALENICAL,
+489:     name: 'Pharmacy Galenical & Prepacking',
+490:     description: 'Extemporaneous preparation and prepacking',
+491:     icon: 'Beaker',
+492:     category: 'pharmacy',
+493:   },
+494:   
+495:   // Ward Modules
+496:   {
+497:     code: SYSTEM_MODULES.GENERAL_WARD,
+498:     name: 'General Ward',
+499:     description: 'General ward patient management',
+500:     icon: 'BedDouble',
+501:     category: 'ward',
+502:   },
+503:   {
+504:     code: SYSTEM_MODULES.PAEDIATRIC_WARD,
+505:     name: 'Paediatric Ward',
+506:     description: 'Paediatric patient care and management',
+507:     icon: 'Baby',
+508:     category: 'ward',
+509:   },
+510:   {
+511:     code: SYSTEM_MODULES.MATERNITY_WARD,
+512:     name: 'Maternity Ward',
+513:     description: 'Maternity and obstetrics care',
+514:     icon: 'Heart',
+515:     category: 'ward',
+516:   },
+517:   
+518:   // Clinical Modules
+519:   {
+520:     code: SYSTEM_MODULES.EMERGENCY_TRAUMA,
+521:     name: 'Emergency & Trauma',
+522:     description: 'Emergency and trauma department management',
+523:     icon: 'Ambulance',
+524:     category: 'clinical',
+525:   },
+526:   {
+527:     code: SYSTEM_MODULES.LABORATORY,
+528:     name: 'Laboratory',
+529:     description: 'Laboratory tests and results management',
+530:     icon: 'FlaskConical',
+531:     category: 'clinical',
+532:   },
+533:   {
+534:     code: SYSTEM_MODULES.OPERATION_THEATER,
+535:     name: 'Operation Theater',
+536:     description: 'Operation theater scheduling and management',
+537:     icon: 'Scissors',
+538:     category: 'clinical',
+539:   },
+540:   {
+541:     code: SYSTEM_MODULES.CSSU_CSSD,
+542:     name: 'CSSU/CSSD',
+543:     description: 'Central Sterile Supply Unit management',
+544:     icon: 'ShieldCheck',
+545:     category: 'clinical',
+546:   },
+547:   {
+548:     code: SYSTEM_MODULES.RADIOLOGY,
+549:     name: 'Radiology & Radiography',
+550:     description: 'Imaging and radiology services',
+551:     icon: 'Scan',
+552:     category: 'clinical',
+553:   },
+554:   {
+555:     code: SYSTEM_MODULES.KLINIK_PAKAR,
+556:     name: 'Klinik Pakar',
+557:     description: 'Specialist clinic management',
+558:     icon: 'Stethoscope',
+559:     category: 'clinical',
+560:   },
+561:   {
+562:     code: SYSTEM_MODULES.HAEMODIALYSIS,
+563:     name: 'Haemodialysis',
+564:     description: 'Haemodialysis unit management',
+565:     icon: 'Activity',
+566:     category: 'clinical',
+567:   },
+568:   
+569:   // Support Modules
+570:   {
+571:     code: SYSTEM_MODULES.DRIVER_ROOM,
+572:     name: 'Driver Room',
+573:     description: 'Driver and transport management',
+574:     icon: 'Car',
+575:     category: 'support',
+576:   },
+577:   {
+578:     code: SYSTEM_MODULES.HOSPITAL_OFFICE,
+579:     name: 'Hospital Office',
+580:     description: 'Hospital administration office',
+581:     icon: 'Building',
+582:     category: 'support',
+583:   },
+584:   {
+585:     code: SYSTEM_MODULES.FRONT_DESK,
+586:     name: 'Front Desk',
+587:     description: 'Reception and registration',
+588:     icon: 'UserCheck',
+589:     category: 'support',
+590:   },
+591:   
+592:   // Legacy Modules
+593:   {
+594:     code: SYSTEM_MODULES.BILLING,
+595:     name: 'Financial & Billing',
+596:     description: 'Manage billing and financial operations',
+597:     icon: 'DollarSign',
+598:     category: 'support',
+599:   },
+600:   {
+601:     code: SYSTEM_MODULES.HR,
+602:     name: 'Human Resources',
+603:     description: 'Manage HR operations and employee data',
+604:     icon: 'Users',
+605:     category: 'support',
+606:   },
+607:   {
+608:     code: SYSTEM_MODULES.ASSET,
+609:     name: 'Asset Management',
+610:     description: 'Manage hospital assets and equipment',
+611:     icon: 'Package',
+612:     category: 'support',
+613:   },
+614:   {
+615:     code: SYSTEM_MODULES.REPORTS,
+616:     name: 'Advanced Reports',
+617:     description: 'Access advanced reporting and analytics',
+618:     icon: 'FileText',
+619:     category: 'support',
+620:   },
+621: ] as const
+622: 
+623: // Module Categories for grouping in UI
+624: export const MODULE_CATEGORIES = {
+625:   PHARMACY: { code: 'pharmacy', name: 'Pharmacy', icon: 'Pill' },
+626:   WARD: { code: 'ward', name: 'Ward Management', icon: 'Bed' },
+627:   CLINICAL: { code: 'clinical', name: 'Clinical Services', icon: 'Stethoscope' },
+628:   SUPPORT: { code: 'support', name: 'Support Services', icon: 'Settings' },
+629: } as const
+630: 
+631: // Health Check Types
+632: export const HEALTH_CHECK_TYPES = {
+633:   CPU: 'cpu',
+634:   MEMORY: 'memory',
+635:   DATABASE: 'database',
+636:   API: 'api',
+637:   STORAGE: 'storage',
+638:   NETWORK: 'network',
+639: } as const
+640: 
+641: // Alert Types
+642: export const ALERT_TYPES = {
+643:   ERROR: 'error',
+644:   WARNING: 'warning',
+645:   CRITICAL: 'critical',
+646:   INFO: 'info',
+647: } as const
+648: 
+649: export const ALERT_CATEGORIES = {
+650:   SECURITY: 'security',
+651:   PERFORMANCE: 'performance',
+652:   BACKUP: 'backup',
+653:   SYSTEM: 'system',
+654:   MODULE: 'module',
+655: } as const
+656: 
+657: // Backup Types
+658: export const BACKUP_TYPES = {
+659:   SCHEDULED: 'scheduled',
+660:   MANUAL: 'manual',
+661:   PRE_UPDATE: 'pre_update',
+662: } as const
+663: 
+664: export const BACKUP_STATUS = {
+665:   PENDING: 'pending',
+666:   IN_PROGRESS: 'in_progress',
+667:   COMPLETED: 'completed',
+668:   FAILED: 'failed',
+669: } as const
+670: 
+671: // Memo Types & Status
+672: export const MEMO_TYPES = {
+673:   ANNOUNCEMENT: 'announcement',
+674:   POLICY: 'policy',
+675:   EVENT: 'event',
+676:   EMERGENCY: 'emergency',
+677:   MAINTENANCE: 'maintenance',
+678: } as const
+679: 
+680: export const MEMO_STATUS = {
+681:   DRAFT: 'draft',
+682:   PENDING_APPROVAL: 'pending_approval',
+683:   APPROVED: 'approved',
+684:   REJECTED: 'rejected',
+685:   PUBLISHED: 'published',
+686:   ARCHIVED: 'archived',
+687: } as const
+688: 
+689: export const MEMO_PRIORITY = {
+690:   LOW: 'low',
+691:   NORMAL: 'normal',
+692:   HIGH: 'high',
+693:   URGENT: 'urgent',
+694: } as const
+695: 
+696: // Sensitive Data Request
+697: export const SENSITIVE_DATA_CATEGORY = {
+698:   PHI: 'phi',
+699:   FINANCIAL: 'financial',
+700:   CONTACT: 'contact',
+701:   ALL: 'all',
+702: } as const
+703: 
+704: export const SENSITIVE_DATA_URGENCY = {
+705:   ROUTINE: 'routine',
+706:   URGENT: 'urgent',
+707:   EMERGENCY: 'emergency',
+708: } as const
+709: 
+710: export const SENSITIVE_DATA_REQUEST_STATUS = {
+711:   PENDING: 'pending',
+712:   APPROVED: 'approved',
+713:   DENIED: 'denied',
+714:   EXPIRED: 'expired',
+715:   REVOKED: 'revoked',
+716: } as const
+717: 
+718: // Hospital Log Categories
+719: export const HOSPITAL_LOG_CATEGORY = {
+720:   AUTHENTICATION: 'authentication',
+721:   USER_ACTIVITY: 'user_activity',
+722:   ADMINISTRATIVE: 'administrative',
+723:   SECURITY: 'security',
+724:   SYSTEM: 'system',
+725: } as const
+726: 
+727: export const HOSPITAL_LOG_SEVERITY = {
+728:   INFO: 'info',
+729:   WARNING: 'warning',
+730:   ERROR: 'error',
+731:   CRITICAL: 'critical',
+732: } as const
+733: 
+734: 
+The above content shows the entire, complete file contents of the requested file.

@@ -9,7 +9,7 @@ import { BaseEntity, User, Department, Hospital, HospitalModule } from '@/types'
 // ENUMS AND CONSTANTS
 // =====================================================
 
-export type DrugDosageForm = 
+export type DrugDosageForm =
   | 'tablet'
   | 'capsule'
   | 'injection'
@@ -27,10 +27,10 @@ export type DrugDosageForm =
 
 export type ItemStatus = 'active' | 'inactive'
 export type BatchStatus = 'available' | 'quarantine' | 'expired' | 'depleted'
-export type LocationType = 'warehouse' | 'pharmacy' | 'ward' | 'cold_room' | 'controlled'
+export type LocationType = 'warehouse' | 'pharmacy' | 'ward' | 'cold_room' | 'controlled' | 'unit' | 'store' | 'zone' | 'fridge' | 'shelf' | 'bin'
 export type TemperatureRequirement = 'ambient' | '2-8C' | '-20C' | '-80C'
 
-export type StockTransactionType = 
+export type StockTransactionType =
   | 'receipt'
   | 'issue'
   | 'transfer_in'
@@ -40,7 +40,7 @@ export type StockTransactionType =
   | 'return'
   | 'dispose'
 
-export type POStatus = 
+export type POStatus =
   | 'draft'
   | 'pending_approval'
   | 'approved'
@@ -49,11 +49,11 @@ export type POStatus =
   | 'completed'
   | 'cancelled'
 
-export type POType = 'regular' | 'lpo' | 'emergency'
+export type POType = 'regular' | 'lpo' | 'emergency' | 'sq' | 'manual'
 
 export type GRStatus = 'pending' | 'inspecting' | 'accepted' | 'partial' | 'rejected'
 
-export type TransferStatus = 
+export type TransferStatus =
   | 'pending'
   | 'approved'
   | 'preparing'
@@ -61,11 +61,13 @@ export type TransferStatus =
   | 'received'
   | 'completed'
   | 'rejected'
+  | 'cancelled'
 
 export type TransferType = 'inter_facility' | 'intra_facility'
 
-export type OxygenCylinderStatus = 'full' | 'empty' | 'in_use' | 'maintenance' | 'disposed'
-export type OxygenCylinderType = 'B' | 'D' | 'E' | 'M' | 'G' | 'K' | 'T'
+// Deprecated or replaced by interfaces below
+// export type OxygenCylinderStatus = ...
+// export type OxygenCylinderType = ...
 
 export type BudgetType = 'appl' | 'cc' | 'dp'
 export type BudgetCategory = 'drug' | 'non_drug' | 'equipment' | 'operational'
@@ -106,6 +108,7 @@ export interface Drug extends BaseEntity {
   strength?: string
   unit_of_measure: string
   category_id?: string
+  therapeutic_class_id?: string
   is_controlled: boolean
   requires_prescription: boolean
   storage_conditions?: string
@@ -122,10 +125,12 @@ export interface Drug extends BaseEntity {
   price?: number
   packaging_description?: string
   item_sub_class?: string
+  notes?: string
 }
 
 export interface DrugWithRelations extends Drug {
   category?: DrugCategory
+  therapeutic_class?: DrugCategory
   hospital?: Hospital
   supplier?: Supplier
   current_stock?: number
@@ -156,6 +161,7 @@ export interface NonDrug extends BaseEntity {
   procurement_vote?: 'appl' | 'cc' | 'dp' | 'lp'
   price?: number
   packaging_description?: string
+  notes?: string
 }
 
 export interface NonDrugWithRelations extends NonDrug {
@@ -165,6 +171,79 @@ export interface NonDrugWithRelations extends NonDrug {
   current_stock?: number
   stock_status?: 'in_stock' | 'low_stock' | 'critical' | 'out_of_stock'
 }
+
+// =====================================================
+// APPL CATALOG TYPES
+// =====================================================
+
+export interface ApplDrug extends BaseEntity {
+  hospital_id: string
+  item_code: string
+  item_name: string
+  packaging_description?: string
+  price?: number
+  notes?: string
+  status: 'active' | 'inactive'
+  created_by?: string
+}
+
+export interface ApplDrugWithRelations extends ApplDrug {
+  hospital?: Hospital
+  created_by_user?: User
+}
+
+export interface ApplNonDrug extends BaseEntity {
+  hospital_id: string
+  item_code: string
+  item_name: string
+  packaging_description?: string
+  price?: number
+  notes?: string
+  status: 'active' | 'inactive'
+  created_by?: string
+}
+
+export interface ApplNonDrugWithRelations extends ApplNonDrug {
+  hospital?: Hospital
+  created_by_user?: User
+}
+
+// =====================================================
+// LP CATALOG TYPES
+// =====================================================
+
+export interface LpDrug extends BaseEntity {
+  hospital_id: string
+  item_code: string
+  item_name: string
+  packaging_description?: string
+  price?: number
+  notes?: string
+  status: 'active' | 'inactive'
+  created_by?: string
+}
+
+export interface LpDrugWithRelations extends LpDrug {
+  hospital?: Hospital
+  created_by_user?: User
+}
+
+export interface LpNonDrug extends BaseEntity {
+  hospital_id: string
+  item_code: string
+  item_name: string
+  packaging_description?: string
+  price?: number
+  notes?: string
+  status: 'active' | 'inactive'
+  created_by?: string
+}
+
+export interface LpNonDrugWithRelations extends LpNonDrug {
+  hospital?: Hospital
+  created_by_user?: User
+}
+
 
 export interface StockLocation extends BaseEntity {
   hospital_id: string
@@ -202,10 +281,11 @@ export interface StockBatch extends BaseEntity {
 }
 
 export interface StockBatchWithRelations extends StockBatch {
-  drug?: Drug
-  non_drug?: NonDrug
+  drug?: DrugWithRelations
+  non_drug?: NonDrugWithRelations
   location?: StockLocation
   supplier?: Supplier
+  unit_catalog_item?: UnitCatalogItem
 }
 
 export interface StockTransaction extends BaseEntity {
@@ -239,6 +319,13 @@ export interface StockTransactionWithRelations extends StockTransaction {
 // =====================================================
 // INVENTORY SUMMARY TYPES
 // =====================================================
+
+export interface InventoryStats {
+  totalItems: number
+  outOfStock: number
+  expiringSoon: number // 90 days
+  totalValue: number
+}
 
 export interface InventorySummary {
   total_items: number
@@ -298,50 +385,145 @@ export interface SlowMovingItem {
 // OXYGEN MANAGEMENT TYPES
 // =====================================================
 
-export interface OxygenCylinderTypeInfo extends BaseEntity {
-  type_code: OxygenCylinderType
-  type_name: string
-  capacity_liters: number
-  weight_kg?: number
-  description?: string
+export interface OxygenCylinderSize extends BaseEntity {
+  code: string // P101-D, P101-E, etc.
+  capacity: number
+  unit: string // m3
+  is_loan: boolean
 }
 
-export interface OxygenCylinder extends BaseEntity {
+export interface OxygenCylinderType extends BaseEntity {
+  code: string // BN, PI
+  name: string // Bullnose, Pin Index
+}
+
+export interface OxygenReceptionRecord extends BaseEntity {
   hospital_id: string
-  serial_number: string
-  type_id: string
-  status: OxygenCylinderStatus
-  current_location_id?: string
-  assigned_ward_id?: string
-  last_fill_date?: string
-  next_maintenance_date?: string
-  certification_expiry?: string
-  supplier_id?: string
-  notes?: string
+  reception_date: string
+  delivery_order_no: string
+  sales_order_no?: string
+  refill_amount: number
+  loan_amount: number
+  total_amount: number
+  vote_code: string // 080702
+  vote_activity: string // 27402
+  status: 'pending' | 'completed' | 'cancelled'
+  created_by?: string
 }
 
-export interface OxygenCylinderWithRelations extends OxygenCylinder {
-  type_info?: OxygenCylinderTypeInfo
-  current_location?: StockLocation
-  assigned_ward?: Department
-  supplier?: Supplier
+export interface OxygenReceptionRecordWithRelations extends OxygenReceptionRecord {
+  hospital?: Hospital
+  created_by_user?: User
+  items?: OxygenReceptionItemWithRelations[]
 }
 
-export interface OxygenConsumption extends BaseEntity {
+export interface OxygenReceptionItem extends BaseEntity {
+  reception_id: string
+  cylinder_id: string
+  cylinder_size_id: string
+  cylinder_type_id: string
+  unit_price: number
+}
+
+export interface OxygenReceptionItemWithRelations extends OxygenReceptionItem {
+  cylinder?: OxygenCylinderInventory
+  cylinder_size?: OxygenCylinderSize
+  cylinder_type?: OxygenCylinderType
+}
+
+export interface OxygenCylinderInventory extends BaseEntity {
   hospital_id: string
-  cylinder_id?: string
-  department_id: string
-  consumption_date: string
-  quantity_used: number
-  unit: 'liters' | 'cylinders'
-  recorded_by: string
-  notes?: string
+  cylinder_size_id: string
+  cylinder_type_id: string
+  qr_code: string
+  serial_number?: string
+  status: 'available' | 'issued' | 'empty' | 'damaged' | 'returned_to_supplier'
+  current_location: string
+  department_id?: string
 }
 
-export interface OxygenConsumptionWithRelations extends OxygenConsumption {
-  cylinder?: OxygenCylinder
+export interface OxygenCylinderInventoryWithRelations extends OxygenCylinderInventory {
+  size_info?: OxygenCylinderSize
+  type_info?: OxygenCylinderType
   department?: Department
-  recorded_by_user?: User
+  movements?: OxygenCylinderMovement[]
+}
+
+export interface OxygenCylinderMovement extends BaseEntity {
+  hospital_id: string
+  cylinder_id: string
+  movement_type: 'received' | 'issued' | 'returned_from_dept' | 'sent_to_supplier'
+  from_location?: string
+  to_location?: string
+  department_id?: string
+  moved_by?: string
+  moved_at: string
+  remarks?: string
+}
+
+export interface OxygenCylinderMovementWithRelations extends OxygenCylinderMovement {
+  cylinder?: OxygenCylinderInventory
+  department?: Department
+  moved_by_user?: User
+}
+
+export interface OxygenCylinderRequest extends BaseEntity {
+  hospital_id: string
+  supplier_id?: string
+  request_number: string
+  request_date: string
+  request_type: 'purchase' | 'maintenance' | 'return_empty'
+  status: 'draft' | 'submitted' | 'approved' | 'sent' | 'completed' | 'cancelled'
+  total_amount: number
+  email_sent_at?: string
+  remarks?: string
+  created_by?: string
+  approved_by?: string
+}
+
+export interface OxygenCylinderRequestWithRelations extends OxygenCylinderRequest {
+  hospital?: Hospital
+  supplier?: Supplier
+  items?: OxygenRequestItemWithRelations[]
+  created_by_user?: User
+  approved_by_user?: User
+}
+
+export interface OxygenRequestItem extends BaseEntity {
+  request_id: string
+  cylinder_size_id: string
+  cylinder_type_id: string
+  quantity: number
+  unit_price: number
+  total_price: number
+  remarks?: string
+}
+
+export interface OxygenRequestItemWithRelations extends OxygenRequestItem {
+  size_info?: OxygenCylinderSize
+  type_info?: OxygenCylinderType
+}
+
+export interface OxygenDashboardKPIs {
+  cc_allocation: number
+  total_allocation: number
+  expense: number
+  balance: number
+  liabilities: number
+  net_expenses: number
+  loan_total: number
+}
+
+export interface OxygenPricingConfig extends BaseEntity {
+  hospital_id?: string
+  cylinder_size_code: string
+  refill_price: number
+  effective_from: string
+}
+
+export interface OxygenSystemSettings {
+  hospital_id: string
+  loan_cylinder_rate: number
 }
 
 export interface OxygenSummary {
@@ -350,9 +532,23 @@ export interface OxygenSummary {
   empty_cylinders: number
   in_use_cylinders: number
   maintenance_cylinders: number
-  cylinders_by_type: { type: OxygenCylinderType; count: number }[]
+  cylinders_by_type: { type: string; count: number }[]
   daily_consumption: number
   monthly_consumption: number
+  kpis?: OxygenDashboardKPIs
+  inventory_summary?: {
+    size_code: string
+    type_code: string
+    type_name: string
+    capacity: number
+    unit: string
+    available: number
+    empty: number
+    issued: number
+    total: number
+    avg_usage_month: number
+  }[]
+  recent_receptions?: OxygenReceptionRecord[]
 }
 
 // =====================================================
@@ -380,6 +576,8 @@ export interface Supplier extends BaseEntity {
   account_document_url?: string
   /** Optional URL to uploaded MOF certificate (PDF in Supabase Storage) */
   mof_certificate_url?: string
+  /** Optional URL to uploaded Bumiputera Registration certificate (PDF in Supabase Storage) */
+  bumiputera_registration_certificate_url?: string
   status: SupplierStatus
   hospital_id?: string
   performance_rating?: number
@@ -409,6 +607,30 @@ export interface Budget extends BaseEntity {
   created_by: string
   approved_by?: string
   status: 'active' | 'closed'
+}
+
+// =====================================================
+// STOCK LOCATION ITEMS
+// =====================================================
+
+export interface StockLocationItem {
+  id: string
+  location_id: string
+  unit_catalog_item_id: string
+  min_stock: number
+  max_stock: number
+  shelf?: string
+  row_name?: string
+  level?: string
+  column_name?: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface StockLocationItemWithRelations extends StockLocationItem {
+  unit_catalog_item?: UnitCatalogItemWithRelations
+  location?: StockLocation
 }
 
 export interface BudgetWithRelations extends Budget {
@@ -478,7 +700,7 @@ export type WarrantVoteCode = '080702' | '990102'
 
 export type WarrantVoteActivity = '27401' | '27499' | '27404' | '27403' | '27402' | '27501'
 
-export type WarrantCategory = 
+export type WarrantCategory =
   | 'drug'
   | 'non_drug'
   | 'non_standard'
@@ -537,7 +759,7 @@ export interface WarrantSummary {
   net_expenses: number
   usage_percentage: number
   total_count: number
-  
+
   // Breakdowns
   by_category: {
     category: WarrantCategory
@@ -550,11 +772,22 @@ export interface WarrantSummary {
     department: WarrantDepartment
     allocation: number
     expenses: number
+    liabilities: number
+    net_expenses: number
     balance: number
     count: number
   }[]
   by_vote_code: {
     vote_code: WarrantVoteCode
+    allocation: number
+    expenses: number
+    balance: number
+    count: number
+  }[]
+  by_department_vote_activity: {
+    department: string
+    vote_code: string
+    vote_activity: string
     allocation: number
     expenses: number
     balance: number
@@ -580,12 +813,13 @@ export interface APPLExpense extends BaseEntity {
   status: 'pending' | 'approved' | 'completed' | 'cancelled'
   category?: string
   vote_activity?: string // Vote activity code (27401, 27499, 27404, 27403, 27402, 27501)
+  department?: string
   created_by?: string
 }
 
 export interface APPLExpenseWithRelations extends APPLExpense {
   warrant?: Warrant
-  purchase_order?: PurchaseOrder
+  purchase_order?: PurchaseOrderWithRelations
   created_by_user?: User
 }
 
@@ -598,7 +832,7 @@ export interface APPLAllocationSummary {
   net_expenses: number // Completed expenses only
   usage_percentage: number // (expenses / allocation) * 100
   total_count: number // Total number of expenses
-  
+
   // Quarterly breakdown
   quarterly: {
     quarter: 1 | 2 | 3 | 4
@@ -607,7 +841,7 @@ export interface APPLAllocationSummary {
     balance: number
     usage_percentage: number
   }[]
-  
+
   // Breakdown by vote activity
   by_vote_activity: {
     vote_activity: string
@@ -618,7 +852,7 @@ export interface APPLAllocationSummary {
     net_expenses: number
     count: number
   }[]
-  
+
   // Breakdown by category
   by_category: {
     category: string
@@ -627,7 +861,7 @@ export interface APPLAllocationSummary {
     balance: number
     count: number
   }[]
-  
+
   // Breakdown by PO type
   by_po_type: {
     po_type: POType
@@ -653,12 +887,13 @@ export interface CCExpense extends BaseEntity {
   status: 'pending' | 'approved' | 'completed' | 'cancelled'
   category?: string
   vote_activity?: string // Vote activity code (27401, 27499, 27404, 27403, 27402, 27501)
+  department?: string
   created_by?: string
 }
 
 export interface CCExpenseWithRelations extends CCExpense {
   warrant?: Warrant
-  purchase_order?: PurchaseOrder
+  purchase_order?: PurchaseOrderWithRelations
   created_by_user?: User
 }
 
@@ -671,7 +906,7 @@ export interface CCAllocationSummary {
   net_expenses: number // Completed expenses only
   usage_percentage: number // (expenses / allocation) * 100
   total_count: number // Total number of expenses
-  
+
   // Quarterly breakdown
   quarterly: {
     quarter: 1 | 2 | 3 | 4
@@ -680,7 +915,7 @@ export interface CCAllocationSummary {
     balance: number
     usage_percentage: number
   }[]
-  
+
   // Breakdown by vote activity
   by_vote_activity: {
     vote_activity: string
@@ -691,7 +926,7 @@ export interface CCAllocationSummary {
     net_expenses: number
     count: number
   }[]
-  
+
   // Breakdown by category
   by_category: {
     category: string
@@ -700,7 +935,7 @@ export interface CCAllocationSummary {
     balance: number
     count: number
   }[]
-  
+
   // Breakdown by PO type
   by_po_type: {
     po_type: POType
@@ -736,6 +971,14 @@ export interface PurchaseOrder extends BaseEntity {
   approved_by?: string
   approved_at?: string
   notes?: string
+  kkm_contract_number?: string
+  manual_supplier_name?: string;
+  manual_supplier_address?: string;
+  sq_suppliers?: string[]
+  program_name?: string;
+  workflow_id?: string;
+  current_step?: number;
+  signature_snapshot?: any;
 }
 
 export interface PurchaseOrderWithRelations extends PurchaseOrder {
@@ -751,8 +994,10 @@ export interface PurchaseOrderWithRelations extends PurchaseOrder {
 
 export interface PurchaseOrderItem extends BaseEntity {
   po_id: string
-  item_type: 'drug' | 'non_drug'
-  item_id: string
+  item_type: 'drug' | 'non_drug' | 'manual'
+  item_id?: string
+  item_name?: string
+  item_code?: string
   quantity_ordered: number
   quantity_received: number
   unit_price: number
@@ -881,9 +1126,43 @@ export interface ProcurementSummary {
   }[]
 }
 
+export interface ProcurementStats {
+  total_orders: number
+  total_value: number
+  pending_orders: number
+  completed_orders: number
+  total_items?: number
+  by_status: Record<string, number>
+  by_category: Record<string, number>
+  by_department: Record<string, number>
+  by_vote_code: Record<string, number>
+  items_breakdown?: Record<string, number>
+  department_breakdown?: DepartmentBreakdownItem[]
+  total_sq?: number
+  total_regular_po?: number
+}
+
+export interface DepartmentBreakdownItem {
+  department: string
+  vote_codes: {
+    code: string
+    total_orders: number
+    total_items: number
+    activities?: {
+      code: string
+      total_orders: number
+      total_items: number
+    }[]
+  }[]
+}
+
+
+
 // =====================================================
 // DISTRIBUTION TYPES
 // =====================================================
+
+export type TransferFlowDirection = 'request' | 'issue' | 'borrow' | 'lend'
 
 export interface TransferRequest extends BaseEntity {
   transfer_number: string
@@ -905,6 +1184,13 @@ export interface TransferRequest extends BaseEntity {
   received_at?: string
   notes?: string
   rejection_reason?: string
+
+  // Enhanced fields
+  flow_direction?: TransferFlowDirection
+  from_facility_id?: string
+  to_facility_id?: string
+  issued_by?: string
+  issued_at?: string
 }
 
 export interface TransferRequestWithRelations extends TransferRequest {
@@ -914,10 +1200,13 @@ export interface TransferRequestWithRelations extends TransferRequest {
   to_department?: Department
   from_location?: StockLocation
   to_location?: StockLocation
-  items?: TransferRequestItem[]
+  from_facility?: HospitalFacility | ClinicFacility
+  to_facility?: HospitalFacility | ClinicFacility
+  items?: TransferRequestItemWithRelations[]
   requested_by_user?: User
   approved_by_user?: User
   received_by_user?: User
+  issued_by_user?: User
 }
 
 export interface TransferRequestItem extends BaseEntity {
@@ -947,27 +1236,95 @@ export interface DistributionSummary {
   intra_facility_pending: number
 }
 
+export interface LoanRecord extends BaseEntity {
+  hospital_id: string
+  transfer_id?: string
+  loan_number: string
+  loan_type: 'borrowed' | 'lent'
+  counterparty_facility_id: string
+  counterparty_name?: string
+  loan_date: string
+  expected_return_date?: string
+  status: 'active' | 'partial_return' | 'fully_returned' | 'written_off'
+  total_value?: number
+  notes?: string
+  created_by: string
+}
+
+export interface LoanRecordWithRelations extends LoanRecord {
+  transfer?: TransferRequest
+  counterparty_facility?: HospitalFacility | ClinicFacility
+  items?: LoanRecordItem[] // This is a virtual relation, technically it links back to TransferItems often
+  returns?: LoanReturn[]
+  created_by_user?: User
+}
+
+export interface LoanRecordItem { // Virtual item for display
+  id: string
+  loan_id: string
+  item_name: string
+  quantity_loaned: number
+  quantity_returned: number
+  balance: number
+}
+
+export interface LoanReturn extends BaseEntity {
+  loan_id: string
+  return_number: string
+  return_date: string
+  received_by?: string
+  notes?: string
+  created_by: string
+}
+
+export interface LoanReturnItem extends BaseEntity {
+  return_id: string
+  loan_item_id: string
+  quantity_returned: number
+  condition_notes?: string
+}
+
+export interface LoanReturnWithRelations extends LoanReturn {
+  items?: LoanReturnItem[]
+  received_by_user?: User
+  created_by_user?: User
+}
+
 // =====================================================
 // CATALOG TYPES
 // =====================================================
 
+// Contract Catalog - Excel Upload Approach
+export type ContractCatalogStatus = 'active' | 'inactive' | 'expired' | 'expiring' | 'pending'
+
 export interface Contract extends BaseEntity {
-  contract_number: string
-  contract_name: string
-  contract_type: ContractType
-  supplier_id?: string
-  start_date: string
-  end_date: string
-  total_value?: number
-  status: ContractStatus
-  document_url?: string
+  hospital_id: string
+  item_name: string // Item/Product name
+  item_code?: string // Optional item identification code
+  contract_number: string // No Kontrak - Unique contract identifier
+  contract_type?: ContractType // Type of contract (mof, kkm, hospital)
+  supplier_id?: string // Link to suppliers table
+  supplier_name?: string // Pembekal - Denormalized supplier name
+  start_date?: string // Kontrak Mula - Contract start date
+  end_date?: string // Kontrak Tamat - Contract end date
+  unit?: string // Unit of measure (Box, Pack, Each)
+  unit_price?: number // Harga (RM) - Price per unit in Ringgit Malaysia
+  currency?: string // Currency (default: MYR)
+  delivery_period?: string // Tempoh Serahan - Expected delivery timeframe
+  packaging_description?: string // Added
+  status: ContractCatalogStatus
+  metadata?: Record<string, unknown> // Additional fields (notes, custom fields)
+  uploaded_file_id?: string // Link to uploaded_files table
+  document_url?: string // Optional contract document URL
 }
 
 export interface ContractWithRelations extends Contract {
+  hospital?: Hospital
   supplier?: Supplier
-  items?: ContractItem[]
+  uploaded_file?: UploadedFile
 }
 
+// For backward compatibility - legacy contract items
 export interface ContractItem extends BaseEntity {
   contract_id: string
   item_type: 'drug' | 'non_drug'
@@ -981,6 +1338,47 @@ export interface ContractItem extends BaseEntity {
 export interface ContractItemWithRelations extends ContractItem {
   drug?: Drug
   non_drug?: NonDrug
+}
+
+// Contract Catalog KPIs
+export interface ContractCatalogKPIs {
+  total: number
+  active: number
+  expired: number
+  expiring_soon: number // Expiring within 30 days
+  pending: number
+  total_value: number // Sum of all contract values
+  contracts_by_supplier: { supplier_name: string; count: number }[]
+}
+
+// Contract Catalog Filters
+export interface ContractCatalogFilter {
+  search?: string
+  supplier_id?: string
+  supplier_name?: string
+  status?: ContractCatalogStatus | 'all'
+  contract_type?: ContractType | 'all'
+  date_from?: string
+  date_to?: string
+  min_price?: number
+  max_price?: number
+}
+
+// Uploaded Files Type (for contract tracking)
+export interface UploadedFile extends BaseEntity {
+  id: string
+  hospital_id: string
+  file_name: string
+  file_hash: string
+  file_size: number
+  file_type: 'excel' | 'pdf' | 'image'
+  catalog_type: 'drug' | 'non_drug' | 'contract'
+  upload_status: 'pending' | 'processing' | 'completed' | 'failed'
+  items_imported: number
+  errors_count: number
+  error_details?: Record<string, unknown>
+  uploaded_by?: string
+  uploaded_at: string
 }
 
 export interface MOFCatalogItem extends BaseEntity {
@@ -1006,6 +1404,80 @@ export interface KKMFacility extends BaseEntity {
   phone?: string
   email?: string
   is_active: boolean
+}
+
+// =====================================================
+// HOSPITAL FACILITY CATALOG TYPES
+// =====================================================
+
+export type HospitalFacilityStatus = 'active' | 'inactive'
+
+export interface HospitalFacility extends BaseEntity {
+  hospital_id: string
+  name: string // Hospital name
+  address?: string // Alamat 1
+  city?: string // Bandar
+  state?: string // Negeri
+  phone?: string // Phone number
+  email?: string // Email address
+  facility_code?: string // Optional facility code
+  status: HospitalFacilityStatus
+  moh_id?: string // ID from MOH website if fetched from there
+  metadata?: Record<string, unknown> // Additional fields
+}
+
+export interface HospitalFacilityWithRelations extends HospitalFacility {
+  hospital?: Hospital
+}
+
+export interface HospitalFacilityCatalogKPIs {
+  total: number
+  by_state: { state: string; count: number }[]
+  by_city: { city: string; count: number }[]
+}
+
+export interface HospitalFacilityCatalogFilter {
+  search?: string
+  state?: string | 'all'
+  city?: string | 'all'
+  status?: HospitalFacilityStatus | 'all'
+}
+
+// =====================================================
+// CLINIC FACILITY CATALOG TYPES
+// =====================================================
+
+export type ClinicFacilityStatus = 'active' | 'inactive'
+
+export interface ClinicFacility extends BaseEntity {
+  hospital_id: string
+  name: string // Clinic name
+  address?: string // Alamat 1
+  city?: string // Bandar
+  state?: string // Negeri
+  phone?: string // Phone number
+  email?: string // Email address
+  facility_code?: string // Optional facility code
+  status: ClinicFacilityStatus
+  moh_id?: string // ID from MOH website if fetched from there
+  metadata?: Record<string, unknown> // Additional fields
+}
+
+export interface ClinicFacilityWithRelations extends ClinicFacility {
+  hospital?: Hospital
+}
+
+export interface ClinicFacilityCatalogKPIs {
+  total: number
+  by_state: { state: string; count: number }[]
+  by_city: { city: string; count: number }[]
+}
+
+export interface ClinicFacilityCatalogFilter {
+  search?: string
+  state?: string | 'all'
+  city?: string | 'all'
+  status?: ClinicFacilityStatus | 'all'
 }
 
 // =====================================================
@@ -1074,30 +1546,30 @@ export interface UnitCatalog extends BaseEntity {
   hospital_id: string
   department_id: string
   module_code: string
-  
+
   // Indent Permissions
   can_indent_drugs: boolean
   can_indent_non_drugs: boolean
-  
+
   // Capacity Limits
   max_drug_items?: number | null
   max_non_drug_items?: number | null
-  
+
   // Current Counts
   current_drug_count: number
   current_non_drug_count: number
-  
+
   // Status
   status: UnitCatalogStatus
-  
+
   // Responsibility
   responsible_user_id?: string | null
-  
+
   // Last Update Tracking
   last_updated_at?: string | null
   last_updated_by?: string | null
   last_update_reason?: string | null
-  
+
   // Metadata
   notes?: string | null
 }
@@ -1122,6 +1594,7 @@ export interface UnitCatalogChange extends BaseEntity {
   change_reason?: string | null
   ip_address?: string | null
   user_agent?: string | null
+  item_name?: string | null
 }
 
 export interface UnitCatalogChangeWithRelations extends UnitCatalogChange {
@@ -1175,27 +1648,57 @@ export interface UnitCatalogItem extends BaseEntity {
   item_type: CatalogItemType
   drug_id?: string | null
   non_drug_id?: string | null
+  contract_id?: string | null
+  contract_number?: string | null
+  appl_drug_id?: string | null
+  appl_non_drug_id?: string | null
+  lp_drug_id?: string | null
+  lp_non_drug_id?: string | null
+  procurement_vote?: string | null
   is_active: boolean
   min_limit: number
   max_limit?: number | null
+  reorder_level: number
+  reorder_qty?: number | null
   last_updated_at?: string | null
   last_updated_by?: string | null
+  category_id?: string | null
+  therapeutic_class_id?: string | null
 }
 
 export interface UnitCatalogItemWithRelations extends UnitCatalogItem {
   drug?: Drug
   non_drug?: NonDrug
+  contract?: Contract
+  appl_drug?: ApplDrug
+  appl_non_drug?: ApplNonDrug
+  lp_drug?: LpDrug
+  lp_non_drug?: LpNonDrug
+  unit_category?: DrugCategory
+  unit_therapeutic_class?: DrugCategory
   last_updated_by_user?: User
   catalog?: UnitCatalog
+  current_inventory_count?: number | null
 }
 
 export interface UnitCatalogItemFormData {
   item_type: CatalogItemType
   drug_id?: string | null
   non_drug_id?: string | null
+  contract_id?: string | null
+  contract_number?: string | null
+  appl_drug_id?: string | null
+  appl_non_drug_id?: string | null
+  lp_drug_id?: string | null
+  lp_non_drug_id?: string | null
+  procurement_vote?: string | null
   is_active: boolean
   min_limit: number
   max_limit?: number | null
+  reorder_level: number
+  category_id?: string | null
+  therapeutic_class_id?: string | null
+  item_name?: string | null
 }
 
 export interface UnitCatalogWithItemCounts extends UnitCatalogWithRelations {
@@ -1276,7 +1779,11 @@ export interface ProcurementFilter {
   search?: string
   status?: POStatus | 'all'
   supplier_id?: string
-  po_type?: POType | 'all'
+  po_type?: POType | 'all' | 'po_only'
+  vote_code?: string
+  vote_activity?: string
+  category?: string
+  department?: string
   date_from?: string
   date_to?: string
 }
@@ -1314,23 +1821,33 @@ export interface DrugFormData {
 
 export interface PurchaseOrderFormData {
   po_type?: POType
-  supplier_id: string
+  supplier_id?: string // Made optional for Manual PO
+  manual_supplier_name?: string;
+  manual_supplier_address?: string;
+  sq_suppliers?: string[]
   budget_id?: string
-  vote_code: string // Required: 080702 or 990102
-  vote_activity: string // Required: 27401, 27499, 27404, 27403, 27402, 27501
-  category: string // Required: drug, non_drug, non_standard, reagent, vaccine, insulin, hepc, medical_oxygen
-  department: string // Required: department code
+  vote_code?: string // Optional
+  vote_activity?: string // Optional
+  category?: string // Optional
+  department?: string // Optional
   expected_delivery_date?: string
   payment_terms?: string
   delivery_address?: string
   notes?: string
-  items: {
-    item_type: 'drug' | 'non_drug'
-    item_id: string
-    quantity: number
-    unit_price: number
-    packaging_description?: string
-  }[]
+  status?: POStatus
+  kkm_contract_number?: string
+  program_name?: string
+  items: POItem[]
+}
+
+export interface POItem {
+  item_type: 'drug' | 'non_drug' | 'manual'
+  item_id?: string
+  quantity: number
+  unit_price: number
+  packaging_description?: string
+  item_name?: string
+  item_code?: string
 }
 
 export interface GoodsReceiptFormData {
@@ -1349,6 +1866,7 @@ export interface GoodsReceiptFormData {
     expiry_date?: string
     storage_location_id?: string
     rejection_reason?: string
+    notes?: string
   }[]
 }
 
@@ -1365,6 +1883,7 @@ export interface TransferRequestFormData {
     item_id: string
     batch_id?: string
     quantity: number
+    notes?: string
   }[]
 }
 
@@ -1377,7 +1896,32 @@ export interface UnitCatalogFormData {
   max_non_drug_items?: number | null
   status: UnitCatalogStatus
   responsible_user_id?: string | null
-  notes?: string | null
   update_reason?: string | null
 }
 
+export interface GroupedItemSource {
+  type: 'master' | 'contract' | 'appl' | 'lp'
+  id: string // drug.id, contract.id, appl_drug.id or lp_drug.id
+  contract_number?: string
+  supplier_name?: string
+  price?: number
+  packaging?: string
+  unit?: string
+  sku?: string
+  pku?: string
+  packaging_description?: string
+}
+
+export interface GroupedAvailableItem {
+  id: string // The Master Item ID (drug_id or non_drug_id)
+  item_name: string
+  item_code: string
+  generic_name?: string
+  unit_of_measure: string
+  item_type: 'drug' | 'non_drug'
+  sku?: string
+  pku?: string
+  packaging_description?: string
+  sources: GroupedItemSource[]
+  already_in_catalog?: boolean
+}

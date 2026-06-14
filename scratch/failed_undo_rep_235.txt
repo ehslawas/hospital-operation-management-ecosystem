@@ -1,0 +1,463 @@
+            {/* RIGHT COLUMN: Output display sticker simulation (5 cols) */}
+            <div className="lg:col-span-5 lg:sticky lg:top-8 bg-white border border-slate-200/80 rounded-[2.5rem] p-6 shadow-xl shadow-slate-100/40 flex flex-col items-center justify-center text-center relative">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-teal-500/[0.02] to-transparent rounded-bl-full pointer-events-none" />
+
+              {isGeneratingQRs ? (
+                <div className="space-y-4 text-slate-400 py-6 animate-pulse">
+                  <div className="w-12 h-12 bg-teal-50 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto flex items-center justify-center shadow-md shadow-teal-500/5" />
+                  <p className="text-xs font-black text-slate-700 uppercase tracking-widest">Generating Labels</p>
+                  <p className="text-[11px] text-slate-400 font-semibold max-w-[200px]">Securing unique serial database increments...</p>
+                </div>
+              ) : qrCategory === 'loans' && generatedLabel ? (
+                <div className="space-y-6 flex flex-col items-center w-full animate-fadeIn">
+                  {/* Outer sticker boundary simulating physical sticky label */}
+                  <div className="p-6 border-2 border-dashed border-slate-350 bg-amber-50/[0.05] hover:bg-amber-50/[0.08] rounded-3xl flex flex-col items-center max-w-[280px] w-full shadow-md transition-all duration-300 relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-2 h-full bg-slate-100/40" />
+                    
+                    {/* QR Code image container */}
+                    <div className="bg-white p-3.5 border border-slate-150 rounded-2xl shadow-sm relative group">
+                      <img
+                        className="w-36 h-36 object-contain rounded-lg"
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(
+                          generatedLabel.qr_code || generatedLabel.serial_number
+                        )}`}
+                        alt="Scannable QR Label"
+                      />
+                    </div>
+                    
+                    <div className="mt-5 text-center space-y-1 w-full">
+                      <p className="text-xs font-mono font-black text-slate-800 tracking-wider">
+                        {generatedLabel.serial_number}
+                      </p>
+                      <p className="text-[10px] text-slate-500 font-bold">
+                        {generatedLabel.type_info?.type_name || 'Standard Cylinder'}
+                      </p>
+                      <div className="pt-2.5">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-blue-50 text-blue-750 border border-blue-150">
+                          <Info className="w-3 h-3 text-blue-500" />
+                          Generic Loan
+                        </span>
+                      </div>
+                      <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest pt-3.5 block">
+                        KKM MEDICAL OXYGEN
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handlePrintLabel(generatedLabel)}
+                    className="px-6 py-3 border border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-slate-700 rounded-2xl text-xs font-black uppercase tracking-wider active:scale-[0.98] transition-all shadow-sm flex items-center gap-2"
+                  >
+                    <Printer className="w-4 h-4 text-slate-500" />
+                    Print Scan Label
+                  </button>
+                </div>
+              ) : qrCategory === 'assets' && generatedLabelsList.length > 0 ? (
+                <div className="space-y-4 flex flex-col items-center w-full animate-fadeIn">
+                  <div className="flex items-center justify-between w-full border-b border-slate-100 pb-3 mb-2">
+                    <span className="text-xs font-black text-slate-700 uppercase tracking-widest font-mono">
+                      {generatedLabelsList.length} Generated Labels
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Print all sequential labels
+                          generatedLabelsList.forEach((lbl, index) => {
+                            setTimeout(() => handlePrintLabel(lbl), index * 500);
+                          });
+                        }}
+                        className="px-3 py-1.5 bg-[#00a68a] hover:bg-[#008f76] text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-md shadow-emerald-500/10 transition-all flex items-center gap-1"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                        Print All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!window.confirm(`Are you sure you want to delete all ${generatedLabelsList.length} generated cylinders?`)) return
+                          try {
+                            const idsToDelete = generatedLabelsList.map(l => l.id)
+                            const { error: deleteErr } = await supabase
+                              .from('pharmacy_oxygen_cylinder_inventory')
+                              .delete()
+                              .in('id', idsToDelete)
+
+                            if (deleteErr) throw deleteErr
+
+                            setGeneratedLabelsList([])
+                            await loadData()
+                          } catch (err: any) {
+                            console.error('Failed to delete generated cylinders:', err)
+                            alert('Failed to delete cylinders: ' + err.message)
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-red-500 hover:bg-red-650 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-md shadow-red-500/10 transition-all flex items-center gap-1"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Delete All
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="w-full space-y-2 pr-1">
+                    {paginatedGeneratedLabels.map((lbl) => (
+                      <div key={lbl.id} className="flex items-center justify-between border border-slate-150 rounded-2xl py-2 px-3 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                        <div className="flex flex-col text-left">
+                          <span className="font-mono text-xs font-black text-slate-800 tracking-wide">{lbl.serial_number}</span>
+                          <span className="text-[9px] text-slate-400 font-bold mt-0.5">{lbl.type_info?.type_name || 'Standard'}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handlePrintLabel(lbl)}
+                            className="p-2 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-slate-500 hover:text-teal-650 shadow-sm transition-all"
+                            title="Print Label"
+                          >
+                            <Printer className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!window.confirm(`Are you sure you want to delete cylinder ${lbl.serial_number}?`)) return
+                              try {
+                                const { error: deleteErr } = await supabase
+                                  .from('pharmacy_oxygen_cylinder_inventory')
+                                  .delete()
+                                  .eq('id', lbl.id)
+
+                                if (deleteErr) throw deleteErr
+
+                                setGeneratedLabelsList(prev => {
+                                  const updated = prev.filter(x => x.id !== lbl.id);
+                                  // Adjust page if we deleted the last item on the current page
+                                  const newTotalPages = Math.ceil(updated.length / generatedLabelsPerPage);
+                                  if (generatedLabelsPage > newTotalPages && newTotalPages > 0) {
+                                    setGeneratedLabelsPage(newTotalPages);
+                                  }
+                                  return updated;
+                                })
+                                await loadData()
+                              } catch (err: any) {
+                                console.error('Failed to delete generated cylinder:', err)
+                                alert('Failed to delete cylinder: ' + err.message)
+                              }
+                            }}
+                            className="p-2 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-slate-400 hover:text-red-650 shadow-sm transition-all"
+                            title="Delete Cylinder"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {totalGeneratedLabelsPages > 1 && (
+                    <div className="flex items-center justify-between w-full pt-3 border-t border-slate-100 mt-2">
+                      <button
+                        type="button"
+                        disabled={generatedLabelsPage === 1}
+                        onClick={() => setGeneratedLabelsPage(prev => Math.max(1, prev - 1))}
+                        className="px-2.5 py-1 text-[10px] font-black uppercase text-slate-500 hover:text-slate-850 disabled:opacity-30 disabled:cursor-not-allowed border border-slate-200 rounded-lg shadow-sm transition-all"
+                      >
+                        Prev
+                      </button>
+                      <span className="text-[10px] font-black text-slate-400 font-mono">
+                        Page {generatedLabelsPage} of {totalGeneratedLabelsPages}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={generatedLabelsPage === totalGeneratedLabelsPages}
+                        onClick={() => setGeneratedLabelsPage(prev => Math.min(totalGeneratedLabelsPages, prev + 1))}
+                        className="px-2.5 py-1 text-[10px] font-black uppercase text-slate-500 hover:text-slate-850 disabled:opacity-30 disabled:cursor-not-allowed border border-slate-200 rounded-lg shadow-sm transition-all"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4 text-slate-400 py-6 max-w-[280px]">
+                  <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
+                    <div className="absolute inset-0 bg-indigo-50 rounded-2xl -rotate-6 scale-95 transition-transform group-hover:rotate-0" />
+                    <QrCode className="w-10 h-10 stroke-1.5 text-slate-400 relative z-10" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-black text-slate-700 uppercase tracking-widest">No Label Generated</p>
+                    <p className="text-[11px] text-slate-400 font-semibold leading-relaxed">
+                      Select your configuration parameters on the left and trigger label production.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* LOWER SECTION: Live Cylinder QR Registry Card */}
+          <div className="bg-white border border-slate-200 rounded-[2rem] p-6 sm:p-8 shadow-xl shadow-slate-100/40 space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+              <div>
+                <h3 className="text-base font-black text-slate-800 tracking-tight flex items-center gap-2">
+                  <Database className="w-5 h-5 text-teal-600 animate-pulse" />
+                  Live Cylinder QR Registry
+                </h3>
+                <p className="text-xs font-semibold text-slate-500 mt-1">
+                  Overview of generated scannable QR tags grouped by monitored cylinder type and capacity.
+                </p>
+              </div>
+            </div>
+            {/* Quick Stats Panel */}
+            {(() => {
+              const totalAssetsCount = cylinders.length;
+              const availableCount = cylinders.filter(c => {
+                const s = (c.status || '').toLowerCase();
+                return s === 'available' || s === 'full';
+              }).length;
+              const inUseCount = cylinders.filter(c => {
+                const s = (c.status || '').toLowerCase();
+                return s === 'issued' || s === 'in_use';
+              }).length;
+              const returnedCount = cylinders.filter(c => {
+                const s = (c.status || '').toLowerCase();
+                return s === 'returned_to_supplier' || s === 'disposed';
+              }).length;
+
+              const getCylinderComboKey = (c: any) => {
+                const typeCode = (c.type_info?.code || c.type_info?.type_code || '').toUpperCase();
+                const capacity = parseFloat(c.size_info?.capacity || '0');
+                const isLoan = c.size_info?.is_loan || c.serial_number?.startsWith('101-');
+                
+                let conn = 'UNKNOWN';
+                if (typeCode === 'BN' || typeCode === 'N' || c.type_info?.type_name?.toLowerCase().includes('bullnose')) {
+                  conn = 'BN';
+                } else if (typeCode === 'PI' || typeCode === 'F' || c.type_info?.type_name?.toLowerCase().includes('pin index') || c.type_info?.type_name?.toLowerCase().includes('pin-index')) {
+                  conn = 'PI';
+                }
+                
+                return isLoan ? `loan-${conn}-${capacity.toFixed(1)}` : `${conn}-${capacity.toFixed(1)}`;
+              };
+
+              const matchingCylinders = cylinders.filter(c => {
+                const comboKey = getCylinderComboKey(c);
+                const matchesSearch = !registrySearch.trim() || 
+                  (c.serial_number || '').toLowerCase().includes(registrySearch.toLowerCase()) ||
+                  (c.qr_code || '').toLowerCase().includes(registrySearch.toLowerCase());
+                  
+                const matchesCombo = registryComboFilter === 'all' || comboKey === registryComboFilter;
+                
+                return matchesSearch && matchesCombo;
+              });
+
+              const itemsPerPage = 6;
+              const totalPages = Math.ceil(matchingCylinders.length / itemsPerPage);
+              const comboStartIndex = (registryPage - 1) * itemsPerPage;
+              const paginatedCylinders = matchingCylinders.slice(comboStartIndex, comboStartIndex + itemsPerPage);
+
+              const filters = [
+                { key: 'all', label: 'All Cylinders' },
+                { key: 'PI-1.4', label: 'PI 1.4m³' },
+                { key: 'BN-1.4', label: 'BN 1.4m³' },
+                { key: 'PI-0.5', label: 'PI 0.5m³' },
+                { key: 'PI-0.7', label: 'PI 0.7m³' },
+                { key: 'BN-0.7', label: 'BN 0.7m³' },
+                { key: 'BN-6.4', label: 'BN 6.4m³' },
+                { key: 'loan-PI-1.4', label: 'Loan PI 1.4m³' },
+                { key: 'loan-BN-8.0', label: 'Loan BN 8.0m³' }
+              ];
+
+              return (
+                <>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex flex-col justify-center">
+                      <span className="text-[10px] font-black text-slate-400 tracking-wider uppercase">Total Registered Assets</span>
+                      <span className="text-xl font-extrabold text-slate-800 mt-1">{totalAssetsCount}</span>
+                    </div>
+                    <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-4 flex flex-col justify-center">
+                      <span className="text-[10px] font-black text-emerald-600/80 tracking-wider uppercase">Available / Full</span>
+                      <span className="text-xl font-extrabold text-emerald-700 mt-1">{availableCount}</span>
+                    </div>
+                    <div className="bg-amber-50/50 border border-amber-100 rounded-2xl p-4 flex flex-col justify-center">
+                      <span className="text-[10px] font-black text-amber-600/80 tracking-wider uppercase">In Use / Issued</span>
+                      <span className="text-xl font-extrabold text-amber-700 mt-1">{inUseCount}</span>
+                    </div>
+                    <div className="bg-rose-50/50 border border-rose-100 rounded-2xl p-4 flex flex-col justify-center">
+                      <span className="text-[10px] font-black text-rose-600/80 tracking-wider uppercase">Returned / Disposed</span>
+                      <span className="text-xl font-extrabold text-rose-700 mt-1">{returnedCount}</span>
+                    </div>
+                  </div>
+
+                  {/* Interactive Filters and Toolbar */}
+                  <div className="flex flex-col xl:flex-row gap-4 justify-between items-stretch xl:items-center bg-slate-50/50 p-4 border border-slate-100 rounded-2xl">
+                    <div className="relative flex-1 max-w-md">
+                      <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Search serial or QR code..."
+                        value={registrySearch}
+                        onChange={(e) => {
+                          setRegistrySearch(e.target.value);
+                          setRegistryPage(1);
+                        }}
+                        className="w-full pl-10 pr-4 py-2 text-xs font-semibold bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all placeholder:text-slate-400 text-slate-700 shadow-sm"
+                      />
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5 bg-white p-1.5 border border-slate-200 rounded-xl shadow-sm overflow-x-auto max-w-full">
+                      {filters.map(f => (
+                        <button
+                          key={f.key}
+                          type="button"
+                          onClick={() => { setRegistryComboFilter(f.key); setRegistryPage(1); }}
+                          className={`px-2.5 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all flex-shrink-0 ${
+                            registryComboFilter === f.key
+                              ? f.key.startsWith('loan-')
+                                ? 'bg-indigo-600 text-white shadow-sm'
+                                : 'bg-teal-600 text-white shadow-sm'
+                              : 'text-slate-500 hover:text-slate-800'
+                          }`}
+                        >
+                          {f.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Asset Table */}
+                  <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                    {matchingCylinders.length === 0 ? (
+                      <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-2">
+                        <Database className="w-10 h-10 stroke-1 text-slate-300" />
+                        <span className="text-xs font-black uppercase tracking-wider text-slate-500">No matching assets found</span>
+                        <span className="text-[11px] text-slate-400 font-semibold">Try adjusting your filters or search terms.</span>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full border-collapse text-left text-xs text-slate-500">
+                          <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-black text-slate-450 uppercase tracking-wider">
+                            <tr>
+                              <th className="px-6 py-4">Serial & QR Code</th>
+                              <th className="px-6 py-4">Classification</th>
+                              <th className="px-6 py-4">Connection Type</th>
+                              <th className="px-6 py-4">Capacity</th>
+                              <th className="px-6 py-4">Status</th>
+                              <th className="px-6 py-4 text-right">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {paginatedCylinders.map((cyl) => {
+                              const status = (cyl.status || '').toLowerCase();
+                              const typeCode = (cyl.type_info?.code || cyl.type_info?.type_code || '').toUpperCase();
+                              const capacity = parseFloat(cyl.size_info?.capacity || '0');
+                              const isLoan = cyl.size_info?.is_loan || cyl.serial_number?.startsWith('101-');
+                              
+                              let typeLabel = 'Pin Index';
+                              if (typeCode === 'BN' || typeCode === 'N' || cyl.type_info?.type_name?.toLowerCase().includes('bullnose')) {
+                                typeLabel = 'Bullnose';
+                              }
+
+                              let displayStatus = 'Unknown';
+                              let badgeStyle = 'bg-slate-50 text-slate-600 border border-slate-200';
+                              
+                              if (status === 'available' || status === 'full') {
+                                displayStatus = 'Available';
+                                badgeStyle = 'bg-emerald-50 text-emerald-700 border border-emerald-200/80';
+                              } else if (status === 'issued' || status === 'in_use') {
+                                displayStatus = 'In Use';
+                                badgeStyle = 'bg-amber-50 text-amber-700 border border-amber-200/80';
+                              } else if (status === 'returned_to_supplier') {
+                                displayStatus = 'Returned';
+                                badgeStyle = 'bg-rose-50 text-rose-700 border border-rose-200/80';
+                              } else if (status === 'disposed') {
+                                displayStatus = 'Disposed';
+                                badgeStyle = 'bg-rose-50 text-rose-700 border border-rose-200/80';
+                              } else if (status === 'maintenance') {
+                                displayStatus = 'Repair';
+                                badgeStyle = 'bg-blue-50 text-blue-700 border border-blue-200/80';
+                              } else {
+                                displayStatus = status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ');
+                              }
+
+                              return (
+                                <tr key={cyl.id} className="hover:bg-slate-50/50 transition-colors">
+                                  <td className="px-6 py-4">
+                                    <div className="flex flex-col gap-0.5">
+                                      <span className="font-mono text-xs font-black text-slate-800 tracking-wide">{cyl.serial_number}</span>
+                                      <span className="text-[10px] font-semibold text-slate-400 font-mono">{cyl.qr_code}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <span className={`px-2.5 py-0.5 rounded-lg text-[9px] font-black tracking-wide uppercase border ${
+                                      isLoan 
+                                        ? 'bg-indigo-50 text-indigo-700 border-indigo-100' 
+                                        : 'bg-primary-50 text-primary-700 border-primary-100'
+                                    }`}>
+                                      {isLoan ? 'Loan' : 'Standard'}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <span className="text-xs font-semibold text-slate-700">
+                                      {typeLabel}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <span className="text-xs font-extrabold text-slate-700 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">
+                                      {capacity} m³
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${badgeStyle}`}>
+                                      {displayStatus}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 text-right">
+                                    <button
+                                      type="button"
+                                      onClick={() => handlePrintLabel(cyl)}
+                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-200 border border-slate-200 rounded-xl text-slate-500 transition-all duration-150 active:scale-95 text-[10px] font-black uppercase shadow-sm"
+                                      title="Print Label"
+                                    >
+                                      <Printer className="w-3.5 h-3.5" />
+                                      <span>Print Tag</span>
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Pagination Controls */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between w-full pt-4 border-t border-slate-100">
+                      <button
+                        type="button"
+                        disabled={registryPage === 1}
+                        onClick={() => setRegistryPage(prev => Math.max(1, prev - 1))}
+                        className="px-3.5 py-2 text-[10px] font-black uppercase text-slate-500 hover:text-slate-800 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed border border-slate-200 rounded-xl shadow-sm transition-all active:scale-95 flex items-center gap-1"
+                      >
+                        Previous
+                      </button>
+                      <span className="text-[11px] font-black text-slate-500 font-mono">
+                        Page {registryPage} of {totalPages} <span className="text-slate-300 mx-1">|</span> Showing {comboStartIndex + 1}-{Math.min(matchingCylinders.length, comboStartIndex + itemsPerPage)} of {matchingCylinders.length}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={registryPage === totalPages}
+                        onClick={() => setRegistryPage(prev => Math.min(totalPages, prev + 1))}
+                        className="px-3.5 py-2 text-[10px] font-black uppercase text-slate-500 hover:text-slate-800 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed border border-slate-200 rounded-xl shadow-sm transition-all active:scale-95 flex items-center gap-1"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )

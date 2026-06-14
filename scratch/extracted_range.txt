@@ -1,0 +1,271 @@
+1730:                                   <select
+1731:                                     value={sandboxTarget}
+1732:                                     onChange={(e) => setSandboxTarget(e.target.value)}
+1733:                                     className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-700 outline-none focus:ring-1 focus:ring-indigo-500"
+1734:                                   >
+1735:                                     {processedData.filter(c => c.id !== 'cat-other').map(c => (
+1736:                                       <option key={c.id} value={c.id}>
+1737:                                         {c.voteCode}-{c.voteActivity} ({c.categoryName.substring(0, 20)}...)
+1738:                                       </option>
+1739:                                     ))}
+1740:                                   </select>
+1741:                                 </div>
+1742: 
+1743:                                 <div>
+1744:                                   <label className="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">2. Simulated supplemental top-up</label>
+1745:                                   <div className="relative">
+1746:                                     <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-bold text-xs">RM</span>
+1747:                                     <input
+1748:                                       type="number"
+1749:                                  
+1750:                           onChange={e => { setTxnVoteFilter(e.target.value); setTxnPage(1); }}
+1751:                           className="w-full text-xs font-bold text-slate-700 bg-white border border-slate-200/60 rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200"
+1752:                         >
+1753:                           <option value="all">All Vots</option>
+1754:                           <option value="080702">080702</option>
+1755:                           <option value="990102">990102</option>
+1756:                         </select>
+1757:                       </div>
+1758:                       <div className="min-w-[140px]">
+1759:                         <select
+1760:                           value={txnCategoryFilter}
+1761:                           onChange={e => { setTxnCategoryFilter(e.target.value); setTxnPage(1); }}
+1762:                           className="w-full text-xs font-bold text-slate-700 bg-white border border-slate-200/60 rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200"
+1763:                         >
+1764:                           <option value="all">All Categories</option>
+1765:                           {Array.from(new Set(reportData.transactions.map(t => t.category))).map((cat: any) => (
+1766:                             <option key={cat} value={cat}>{cat}</option>
+1767:                           ))}
+1768:                         </select>
+1769:                       </div>
+1770:                       <div className="min-w
+1771:                         <select
+1772:                           value={txnDeptFilter}
+1773:                           onChange={e => { setTxnDeptFilter(e.target.value); setTxnPage(1); }}
+1774:                           className="w-full text-xs font-bold text-slate-700 bg-white border border-slate-200/60 rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200"
+1775:                         >
+1776:                                           </span>
+1777:                                         </div>
+1778:                                       </td>
+1779: 
+1780:                                       <td className="p-4">
+1781:                                         <div className="flex flex-col items-center">
+1782:                                           <div className="text-[10px] font-bold text-slate-600 flex items-center gap-1">
+1783:                                             <span className="capitalize">{cat.trend}</span>
+1784:                                             <span>{cat.trend === 'increasing' ? '📈' : cat.trend === 'decreasing' ? '📉' : '➡️'}</span>
+1785:                                           </div>
+1786:                                           <span className="text-[8px] font-bold text-slate-400">{cat.confidence}% conf</span>
+1787:                                         </div>
+1788:                                       </td>
+1789: 
+1790:                                       <td className="p-4 text-center">
+1791:                                         <button
+1792:                                           onClick={() => setActiveDrawerId(cat.id)}
+1793:                                           className="px-3.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-xl text-[10px] font-black border border-indigo-200/50 transition-all flex items-center gap-1 mx-auto"
+1794:                                         >
+1795:                                           <span>Backup Reasons</span>
+1796:                                           <span>➡️</span>
+1797:                                         </button>
+1798:                                       </td>
+1799:                                     </tr>
+1800:                                   ))}
+1801: [MISSING]
+1802: [MISSING]
+1803: [MISSING]
+1804: [MISSING]
+1805: [MISSING]
+1806: [MISSING]
+1807: [MISSING]
+1808: [MISSING]
+1809: [MISSING]
+1810:                                   <td className="p-4 text-slate-400 font-bold">{txn.date}</td>
+1811:                                   <td className="p-4 text-slate-800 font-extrabold truncate max-w-[150px]" title={txn.supplierName}>{txn.supplierName}</td>
+1812:                                   <td className="p-4 text-right text-emerald-600 font-mono font-extrabold text-xs">{formatCurrency(txn.amount).replace('MYR', 'RM')}</td>
+1813:                                   <td className="p-4">
+1814:                                     <span className="px-2 py-0.5 rounded bg-indigo-50 border border-indigo-100 text-indigo-600 text-[9px] font-mono font-extrabold">
+1815:                                       {txn.voteCode}
+1816:                                     </span>
+1817:                                   </td>
+1818:                                   <td className="p-4 text-slate-500 font-medium">{txn.category}</td>
+1819:                                   <td className="p-4 text-slate-500 font-medium truncate max-w-[120px]">{txn.department}</td>
+1820:                                   <td className="p-4 text-center">
+1821:                                     <span className={cn(
+1822:                                       "inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-[9px] font-extrabold capitalize border shadow-sm",
+1823:                                       txn.status === 'completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
+1824:                         
+1825: [MISSING]
+1826: [MISSING]
+1827: [MISSING]
+1828: [MISSING]
+1829: [MISSING]
+1830: [MISSING]
+1831: [MISSING]
+1832: [MISSING]
+1833: [MISSING]
+1834:                               ))
+1835:                             )}
+1836:                           </tbody>
+1837:                         </table>
+1838:                       </div>
+1839:                     </div>
+1840: 
+1841: 
+1842:                     {/* Pagination */}
+1843:                     {totalTxnPages > 1 && (
+1844:                       <div className="flex items-center justify-between border-t border-slate-100 pt-4 text-xs font-bold text-slate-500">
+1845:                         <span>Showing {(txnPage - 1) * 15 + 1} to {Math.min(txnPage * 15, filteredTxns.length)} of {filteredTxns.length} entries</span>
+1846:                         <div className="flex items-center gap-1">
+1847:                           <button
+1848:                             onClick={() => setTxnPage(p => Math.max(1, p - 1))}
+1849:                             disabled={txnPage === 1}
+1850:                             className="px-3 py-1.5 rounded-lg border border-slate-200/60 bg-white hover:bg-slate-50 disabled:opacity-40"
+1851:                           >
+1852:                             Prev
+1853:                           </button>
+1854:                           <span className="px-3">Page {txnPage} of {totalTxnPages}</span>
+1855:                           <button
+1856:                             onClick={() => setTxnPage(p => Math.min(totalTxnPages, p + 1))}
+1857:                             disabled={txnPage === totalTxnPages}
+1858:                             className="px-3 py-1.5 rounded-lg border border-slate-200/60 bg-white hover:bg-slate-50 disabled:opacity-40"
+1859:                           >
+1860:                             Next
+1861:                           </button>
+1862:                         </div>
+1863:                       </div>
+1864:                     )}
+1865:                   </div>
+1866:                 )}
+1867:               </motion.div>
+1868:             </AnimatePresence>
+1869:           </div>
+1870:         </motion.div>
+1871:         )}
+1872:       </div>
+1873:     </div>
+1874:   )
+1875: }
+1876: 
+1877: [MISSING]
+1878: [MISSING]
+1879: [MISSING]
+1880: [MISSING]
+1881: [MISSING]
+1882: [MISSING]
+1883: [MISSING]
+1884: [MISSING]
+1885: [MISSING]
+1886: [MISSING]
+1887: [MISSING]
+1888: [MISSING]
+1889: [MISSING]
+1890:                                         />
+1891:                                       </div>
+1892:                                     </div>
+1893:                                   );
+1894:                                 })}
+1895:                               </div>
+1896:                             </div>
+1897: 
+1898:                             {/* Forecast stability */}
+1899:                             <div className="bg-slate-50/50 border border-slate-200/80 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+1900:                               <div>
+1901:                                 <h6 className="text-[10px] font-black text-slate-700 uppercase tracking-widest mb-3">Stability Indicators</h6>
+1902:                                 <div className="space-y-3">
+1903:                                   
+1904:                                   <div className="bg-white border border-slate-200/50 rounded-2xl p-3.5 flex justify-between items-center shadow-sm">
+1905:                                     <div>
+1906:                                       <span className="text-[10px] text-slate-500 block font-bold">Model Precision Baseline</span>
+1907:                                       <span className="text-[8px] text-slate-400 block font-bold">Strategic run-rate variance</span>
+1908:                                     </div>
+1909:                                     <div className="text-right">
+1910:                                       <span className="text-sm font-black text-indigo-
+1911: [MISSING]
+1912: [MISSING]
+1913: [MISSING]
+1914: [MISSING]
+1915: [MISSING]
+1916: [MISSING]
+1917: [MISSING]
+1918: [MISSING]
+1919:                                     </div>
+1920:                                     <div className="text-right">
+1921:                                       <span className="text-sm font-black text-rose-600 block">
+1922:                                         {processedData.filter(c => c.isDeficit).length}
+1923:                                       </span>
+1924:                                       <span className="text-[8px] bg-rose-50 border border-rose-200 text-rose-600 font-extrabold px-1.5 py-0.2 rounded tracking-widest uppercase">High-Risk</span>
+1925:                                     </div>
+1926:                                   </div>
+1927: 
+1928:                                   <div className="bg-white border border-slate-200/50 rounded-2xl p-3.5 flex justify-between items-center shadow-sm">
+1929:                                     <div>
+1930:                                       <span className="text-[10px] text-slate-500 block font-bold">Annual Caseload Curve</span>
+1931:                                       <span className="text-[8px] text-slate-400 block font-bold">Surge projections indicator</span>
+1932:                                     </div>
+1933:                                     <div className="text-right">
+1934:                                       <span className="text-xs font-black text-orange-600 block">Influenza Spikes</span>
+1935:                                       <span className="text-[8px] bg-orange-50 border border-orange-200 text-orange-600 font-extrabold px-1.5 py-0.2 rounded tracking-widest uppercase">Aggressive</span>
+1936:                                     </div>
+1937:                                   </div>
+1938: 
+1939:                                 </div>
+1940:                               </div>
+1941:                               
+1942:                               <div className="border-t border-slate-200/60 pt-3 mt-4 flex items-start space-x-2 text-[9.5px] font-bold text-slate-400">
+1943:                                 <span>ℹ️</span>
+1944:                                 <p className="leading-relaxed">This predictive financial modeling forecast recalculates instantly inside your active workspace session when using simulative sandbox or elapsed month selectors.</p>
+1945:                               </div>
+1946:                             </div>
+1947: 
+1948:                           </div>
+1949:                         </div>
+1950:                       );
+1951:                     })()}
+1952:                   </div>
+1953:                 )}
+1954: ...
+1955: {/* KPI Breakdown */}
+1956:                     <div className="grid grid-cols-3 gap-4 bg-slate-950/50 p-4 border border-slate-800/80 rounded-2xl">
+1957:                       <div className="text-center border-r border-slate-800">
+1958:                         <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Allocation</span>
+1959:                         <span className="text-sm font-extrabold text-white mt-1 block">{formatCurrency(currentAllocation).replace('MYR', 'RM')}</span>
+1960:                       </div>
+1961:                       <div className="text-center border-r border-slate-800">
+1962:                         <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Avg Burn</span>
+1963:                         <span className="text-sm font-extrabold text-indigo-300 mt-1 block">{formatCurrency(avgMonthlyUse).replace('MYR', 'RM')}/mo</span>
+1964:                       </div>
+1965:                       <div className="text-center">
+1966:                         <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">EOY Proj Spend</span>
+1967:                         <span className="text-sm font-extrabold text-white mt-1 block">{formatCurrency(eoyProjectedSpend).replace('MYR', 'RM')}</span>
+1968:                       </div>
+1969:                     </div>
+1970:                             disabled={txnPage === totalTxnPages}
+1971:                             className="px-3 py-1.5 rounded-lg border border-slate-200/60 bg-white hover:bg-slate-50 disabled:opacity-40"
+1972:                           >
+1973:                             Next
+1974:                           </button>
+1975:                         </div>
+1976:                       </div>
+1977:                     )}
+1978:                   </div>
+1979:                 )}
+1980:               </motion.div>
+1981:             </AnimatePresence>
+1982:           </div>
+1983:         </motion.div>
+1984:         )}
+1985: 
+1986:         {/* =================================================════════════════ */}
+1987:         {/* GLASSMORPHIC SLIDE-OVER JUSTIFICATION DRAWER */}
+1988:         {/* ============
+1989:                                     ? 'bg-yellow-950/80 border-yellow-700/40 text-yellow-350' 
+1990:                                     : 'bg-slate-950 border-slate-700/40 text-slate-300'
+1991: [MISSING]
+1992: [MISSING]
+1993: [MISSING]
+1994: [MISSING]
+1995: [MISSING]
+1996: [MISSING]
+1997: [MISSING]
+1998: [MISSING]
+1999: [MISSING]
+2000: [MISSING]

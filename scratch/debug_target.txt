@@ -1,0 +1,120 @@
+              {/* LOWER SECTION: Live Cylinder QR Registry Card */}
+          <div className="lg:col-span-12 bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-xl shadow-slate-100/40 space-y-6">
+            <div>
+              <h3 className="text-base font-black text-slate-800 tracking-tight flex items-center gap-2">
+                <Database className="w-5 h-5 text-teal-600 animate-pulse" />
+                Live Cylinder QR Registry
+              </h3>
+              <p className="text-xs font-semibold text-slate-500 mt-1">
+                Overview of generated scannable QR tags grouped by monitored cylinder type and capacity.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {ALLOWED_COMBINATIONS.map((combo) => {
+                const matchingCylinders = cylinders.filter(c => {
+                  const typeCode = c.type_info?.code || c.type_info?.type_code || '';
+                  const capacity = parseFloat(c.size_info?.capacity || '0');
+                  const isStandard = !c.size_info?.is_loan && !c.serial_number?.startsWith('101-');
+                  return isStandard && typeCode === combo.type && Math.abs(capacity - combo.capacity) < 0.01;
+                });
+
+                const pageKey = `${combo.type}-${combo.capacity}`;
+                const currentPage = registryPages[pageKey] || 1;
+                const itemsPerPage = 3;
+                const totalPages = Math.ceil(matchingCylinders.length / itemsPerPage);
+                const comboStartIndex = (currentPage - 1) * itemsPerPage;
+                const paginatedCylinders = matchingCylinders.slice(comboStartIndex, comboStartIndex + itemsPerPage);
+
+                return (
+                  <div 
+                    key={combo.label} 
+                    className={`bg-slate-50/30 border-y border-r border-slate-150/70 border-l-4 rounded-3xl p-5 flex flex-col h-[320px] hover:shadow-lg hover:bg-slate-50/50 hover:border-slate-200 transition-all duration-300
+                      ${combo.type === 'BN' ? 'border-l-indigo-500' : 'border-l-teal-500'}`}
+                  >
+                    <div className="flex items-center justify-between border-b border-slate-200/50 pb-3.5 mb-3.5">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2.5 py-0.5 rounded-lg text-[9px] font-black tracking-wide uppercase border ${
+                          combo.type === 'BN' 
+                            ? 'bg-indigo-50 text-indigo-700 border-indigo-100' 
+                            : 'bg-teal-55 text-teal-75 border-teal-150'
+                        }`}>
+                          {combo.type === 'BN' ? 'Bullnose' : 'Pin Index'}
+                        </span>
+                        <span className="text-xs font-black text-slate-700">{combo.capacity} m³</span>
+                      </div>
+                      <span className="text-[10px] font-black text-slate-500 bg-white border border-slate-150/80 px-2.5 py-1 rounded-full shadow-sm">
+                        {matchingCylinders.length} Assets
+                      </span>
+                    </div>
+
+                    <div className="flex-1 space-y-2 pr-1">
+                      {matchingCylinders.length === 0 ? (
+                        <div className="h-full flex items-center justify-center text-[9px] font-black text-slate-400 uppercase tracking-widest bg-white/40 border border-dashed border-slate-200 rounded-2xl">
+                          No QR Generated
+                        </div>
+                      ) : (
+                        paginatedCylinders.map((cyl) => {
+                          const status = (cyl.status || '').toLowerCase();
+                          const displayStatus = (cyl.status || '').toUpperCase().replace(/_/g, ' ');
+                          let badgeStyle = 'bg-slate-50 text-slate-650 border border-slate-200';
+                          if (status === 'available' || status === 'full') {
+                            badgeStyle = 'bg-emerald-50 text-emerald-700 border border-emerald-200/80';
+                          } else if (status === 'issued' || status === 'in_use') {
+                            badgeStyle = 'bg-amber-50 text-amber-700 border border-amber-200/80';
+                          } else if (status === 'returned_to_supplier' || status === 'disposed') {
+                            badgeStyle = 'bg-rose-50 text-rose-700 border border-rose-200/80';
+                          }
+
+                          return (
+                            <div key={cyl.id} className="flex items-center justify-between bg-white border border-slate-150/80 rounded-2xl p-3 shadow-sm hover:border-slate-350 hover:shadow-md transition-all group">
+                              <div className="flex flex-col gap-0.5">
+                                <span className="font-mono text-xs font-black text-slate-800 tracking-wide">{cyl.serial_number}</span>
+                                <span className="text-[9px] font-semibold text-slate-400 font-mono">{cyl.qr_code}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${badgeStyle}`}>
+                                  {displayStatus}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handlePrintLabel(cyl)}
+                                  className="p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-500 hover:text-teal-650 transition-all active:scale-95"
+                                  title="Print Label"
+                                >
+                                  <Printer className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between w-full pt-3 border-t border-slate-250/30 mt-3.5">
+                        <button
+                          type="button"
+                          disabled={currentPage === 1}
+                          onClick={() => setRegistryPages(prev => ({ ...prev, [pageKey]: Math.max(1, currentPage - 1) }))}
+                          className="px-2.5 py-1 text-[10px] font-black uppercase text-slate-500 hover:text-slate-850 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed border border-slate-200 rounded-lg shadow-sm transition-all active:scale-95"
+                        >
+                          Prev
+                        </button>
+                        <span className="text-[10px] font-black text-slate-400 font-mono">
+                          Page {currentPage} of {totalPages}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={currentPage === totalPages}
+                          onClick={() => setRegistryPages(prev => ({ ...prev, [pageKey]: Math.min(totalPages, currentPage + 1) }))}
+                          className="px-2.5 py-1 text-[10px] font-black uppercase text-slate-500 hover:text-slate-850 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed border border-slate-200 rounded-lg shadow-sm transition-all active:scale-95"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>

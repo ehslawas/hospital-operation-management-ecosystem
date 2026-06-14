@@ -73,6 +73,12 @@ export const SYSTEM_ROLES = {
   // Clinical Roles
   NURSE: 'nurse',
   DOCTOR: 'doctor',
+  MEDICAL_OFFICER: 'medical_officer',
+  ASSISTANT_MEDICAL_OFFICER: 'assistant_medical_officer',
+  
+  // Database Mismatches / Aliases
+  ASSISTANT_PHARMACIST: 'assistant_pharmacist',
+  HOSPITAL_ADMINISTRATOR: 'hospital_administrator',
   
   // General
   STAFF: 'staff',
@@ -90,6 +96,10 @@ export const ROLE_DISPLAY_NAMES: Record<string, string> = {
   [SYSTEM_ROLES.PHARMACY_STAFF]: 'Pharmacy Staff',
   [SYSTEM_ROLES.NURSE]: 'Nurse',
   [SYSTEM_ROLES.DOCTOR]: 'Doctor',
+  [SYSTEM_ROLES.MEDICAL_OFFICER]: 'Medical Officer',
+  [SYSTEM_ROLES.ASSISTANT_MEDICAL_OFFICER]: 'Assistant Medical Officer',
+  [SYSTEM_ROLES.ASSISTANT_PHARMACIST]: 'Assistant Pharmacist',
+  [SYSTEM_ROLES.HOSPITAL_ADMINISTRATOR]: 'Hospital Administrator',
   [SYSTEM_ROLES.STAFF]: 'Staff',
 } as const
 
@@ -233,6 +243,7 @@ export const TOAST_DURATION = {
   SHORT: 3000,
   MEDIUM: 5000,
   LONG: 8000,
+  MINIMAL: 1500,
 } as const
 
 // Routes
@@ -298,6 +309,8 @@ export const ROUTES = {
   PHARMACY_OXYGEN_CYLINDERS: '/pharmacy/oxygen/cylinders',
   PHARMACY_OXYGEN_CONSUMPTION: '/pharmacy/oxygen/consumption',
   
+
+
   // Financial
   PHARMACY_FINANCIAL: '/pharmacy/financial',
   PHARMACY_BUDGET: '/pharmacy/financial/budget',
@@ -320,9 +333,12 @@ export const ROUTES = {
   PHARMACY_DELIVERY: '/pharmacy/procurement/delivery',
   PHARMACY_RECEIVING: '/pharmacy/procurement/receiving',
   PHARMACY_PAYMENT: '/pharmacy/procurement/payment',
+  PHARMACY_CREDIT_NOTE: '/pharmacy/procurement/credit-notes',
   PHARMACY_ORDER_TRACKING: '/pharmacy/procurement/tracking',
   PHARMACY_PENALTY: '/pharmacy/procurement/penalty',
+  PHARMACY_PENALTY_DETAIL: '/pharmacy/procurement/penalty/:id',
   PHARMACY_LOU: '/pharmacy/procurement/lou',
+  PHARMACY_SUPPLIER_PERFORMANCE: '/pharmacy/procurement/supplier-performance',
   
   // Distribution
   PHARMACY_DISTRIBUTION: '/pharmacy/distribution',
@@ -338,6 +354,7 @@ export const ROUTES = {
   PHARMACY_CONTRACT_CATALOG: '/pharmacy/catalog/contracts',
   PHARMACY_HOSPITAL_FACILITY: '/pharmacy/catalog/hospitals',
   PHARMACY_CLINIC_FACILITY: '/pharmacy/catalog/clinics',
+  PHARMACY_FACILITY_CATALOG: '/pharmacy/catalog/facilities',
   
   // Maintenance
   PHARMACY_MAINTENANCE: '/pharmacy/maintenance',
@@ -398,6 +415,14 @@ export const SYSTEM_MODULES = {
   PHARMACY_EMERGENCY: 'pharmacy_emergency',
   PHARMACY_INPATIENT: 'pharmacy_inpatient',
   PHARMACY_GALENICAL: 'pharmacy_galenical',
+  PHARMACY_FORMULARI: 'pharmacy_formulari',
+  SYSTEM_PORTER: 'system_porter',
+  SYSTEM_TRANSPORTER: 'system_transporter',
+  SYSTEM_PRIVILEDGING: 'system_priviledging',
+  SYSTEM_TEMPAHAN: 'system_tempahan',
+  SYSTEM_PERHIMPUNAN: 'system_perhimpunan',
+  SYSTEM_KUNCI: 'system_kunci',
+  SYSTEM_CUTI: 'system_cuti',
   
   // Ward Modules
   GENERAL_WARD: 'general_ward',
@@ -431,7 +456,7 @@ export const MODULE_DEFINITIONS = [
   // Pharmacy Modules
   {
     code: SYSTEM_MODULES.PHARMACY_LOGISTICS,
-    name: 'Pharmacy Logistics',
+    name: 'MyWarrant',
     description: 'Central pharmacy logistics, inventory, procurement, and distribution',
     icon: 'Package',
     category: 'pharmacy',
@@ -470,6 +495,62 @@ export const MODULE_DEFINITIONS = [
     description: 'Extemporaneous preparation and prepacking',
     icon: 'Beaker',
     category: 'pharmacy',
+  },
+  {
+    code: SYSTEM_MODULES.PHARMACY_FORMULARI,
+    name: 'MyFormulari',
+    description: 'National and hospital drug formulary management',
+    icon: 'Search',
+    category: 'pharmacy',
+  },
+  {
+    code: SYSTEM_MODULES.SYSTEM_PORTER,
+    name: 'MyPorter',
+    description: 'Patient and asset portering services',
+    icon: 'Truck',
+    category: 'support',
+  },
+  {
+    code: SYSTEM_MODULES.SYSTEM_TRANSPORTER,
+    name: 'MyTransporter',
+    description: 'Sistem Pengurusan Pengangkutan & Ambulans',
+    icon: 'Car',
+    category: 'support',
+  },
+  {
+    code: SYSTEM_MODULES.SYSTEM_PRIVILEDGING,
+    name: 'MyPriviledging',
+    description: 'Staff clinical priviledging and credentialing',
+    icon: 'UserCheck',
+    category: 'support',
+  },
+  {
+    code: SYSTEM_MODULES.SYSTEM_TEMPAHAN,
+    name: 'MyTempahan',
+    description: 'Facility and equipment booking system',
+    icon: 'Calendar',
+    category: 'support',
+  },
+  {
+    code: SYSTEM_MODULES.SYSTEM_PERHIMPUNAN,
+    name: 'MyPerhimpunan',
+    description: 'Sistem Perhimpunan & Acara',
+    icon: 'Users',
+    category: 'support',
+  },
+  {
+    code: SYSTEM_MODULES.SYSTEM_KUNCI,
+    name: 'MyKunci',
+    description: 'Sistem Pengurusan Kunci Bersepadu',
+    icon: 'Key',
+    category: 'support',
+  },
+  {
+    code: SYSTEM_MODULES.SYSTEM_CUTI,
+    name: 'MyCuti',
+    description: 'Sistem Pengurusan Cuti Kakitangan',
+    icon: 'Plane',
+    category: 'support',
   },
   
   // Ward Modules
@@ -692,22 +773,4 @@ export const SENSITIVE_DATA_REQUEST_STATUS = {
   APPROVED: 'approved',
   DENIED: 'denied',
   EXPIRED: 'expired',
-  REVOKED: 'revoked',
 } as const
-
-// Hospital Log Categories
-export const HOSPITAL_LOG_CATEGORY = {
-  AUTHENTICATION: 'authentication',
-  USER_ACTIVITY: 'user_activity',
-  ADMINISTRATIVE: 'administrative',
-  SECURITY: 'security',
-  SYSTEM: 'system',
-} as const
-
-export const HOSPITAL_LOG_SEVERITY = {
-  INFO: 'info',
-  WARNING: 'warning',
-  ERROR: 'error',
-  CRITICAL: 'critical',
-} as const
-

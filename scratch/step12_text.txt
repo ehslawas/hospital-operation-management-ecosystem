@@ -1,0 +1,44 @@
+Created At: 2026-06-13T12:07:23Z
+Completed At: 2026-06-13T12:07:23Z
+File Path: `file:///c:/Users/60113/Downloads/My%20Home/hospital-operation-management-ecosystem/src/pages/pharmacy/oxygen/OxygenDashboardPage.tsx`
+Total Lines: 3382
+Total Bytes: 170454
+Showing lines 1285 to 1320
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1285:     }
+1286: 
+1287:     // 3. QR CODE LABEL GENERATOR
+1288:     if (currentPath === '/pharmacy/oxygen/qr') {
+1289:       const ALLOWED_COMBINATIONS = [
+1290:         { type: 'BN', capacity: 1.4, label: 'BN 1.4m³' },
+1291:         { type: 'PI', capacity: 1.4, label: 'PI 1.4m³' },
+1292:         { type: 'PI', capacity: 0.5, label: 'PI 0.5m³' },
+1293:         { type: 'PI', capacity: 0.7, label: 'PI 0.7m³' },
+1294:         { type: 'BN', capacity: 0.7, label: 'BN 0.7m³' },
+1295:         { type: 'BN', capacity: 6.4, label: 'BN 6.4m³' }
+1296:       ];
+1297: 
+1298:       const isMonitored = (c: any) => {
+1299:         const typeCode = c.type_info?.code || c.type_info?.type_code || '';
+1300:         const capacity = parseFloat(c.size_info?.capacity || '0');
+1301:         return ALLOWED_COMBINATIONS.some(
+1302:           item => item.type === typeCode && Math.abs(item.capacity - capacity) < 0.01
+1303:         );
+1304:       };
+1305: 
+1306:       const standardCylinders = cylinders.filter(
+1307:         c => !c.size_info?.is_loan && !c.serial_number?.startsWith('101-') && isMonitored(c)
+1308:       );
+1309: 
+1310:       const generatedLabelsPerPage = 5;
+1311:       const totalGeneratedLabelsPages = Math.ceil(generatedLabelsList.length / generatedLabelsPerPage);
+1312:       const startIndex = (generatedLabelsPage - 1) * generatedLabelsPerPage;
+1313:       const paginatedGeneratedLabels = generatedLabelsList.slice(startIndex, startIndex + generatedLabelsPerPage);
+1314:       
+1315:       const handleGenerateLabel = async () => {
+1316:         if (qrCategory === 'loans') {
+1317:           if (selectedCylinderId === 'generic-loan-1.4') {
+1318:             setGeneratedLabel({
+1319:               id: 'generic-loan-1.4',
+1320:               serial_number: 'LOAN-1.4M3-GENERIC',
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.
