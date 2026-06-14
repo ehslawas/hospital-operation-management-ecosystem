@@ -1,2 +1,0 @@
-export { ReportsPage } from './ReportsPage'
-

@@ -1,4 +1,6 @@
+import React from 'react'
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
+import { Button } from './button'
 import { cn } from '@/lib/utils'
 
 interface PaginationProps {
@@ -61,95 +63,97 @@ export function Pagination({
   }
 
   return (
-    <div className={cn('flex flex-col md:flex-row items-center justify-between gap-4 px-4 py-4 md:px-6 glass-card rounded-2xl mt-4', className)}>
-      <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto justify-between md:justify-start">
-        <div className="flex items-center gap-3">
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tight bg-slate-50 border border-slate-100/80 px-2.5 py-1.5 rounded-lg">
-            {start}-{end} <span className="text-slate-300 font-medium mx-0.5">OF</span> {total}
-          </div>
-          {onPageSizeChange && (
-            <div className="flex items-center gap-2 bg-white px-2.5 py-1.5 rounded-lg border border-slate-100 shadow-sm">
-              <span className="text-[9px] font-extrabold text-slate-500 uppercase tracking-wider">ROWS:</span>
-              <select
-                value={pageSize}
-                onChange={(e) => onPageSizeChange(Number(e.target.value))}
-                className="bg-transparent text-[11px] font-black text-slate-700 focus:outline-none cursor-pointer pr-1"
-              >
-                {pageSizeOptions.map((size) => (
-                  <option key={size} value={size}>
-                    {size}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+    <div className={cn('flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-white', className)}>
+      <div className="flex items-center gap-4">
+        <div className="text-sm text-slate-700">
+          Showing <span className="font-medium">{start}</span> to{' '}
+          <span className="font-medium">{end}</span> of{' '}
+          <span className="font-medium">{total}</span> results
         </div>
+        {onPageSizeChange && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-slate-700">Show:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => onPageSizeChange(Number(e.target.value))}
+              className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+            >
+              {pageSizeOptions.map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
-      <div className="flex items-center gap-1.5 w-full md:w-auto justify-center md:justify-end">
-        <div className="flex items-center gap-1 bg-white p-1 rounded-2xl border border-slate-100 shadow-sm">
-          <button
-            onClick={() => onPageChange(1)}
-            disabled={currentPage === 1}
-            className="p-1.5 text-slate-400 hover:text-violet-600 disabled:opacity-30 disabled:hover:text-slate-400 transition-colors"
-            title="First Page"
-          >
-            <ChevronsLeft className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => onPageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-            className="p-1.5 text-slate-400 hover:text-violet-600 disabled:opacity-30 disabled:hover:text-slate-400 transition-colors mr-1"
-            title="Previous Page"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onPageChange(1)}
+          disabled={currentPage === 1}
+          leftIcon={<ChevronsLeft className="w-4 h-4" />}
+        >
+          First
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          leftIcon={<ChevronLeft className="w-4 h-4" />}
+        >
+          Previous
+        </Button>
 
-          <div className="flex items-center gap-1">
-            {getPageNumbers().map((page, index) => {
-              if (page === '...') {
-                return (
-                  <span key={`ellipsis-${index}`} className="w-8 text-center text-slate-300 text-[11px] font-medium">
-                    ...
-                  </span>
-                )
-              }
-
-              const pageNum = page as number
+        <div className="flex items-center gap-1">
+          {getPageNumbers().map((page, index) => {
+            if (page === '...') {
               return (
-                <button
-                  key={pageNum}
-                  onClick={() => onPageChange(pageNum)}
-                  className={cn(
-                    'w-9 h-9 flex items-center justify-center text-[12px] font-bold rounded-xl transition-all duration-200',
-                    currentPage === pageNum
-                      ? 'bg-violet-600 text-white shadow-lg shadow-violet-200 z-10'
-                      : 'text-slate-500 hover:bg-slate-50 hover:text-violet-600'
-                  )}
-                >
-                  {pageNum}
-                </button>
+                <span key={`ellipsis-${index}`} className="px-2 text-slate-500">
+                  ...
+                </span>
               )
-            })}
-          </div>
+            }
 
-          <button
-            onClick={() => onPageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            className="p-1.5 text-slate-400 hover:text-violet-600 disabled:opacity-30 disabled:hover:text-slate-400 transition-colors ml-1"
-            title="Next Page"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => onPageChange(totalPages)}
-            disabled={currentPage === totalPages}
-            className="p-1.5 text-slate-400 hover:text-violet-600 disabled:opacity-30 disabled:hover:text-slate-400 transition-colors"
-            title="Last Page"
-          >
-            <ChevronsRight className="w-4 h-4" />
-          </button>
+            const pageNum = page as number
+            return (
+              <button
+                key={pageNum}
+                onClick={() => onPageChange(pageNum)}
+                className={cn(
+                  'px-3 py-1.5 text-sm font-medium rounded-lg transition-colors',
+                  currentPage === pageNum
+                    ? 'bg-teal-600 text-white'
+                    : 'text-slate-700 hover:bg-slate-100'
+                )}
+              >
+                {pageNum}
+              </button>
+            )
+          })}
         </div>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          rightIcon={<ChevronRight className="w-4 h-4" />}
+        >
+          Next
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onPageChange(totalPages)}
+          disabled={currentPage === totalPages}
+          rightIcon={<ChevronsRight className="w-4 h-4" />}
+        >
+          Last
+        </Button>
       </div>
     </div>
   )

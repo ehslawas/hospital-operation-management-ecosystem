@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   Search,
@@ -38,8 +37,24 @@ import {
   syncUnitCatalogCounts,
   getAvailableDepartments,
 } from '@/services/pharmacy/unitCatalogService'
+import {
+  getCatalogItems,
+  addCatalogItem,
+  addCatalogItems,
+  updateCatalogItem,
+  deleteCatalogItem,
+  toggleCatalogItem,
+} from '@/services/pharmacy/unitCatalogItemService'
+import { getDrugCatalog } from '@/services/pharmacy/drugCatalogService'
+import { getNonDrugCatalog } from '@/services/pharmacy/nonDrugCatalogService'
+import type {
+  UnitCatalogItemWithRelations,
+  UnitCatalogItemFormData,
+  CatalogItemType,
+  DrugWithRelations,
+  NonDrugWithRelations,
+} from '@/types/pharmacy'
 import { getUsers } from '@/services/userService'
-import { getDrugCategories, getNonDrugCategories } from '@/services/pharmacy/inventoryService'
 import { getHospitalModules } from '@/services/moduleService'
 import type {
   UnitCatalogWithRelations,
@@ -49,7 +64,7 @@ import type {
   UnitCatalogChangeWithRelations,
   UnitCatalogFilter,
 } from '@/types/pharmacy'
-import { ROUTES, MODULE_DEFINITIONS } from '@/lib/constants'
+import { MODULE_DEFINITIONS } from '@/lib/constants'
 
 // =====================================================
 // KPI CARD COMPONENT
@@ -128,7 +143,7 @@ const UnitCatalogFormModal: React.FC<UnitCatalogFormModalProps> = ({
   const [departmentsError, setDepartmentsError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (isOpen && hospitalId) {
+    if (isOpen) {
       loadAvailableDepartments()
       loadUsers()
       if (catalog) {
@@ -184,9 +199,9 @@ const UnitCatalogFormModal: React.FC<UnitCatalogFormModalProps> = ({
   const loadUsers = async () => {
     try {
       const result = await getUsers({ hospitalId, pageSize: 1000 })
-      if (result.data && Array.isArray(result.data)) {
+      if (result.data?.data) {
         setUsers(
-          result.data.map((u) => ({
+          result.data.data.map((u) => ({
             id: u.id,
             full_name: u.full_name,
             employee_id: u.employee_id || '',
@@ -222,8 +237,8 @@ const UnitCatalogFormModal: React.FC<UnitCatalogFormModalProps> = ({
     }
   }
 
-  const moduleCodeStr = typeof formData.module_code === 'string'
-    ? formData.module_code
+  const moduleCodeStr = typeof formData.module_code === 'string' 
+    ? formData.module_code 
     : (formData.module_code ? String(formData.module_code) : '')
   const moduleName =
     MODULE_DEFINITIONS.find((m) => m.code === moduleCodeStr)?.name || moduleCodeStr || ''
@@ -251,8 +266,8 @@ const UnitCatalogFormModal: React.FC<UnitCatalogFormModalProps> = ({
             isLoadingDepartments
               ? 'Loading departments...'
               : availableDepartments.length === 0
-                ? 'No departments available'
-                : 'Select a department'
+              ? 'No departments available'
+              : 'Select a department'
           }
           required
           disabled={!!catalog || isLoadingDepartments || availableDepartments.length === 0}
@@ -261,10 +276,10 @@ const UnitCatalogFormModal: React.FC<UnitCatalogFormModalProps> = ({
             departmentsError
               ? undefined
               : availableDepartments.length === 0 && !isLoadingDepartments
-                ? 'No departments available for this hospital. Please activate modules and ensure departments are created.'
-                : availableDepartments.length > 0
-                  ? `${availableDepartments.length} department(s) available`
-                  : undefined
+              ? 'No departments available for this hospital. Please activate modules and ensure departments are created.'
+              : availableDepartments.length > 0
+              ? `${availableDepartments.length} department(s) available`
+              : undefined
           }
         />
         {availableDepartments.length === 0 && !isLoadingDepartments && !departmentsError && (
@@ -351,24 +366,17 @@ interface ChangeHistoryModalProps {
   isOpen: boolean
   onClose: () => void
   catalogId: string
-  hospitalId?: string
 }
 
-const ChangeHistoryModal: React.FC<ChangeHistoryModalProps> = ({ isOpen, onClose, catalogId, hospitalId }) => {
+const ChangeHistoryModal: React.FC<ChangeHistoryModalProps> = ({ isOpen, onClose, catalogId }) => {
   const [changes, setChanges] = useState<UnitCatalogChangeWithRelations[]>([])
-  const [users, setUsers] = useState<Record<string, string>>({})
-  const [categories, setCategories] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
     if (isOpen && catalogId) {
       loadChanges()
-      if (hospitalId) {
-        loadUsers()
-        loadCategories()
-      }
     }
-  }, [isOpen, catalogId, hospitalId])
+  }, [isOpen, catalogId])
 
   const loadChanges = async () => {
     setIsLoading(true)
@@ -384,143 +392,33 @@ const ChangeHistoryModal: React.FC<ChangeHistoryModalProps> = ({ isOpen, onClose
     }
   }
 
-  const loadUsers = async () => {
-    try {
-      const result = await getUsers({ hospitalId, pageSize: 1000 })
-      if (result.data && Array.isArray(result.data)) {
-        const userMap: Record<string, string> = {}
-        result.data.forEach(u => {
-          userMap[u.id] = u.full_name
-        })
-        setUsers(userMap)
-      }
-    } catch (error) {
-      console.error('Error loading users for history:', error)
-    }
-  }
-
-  const loadCategories = async () => {
-    try {
-      const [drugRes, nonDrugRes] = await Promise.all([
-        getDrugCategories(hospitalId),
-        getNonDrugCategories()
-      ])
-
-      const catMap: Record<string, string> = {}
-      if (drugRes.data) {
-        drugRes.data.forEach(c => {
-          catMap[c.id] = c.category_name
-        })
-      }
-      if (nonDrugRes.data) {
-        nonDrugRes.data.forEach(c => {
-          catMap[c.id] = c.category_name
-        })
-      }
-      setCategories(catMap)
-    } catch (error) {
-      console.error('Error loading categories for history:', error)
-    }
-  }
-
-  const formatFieldName = (name: string): string => {
-    if (!name) return ''
-    return name
-      .replace(/^is_/, '')
-      .replace(/_/g, ' ')
-      .replace(/\b\w/g, (l) => l.toUpperCase())
-      .replace('Id', '')
-      .trim()
-  }
-
-  const formatValue = (value: any, fieldName: string): React.ReactNode => {
+  const formatValue = (value: any): string => {
     if (value === null || value === undefined) return '—'
-
-    // Handle ID resolution for top-level fields
-    if ((fieldName === 'responsible_user_id' || fieldName === 'last_updated_by') && typeof value === 'string' && users[value]) {
-      return users[value]
-    }
-
     if (typeof value === 'boolean') return value ? 'Yes' : 'No'
     if (typeof value === 'number') return value.toString()
-    if (typeof value === 'string') {
-      // Resolve IDs for specific fields
-      if ((fieldName === 'category_id' || fieldName === 'therapeutic_class_id' || fieldName === 'item_category_id') && categories[value]) {
-        return categories[value]
-      }
-
-      // Format procurement vote labels
-      if (fieldName === 'procurement_vote') {
-        const labels: Record<string, string> = {
-          appl: 'APPL (Ministry)',
-          cc: 'Contract (Consession)',
-          lp: 'Local Purchase',
-          dp: 'Direct Purchase'
-        }
-        return labels[value] || value.toUpperCase()
-      }
-
-      // Check if it's a date string
-      if (value.match(/^\d{4}-\d{2}-\d{2}T/)) {
-        return new Date(value).toLocaleString()
-      }
-      return value
-    }
-
+    if (typeof value === 'string') return value
     if (typeof value === 'object') {
       try {
-        // Prettify small JSON objects
-        const keys = Object.keys(value)
-        if (keys.length > 0) {
-          // Fields to ignore in objects (noise)
-          const ignoreFields = ['id', 'catalog_id', 'hospital_id', 'non_drug_id', 'drug_id', 'item_id']
-
-          return (
-            <div className="space-y-1">
-              {Object.entries(value).map(([key, val]) => {
-                if (ignoreFields.includes(key)) return null
-                if (val === null || val === undefined) return null
-
-                // Resolve nested user IDs
-                let displayVal: React.ReactNode = String(val)
-                if ((key === 'responsible_user_id' || key === 'last_updated_by') && typeof val === 'string' && users[val]) {
-                  displayVal = users[val]
-                } else if ((key === 'category_id' || key === 'therapeutic_class_id' || key === 'item_category_id') && typeof val === 'string' && categories[val]) {
-                  displayVal = categories[val]
-                } else if (key === 'procurement_vote' && typeof val === 'string') {
-                  const labels: Record<string, string> = {
-                    appl: 'APPL (Ministry)',
-                    cc: 'Contract (Consession)',
-                    lp: 'Local Purchase',
-                    dp: 'Direct Purchase'
-                  }
-                  displayVal = labels[val] || val.toUpperCase()
-                } else if (typeof val === 'boolean') {
-                  displayVal = val ? 'Yes' : 'No'
-                } else if (typeof val === 'string' && val.match(/^\d{4}-\d{2}-\d{2}T/)) {
-                  displayVal = new Date(val).toLocaleString()
-                }
-
-                return (
-                  <div key={key} className="flex gap-2 text-xs">
-                    <span className="font-semibold text-gray-500 whitespace-nowrap">{formatFieldName(key)}:</span>
-                    <span>{displayVal}</span>
-                  </div>
-                )
-              })}
-            </div>
-          )
-        }
         return JSON.stringify(value)
       } catch {
         return '[Object]'
       }
     }
-    return String(value)
+    try {
+      return String(value)
+    } catch {
+      return '—'
+    }
+  }
+
+  const formatFieldName = (fieldName: string): string => {
+    return fieldName
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (l) => l.toUpperCase())
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Change History" size="3xl">
+    <Modal isOpen={isOpen} onClose={onClose} title="Change History" size="lg">
       <div className="relative min-h-[200px]">
         {isLoading ? (
           <LoadingOverlay />
@@ -534,16 +432,9 @@ const ChangeHistoryModal: React.FC<ChangeHistoryModalProps> = ({ isOpen, onClose
                   <div key={change.id} className="border rounded-lg p-4">
                     <div className="flex items-start justify-between mb-2">
                       <div>
-                        {change.item_name && (
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-bold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded border border-violet-100">
-                              {change.item_name}
-                            </span>
-                          </div>
-                        )}
-                        <p className="font-medium text-slate-800">{formatFieldName(change.field_name)}</p>
-                        <p className="text-xs text-gray-500">
-                          Changed by {change.changed_by_user?.full_name || 'System'} on{' '}
+                        <p className="font-medium">{formatFieldName(change.field_name)}</p>
+                        <p className="text-sm text-gray-600">
+                          Changed by {change.changed_by_user?.full_name || 'Unknown'} on{' '}
                           {new Date(change.changed_at).toLocaleString()}
                         </p>
                       </div>
@@ -551,15 +442,15 @@ const ChangeHistoryModal: React.FC<ChangeHistoryModalProps> = ({ isOpen, onClose
                     <div className="grid grid-cols-2 gap-4 mt-3">
                       <div>
                         <p className="text-xs text-gray-500 mb-1">Old Value</p>
-                        <div className="text-sm font-mono bg-red-50 p-2 rounded overflow-x-auto whitespace-pre-wrap">
-                          {formatValue(change.old_value, change.field_name)}
-                        </div>
+                        <p className="text-sm font-mono bg-red-50 p-2 rounded">
+                          {formatValue(change.old_value)}
+                        </p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-500 mb-1">New Value</p>
-                        <div className="text-sm font-mono bg-green-50 p-2 rounded overflow-x-auto whitespace-pre-wrap">
-                          {formatValue(change.new_value, change.field_name)}
-                        </div>
+                        <p className="text-sm font-mono bg-green-50 p-2 rounded">
+                          {formatValue(change.new_value)}
+                        </p>
                       </div>
                     </div>
                     {change.change_reason && (
@@ -576,14 +467,600 @@ const ChangeHistoryModal: React.FC<ChangeHistoryModalProps> = ({ isOpen, onClose
   )
 }
 
+// =====================================================
+// CATALOG ITEMS MODAL
+// =====================================================
 
+interface CatalogItemsModalProps {
+  isOpen: boolean
+  onClose: () => void
+  catalog: UnitCatalogWithItemCounts
+  onRefresh?: () => void
+}
+
+const CatalogItemsModal: React.FC<CatalogItemsModalProps> = ({
+  isOpen,
+  onClose,
+  catalog,
+  onRefresh,
+}) => {
+  const { user } = useAuthStore()
+  const { success: showSuccess, error: showError } = useToastStore()
+  
+  const [activeTab, setActiveTab] = useState<CatalogItemType>('drug')
+  const [items, setItems] = useState<UnitCatalogItemWithRelations[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+
+  // Add Items Modal State
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [availableItems, setAvailableItems] = useState<DrugWithRelations[] | NonDrugWithRelations[]>([])
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set())
+  const [isLoadingAvailable, setIsLoadingAvailable] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [defaultMinLimit, setDefaultMinLimit] = useState(1)
+  const [defaultMaxLimit, setDefaultMaxLimit] = useState<number | null>(null)
+  const [defaultActive, setDefaultActive] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+
+  useEffect(() => {
+    if (isOpen && catalog?.id) {
+      loadItems()
+    }
+  }, [isOpen, catalog?.id, activeTab])
+
+  // Load available items when Add Modal opens
+  useEffect(() => {
+    if (showAddModal && catalog?.hospital_id) {
+      const timeoutId = setTimeout(() => {
+        loadAvailableItems()
+      }, searchQuery ? 500 : 0) // Debounce search by 500ms
+
+      return () => clearTimeout(timeoutId)
+    }
+  }, [showAddModal, catalog?.hospital_id, activeTab, searchQuery, currentPage])
+
+  const loadItems = async () => {
+    if (!catalog?.id) return
+    setIsLoading(true)
+    try {
+      const result = await getCatalogItems(catalog.id, activeTab, 1, 1000)
+      if (result.data?.data) {
+        setItems(result.data.data)
+      } else if (result.error) {
+        showError('Error', result.error)
+      }
+    } catch (error) {
+      showError('Error', 'Failed to load items')
+      console.error('Error loading items:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleToggleActive = async (item: UnitCatalogItemWithRelations) => {
+    if (!user?.id || !catalog?.id) return
+    setIsSaving(true)
+    try {
+      const result = await toggleCatalogItem(
+        item.id,
+        catalog.id,
+        catalog.hospital_id,
+        user.id,
+        !item.is_active
+      )
+      if (result.error) {
+        showError('Error', result.error)
+      } else {
+        showSuccess('Success', 'Item status updated')
+        await loadItems()
+        onRefresh?.()
+      }
+    } catch (error) {
+      showError('Error', 'Failed to update item')
+      console.error('Error updating item:', error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleDelete = async (item: UnitCatalogItemWithRelations) => {
+    if (!user?.id || !catalog?.id) return
+    const itemName = activeTab === 'drug' 
+      ? item.drug?.drug_name || 'this item'
+      : item.non_drug?.item_name || 'this item'
+    
+    if (!confirm(`Are you sure you want to remove ${itemName} from this catalog?`)) {
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      const result = await deleteCatalogItem(item.id, catalog.id, catalog.hospital_id, user.id)
+      if (result.error) {
+        showError('Error', result.error)
+      } else {
+        showSuccess('Success', 'Item removed from catalog')
+        await loadItems()
+        onRefresh?.()
+      }
+    } catch (error) {
+      showError('Error', 'Failed to remove item')
+      console.error('Error removing item:', error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const loadAvailableItems = async () => {
+    if (!catalog?.hospital_id) return
+    setIsLoadingAvailable(true)
+    try {
+      // Get existing item IDs to filter them out
+      const existingDrugIds = new Set(
+        items
+          .filter((i) => i.item_type === 'drug' && i.drug_id)
+          .map((i) => i.drug_id!)
+          .filter((id): id is string => !!id)
+      )
+      const existingNonDrugIds = new Set(
+        items
+          .filter((i) => i.item_type === 'non_drug' && i.non_drug_id)
+          .map((i) => i.non_drug_id!)
+          .filter((id): id is string => !!id)
+      )
+
+      if (activeTab === 'drug') {
+        const result = await getDrugCatalog(
+          catalog.hospital_id,
+          {
+            search: searchQuery.trim() || undefined,
+            status: 'active' as const,
+          },
+          currentPage,
+          20
+        )
+        if (result.data?.data) {
+          // Filter out items already in catalog
+          const available = result.data.data.filter(
+            (drug: DrugWithRelations) => !existingDrugIds.has(drug.id)
+          )
+          setAvailableItems(available)
+          setTotalPages(result.data.totalPages)
+        } else if (result.error) {
+          showError('Error', result.error)
+        }
+      } else {
+        const result = await getNonDrugCatalog(
+          catalog.hospital_id,
+          {
+            search: searchQuery.trim() || undefined,
+            status: 'active' as const,
+          },
+          currentPage,
+          20
+        )
+        if (result.data?.data) {
+          // Filter out items already in catalog
+          const available = result.data.data.filter(
+            (nonDrug: NonDrugWithRelations) => !existingNonDrugIds.has(nonDrug.id)
+          )
+          setAvailableItems(available)
+          setTotalPages(result.data.totalPages)
+        } else if (result.error) {
+          showError('Error', result.error)
+        }
+      }
+    } catch (error) {
+      showError('Error', 'Failed to load available items')
+      console.error('Error loading available items:', error)
+    } finally {
+      setIsLoadingAvailable(false)
+    }
+  }
+
+  const handleToggleSelection = (itemId: string) => {
+    setSelectedItemIds((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId)
+      } else {
+        newSet.add(itemId)
+      }
+      return newSet
+    })
+  }
+
+  const handleSelectAll = () => {
+    if (selectedItemIds.size === availableItems.length) {
+      setSelectedItemIds(new Set())
+    } else {
+      setSelectedItemIds(new Set(availableItems.map((item: any) => item.id)))
+    }
+  }
+
+  const handleAddItems = async () => {
+    if (!user?.id || !catalog?.id || selectedItemIds.size === 0) return
+
+    setIsSaving(true)
+    try {
+      const itemsToAdd: UnitCatalogItemFormData[] = Array.from(selectedItemIds).map((itemId) => {
+        const item = availableItems.find((i: any) => i.id === itemId)
+        if (!item) return null
+
+        return {
+          item_type: activeTab,
+          drug_id: activeTab === 'drug' ? itemId : null,
+          non_drug_id: activeTab === 'non_drug' ? itemId : null,
+          is_active: defaultActive,
+          min_limit: defaultMinLimit,
+          max_limit: defaultMaxLimit || null,
+        }
+      }).filter(Boolean) as UnitCatalogItemFormData[]
+
+      const result = await addCatalogItems(catalog.id, catalog.hospital_id, user.id, itemsToAdd)
+      if (result.error) {
+        showError('Error', result.error)
+      } else {
+        showSuccess('Success', `Added ${itemsToAdd.length} item(s) to catalog`)
+        setShowAddModal(false)
+        setSelectedItemIds(new Set())
+        setSearchQuery('')
+        await loadItems()
+        onRefresh?.()
+      }
+    } catch (error) {
+      showError('Error', 'Failed to add items')
+      console.error('Error adding items:', error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const itemColumns = [
+    {
+      key: 'code',
+      label: 'Code',
+      render: (item: UnitCatalogItemWithRelations) => (
+        <span className="font-mono text-sm">
+          {activeTab === 'drug' ? item.drug?.drug_code : item.non_drug?.item_code}
+        </span>
+      ),
+    },
+    {
+      key: 'name',
+      label: 'Name',
+      render: (item: UnitCatalogItemWithRelations) => (
+        <span className="text-sm font-medium">
+          {activeTab === 'drug' ? item.drug?.drug_name : item.non_drug?.item_name}
+        </span>
+      ),
+    },
+    {
+      key: 'status',
+      label: 'Active',
+      render: (item: UnitCatalogItemWithRelations) => (
+        <button
+          onClick={() => handleToggleActive(item)}
+          disabled={isSaving}
+          className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+            item.is_active
+              ? 'bg-green-100 text-green-700 hover:bg-green-200'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          {item.is_active ? 'Active' : 'Inactive'}
+        </button>
+      ),
+    },
+    {
+      key: 'limits',
+      label: 'Min / Max',
+      render: (item: UnitCatalogItemWithRelations) => (
+        <span className="text-sm">
+          {item.min_limit} / {item.max_limit ? item.max_limit : '∞'}
+        </span>
+      ),
+    },
+    {
+      key: 'actions',
+      label: 'Actions',
+      render: (item: UnitCatalogItemWithRelations) => (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => handleDelete(item)}
+          disabled={isSaving}
+        >
+          Remove
+        </Button>
+      ),
+    },
+  ]
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`Manage Items - ${catalog.department?.department_name || 'Unit'}`}
+      size="full"
+    >
+      <div className="space-y-4">
+        {/* Tabs */}
+        <div className="border-b border-gray-200">
+          <div className="flex gap-4">
+            <button
+              onClick={() => setActiveTab('drug')}
+              className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+                activeTab === 'drug'
+                  ? 'border-violet-500 text-violet-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Drugs ({catalog.drug_items_count || 0})
+            </button>
+            <button
+              onClick={() => setActiveTab('non_drug')}
+              className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+                activeTab === 'non_drug'
+                  ? 'border-violet-500 text-violet-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Non-Drugs ({catalog.non_drug_items_count || 0})
+            </button>
+          </div>
+        </div>
+
+        {/* Items Table */}
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <Spinner size="lg" />
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg border overflow-hidden">
+            <Table
+              columns={itemColumns}
+              data={items}
+              emptyMessage={`No ${activeTab === 'drug' ? 'drug' : 'non-drug'} items found. Click 'Add Items' to add some.`}
+            />
+          </div>
+        )}
+
+        {/* Add Items Button */}
+        <div className="flex justify-end gap-3 pt-4 border-t">
+          <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
+            Close
+          </Button>
+          <Button
+            onClick={() => {
+              setShowAddModal(true)
+              setSelectedItemIds(new Set())
+              setSearchQuery('')
+              setCurrentPage(1)
+            }}
+            disabled={isLoading}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Items
+          </Button>
+        </div>
+      </div>
+
+      {/* Add Items Modal */}
+      <Modal
+        isOpen={showAddModal}
+        onClose={() => {
+          setShowAddModal(false)
+          setSelectedItemIds(new Set())
+          setSearchQuery('')
+          setCurrentPage(1)
+        }}
+        title={`Add ${activeTab === 'drug' ? 'Drug' : 'Non-Drug'} Items`}
+        size="xl"
+      >
+        <div className="space-y-4">
+          {/* Search */}
+          <Input
+            label="Search"
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value)
+              setCurrentPage(1)
+            }}
+            placeholder={`Search by code or name...`}
+            leftIcon={<Search className="w-4 h-4" />}
+          />
+
+          {/* Default Settings */}
+          <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Min Limit</label>
+              <Input
+                type="number"
+                value={defaultMinLimit.toString()}
+                onChange={(e) => setDefaultMinLimit(parseInt(e.target.value) || 1)}
+                min="1"
+                className="text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Max Limit</label>
+              <Input
+                type="number"
+                value={defaultMaxLimit?.toString() || ''}
+                onChange={(e) => setDefaultMaxLimit(e.target.value ? parseInt(e.target.value) : null)}
+                placeholder="Unlimited"
+                min="1"
+                className="text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Active Status</label>
+              <button
+                onClick={() => setDefaultActive(!defaultActive)}
+                className={`w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  defaultActive
+                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {defaultActive ? 'Active' : 'Inactive'}
+              </button>
+            </div>
+          </div>
+
+          {/* Items List */}
+          {isLoadingAvailable ? (
+            <div className="flex justify-center py-12">
+              <Spinner size="lg" />
+            </div>
+          ) : (
+            <>
+              <div className="border rounded-lg max-h-96 overflow-y-auto">
+                {availableItems.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    No {activeTab === 'drug' ? 'drugs' : 'non-drugs'} found. Try a different search.
+                  </div>
+                ) : (
+                  <table className="w-full">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th className="px-4 py-2 text-left">
+                          <input
+                            type="checkbox"
+                            checked={selectedItemIds.size === availableItems.length && availableItems.length > 0}
+                            onChange={handleSelectAll}
+                            className="rounded"
+                          />
+                        </th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-700">Code</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-700">Name</th>
+                        {activeTab === 'drug' && (
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-700">Generic</th>
+                        )}
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-700">Unit</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {availableItems.map((item: any) => (
+                        <tr
+                          key={item.id}
+                          className={`hover:bg-gray-50 cursor-pointer ${
+                            selectedItemIds.has(item.id) ? 'bg-violet-50' : ''
+                          }`}
+                          onClick={() => handleToggleSelection(item.id)}
+                        >
+                          <td className="px-4 py-2">
+                            <input
+                              type="checkbox"
+                              checked={selectedItemIds.has(item.id)}
+                              onChange={() => handleToggleSelection(item.id)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="rounded"
+                            />
+                          </td>
+                          <td className="px-4 py-2">
+                            <span className="font-mono text-sm">
+                              {activeTab === 'drug' ? item.drug_code : item.item_code}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2">
+                            <span className="text-sm font-medium">
+                              {activeTab === 'drug' ? item.drug_name : item.item_name}
+                            </span>
+                          </td>
+                          {activeTab === 'drug' && (
+                            <td className="px-4 py-2">
+                              <span className="text-xs text-gray-600">{item.generic_name || '—'}</span>
+                            </td>
+                          )}
+                          <td className="px-4 py-2">
+                            <span className="text-xs text-gray-600">
+                              {activeTab === 'drug' ? item.unit_of_measure : item.unit_of_measure}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-between pt-4 border-t">
+                <span className="text-sm text-gray-600">
+                  {selectedItemIds.size} item(s) selected
+                </span>
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowAddModal(false)
+                      setSelectedItemIds(new Set())
+                      setSearchQuery('')
+                      setCurrentPage(1)
+                    }}
+                    disabled={isSaving}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleAddItems}
+                    disabled={isSaving || selectedItemIds.size === 0}
+                  >
+                    {isSaving ? (
+                      <Spinner size="sm" />
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add {selectedItemIds.size} Item(s)
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </Modal>
+    </Modal>
+  )
+}
 
 // =====================================================
 // MAIN UNIT CATALOG PAGE
 // =====================================================
 
 export const UnitCatalogPage: React.FC = () => {
-  const navigate = useNavigate()
   const { user } = useAuthStore()
   const { success: showSuccess, error: showError } = useToastStore()
 
@@ -601,6 +1078,8 @@ export const UnitCatalogPage: React.FC = () => {
   } | null>(null)
 
   const [catalogs, setCatalogs] = useState<UnitCatalogWithItemCounts[]>([])
+  const [selectedCatalogForItems, setSelectedCatalogForItems] = useState<UnitCatalogWithItemCounts | null>(null)
+  const [showItemsModal, setShowItemsModal] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSyncing, setIsSyncing] = useState(false)
 
@@ -766,7 +1245,7 @@ export const UnitCatalogPage: React.FC = () => {
     {
       key: 'department',
       label: 'Department',
-      render: (_: any, catalog: UnitCatalogWithRelations) => (
+      render: (catalog: UnitCatalogWithRelations) => (
         <div>
           <p className="font-medium">{catalog.department?.department_name || '—'}</p>
           <p className="text-xs text-gray-500">{catalog.department?.department_code || ''}</p>
@@ -776,15 +1255,15 @@ export const UnitCatalogPage: React.FC = () => {
     {
       key: 'module',
       label: 'Module',
-      render: (_: any, catalog: UnitCatalogWithRelations) => {
+      render: (catalog: UnitCatalogWithRelations) => {
         const code = typeof catalog.module_code === 'string' ? catalog.module_code : String(catalog.module_code || '')
-        return <Badge variant="gray">{moduleName(code)}</Badge>
+        return <Badge variant="secondary">{moduleName(code)}</Badge>
       },
     },
     {
       key: 'items',
       label: 'Catalog Items',
-      render: (_: any, catalog: UnitCatalogWithItemCounts) => (
+      render: (catalog: UnitCatalogWithItemCounts) => (
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-sm">
             <Badge variant="success" className="text-xs">
@@ -803,20 +1282,20 @@ export const UnitCatalogPage: React.FC = () => {
     {
       key: 'status',
       label: 'Status',
-      render: (_: any, catalog: UnitCatalogWithRelations) => {
+      render: (catalog: UnitCatalogWithRelations) => {
         const colors: Record<string, 'success' | 'warning' | 'error'> = {
           active: 'success',
           inactive: 'warning',
           suspended: 'error',
         }
         const statusStr = typeof catalog.status === 'string' ? catalog.status : String(catalog.status || 'active')
-        return <Badge variant={colors[statusStr] || 'gray'}>{statusStr}</Badge>
+        return <Badge variant={colors[statusStr] || 'secondary'}>{statusStr}</Badge>
       },
     },
     {
       key: 'responsible',
       label: 'Responsible',
-      render: (_: any, catalog: UnitCatalogWithRelations) => (
+      render: (catalog: UnitCatalogWithRelations) => (
         <span className="text-sm">
           {catalog.responsible_user?.full_name || <span className="text-gray-400">—</span>}
         </span>
@@ -825,7 +1304,7 @@ export const UnitCatalogPage: React.FC = () => {
     {
       key: 'last_updated',
       label: 'Last Updated',
-      render: (_: any, catalog: UnitCatalogWithRelations) => (
+      render: (catalog: UnitCatalogWithRelations) => (
         <div className="text-xs">
           {catalog.last_updated_at ? (
             <>
@@ -843,13 +1322,14 @@ export const UnitCatalogPage: React.FC = () => {
     {
       key: 'actions',
       label: 'Actions',
-      render: (_: any, catalog: UnitCatalogWithItemCounts) => (
+      render: (catalog: UnitCatalogWithItemCounts) => (
         <div className="flex gap-2">
           <Button
             size="sm"
             variant="outline"
             onClick={() => {
-              navigate(ROUTES.PHARMACY_UNIT_CATALOG_ITEMS.replace(':id', catalog.id))
+              setSelectedCatalogForItems(catalog)
+              setShowItemsModal(true)
             }}
             title="Manage Items"
           >
@@ -1032,9 +1512,23 @@ export const UnitCatalogPage: React.FC = () => {
           setSelectedCatalog(null)
         }}
         catalogId={selectedCatalog?.id || ''}
-        hospitalId={user.hospital_id}
       />
 
+      {/* Catalog Items Modal */}
+      {selectedCatalogForItems && (
+        <CatalogItemsModal
+          isOpen={showItemsModal}
+          onClose={() => {
+            setShowItemsModal(false)
+            setSelectedCatalogForItems(null)
+          }}
+          catalog={selectedCatalogForItems}
+          onRefresh={() => {
+            loadCatalogs()
+            loadSummary()
+          }}
+        />
+      )}
     </div>
   )
 }

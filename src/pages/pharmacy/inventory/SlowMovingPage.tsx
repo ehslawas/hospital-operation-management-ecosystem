@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react'
 import { AlertTriangle, TrendingDown, DollarSign, Calendar } from 'lucide-react'
-import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
+import { useAuthStore } from '@/stores/authStore'
 import { Table, Spinner, Badge, Select } from '@/components/ui'
 import { getSlowMovingItems } from '@/services/pharmacy/inventoryService'
 import type { SlowMovingItem } from '@/types/pharmacy'
+import { cn, formatCurrency } from '@/lib/utils'
 
 export const SlowMovingPage: React.FC = () => {
   const { user } = useAuthStore()
   const hospitalId = user?.hospital_id
-  const isSessionReady = useIsSessionReady()
 
   const [items, setItems] = useState<SlowMovingItem[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -16,7 +16,7 @@ export const SlowMovingPage: React.FC = () => {
   const [daysSinceMovement, setDaysSinceMovement] = useState(90)
 
   useEffect(() => {
-    if (!isSessionReady || !hospitalId) return
+    if (!hospitalId) return
 
     const load = async () => {
       setIsLoading(true)
@@ -35,14 +35,8 @@ export const SlowMovingPage: React.FC = () => {
     }
 
     void load()
-  }, [isSessionReady, hospitalId, daysSinceMovement])
+  }, [hospitalId, daysSinceMovement])
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-MY', {
-      style: 'currency',
-      currency: 'MYR',
-    }).format(amount)
-  }
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-MY', {

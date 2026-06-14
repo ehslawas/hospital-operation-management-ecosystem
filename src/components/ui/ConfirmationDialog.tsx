@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { AlertTriangle, AlertCircle, Info, CheckCircle, X } from 'lucide-react'
-import { Button } from './Button'
+import { Button } from './button'
 import { Modal } from './Modal'
 import { cn } from '@/lib/utils'
 
@@ -60,7 +60,7 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
   children,
 }) => {
   const [confirmationInput, setConfirmationInput] = useState('')
-  const config = variantConfig[variant]
+  const config = variantConfig[variant as ConfirmationVariant] || variantConfig.warning
   const Icon = config.icon
   const isConfirmDisabled = requiresConfirmation && confirmationInput !== (confirmationText || 'CONFIRM')
 

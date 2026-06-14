@@ -1,1295 +1,1786 @@
 /**
  * Pharmacy Oxygen Management Service
- * Handles medical oxygen cylinder tracking, reception, and inventory management.
+ * Handles medical oxygen cylinder tracking and consumption
  */
 
-import { supabase } from '../supabase'
+import { supabase, isSupabaseConfigured } from '../supabase'
 import type { ApiResponse, PaginatedResponse } from '@/types'
 import type {
-  OxygenCylinderSize,
-  OxygenCylinderType,
-  OxygenReceptionRecord,
-  OxygenReceptionRecordWithRelations,
-  OxygenCylinderInventoryWithRelations,
-  OxygenCylinderMovementWithRelations,
-  OxygenDashboardKPIs,
+  OxygenCylinder,
+  OxygenCylinderWithRelations,
+  OxygenCylinderTypeInfo,
+  OxygenConsumption,
+  OxygenConsumptionWithRelations,
   OxygenSummary,
   OxygenPricingConfig,
   OxygenSystemSettings,
+  OxygenReceptionRecord,
+  OxygenReceptionItem,
+  OxygenFinancialSummary,
+  OxygenReturnDocument,
+  OxygenReturnDocumentItem,
+  OxygenReturnDocumentWithRelations,
+  OxygenRequestDocument,
+  OxygenRequestDocumentItem,
+  OxygenRequestDocumentWithRelations,
 } from '@/types/pharmacy'
+import {
+  mockOxygenCylinders,
+  mockOxygenCylinderTypes,
+} from './mockData'
 
 /**
- * Get all oxygen cylinder sizes
+ * Get all oxygen cylinders
  */
-export async function getOxygenCylinderSizes(): Promise<ApiResponse<OxygenCylinderSize[]>> {
-  try {
-    const { data, error } = await supabase
-      .from('pharmacy_oxygen_cylinder_sizes')
-      .select('*')
-      .order('code', { ascending: true })
-
-    if (error) throw error
-    return { data: data as OxygenCylinderSize[], error: null }
-  } catch (error) {
-    console.error('Error fetching oxygen cylinder sizes:', error)
-    return { data: null, error: error instanceof Error ? error.message : 'Failed to fetch' }
-  }
-}
-
-/**
- * Get all oxygen cylinder types
- */
-export async function getOxygenCylinderTypes(): Promise<ApiResponse<OxygenCylinderType[]>> {
-  try {
-    const { data, error } = await supabase
-      .from('pharmacy_oxygen_cylinder_types')
-      .select('*')
-      .order('code', { ascending: true })
-
-    if (error) throw error
-    return { data: data as OxygenCylinderType[], error: null }
-  } catch (error) {
-    console.error('Error fetching oxygen cylinder types:', error)
-    return { data: null, error: error instanceof Error ? error.message : 'Failed to fetch' }
-  }
-}
-
-/**
- * Get oxygen reception records
- */
-export async function getOxygenReceptionRecords(
+export async function getOxygenCylinders(
   hospitalId: string,
-  page: number = 1,
-  pageSize: number = 10
-): Promise<ApiResponse<PaginatedResponse<OxygenReceptionRecordWithRelations>>> {
-  try {
-    const from = (page - 1) * pageSize
-    const to = from + pageSize - 1
-
-    const { data, error, count } = await supabase
-      .from('pharmacy_oxygen_reception_records')
-      .select(`
-        *, 
-        created_by_user:users(*),
-        items:pharmacy_oxygen_reception_items(
-          *,
-          cylinder:pharmacy_oxygen_cylinder_inventory(*),
-          cylinder_size:pharmacy_oxygen_cylinder_sizes(*),
-          cylinder_type:pharmacy_oxygen_cylinder_types(*)
-        )
-      `, { count: 'exact' })
-      .eq('hospital_id', hospitalId)
-      .order('reception_date', { ascending: false })
-      .range(from, to)
-
-    if (error) throw error
-
-    return {
-      data: {
-        data: data as OxygenReceptionRecordWithRelations[],
-        total: count || 0,
-        page,
-        pageSize,
-        totalPages: Math.ceil((count || 0) / pageSize),
-      },
-      error: null,
-    }
-  } catch (error) {
-    console.error('Error fetching reception records:', error)
-    return { data: null, error: error instanceof Error ? error.message : 'Failed to fetch' }
-  }
-}
-
-/**
- * Create a new oxygen reception record and update inventory
- */
-export async function createOxygenReceptionRecord(
-  data: Omit<OxygenReceptionRecord, 'id' | 'created_at' | 'updated_at' | 'total_amount'>,
-  cylinders: Array<{
-    cylinder_size_id: string
-    cylinder_type_id: string
-    qr_code: string
-    serial_number?: string
-    refill_price: number
-    loan_price: number
-  }>
-): Promise<ApiResponse<OxygenReceptionRecord>> {
-  try {
-    // 1. Create reception record
-    const { data: record, error: recordError } = await supabase
-      .from('pharmacy_oxygen_reception_records')
-      .insert(data)
-      .select()
-      .single()
-
-    if (recordError) throw recordError
-
-    // 2. Prepare inventory data for bulk upsert
-    const inventoryData = cylinders.map(cyl => ({
-      hospital_id: data.hospital_id,
-      cylinder_size_id: cyl.cylinder_size_id,
-      cylinder_type_id: cyl.cylinder_type_id,
-      qr_code: cyl.qr_code.trim(),
-      serial_number: cyl.serial_number?.trim(),
-      status: 'available',
-      current_location: 'Store',
-    }))
-
-    // Perform bulk upsert and retrieve IDs
-    const { data: inventoryItems, error: invError } = await supabase
-      .from('pharmacy_oxygen_cylinder_inventory')
-      .upsert(inventoryData, { onConflict: 'qr_code' })
-      .select('id, qr_code')
-
-    if (invError) throw invError
-    if (!inventoryItems) throw new Error('Failed to retrieve inventory items after bulk upsert')
-
-    // Create a map for quick ID lookup by QR code
-    const inventoryMap = new Map(inventoryItems.map(item => [item.qr_code, item.id]))
-
-    // 3. Prepare bulk movements and reception items
-    const movementData: any[] = []
-    const itemData: any[] = []
-
-    for (const cyl of cylinders) {
-      const inventoryId = inventoryMap.get(cyl.qr_code.trim())
-      if (!inventoryId) continue
-
-      movementData.push({
-        hospital_id: data.hospital_id,
-        cylinder_id: inventoryId,
-        movement_type: 'received',
-        from_location: 'Supplier',
-        to_location: 'Store',
-        moved_by: data.created_by,
-        remarks: `Received via DO ${data.delivery_order_no}`,
-      })
-
-      itemData.push({
-        reception_id: record.id,
-        cylinder_id: inventoryId,
-        cylinder_size_id: cyl.cylinder_size_id,
-        cylinder_type_id: cyl.cylinder_type_id,
-        unit_price: cyl.refill_price + cyl.loan_price
-      })
-    }
-
-    // 4. Execute batch inserts
-    const [moveRes, itemRes] = await Promise.all([
-      supabase.from('pharmacy_oxygen_cylinder_movements').insert(movementData),
-      supabase.from('pharmacy_oxygen_reception_items').insert(itemData)
-    ])
-
-    if (moveRes.error) throw moveRes.error
-    if (itemRes.error) throw itemRes.error
-
-    return { data: record as OxygenReceptionRecord, error: null }
-  } catch (error) {
-    console.error('Error creating reception record:', error)
-    return { data: null, error: error instanceof Error ? error.message : 'Failed to create' }
-  }
-}
-
-/**
- * Get oxygen cylinder inventory
- */
-export async function getOxygenCylinderInventory(
-  hospitalId: string,
-  filters: {
+  filter?: {
     status?: string
-    size_id?: string
     type_id?: string
-    search?: string
+    location_id?: string
+    assigned_ward_id?: string
   },
   page: number = 1,
-  pageSize: number = 10
-): Promise<ApiResponse<PaginatedResponse<OxygenCylinderInventoryWithRelations>>> {
+  pageSize: number = 100
+): Promise<ApiResponse<PaginatedResponse<OxygenCylinderWithRelations>>> {
   try {
-    const from = (page - 1) * pageSize
-    const to = from + pageSize - 1
+    if (isSupabaseConfigured()) {
+      let query = supabase
+        .from('pharmacy_oxygen_cylinder_inventory')
+        .select(
+          `
+          *,
+          size_info:pharmacy_oxygen_cylinder_sizes(*),
+          type_info:pharmacy_oxygen_cylinder_types(*),
+          department:departments(*)
+        `,
+          { count: 'exact' }
+        )
+        .eq('hospital_id', hospitalId)
 
-    let query = supabase
-      .from('pharmacy_oxygen_cylinder_inventory')
-      .select('*, size_info:pharmacy_oxygen_cylinder_sizes(*), type_info:pharmacy_oxygen_cylinder_types(*)', {
-        count: 'exact',
-      })
-      .eq('hospital_id', hospitalId)
-
-    if (filters.status) query = query.eq('status', filters.status)
-    if (filters.size_id) query = query.eq('cylinder_size_id', filters.size_id)
-    if (filters.type_id) query = query.eq('cylinder_type_id', filters.type_id)
-    if (filters.search) {
-      query = query.or(`qr_code.ilike.%${filters.search}%,serial_number.ilike.%${filters.search}%`)
-    }
-
-    const { data, error, count } = await query
-      .order('updated_at', { ascending: false })
-      .range(from, to)
-
-    if (error) throw error
-
-    return {
-      data: {
-        data: data as OxygenCylinderInventoryWithRelations[],
-        total: count || 0,
-        page,
-        pageSize,
-        totalPages: Math.ceil((count || 0) / pageSize),
-      },
-      error: null,
-    }
-  } catch (error) {
-    console.error('Error fetching cylinder inventory:', error)
-    return { data: null, error: error instanceof Error ? error.message : 'Failed to fetch' }
-  }
-}
-
-/**
- * Update cylinder status and record movement
- */
-export async function updateCylinderStatus(
-  hospitalId: string,
-  cylinderId: string,
-  newStatus: string,
-  location: string,
-  userId: string,
-  remarks?: string
-): Promise<ApiResponse<void>> {
-  try {
-    // 1. Get current status/location
-    const { data: current, error: getError } = await supabase
-      .from('pharmacy_oxygen_cylinder_inventory')
-      .select('status, current_location')
-      .eq('id', cylinderId)
-      .single()
-
-    if (getError) throw getError
-
-    // 2. Update inventory
-    const updatePayload: any = {
-      status: newStatus,
-      current_location: location,
-    }
-
-    // Clear department assignment if cylinder is returned/empty/available (back in store)
-    if (['empty', 'returned_to_supplier', 'available'].includes(newStatus)) {
-      updatePayload.department_id = null
-    }
-
-    const { error: updateError } = await supabase
-      .from('pharmacy_oxygen_cylinder_inventory')
-      .update(updatePayload)
-      .eq('id', cylinderId)
-
-    if (updateError) throw updateError
-
-    // 3. Record movement
-    let movementType: 'received' | 'issued' | 'returned_from_dept' | 'sent_to_supplier' = 'issued'
-    if (newStatus === 'available') movementType = 'received'
-    if (newStatus === 'empty') movementType = 'returned_from_dept'
-    if (newStatus === 'returned_to_supplier') movementType = 'sent_to_supplier'
-
-    const { error: moveError } = await supabase.from('pharmacy_oxygen_cylinder_movements').insert({
-      hospital_id: hospitalId,
-      cylinder_id: cylinderId,
-      movement_type: movementType,
-      from_location: current.current_location,
-      to_location: location,
-      moved_by: userId,
-      remarks: remarks || `Status updated to ${newStatus}`,
-    })
-
-    if (moveError) throw moveError
-
-    return { data: null, error: null }
-  } catch (error) {
-    console.error('Error updating cylinder status:', error)
-    return { data: null, error: error instanceof Error ? error.message : 'Failed to update' }
-  }
-}
-
-/**
- * Get cylinder movement history
- */
-export async function getCylinderMovements(
-  cylinderId: string
-): Promise<ApiResponse<OxygenCylinderMovementWithRelations[]>> {
-  try {
-    const { data, error } = await supabase
-      .from('pharmacy_oxygen_cylinder_movements')
-      .select('*, moved_by_user:users(*)')
-      .eq('cylinder_id', cylinderId)
-      .order('moved_at', { ascending: false })
-
-    if (error) throw error
-    return { data: data as OxygenCylinderMovementWithRelations[], error: null }
-  } catch (error) {
-    console.error('Error fetching cylinder movements:', error)
-    return { data: null, error: error instanceof Error ? error.message : 'Failed to fetch' }
-  }
-}
-
-/**
- * Get Oxygen Dashboard KPIs (Financial)
- * Vote Code: 080702, Activity: 27402
- */
-export async function getOxygenDashboardKPIs(hospitalId: string): Promise<ApiResponse<OxygenDashboardKPIs>> {
-  try {
-    const voteCode = '080702'
-    const activity = '27402'
-
-    // 1. Get Warrants (Allocation)
-    const { data: warrants, error: wError } = await supabase
-      .from('pharmacy_warrants')
-      .select('amount')
-      .eq('hospital_id', hospitalId)
-      .eq('vote_code', voteCode)
-      .eq('vote_activity', activity)
-
-    if (wError) throw wError
-
-    // 2. Get Expenses (from reception records)
-    const { data: receptions, error: rError } = await supabase
-      .from('pharmacy_oxygen_reception_records')
-      .select('refill_amount, loan_amount, total_amount, status')
-      .eq('hospital_id', hospitalId)
-      .eq('vote_code', voteCode)
-      .eq('vote_activity', activity)
-
-    if (rError) throw rError
-
-    const totalAllocation = warrants.reduce((sum, w) => sum + Number(w.amount), 0)
-    const totalRefillExpenses = receptions
-      .filter(r => r.status === 'completed')
-      .reduce((sum, r) => sum + Number(r.refill_amount || 0), 0)
-    const totalLoanAmount = receptions
-      .filter(r => r.status === 'completed')
-      .reduce((sum, r) => sum + Number(r.loan_amount || 0), 0)
-    const totalLiabilities = receptions
-      .filter(r => r.status === 'pending')
-      .reduce((sum, r) => sum + Number(r.refill_amount || 0), 0)
-
-    return {
-      data: {
-        cc_allocation: totalAllocation,
-        total_allocation: totalAllocation,
-        expense: totalRefillExpenses,
-        balance: totalAllocation - totalRefillExpenses,
-        liabilities: totalLiabilities,
-        net_expenses: totalRefillExpenses + totalLiabilities,
-        loan_total: totalLoanAmount,
-      },
-      error: null,
-    }
-  } catch (error) {
-    console.error('Error fetching oxygen KPIs:', error)
-    return { data: null, error: error instanceof Error ? error.message : 'Failed to fetch' }
-  }
-}
-
-/**
- * Get overall oxygen summary for dashboard
- */
-export async function getOxygenSummary(hospitalId: string): Promise<ApiResponse<OxygenSummary>> {
-  try {
-    // 1. Get KPIs
-    const kpisRes = await getOxygenDashboardKPIs(hospitalId)
-    // Silently handle KPI errors to ensure inventory data still loads
-    if (kpisRes.error) {
-      console.warn('Failed to load Oxygen KPIs, defaulting to zero:', kpisRes.error)
-    }
-    const kpis = kpisRes.data || {
-      cc_allocation: 0,
-      total_allocation: 0,
-      expense: 0,
-      balance: 0,
-      liabilities: 0,
-      net_expenses: 0,
-      loan_total: 0
-    }
-
-    // 2. Get Inventory Stats and Usage (only cylinders with a valid department)
-    const { data: inv, error: invError } = await supabase
-      .from('pharmacy_oxygen_cylinder_inventory')
-      .select('*, size_info:pharmacy_oxygen_cylinder_sizes(*), type_info:pharmacy_oxygen_cylinder_types(*)')
-      .eq('hospital_id', hospitalId)
-      .not('department_id', 'is', null) // Exclude cylinders without assigned department
-
-    if (invError) throw invError
-
-    // Get all sizes to ensure they appear even if 0 stock
-    const { data: allSizes } = await supabase.from('pharmacy_oxygen_cylinder_sizes').select('*')
-
-    // Get Usage (last 30 days)
-    const thirtyDaysAgo = new Date()
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-    const { data: usageMovements } = await supabase
-      .from('pharmacy_oxygen_cylinder_movements')
-      .select('*, cylinder:pharmacy_oxygen_cylinder_inventory(cylinder_size_id, cylinder_type_id)')
-      .eq('hospital_id', hospitalId)
-      .eq('movement_type', 'issued')
-      .gte('moved_at', thirtyDaysAgo.toISOString())
-
-    // Aggregate inventory by size/type - NO pre-population to avoid empty 'MO' entries
-    const inventoryMap: Record<string, any> = {}
-
-    inv.forEach((item: any) => {
-      const sizeCode = item.size_info?.code || 'Unknown'
-      const typeCode = item.type_info?.code || 'MO'
-      const typeName = item.type_info?.name || 'Medical Oxygen'
-      const key = `${typeName}-${sizeCode}`
-
-      if (!inventoryMap[key]) {
-        inventoryMap[key] = {
-          size_code: sizeCode,
-          type_code: typeCode,
-          type_name: typeName,
-          capacity: item.size_info?.capacity || 0,
-          unit: item.size_info?.unit || 'm3',
-          total: 0,
-          available: 0,
-          empty: 0,
-          issued: 0,
-          avg_usage_month: 0
-        }
+      if (filter?.status) {
+        query = query.eq('status', filter.status)
       }
 
-      inventoryMap[key].total++
-      if (item.status === 'available') {
-        inventoryMap[key].available++
-      } else if (item.status === 'empty') {
-        inventoryMap[key].empty++
-      } else if (item.status === 'issued') {
-        inventoryMap[key].issued++
+      if (filter?.type_id) {
+        query = query.eq('cylinder_type_id', filter.type_id)
       }
-    })
 
-    // Usage stats - find matching inventory entries by size code
-    usageMovements?.forEach((move: any) => {
-      const sizeId = move.cylinder?.cylinder_size_id
-      if (sizeId) {
-        const s = allSizes?.find(x => x.id === sizeId)
-        if (s) {
-          // Find matching inventory entries by size_code
-          Object.keys(inventoryMap).forEach(key => {
-            if (inventoryMap[key].size_code === s.code) {
-              inventoryMap[key].avg_usage_month++
-            }
-          })
-        }
-      }
-    })
+      const from = (page - 1) * pageSize
+      const to = from + pageSize - 1
 
-    // 3. Get Recent Receptions
-    const { data: recentReceptions, error: recError } = await supabase
-      .from('pharmacy_oxygen_reception_records')
-      .select('*')
-      .eq('hospital_id', hospitalId)
-      .order('reception_date', { ascending: false })
-      .limit(5)
+      const { data, error, count } = await query
+        .order('serial_number', { ascending: true })
+        .range(from, to)
 
-    if (recError) throw recError
+      if (error) throw error
 
-    const full_cylinders = inv.filter((c: any) => c.status === 'available').length
-    const empty_cylinders = inv.filter((c: any) => c.status === 'empty').length
-    const issued_cylinders = inv.filter((c: any) => c.status === 'issued').length
-    const maintenance_cylinders = inv.filter((c: any) => c.status === 'damaged').length
+      const rows = (data || []).map((row: any) => ({
+        ...row,
+        // Adapt standard field names for components
+        type_info: {
+          ...row.type_info,
+          type_name: row.size_info 
+            ? `${row.is_loan ? 'Loan' : 'Standard'} ${row.size_info.code} (${row.size_info.capacity}M³)`
+            : row.type_info?.name || 'Standard Cylinder'
+        },
+        current_location: {
+          location_name: row.current_location || 'Central Store'
+        },
+        assigned_ward: row.department ? {
+          department_name: row.department.department_name || row.department.name
+        } : null
+      })) as unknown as OxygenCylinderWithRelations[]
 
-    // Aggregate by type
-    const typeCounts: Record<string, number> = {}
-    inv.forEach((c: any) => {
-      const typeName = c.type_info?.name || 'Unknown'
-      typeCounts[typeName] = (typeCounts[typeName] || 0) + 1
-    })
-
-    return {
-      data: {
-        kpis: kpis,
-        inventory_summary: Object.values(inventoryMap),
-        recent_receptions: recentReceptions as OxygenReceptionRecord[],
-        total_cylinders: inv.length,
-        full_cylinders,
-        empty_cylinders,
-        in_use_cylinders: issued_cylinders,
-        maintenance_cylinders,
-        cylinders_by_type: Object.entries(typeCounts).map(([type, count]) => ({ type, count })),
-        daily_consumption: 0, // Placeholder or calculate if possible
-        monthly_consumption: 0, // Placeholder or calculate if possible
-      },
-      error: null,
-    }
-  } catch (error) {
-    console.error('Error fetching oxygen summary:', error)
-    return { data: null, error: error instanceof Error ? error.message : 'Failed to fetch' }
-  }
-}
-/**
- * Get pricing configuration for oxygen cylinder refills
- */
-export async function getOxygenPricingConfig(hospitalId: string): Promise<ApiResponse<OxygenPricingConfig[]>> {
-  try {
-    const { data, error } = await supabase
-      .from('pharmacy_oxygen_pricing_config')
-      .select('*')
-      .or(`hospital_id.eq.${hospitalId},hospital_id.is.null`)
-      .order('effective_from', { ascending: false })
-
-    if (error) throw error
-
-    // Group by cylinder_size_code and take the latest
-    const latestPrices: Record<string, OxygenPricingConfig> = {}
-    data.forEach((price: any) => {
-      if (!latestPrices[price.cylinder_size_code]) {
-        latestPrices[price.cylinder_size_code] = price
-      }
-    })
-
-    return { data: Object.values(latestPrices), error: null }
-  } catch (error) {
-    console.error('Error fetching pricing config:', error)
-    return { data: null, error: error instanceof Error ? error.message : 'Failed to fetch' }
-  }
-}
-
-/**
- * Get system settings for oxygen (loan rate, etc)
- */
-export async function getOxygenSystemSettings(hospitalId: string): Promise<ApiResponse<OxygenSystemSettings>> {
-  try {
-    const { data, error } = await supabase
-      .from('pharmacy_oxygen_system_settings')
-      .select('*')
-      .eq('hospital_id', hospitalId)
-      .maybeSingle()
-
-    if (error) throw error
-
-    if (!data) {
-      // Return defaults if not set
       return {
         data: {
-          hospital_id: hospitalId,
-          loan_cylinder_rate: 14.00,
+          data: rows,
+          total: count || 0,
+          page,
+          pageSize,
+          totalPages: Math.ceil((count || 0) / pageSize),
         },
         error: null,
       }
     }
 
-    return { data: data as OxygenSystemSettings, error: null }
-  } catch (error) {
-    console.error('Error fetching system settings:', error)
-    return { data: null, error: error instanceof Error ? error.message : 'Failed to fetch' }
-  }
-}
+    // Fallback to mock data when Supabase is not configured
+    let cylinders = [...mockOxygenCylinders]
 
-/**
- * Update refill price for a cylinder size
- */
-export async function updateOxygenPricing(
-  hospitalId: string,
-  priceConfig: Omit<OxygenPricingConfig, 'id' | 'created_at' | 'updated_at'>
-): Promise<ApiResponse<void>> {
-  try {
-    const { error } = await supabase
-      .from('pharmacy_oxygen_pricing_config')
-      .insert({
-        ...priceConfig,
-        hospital_id: hospitalId,
-      })
-
-    if (error) throw error
-    return { data: undefined, error: null }
-  } catch (error) {
-    console.error('Error updating pricing:', error)
-    return { data: null, error: error instanceof Error ? error.message : 'Failed to update' }
-  }
-}
-
-/**
- * Update oxygen system settings
- */
-export async function updateOxygenSystemSettings(
-  settings: OxygenSystemSettings
-): Promise<ApiResponse<void>> {
-  try {
-    const { error } = await supabase
-      .from('pharmacy_oxygen_system_settings')
-      .upsert(settings, { onConflict: 'hospital_id' })
-
-    if (error) throw error
-    return { data: undefined, error: null }
-  } catch (error) {
-    console.error('Error updating settings:', error)
-    return { data: null, error: error instanceof Error ? error.message : 'Failed to update' }
-  }
-}
-
-/**
- * Find a cylinder by its QR code or Serial Number
- */
-export async function findCylinderByQR(
-  hospitalId: string,
-  identifier: string
-): Promise<ApiResponse<OxygenCylinderInventoryWithRelations | null>> {
-  try {
-    const term = identifier.trim()
-    const { data, error } = await supabase
-      .from('pharmacy_oxygen_cylinder_inventory')
-      .select('*, size_info:pharmacy_oxygen_cylinder_sizes(*), type_info:pharmacy_oxygen_cylinder_types(*), department:departments(id, department_name)')
-      .eq('hospital_id', hospitalId)
-      .or(`qr_code.ilike.${term},serial_number.ilike.${term}`)
-      .limit(1)
-      .maybeSingle()
-
-    if (error) throw error
-    return { data: data as OxygenCylinderInventoryWithRelations, error: null }
-  } catch (error) {
-    console.error('Error finding cylinder by ID:', error)
-    return { data: null, error: error instanceof Error ? error.message : 'Failed to find cylinder' }
-  }
-}
-
-/**
- * Register new cylinders (Bulk)
- * Used by QR Generator to persist cylinders to DB
- */
-export async function registerNewCylinders(
-  hospitalId: string,
-  cylinders: Array<{
-    qr_code: string
-    serial_number: string
-    size_code: string
-    type_name: string
-  }>
-): Promise<ApiResponse<void>> {
-  try {
-    // 1. Resolve size and type IDs first
-    const { data: sizes } = await supabase.from('pharmacy_oxygen_cylinder_sizes').select('id, code')
-    const { data: types } = await supabase.from('pharmacy_oxygen_cylinder_types').select('id, name')
-
-    if (!sizes || !types) throw new Error('Failed to load metadata')
-
-    const cylinderData = cylinders.map(cyl => {
-      const sizeId = sizes.find(s => s.code === cyl.size_code)?.id
-      const typeId = types.find(t => t.name === cyl.type_name)?.id
-
-      if (!sizeId || !typeId) return null
-
-      return {
-        hospital_id: hospitalId,
-        qr_code: cyl.qr_code.trim(),
-        serial_number: cyl.serial_number.trim(),
-        cylinder_size_id: sizeId,
-        cylinder_type_id: typeId,
-        status: 'available',
-        current_location: 'Store'
-      }
-    }).filter(Boolean)
-
-    if (cylinderData.length === 0) throw new Error('No valid cylinder data to insert')
-
-    // 2. Bulk upsert
-    // using upsert with ignoreDuplicates: true (or onConflict action)
-    // For now, standard insert. If conflict, it will throw.
-    const { error } = await supabase
-      .from('pharmacy_oxygen_cylinder_inventory')
-      .upsert(cylinderData as any, { onConflict: 'qr_code' }) // Upsert based on unique QR
-
-    if (error) throw error
-
-    return { data: undefined, error: null }
-  } catch (error) {
-    console.error('Error registering cylinders:', error)
-    return { data: null, error: error instanceof Error ? error.message : 'Failed to register' }
-  }
-}
-
-
-export interface LocationInventory {
-  location_id: string
-  location_name: string
-  type: 'store' | 'department'
-  total_cylinders: number
-  available_cylinders: number
-  empty_cylinders: number
-  issued_cylinders: number
-  items: {
-    size: string
-    count: number
-  }[]
-  cylinders: {
-    id: string
-    qr_code: string
-    status: 'available' | 'empty' | 'issued' | 'damaged' | 'returned_to_supplier'
-    size_code: string
-    location?: string
-    updated_at?: string
-    created_at?: string
-    last_reconciled_at?: string
-  }[]
-}
-
-/**
-* Get detailed oxygen distribution by location
-*/
-export async function getOxygenDistribution(hospitalId: string): Promise<ApiResponse<LocationInventory[]>> {
-  try {
-    // 1. Fetch all inventory with department and size info
-    const { data: inventory, error } = await supabase
-      .from('pharmacy_oxygen_cylinder_inventory')
-      .select(`
-        id,
-        qr_code,
-        current_location,
-        department_id,
-        status,
-        cylinder_size_id,
-        updated_at,
-        created_at,
-        last_reconciled_at,
-        department:departments(id, department_name),
-        size_info:pharmacy_oxygen_cylinder_sizes(code)
-      `)
-      .eq('hospital_id', hospitalId)
-      .order('updated_at', { ascending: false })
-
-    if (error) throw error
-
-    // 2. Group by Location
-    const locationMap = new Map<string, LocationInventory>()
-
-    const ensureLocation = (id: string, name: string, type: 'store' | 'department') => {
-      if (!locationMap.has(id)) {
-        locationMap.set(id, {
-          location_id: id,
-          location_name: name,
-          type,
-          total_cylinders: 0,
-          available_cylinders: 0,
-          empty_cylinders: 0,
-          issued_cylinders: 0,
-          items: [],
-          cylinders: []
-        })
-      }
-      return locationMap.get(id)!
+    if (filter?.status) {
+      cylinders = cylinders.filter(c => c.status === filter.status)
     }
 
-    // Initialize Store
-    const storeEntry = ensureLocation('Store', 'Medical Cylinder Store', 'store')
-
-    inventory?.forEach((item: any) => {
-      let locEntry: LocationInventory
-
-      // Determine Location Logic
-      // 0. If returned to supplier, strictly assign to Store (regardless of old department_id)
-      if (item.status === 'returned_to_supplier') {
-        locEntry = storeEntry
-      }
-      // 1. If it has a department assigned
-      else if (item.department) {
-        locEntry = ensureLocation(item.department.id, item.department.department_name, 'department')
-      }
-      // 2. If it has a custom location string that's not 'Store' or 'Department'
-      else if (item.current_location && item.current_location !== 'Store' && item.current_location !== 'Department') {
-        locEntry = ensureLocation(item.current_location, item.current_location, 'department')
-      }
-      // 3. Fallback to Store
-      else {
-        locEntry = storeEntry
-      }
-
-      // Update Counts
-      // Don't count 'returned_to_supplier' in the total active cylinders for the location if it's a department (though we forced it to store above, so this is safe)
-      locEntry.total_cylinders++
-      if (item.status === 'empty') {
-        locEntry.empty_cylinders++
-      } else if (item.status === 'issued') {
-        locEntry.issued_cylinders++
-      } else {
-        locEntry.available_cylinders++
-      }
-
-      // Track Size Breakdown
-      const sizeCode = item.size_info?.code || 'Unknown'
-      const existingItem = locEntry.items.find(i => i.size === sizeCode)
-      if (existingItem) {
-        existingItem.count++
-      } else {
-        locEntry.items.push({ size: sizeCode, count: 1 })
-      }
-
-      // Track Individual Cylinders
-      locEntry.cylinders.push({
-        id: item.id,
-        qr_code: item.qr_code,
-        status: item.status as any,
-        size_code: sizeCode,
-        location: (item.current_location === 'Store' && item.department)
-          ? item.department.department_name
-          : (item.current_location || 'Store'),
-        updated_at: item.updated_at,
-        created_at: item.created_at,
-        last_reconciled_at: item.last_reconciled_at
-      })
-    })
-
-    // Sort items within locations
-    locationMap.forEach(loc => {
-      loc.items.sort((a, b) => a.size.localeCompare(b.size))
-    })
-
-    // Convert map to array, Store first, then Departments alphabetically
-    const result = Array.from(locationMap.values()).sort((a, b) => {
-      if (a.type === 'store') return -1
-      if (b.type === 'store') return 1
-      return a.location_name.localeCompare(b.location_name)
-    })
-
-    return { data: result, error: null }
-
-  } catch (error) {
-    console.error('Error fetching oxygen distribution:', error)
-    return { data: [], error: error instanceof Error ? error.message : 'Failed to fetch' }
-  }
-}
-
-export const deleteOxygenReceptionRecord = async (id: string): Promise<ApiResponse<void>> => {
-  try {
-    const { error } = await supabase
-      .from('pharmacy_oxygen_reception_records')
-      .delete()
-      .eq('id', id)
-
-    if (error) throw error
-    return { data: undefined, error: null }
-  } catch (err) {
-    console.error('Failed to delete oxygen record', err)
-    return { data: undefined, error: err instanceof Error ? err.message : 'Unknown error' }
-  }
-}
-
-export const updateOxygenReceptionRecord = async (id: string, updates: Partial<OxygenReceptionRecord>): Promise<ApiResponse<OxygenReceptionRecord>> => {
-  try {
-    const { data, error } = await supabase
-      .from('pharmacy_oxygen_reception_records')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single()
-
-    if (error) throw error
-    return { data: data as OxygenReceptionRecord, error: null }
-  } catch (err) {
-    console.error('Failed to update oxygen record', err)
-    return { data: null, error: err instanceof Error ? err.message : 'Unknown error' }
-  }
-}
-
-/**
- * Wipe all registry data for a hospital
- * DANGER: This is a destructive operation
- */
-export async function clearOxygenCylinderRegistry(hospitalId: string): Promise<ApiResponse<void>> {
-  try {
-    // 1. Delete movements first (FK constraint)
-    const { error: moveError } = await supabase
-      .from('pharmacy_oxygen_cylinder_movements')
-      .delete()
-      .eq('hospital_id', hospitalId)
-
-    if (moveError) throw moveError
-
-    // 2. Delete inventory
-    const { error: invError } = await supabase
-      .from('pharmacy_oxygen_cylinder_inventory')
-      .delete()
-      .eq('hospital_id', hospitalId)
-
-    if (invError) throw invError
-
-    return { data: undefined, error: null }
-  } catch (error) {
-    console.error('Error clearing registry:', error)
-    return { data: null, error: error instanceof Error ? error.message : 'Failed to clear registry' }
-  }
-}
-
-/**
- * Delete specific registry data by size and type
- */
-export async function deleteCylindersBySizeAndType(
-  hospitalId: string,
-  sizeId: string,
-  typeId?: string
-): Promise<ApiResponse<void>> {
-  try {
-    // 1. Get cylinder IDs first to delete movements (Cascade is usually handled by DB, but safe to do here)
-    let query = supabase
-      .from('pharmacy_oxygen_cylinder_inventory')
-      .select('id')
-      .eq('hospital_id', hospitalId)
-      .eq('cylinder_size_id', sizeId)
-
-    if (typeId) {
-      query = query.eq('cylinder_type_id', typeId)
+    if (filter?.type_id) {
+      cylinders = cylinders.filter(c => c.type_id === filter.type_id)
     }
 
-    const { data: cylinders, error: fetchError } = await query
-    if (fetchError) throw fetchError
-
-    if (!cylinders || cylinders.length === 0) return { data: undefined, error: null }
-
-    const cylinderIds = cylinders.map(c => c.id)
-
-    // 2. Delete movements
-    const { error: moveError } = await supabase
-      .from('pharmacy_oxygen_cylinder_movements')
-      .delete()
-      .in('cylinder_id', cylinderIds)
-
-    if (moveError) throw moveError
-
-    // 3. Delete inventory
-    const { error: invError } = await supabase
-      .from('pharmacy_oxygen_cylinder_inventory')
-      .delete()
-      .in('id', cylinderIds)
-
-    if (invError) throw invError
-
-    return { data: undefined, error: null }
-  } catch (error) {
-    console.error('Error deleting cylinders by size/type:', error)
-    return { data: null, error: error instanceof Error ? error.message : 'Failed to delete records' }
-  }
-}
-
-/**
- * Get Oxygen Analytics Data
- * - Monthly usage by cylinder type (Refill Count/Cost)
- * - Monthly loan analytics (Loan Count/Cost)
- * - Quarterly summary
- */
-export async function getOxygenAnalytics(hospitalId: string, year: number) {
-  try {
-    const startDate = `${year}-01-01`
-    const endDate = `${year}-12-31`
-
-    // 1. Fetch all completed reception records for the year
-    const { data: records, error } = await supabase
-      .from('pharmacy_oxygen_reception_records')
-      .select(`
-        *,
-        items:pharmacy_oxygen_reception_items(
-          *,
-          cylinder_size:pharmacy_oxygen_cylinder_sizes(*),
-          cylinder_type:pharmacy_oxygen_cylinder_types(*)
-        )
-      `)
-      .eq('hospital_id', hospitalId)
-      .eq('status', 'completed')
-      .gte('reception_date', startDate)
-      .lte('reception_date', endDate)
-      .order('reception_date', { ascending: true })
-
-    if (error) throw error
-
-    // Initialize containers for 12 months
-    const months = Array.from({ length: 12 }, (_, i) => {
-      const d = new Date(year, i, 1)
-      return d.toLocaleString('default', { month: 'short' })
-    })
-
-    // Data Structures
-    const usageByType: Record<string, number[]> = {} // "Type-Size": [Jan, Feb, ...]
-    const costByType: Record<string, number[]> = {}
-    const loanCounts = new Array(12).fill(0)
-    const loanCosts = new Array(12).fill(0)
-
-    // Helper to get month index (0-11)
-    const getMonthIdx = (dateStr: string) => new Date(dateStr).getMonth()
-
-    records?.forEach(record => {
-      const mIdx = getMonthIdx(record.reception_date)
-
-      // Calculate effective loan rate for THIS specific record (History Safe)
-      const loanItems = record.items?.filter((i: any) => !i.cylinder_size?.code?.toUpperCase().startsWith('P')) || []
-      let effectiveRecordLoanRate = 14.00 // Default fallback for very old records
-
-      if (loanItems.length > 0 && record.loan_amount !== undefined && record.loan_amount !== null) {
-        effectiveRecordLoanRate = Number(record.loan_amount) / loanItems.length
-      }
-
-      record.items?.forEach((item: any) => {
-        const sizeCode = item.cylinder_size?.code || 'Unknown'
-        const capacity = item.cylinder_size?.capacity ? `(${item.cylinder_size.capacity}m3)` : ''
-
-        // Logic: Hospital owned (starts with P) vs Loan (others)
-        const isHospitalOwned = sizeCode.toUpperCase().startsWith('P')
-        const typeName = `Medical Oxygen - ${sizeCode} ${capacity}`.trim()
-
-        // 1. Usage (Refills) - Applied to ALL cylinders
-        if (!usageByType[typeName]) {
-          usageByType[typeName] = new Array(12).fill(0)
-          costByType[typeName] = new Array(12).fill(0)
-        }
-
-        // Count represents one cylinder refill
-        usageByType[typeName][mIdx] += 1
-
-        // Refill Cost
-        // If loan cylinder, refill price is unit_price - effectiveRecordLoanRate
-        // If hospital cylinder, refill price is full unit_price
-        let refillCost = Number(item.unit_price || 0)
-        if (!isHospitalOwned) {
-          refillCost = Math.max(0, refillCost - effectiveRecordLoanRate)
-
-          // 2. Loan Analytics - Only for non-P cylinders
-          loanCounts[mIdx] += 1
-          loanCosts[mIdx] += effectiveRecordLoanRate
-        }
-
-        costByType[typeName][mIdx] += refillCost
-      })
-    })
-
-    // Format for Recharts
-    const monthlyUsage = months.map((month, idx) => {
-      const entry: any = { name: month, totalRefills: 0, totalRefillCost: 0 }
-      Object.keys(usageByType).forEach(type => {
-        entry[type] = usageByType[type][idx]
-        entry[`${type}_cost`] = costByType[type][idx]
-        entry.totalRefills += usageByType[type][idx]
-        entry.totalRefillCost += costByType[type][idx]
-      })
-      return entry
-    })
-
-    const monthlyLoans = months.map((month, idx) => ({
-      name: month,
-      count: loanCounts[idx],
-      cost: loanCosts[idx]
-    }))
-
-    // Quarterly Stats per Type
-    // Q1: 0-2, Q2: 3-5, Q3: 6-8, Q4: 9-11
-    const quarterlyBreakdown: any[] = []
-
-    Object.keys(usageByType).forEach(type => {
-      const months = usageByType[type]
-      const q1 = months[0] + months[1] + months[2]
-      const q2 = months[3] + months[4] + months[5]
-      const q3 = months[6] + months[7] + months[8]
-      const q4 = months[9] + months[10] + months[11]
-
-      quarterlyBreakdown.push({
-        type,
-        q1,
-        q2,
-        q3,
-        q4,
-        total: q1 + q2 + q3 + q4,
-        avg_q1: Math.round(q1 / 3),
-        avg_q2: Math.round(q2 / 3),
-        avg_q3: Math.round(q3 / 3),
-        avg_q4: Math.round(q4 / 3)
-      })
-    })
-
-    // Sort by type name
-    quarterlyBreakdown.sort((a, b) => a.type.localeCompare(b.type))
+    const total = cylinders.length
+    const totalPages = Math.ceil(total / pageSize)
+    const start = (page - 1) * pageSize
+    const data = cylinders.slice(start, start + pageSize)
 
     return {
       data: {
-        monthly_usage: monthlyUsage,
-        monthly_loans: monthlyLoans,
-        quarterly_stats: quarterlyBreakdown,
-        cylinder_types: Object.keys(usageByType)
+        data,
+        total,
+        page,
+        pageSize,
+        totalPages,
       },
-      error: null
+      error: null,
     }
-
   } catch (error) {
-    console.error('Error fetching analytics:', error)
-    return { data: null, error: error instanceof Error ? error.message : 'Failed to fetch analytics' }
+    console.error('Error fetching oxygen cylinders:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch oxygen cylinders',
+    }
   }
 }
 
 /**
- * Recalculate and Update Prices for an existing reception
- * This updates both the header totals and individual item unit prices
+ * Get single oxygen cylinder by ID
  */
-export async function updateOxygenReceptionPrices(
-  receptionId: string,
-  updates: {
-    refill_amount: number
-    loan_amount: number
-    items: Array<{
-      id: string
-      unit_price: number
-    }>
-  }
-): Promise<ApiResponse<void>> {
+export async function getOxygenCylinderById(
+  cylinderId: string
+): Promise<ApiResponse<OxygenCylinderWithRelations>> {
   try {
-    // 1. Update Header
-    const { error: headerError } = await supabase
-      .from('pharmacy_oxygen_reception_records')
-      .update({
-        refill_amount: updates.refill_amount,
-        loan_amount: updates.loan_amount,
-        // Trigger total_amount computation if DB trigger exists, or update it manually if needed but schema implies generated?
-        // Let's assume we update only components. If total_amount is stored, we should update it too.
-        total_amount: updates.refill_amount + updates.loan_amount
-      })
-      .eq('id', receptionId)
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('pharmacy_oxygen_cylinders')
+        .select(
+          `
+          *,
+          type_info:pharmacy_oxygen_cylinder_types(*)
+        `
+        )
+        .eq('id', cylinderId)
+        .single()
 
-    if (headerError) throw headerError
-
-    // 2. Update Items (Bulk Upsert)
-    // We only update ID and unit_price. We need to respect other fields so upsert relies on ID match.
-    // However, upsert might require other non-nullable fields if we are not careful? 
-    // Actually, 'update' on a list of IDs is hard.
-    // We will loop for safety as batch size is small (usually <50 items).
-    // Or use upsert with a restricted column set if we had the full objects.
-    // Given we only have ID and price, independent updates are safer unless we fetch-modify-upsert.
-
-    // Optimizing: Use Promise.all 
-    const itemUpdates = updates.items.map(item =>
-      supabase
-        .from('pharmacy_oxygen_reception_items')
-        .update({ unit_price: item.unit_price })
-        .eq('id', item.id)
-    )
-
-    const results = await Promise.all(itemUpdates)
-    const firstError = results.find(r => r.error)?.error
-    if (firstError) throw firstError
-
-    return { data: undefined, error: null }
-  } catch (error) {
-    console.error('Error recalculating prices:', error)
-    return { data: null, error: error instanceof Error ? error.message : 'Failed to update prices' }
-  }
-}
-
-/**
- * TEMPORARY: Recover 101-N Cylinders using Adjustment Logs (Smart Recovery)
- * Parses the "remarks" field from pharmacy_oxygen_stock_adjustments
- */
-export async function recoverFromAdjustmentLogs(hospitalId: string): Promise<void> {
-  try {
-    console.log('Starting Smart Recovery for 101-N...')
-
-    // 1. Get 101-N Size ID
-    const { data: size } = await supabase
-      .from('pharmacy_oxygen_cylinder_sizes')
-      .select('id')
-      .eq('code', '101-N')
-      .single()
-
-    if (!size) {
-      console.error('Size 101-N not found')
-      return
-    }
-
-    // 2. Fetch all 101-N cylinders
-    const { data: cylinders } = await supabase
-      .from('pharmacy_oxygen_cylinder_inventory')
-      .select('id, qr_code')
-      .eq('hospital_id', hospitalId)
-      .eq('cylinder_size_id', size.id)
-
-    if (!cylinders || cylinders.length === 0) return
-
-    console.log(`Checking ${cylinders.length} cylinders...`)
-    let restoredCount = 0
-
-    // 3. For each cylinder, look for recent "Adjustment" logs (last 48 hours)
-    const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
-
-    for (const cyl of cylinders) {
-      const { data: logs } = await supabase
-        .from('pharmacy_oxygen_stock_adjustments')
-        .select('*')
-        .eq('cylinder_id', cyl.id)
-        .gte('created_at', twoDaysAgo)
-        .order('created_at', { ascending: false })
-        .limit(1)
-
-      if (logs && logs.length > 0) {
-        const log = logs[0]
-        const remarks = log.remarks || ''
-
-        // Format: "Bulk Update: Location=GW, Dept=2fa7..."
-        const deptMatch = remarks.match(/Dept[=:]\s*([a-f0-9\-]+)/i)
-        const locationMatch = remarks.match(/Location[=:]\s*([^,]+)/i)
-
-        if (deptMatch && deptMatch[1] && deptMatch[1] !== 'N/A' && deptMatch[1] !== 'undefined' && deptMatch[1] !== 'null') {
-          const deptId = deptMatch[1]
-          const location = locationMatch ? locationMatch[1].trim() : 'Department'
-
-          // Determine status based on location.
-          // If location is 'Pharmacy Logistic' or 'Store', it should be 'available' (Ready).
-          // Otherwise, if it's a ward/department, it is 'issued' (In Use).
-          const isStore = /pharmacy|store/i.test(location)
-          const newStatus = isStore ? 'available' : 'issued'
-
-          await supabase
-            .from('pharmacy_oxygen_cylinder_inventory')
-            .update({
-              status: newStatus,
-              current_location: location,
-              department_id: deptId
-            })
-            .eq('id', cyl.id)
-
-          restoredCount++
-          console.log(`Restored ${cyl.qr_code} to Dept ${deptId}`)
+      if (error) {
+        if ((error as any).code === 'PGRST116') {
+          return { data: null, error: 'Oxygen cylinder not found' }
         }
+        throw error
+      }
+
+      return { data: data as unknown as OxygenCylinderWithRelations, error: null }
+    }
+
+    const cylinder = mockOxygenCylinders.find(c => c.id === cylinderId)
+    
+    if (!cylinder) {
+      return { data: null, error: 'Oxygen cylinder not found' }
+    }
+
+    return { data: cylinder, error: null }
+  } catch (error) {
+    console.error('Error fetching oxygen cylinder:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch oxygen cylinder',
+    }
+  }
+}
+
+/**
+ * Get oxygen cylinder types
+ */
+export async function getOxygenCylinderTypes(): Promise<ApiResponse<OxygenCylinderTypeInfo[]>> {
+  try {
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('pharmacy_oxygen_cylinder_types')
+        .select('*')
+        .order('type_code', { ascending: true })
+
+      if (error) throw error
+
+      return { data: (data || []) as OxygenCylinderTypeInfo[], error: null }
+    }
+
+    return { data: mockOxygenCylinderTypes, error: null }
+  } catch (error) {
+    console.error('Error fetching oxygen cylinder types:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch oxygen cylinder types',
+    }
+  }
+}
+
+/**
+ * Update oxygen cylinder status
+ */
+export async function updateOxygenCylinderStatus(
+  cylinderId: string,
+  status: 'full' | 'empty' | 'in_use' | 'maintenance' | 'disposed',
+  locationId?: string,
+  assignedWardId?: string
+): Promise<ApiResponse<OxygenCylinder>> {
+  try {
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('pharmacy_oxygen_cylinders')
+        .update({
+          status,
+          current_location_id: locationId,
+          assigned_ward_id: assignedWardId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', cylinderId)
+        .select('*')
+        .single()
+
+      if (error) throw error
+
+      return { data: data as OxygenCylinder, error: null }
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 500))
+
+    const cylinder = mockOxygenCylinders.find(c => c.id === cylinderId)
+    if (!cylinder) {
+      return { data: null, error: 'Oxygen cylinder not found' }
+    }
+
+    const updated: OxygenCylinder = {
+      ...cylinder,
+      status,
+      current_location_id: locationId || cylinder.current_location_id,
+      assigned_ward_id: assignedWardId || cylinder.assigned_ward_id,
+      updated_at: new Date().toISOString(),
+    }
+
+    return { data: updated, error: null }
+  } catch (error) {
+    console.error('Error updating oxygen cylinder status:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to update oxygen cylinder status',
+    }
+  }
+}
+
+/**
+ * Record oxygen consumption
+ */
+export async function recordOxygenConsumption(
+  hospitalId: string,
+  departmentId: string,
+  userId: string,
+  cylinderId: string | undefined,
+  quantityUsed: number,
+  unit: 'liters' | 'cylinders',
+  notes?: string
+): Promise<ApiResponse<OxygenConsumption>> {
+  try {
+    if (isSupabaseConfigured()) {
+      const today = new Date().toISOString().split('T')[0]
+
+      const { data: inserted, error } = await supabase
+        .from('pharmacy_oxygen_consumption')
+        .insert({
+          hospital_id: hospitalId,
+          cylinder_id: cylinderId,
+          department_id: departmentId,
+          consumption_date: today,
+          quantity_used: quantityUsed,
+          unit,
+          recorded_by: userId,
+          notes,
+        })
+        .select('*')
+        .single()
+
+      if (error) throw error
+
+      return { data: inserted as OxygenConsumption, error: null }
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 500))
+
+    const newConsumption: OxygenConsumption = {
+      id: `oc-${Date.now()}`,
+      hospital_id: hospitalId,
+      cylinder_id: cylinderId,
+      department_id: departmentId,
+      consumption_date: new Date().toISOString().split('T')[0],
+      quantity_used: quantityUsed,
+      unit,
+      recorded_by: userId,
+      notes,
+      created_at: new Date().toISOString(),
+    }
+
+    return { data: newConsumption, error: null }
+  } catch (error) {
+    console.error('Error recording oxygen consumption:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to record oxygen consumption',
+    }
+  }
+}
+
+/**
+ * Get oxygen consumption history
+ */
+export async function getOxygenConsumptionHistory(
+  hospitalId: string,
+  filter?: {
+    department_id?: string
+    cylinder_id?: string
+    date_from?: string
+    date_to?: string
+  }
+): Promise<ApiResponse<OxygenConsumptionWithRelations[]>> {
+  try {
+    if (isSupabaseConfigured()) {
+      let query = supabase
+        .from('pharmacy_oxygen_consumption')
+        .select(`
+          *,
+          cylinder:pharmacy_oxygen_cylinders(*),
+          department:departments(*)
+        `)
+        .eq('hospital_id', hospitalId)
+
+      if (filter?.department_id) {
+        query = query.eq('department_id', filter.department_id)
+      }
+
+      if (filter?.cylinder_id) {
+        query = query.eq('cylinder_id', filter.cylinder_id)
+      }
+
+      if (filter?.date_from) {
+        query = query.gte('consumption_date', filter.date_from)
+      }
+
+      if (filter?.date_to) {
+        query = query.lte('consumption_date', filter.date_to)
+      }
+
+      const { data, error } = await query
+        .order('consumption_date', { ascending: false })
+
+      if (error) throw error
+
+      return { data: (data || []) as OxygenConsumptionWithRelations[], error: null }
+    }
+
+    // Simple mock history when Supabase is not configured
+    const consumption: OxygenConsumptionWithRelations[] = []
+
+    return { data: consumption, error: null }
+  } catch (error) {
+    console.error('Error fetching oxygen consumption history:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch oxygen consumption history',
+    }
+  }
+}
+
+/**
+ * Get oxygen summary statistics
+ */
+export async function getOxygenSummary(hospitalId: string): Promise<ApiResponse<OxygenSummary>> {
+  try {
+    if (isSupabaseConfigured()) {
+      const { data: cylinders, error } = await supabase
+        .from('pharmacy_oxygen_cylinder_inventory')
+        .select('*, size_info:pharmacy_oxygen_cylinder_sizes(*), type_info:pharmacy_oxygen_cylinder_types(*)')
+        .eq('hospital_id', hospitalId)
+
+      if (error) throw error
+
+      const list = (cylinders || []) as any[]
+
+      // Calculate summaries based on actual statuses
+      const summary: OxygenSummary = {
+        total_cylinders: list.length,
+        full_cylinders: list.filter(c => c.status === 'available').length,
+        empty_cylinders: list.filter(c => c.status === 'returned_to_supplier').length,
+        in_use_cylinders: list.filter(c => c.status === 'issued').length,
+        maintenance_cylinders: 0, // No maintenance status exists in active DB
+        cylinders_by_type: [
+          { type: 'B', count: list.filter(c => c.type_info?.code === 'BN').length },
+          { type: 'D', count: list.filter(c => c.size_info?.code === 'P101-D').length },
+          { type: 'E', count: list.filter(c => c.size_info?.code === 'P101-E').length },
+          { type: 'M', count: 0 },
+        ],
+        daily_consumption: 45,
+        monthly_consumption: 1350,
+      }
+
+      return { data: summary, error: null }
+    }
+
+    const cylinders = mockOxygenCylinders
+
+    const summary: OxygenSummary = {
+      total_cylinders: cylinders.length,
+      full_cylinders: cylinders.filter(c => c.status === 'full').length,
+      empty_cylinders: cylinders.filter(c => c.status === 'empty').length,
+      in_use_cylinders: cylinders.filter(c => c.status === 'in_use').length,
+      maintenance_cylinders: cylinders.filter(c => c.status === 'maintenance').length,
+      cylinders_by_type: [
+        { type: 'B', count: cylinders.filter(c => c.type_info?.type_code === 'B').length },
+        { type: 'D', count: cylinders.filter(c => c.type_info?.type_code === 'D').length },
+        { type: 'E', count: cylinders.filter(c => c.type_info?.type_code === 'E').length },
+        { type: 'M', count: cylinders.filter(c => c.type_info?.type_code === 'M').length },
+      ],
+      daily_consumption: 45,
+      monthly_consumption: 1350,
+    }
+
+    return { data: summary, error: null }
+  } catch (error) {
+    console.error('Error fetching oxygen summary:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch oxygen summary',
+    }
+  }
+}
+
+/**
+ * Get cylinders requiring maintenance
+ */
+export async function getCylindersRequiringMaintenance(
+  hospitalId: string
+): Promise<ApiResponse<OxygenCylinderWithRelations[]>> {
+  try {
+    if (isSupabaseConfigured()) {
+      const today = new Date()
+      const thirtyDaysFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000)
+      const cutoff = thirtyDaysFromNow.toISOString().split('T')[0]
+
+      const { data, error } = await supabase
+        .from('pharmacy_oxygen_cylinders')
+        .select('*')
+        .eq('hospital_id', hospitalId)
+        .lte('next_maintenance_date', cutoff)
+
+      if (error) throw error
+
+      return { data: (data || []) as OxygenCylinderWithRelations[], error: null }
+    }
+
+    const today = new Date()
+    const thirtyDaysFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000)
+
+    const cylinders = mockOxygenCylinders.filter(c => {
+      if (!c.next_maintenance_date) return false
+      const maintenanceDate = new Date(c.next_maintenance_date)
+      return maintenanceDate <= thirtyDaysFromNow
+    })
+
+    return { data: cylinders, error: null }
+  } catch (error) {
+    console.error('Error fetching cylinders requiring maintenance:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch cylinders requiring maintenance',
+    }
+  }
+}
+
+/**
+ * Get oxygen financial summary KPIs (Total Allocation, Total Expenses, Liabilities, Current Balance, Loan Charges)
+ */
+export async function getOxygenFinancialSummary(
+  hospitalId: string
+): Promise<ApiResponse<OxygenFinancialSummary>> {
+  try {
+    if (isSupabaseConfigured()) {
+      // 1. Get Allocation from Warrants
+      const { data: warrants, error: wError } = await supabase
+        .from('pharmacy_warrants')
+        .select('amount')
+        .eq('hospital_id', hospitalId)
+        .eq('category', 'medical_oxygen')
+
+      if (wError) throw wError
+
+      const totalAllocation = (warrants || []).reduce((sum, w) => sum + Number(w.amount), 0)
+
+      // 2. Get Receptions expenses and loan charges
+      const { data: receptions, error: rError } = await supabase
+        .from('pharmacy_oxygen_reception_records')
+        .select('refill_amount, loan_amount, total_amount, status')
+        .eq('hospital_id', hospitalId)
+
+      if (rError) throw rError
+
+      let totalExpenses = 0
+      let liabilities = 0
+      let loanCharges = 0
+
+      ;(receptions || []).forEach((rec) => {
+        const refill = Number(rec.refill_amount || 0)
+        const loan = Number(rec.loan_amount || 0)
+        const total = Number(rec.total_amount || 0)
+
+        if (rec.status === 'completed') {
+          totalExpenses += refill
+          loanCharges += loan
+        } else {
+          // Liabilities include receptions that are pending invoice, outstanding POs, etc.
+          liabilities += total
+        }
+      })
+
+      // Current Balance = Allocation - (Expenses + Liabilities)
+      const currentBalance = totalAllocation - (totalExpenses + liabilities)
+
+      return {
+        data: {
+          total_allocation: totalAllocation,
+          total_expenses: totalExpenses,
+          liabilities,
+          current_balance: currentBalance,
+          loan_charges: loanCharges,
+        },
+        error: null,
       }
     }
 
-    // 4. FINAL SAFEGUARD: Force all 101-N in "Pharmacy Logistic" to be 'available'
-    // This fixes any that might have been missed by the log parsing or found themselves in Store but with 'In Use' status.
-
-    // First, find the Pharmacy Logistic department ID
-    const { data: pharmDept } = await supabase
-      .from('departments')
-      .select('id')
-      .ilike('department_name', '%Pharmacy logistic%')
-      .maybeSingle()
-
-    let query = supabase
-      .from('pharmacy_oxygen_cylinder_inventory')
-      .update({ status: 'available' })
-      .eq('cylinder_size_id', size.id)
-      .eq('status', 'issued')
-
-    if (pharmDept) {
-      // If we found the department, check strictly for it OR the string location
-      query = query.or(`current_location.ilike.%Pharmacy logistic%,department_id.eq.${pharmDept.id}`)
-    } else {
-      // Fallback to just string match
-      query = query.ilike('current_location', '%Pharmacy logistic%')
+    // Mock data fallback
+    return {
+      data: {
+        total_allocation: 274000.0,
+        total_expenses: 261037.7,
+        liabilities: 0.0,
+        current_balance: -2717.14,
+        loan_charges: 15679.44,
+      },
+      error: null,
     }
-
-    const { error: fixError } = await query
-
-    if (fixError) {
-      console.error('Error fixing Pharmacy Logistic status:', fixError)
-    } else {
-      console.log('Safeguard applied: Checked for 101-N in Pharmacy Logistic.')
+  } catch (error) {
+    console.error('Error fetching oxygen financial summary:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch oxygen financial summary',
     }
-
-    console.log(`Smart Recovery Complete. Restored ${restoredCount} cylinders.`)
-    alert(`Smart Recovery Complete. Restored ${restoredCount} cylinders to their previous departments based on Adjustment Logs.`)
-
-  } catch (e) {
-    console.error('Smart Recovery failed', e)
-    alert('Recovery failed. See console for details.')
   }
 }
 
+/**
+ * Get active cylinder pricing configuration
+ */
+export async function getOxygenLatestPricing(
+  hospitalId: string
+): Promise<ApiResponse<OxygenPricingConfig[]>> {
+  try {
+    if (isSupabaseConfigured()) {
+      // Query distinct on cylinder_size_code, ordered by effective_from DESC, created_at DESC
+      // To get the latest active price for each size code.
+      const { data, error } = await supabase
+        .from('pharmacy_oxygen_pricing_config')
+        .select('*')
+        .or(`hospital_id.eq.${hospitalId},hospital_id.is.null`)
+        .order('cylinder_size_code')
+        .order('effective_from', { ascending: false })
+        .order('created_at', { ascending: false })
 
+      if (error) throw error
+
+      // Manual distinct filter in TS since Postgres DISTINCT ON needs specific order in client queries
+      const uniqueConfigs: Record<string, OxygenPricingConfig> = {}
+      ;(data || []).forEach((row: any) => {
+        if (!uniqueConfigs[row.cylinder_size_code]) {
+          uniqueConfigs[row.cylinder_size_code] = {
+            ...row,
+            refill_price: Number(row.refill_price),
+          }
+        }
+      })
+
+      return { data: Object.values(uniqueConfigs), error: null }
+    }
+
+    // Mock prices
+    const mockPricing: OxygenPricingConfig[] = [
+      { id: '1', hospital_id: hospitalId, cylinder_size_code: 'P101-D', refill_price: 114.50, effective_from: '2026-03-30', created_at: '' },
+      { id: '2', hospital_id: hospitalId, cylinder_size_code: 'P101-E', refill_price: 131.10, effective_from: '2026-03-30', created_at: '' },
+      { id: '3', hospital_id: hospitalId, cylinder_size_code: 'P101-F', refill_price: 117.20, effective_from: '2026-03-30', created_at: '' },
+      { id: '4', hospital_id: hospitalId, cylinder_size_code: 'P101-HS', refill_price: 138.60, effective_from: '2026-03-30', created_at: '' },
+      { id: '5', hospital_id: hospitalId, cylinder_size_code: '101-F', refill_price: 117.20, effective_from: '2026-03-30', created_at: '' },
+      { id: '6', hospital_id: hospitalId, cylinder_size_code: '101-N', refill_price: 284.90, effective_from: '2026-03-30', created_at: '' },
+    ]
+
+    return { data: mockPricing, error: null }
+  } catch (error) {
+    console.error('Error fetching oxygen pricing:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch oxygen pricing',
+    }
+  }
+}
+
+/**
+ * Update cylinder prices (insert new pricing configuration rows to preserve history)
+ */
+export async function updateCylinderPrices(
+  hospitalId: string,
+  prices: { size_code: string; refill_price: number }[],
+  effectiveFrom: string,
+  userId: string
+): Promise<ApiResponse<OxygenPricingConfig[]>> {
+  try {
+    if (isSupabaseConfigured()) {
+      const rows = prices.map((p) => ({
+        hospital_id: hospitalId,
+        cylinder_size_code: p.size_code,
+        refill_price: p.refill_price,
+        effective_from: effectiveFrom,
+        created_by: userId,
+      }))
+
+      const { data, error } = await supabase
+        .from('pharmacy_oxygen_pricing_config')
+        .insert(rows)
+        .select('*')
+
+      if (error) throw error
+
+      return { data: (data || []) as OxygenPricingConfig[], error: null }
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    return { data: [], error: null }
+  } catch (error) {
+    console.error('Error updating cylinder prices:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to update cylinder prices',
+    }
+  }
+}
+
+/**
+ * Get full history of oxygen pricing configurations
+ */
+export async function getOxygenPricingHistory(
+  hospitalId: string
+): Promise<ApiResponse<any[]>> {
+  try {
+    if (isSupabaseConfigured()) {
+      // Try to select with joined creator
+      const { data, error } = await supabase
+        .from('pharmacy_oxygen_pricing_config')
+        .select('*, creator:users(id, full_name, email, jawatan)')
+        .eq('hospital_id', hospitalId)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.warn('Direct join failed, falling back to separate queries for users:', error)
+        // If join fails due to complex foreign keys or RLS, select without join
+        const { data: dataNoJoin, error: errorNoJoin } = await supabase
+          .from('pharmacy_oxygen_pricing_config')
+          .select('*')
+          .eq('hospital_id', hospitalId)
+          .order('created_at', { ascending: false })
+
+        if (errorNoJoin) throw errorNoJoin
+
+        // Fetch users separately
+        const userIds = Array.from(new Set((dataNoJoin || []).map(row => row.created_by).filter(Boolean)))
+        if (userIds.length > 0) {
+          const { data: users, error: usersError } = await supabase
+            .from('users')
+            .select('id, full_name, email, jawatan')
+            .in('id', userIds)
+          
+          if (!usersError && users) {
+            const userMap = new Map(users.map(u => [u.id, u]))
+            const enriched = dataNoJoin.map(row => ({
+              ...row,
+              creator: userMap.get(row.created_by) || null
+            }))
+            return { data: enriched, error: null }
+          }
+        }
+
+        return { data: dataNoJoin || [], error: null }
+      }
+
+      return { data: data || [], error: null }
+    }
+
+    // Mock pricing history fallback when Supabase is not configured
+    const mockPricingHistory = [
+      { id: '1', hospital_id: hospitalId, cylinder_size_code: 'P101-D', refill_price: 114.50, effective_from: '2026-03-30', created_at: '2026-03-30T10:00:00Z', creator: { full_name: 'Dr. Mohd Faisal', email: 'faisal@kkm.gov.my', jawatan: 'Pegawai Perolehan' } },
+      { id: '2', hospital_id: hospitalId, cylinder_size_code: 'P101-E', refill_price: 131.10, effective_from: '2026-03-30', created_at: '2026-03-30T10:00:00Z', creator: { full_name: 'Dr. Mohd Faisal', email: 'faisal@kkm.gov.my', jawatan: 'Pegawai Perolehan' } },
+      { id: '3', hospital_id: hospitalId, cylinder_size_code: 'P101-F', refill_price: 117.20, effective_from: '2026-03-30', created_at: '2026-03-30T10:00:00Z', creator: { full_name: 'Dr. Mohd Faisal', email: 'faisal@kkm.gov.my', jawatan: 'Pegawai Perolehan' } },
+      { id: '4', hospital_id: hospitalId, cylinder_size_code: 'P101-HS', refill_price: 138.60, effective_from: '2026-03-30', created_at: '2026-03-30T10:00:00Z', creator: { full_name: 'Dr. Mohd Faisal', email: 'faisal@kkm.gov.my', jawatan: 'Pegawai Perolehan' } },
+      { id: '5', hospital_id: hospitalId, cylinder_size_code: '101-F', refill_price: 117.20, effective_from: '2026-03-30', created_at: '2026-03-30T10:00:00Z', creator: { full_name: 'Dr. Mohd Faisal', email: 'faisal@kkm.gov.my', jawatan: 'Pegawai Perolehan' } },
+      { id: '6', hospital_id: hospitalId, cylinder_size_code: '101-N', refill_price: 284.90, effective_from: '2026-03-30', created_at: '2026-03-30T10:00:00Z', creator: { full_name: 'Dr. Mohd Faisal', email: 'faisal@kkm.gov.my', jawatan: 'Pegawai Perolehan' } },
+    ]
+    return { data: mockPricingHistory, error: null }
+  } catch (error) {
+    console.error('Error fetching oxygen pricing history:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch oxygen pricing history',
+    }
+  }
+}
+
+/**
+ * Get past oxygen reception records
+ */
+export async function getOxygenReceptionsList(
+  hospitalId: string
+): Promise<ApiResponse<OxygenReceptionRecord[]>> {
+  try {
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('pharmacy_oxygen_reception_records')
+        .select('*')
+        .eq('hospital_id', hospitalId)
+        .order('reception_date', { ascending: false })
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      const grouped: Record<string, any> = {}
+      ;(data || []).forEach((row: any) => {
+        const date = row.reception_date
+        const refill = Number(row.refill_amount)
+        const loan = Number(row.loan_amount)
+        const total = Number(row.total_amount || (refill + loan))
+
+        if (!grouped[date]) {
+          grouped[date] = {
+            ...row,
+            ids: [row.id],
+            refill_amount: refill,
+            loan_amount: loan,
+            total_amount: total,
+            delivery_order_nos: [row.delivery_order_no],
+            sales_order_nos: row.sales_order_no ? [row.sales_order_no] : [],
+          }
+        } else {
+          grouped[date].ids.push(row.id)
+          grouped[date].refill_amount += refill
+          grouped[date].loan_amount += loan
+          grouped[date].total_amount += total
+          if (row.delivery_order_no && !grouped[date].delivery_order_nos.includes(row.delivery_order_no)) {
+            grouped[date].delivery_order_nos.push(row.delivery_order_no)
+          }
+          if (row.sales_order_no && !grouped[date].sales_order_nos.includes(row.sales_order_no)) {
+            grouped[date].sales_order_nos.push(row.sales_order_no)
+          }
+          if (row.status === 'completed') {
+            grouped[date].status = 'completed'
+          }
+        }
+      })
+
+      const combinedData = Object.values(grouped).map((row: any) => ({
+        ...row,
+        delivery_order_no: row.delivery_order_nos.join(' / '),
+        sales_order_no: row.sales_order_nos.join(' / '),
+      })) as OxygenReceptionRecord[]
+
+      return {
+        data: combinedData,
+        error: null,
+      }
+    }
+
+    // Mock receptions fallback
+    const mockReceptions: OxygenReceptionRecord[] = [
+      { id: 'r1', hospital_id: hospitalId, reception_date: '2026-05-18', delivery_order_no: '0238333719', sales_order_no: '132963488', refill_amount: 1804.50, loan_amount: 0, total_amount: 1804.50, vote_code: '080702', vote_activity: '27402', status: 'completed', created_at: '' },
+      { id: 'r2', hospital_id: hospitalId, reception_date: '2026-04-16', delivery_order_no: '0238206047', sales_order_no: '132862148', refill_amount: 7221.60, loan_amount: 605.88, total_amount: 7827.48, vote_code: '080702', vote_activity: '27402', status: 'completed', created_at: '' },
+    ]
+
+    return { data: mockReceptions, error: null }
+  } catch (error) {
+    console.error('Error fetching oxygen receptions list:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch oxygen receptions list',
+    }
+  }
+}
+
+/**
+ * Get oxygen system settings (such as loan rate)
+ */
+export async function getOxygenSystemSettings(
+  hospitalId: string
+): Promise<ApiResponse<OxygenSystemSettings>> {
+  try {
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('pharmacy_oxygen_system_settings')
+        .select('*')
+        .eq('hospital_id', hospitalId)
+        .single()
+
+      if (error) {
+        if ((error as any).code === 'PGRST116') {
+          // If not exists, insert a default row
+          const { data: inserted, error: iError } = await supabase
+            .from('pharmacy_oxygen_system_settings')
+            .insert({ hospital_id: hospitalId, loan_cylinder_rate: 18.36 })
+            .select('*')
+            .single()
+          if (iError) throw iError
+          return { data: { ...inserted, loan_cylinder_rate: Number(inserted.loan_cylinder_rate) } as OxygenSystemSettings, error: null }
+        }
+        throw error
+      }
+
+      return { data: { ...data, loan_cylinder_rate: Number(data.loan_cylinder_rate) } as OxygenSystemSettings, error: null }
+    }
+
+    return { data: { id: 's1', hospital_id: hospitalId, loan_cylinder_rate: 18.36, created_at: '', updated_at: '' }, error: null }
+  } catch (error) {
+    console.error('Error fetching oxygen system settings:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch oxygen system settings',
+    }
+  }
+}
+
+/**
+ * Create a new oxygen reception record with received items in a transaction
+ */
+export async function createOxygenReceptionRecord(
+  hospitalId: string,
+  recordData: Omit<OxygenReceptionRecord, 'id' | 'hospital_id' | 'created_at'>,
+  items: Omit<OxygenReceptionItem, 'id' | 'reception_id' | 'created_at'>[],
+  userId: string
+): Promise<ApiResponse<OxygenReceptionRecord>> {
+  try {
+    if (isSupabaseConfigured()) {
+      // 1. Insert the main reception record
+      const { data: reception, error: rError } = await supabase
+        .from('pharmacy_oxygen_reception_records')
+        .insert({
+          hospital_id: hospitalId,
+          reception_date: recordData.reception_date,
+          delivery_order_no: recordData.delivery_order_no,
+          sales_order_no: recordData.sales_order_no,
+          refill_amount: recordData.refill_amount,
+          loan_amount: recordData.loan_amount,
+          vote_code: recordData.vote_code,
+          vote_activity: recordData.vote_activity,
+          status: recordData.status,
+          created_by: userId,
+        })
+        .select('*')
+        .single()
+
+      if (rError) throw rError
+
+      const receptionId = reception.id
+
+      // 2. Insert items
+      if (items.length > 0) {
+        const itemRows = items.map((itm) => ({
+          reception_id: receptionId,
+          cylinder_id: itm.cylinder_id || null,
+          cylinder_size_id: itm.cylinder_size_id,
+          cylinder_type_id: itm.cylinder_type_id,
+          unit_price: itm.unit_price,
+        }))
+
+        const { error: iError } = await supabase
+          .from('pharmacy_oxygen_reception_items')
+          .insert(itemRows)
+
+        if (iError) throw iError
+      }
+
+      return { data: reception as OxygenReceptionRecord, error: null }
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 800))
+    const mockCreated: OxygenReceptionRecord = {
+      id: `r-${Date.now()}`,
+      hospital_id: hospitalId,
+      ...recordData,
+      created_at: new Date().toISOString(),
+    }
+    return { data: mockCreated, error: null }
+  } catch (error) {
+    console.error('Error creating oxygen reception:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to record oxygen delivery',
+    }
+  }
+}
+
+/**
+ * Aggregates cylinder counts grouped by cylinder_size_id (combos) × status × location
+ */
+export async function getCylinderInventoryByType(
+  hospitalId: string
+): Promise<ApiResponse<{
+  combo_id: string
+  display_name: string
+  available: number
+  in_use: number
+  empty: number
+  returned: number
+  total: number
+}[]>> {
+  try {
+    if (isSupabaseConfigured()) {
+      // 1. Fetch active combos
+      const { data: combos, error: comboError } = await supabase
+        .from('pharmacy_oxygen_size_type_combos')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true })
+
+      if (comboError) throw comboError
+
+      // 2. Fetch inventory
+      const { data: inventory, error: invError } = await supabase
+        .from('pharmacy_oxygen_cylinder_inventory')
+        .select('cylinder_size_id, cylinder_type_id, status, current_location, updated_at')
+        .eq('hospital_id', hospitalId)
+
+      if (invError) throw invError
+
+      const now = new Date()
+      const thirtyDaysAgo = new Date()
+      thirtyDaysAgo.setDate(now.getDate() - 30)
+
+      const results = (combos || []).map((combo: any) => {
+        const matchingCylinders = (inventory || []).filter(
+          (c: any) => c.cylinder_size_id === combo.size_id && c.cylinder_type_id === combo.type_id
+        )
+
+        let available = 0
+        let in_use = 0
+        let empty = 0
+        let returned = 0
+
+        matchingCylinders.forEach((c: any) => {
+          const loc = (c.current_location || '').toLowerCase()
+          if (c.status === 'available' && (loc === 'store' || loc === 'pharmacy store')) {
+            available++
+          } else if (c.status === 'returned_to_supplier' || loc === 'supplier') {
+            returned++
+          } else if (c.status === 'issued') {
+            if (loc === 'store' || loc === 'pharmacy store') {
+              empty++
+            } else {
+              // Time-based heuristic for empty vs in-use in department
+              const updatedAt = new Date(c.updated_at)
+              if (updatedAt < thirtyDaysAgo) {
+                empty++
+              } else {
+                in_use++
+              }
+            }
+          } else {
+            // Default fallback
+            available++
+          }
+        })
+
+        return {
+          combo_id: combo.id,
+          display_name: combo.display_name,
+          available,
+          in_use,
+          empty,
+          returned,
+          total: matchingCylinders.length
+        }
+      })
+
+      return { data: results, error: null }
+    }
+
+    // Fallback if supabase not configured (never used, but for typescript)
+    return { data: [], error: null }
+  } catch (error) {
+    console.error('Error fetching aggregated cylinder inventory:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch cylinder inventory aggregates',
+    }
+  }
+}
+
+/**
+ * Groups issued/available cylinders by department for the Unit Monitor
+ */
+export async function getCylindersByDepartment(
+  hospitalId: string
+): Promise<ApiResponse<{
+  department_id: string
+  department_name: string
+  in_use: number
+  available: number
+  total: number
+  status: 'OK' | 'Low' | 'Critical'
+  cylinders: {
+    id: string
+    serial_number: string
+    qr_code: string
+    display_name: string
+    status: string
+    updated_at: string
+  }[]
+  requests?: {
+    id: string
+    request_number: string
+    status: string
+    created_at: string
+    items: {
+      size_code: string
+      quantity: number
+      quantity_issued: number
+    }[]
+  }[]
+}[]>> {
+  try {
+    if (isSupabaseConfigured()) {
+      // 1. Fetch departments
+      const { data: depts, error: deptError } = await supabase
+        .from('departments')
+        .select('id, department_name')
+
+      if (deptError) throw deptError
+
+      // Fetch combos for display name mapping
+      const { data: combos, error: comboError } = await supabase
+        .from('pharmacy_oxygen_size_type_combos')
+        .select('size_id, type_id, display_name')
+
+      if (comboError) throw comboError
+
+      const comboMap = new Map<string, string>()
+      ;(combos || []).forEach((c: any) => {
+        comboMap.set(`${c.size_id}_${c.type_id}`, c.display_name)
+      })
+
+      // Fetch sizes for code mapping
+      const { data: sizes } = await supabase
+        .from('pharmacy_oxygen_cylinder_sizes')
+        .select('id, code')
+
+      const sizeMap = new Map<string, string>()
+      ;(sizes || []).forEach((s: any) => {
+        sizeMap.set(s.id, s.code)
+      })
+
+      // 2. Fetch inventory where department_id is not null
+      const { data: inventory, error: invError } = await supabase
+        .from('pharmacy_oxygen_cylinder_inventory')
+        .select(`
+          id,
+          serial_number,
+          qr_code,
+          status,
+          updated_at,
+          department_id,
+          cylinder_size_id,
+          cylinder_type_id
+        `)
+        .eq('hospital_id', hospitalId)
+        .not('department_id', 'is', null)
+
+      if (invError) throw invError
+
+      const deptMap: { [key: string]: any[] } = {}
+      ;(inventory || []).forEach((c: any) => {
+        if (!deptMap[c.department_id]) {
+          deptMap[c.department_id] = []
+        }
+        const displayName = comboMap.get(`${c.cylinder_size_id}_${c.cylinder_type_id}`) || 'Unknown Type'
+        deptMap[c.department_id].push({
+          id: c.id,
+          serial_number: c.serial_number,
+          qr_code: c.qr_code,
+          display_name: displayName,
+          status: c.status,
+          updated_at: c.updated_at
+        })
+      })
+
+      // 3. Fetch requests for this hospital
+      const { data: deptRequests, error: reqError } = await supabase
+        .from('pharmacy_oxygen_dept_requests')
+        .select(`
+          id,
+          request_id,
+          status,
+          created_at,
+          department_id,
+          items:pharmacy_oxygen_dept_request_items(
+            id,
+            cylinder_size_id,
+            quantity,
+            quantity_issued
+          )
+        `)
+        .eq('hospital_id', hospitalId)
+
+      if (reqError) throw reqError
+
+      const requestsByDept: { [key: string]: any[] } = {}
+      ;(deptRequests || []).forEach((r: any) => {
+        if (!requestsByDept[r.department_id]) {
+          requestsByDept[r.department_id] = []
+        }
+        const mappedItems = (r.items || []).map((itm: any) => ({
+          size_code: sizeMap.get(itm.cylinder_size_id) || 'Unknown Size',
+          quantity: itm.quantity,
+          quantity_issued: itm.quantity_issued || 0
+        }))
+        requestsByDept[r.department_id].push({
+          id: r.id,
+          request_number: r.request_id,
+          status: r.status,
+          created_at: r.created_at,
+          items: mappedItems
+        })
+      })
+
+      const results = (depts || [])
+        .map((d: any) => {
+          const cylinders = deptMap[d.id] || []
+          const requests = requestsByDept[d.id] || []
+
+          if (cylinders.length === 0 && requests.length === 0) return null
+
+          const in_use = cylinders.filter((c: any) => c.status === 'issued').length
+          const available = cylinders.filter((c: any) => c.status === 'available').length
+          const total = cylinders.length
+
+          // Determine department status
+          let status: 'OK' | 'Low' | 'Critical' = 'OK'
+          if (total > 0) {
+            const availRatio = available / total
+            if (availRatio === 0) {
+              status = 'Critical'
+            } else if (availRatio < 0.25) {
+              status = 'Low'
+            }
+          } else if (requests.some(r => r.status === 'pending' || r.status === 'approved')) {
+            // If they have pending requests but no cylinders allocated yet
+            status = 'Critical'
+          }
+
+          return {
+            department_id: d.id,
+            department_name: d.department_name || d.name,
+            in_use,
+            available,
+            total,
+            status,
+            cylinders,
+            requests
+          }
+        })
+        .filter(Boolean) as any[]
+
+      return { data: results, error: null }
+    }
+
+    return { data: [], error: null }
+  } catch (error) {
+    console.error('Error fetching cylinders by department:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch cylinders by department',
+    }
+  }
+}
+
+/**
+ * Calculates store usage balance ledger per cylinder type using movement history
+ */
+export async function getStoreUsageBalance(
+  hospitalId: string,
+  startDate?: string,
+  endDate?: string
+): Promise<ApiResponse<{
+  combo_id: string
+  display_name: string
+  opening: number
+  received: number
+  issued: number
+  returned: number
+  closing: number
+}[]>> {
+  try {
+    if (isSupabaseConfigured()) {
+      // 1. Fetch combos
+      const { data: combos, error: comboError } = await supabase
+        .from('pharmacy_oxygen_size_type_combos')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true })
+
+      if (comboError) throw comboError
+
+      // 2. Fetch all movements for hospital
+      const { data: movements, error: movError } = await supabase
+        .from('pharmacy_oxygen_cylinder_movements')
+        .select(`
+          id,
+          moved_at,
+          movement_type,
+          from_location,
+          to_location,
+          cylinder:pharmacy_oxygen_cylinder_inventory(cylinder_size_id, cylinder_type_id)
+        `)
+        .eq('hospital_id', hospitalId)
+
+      if (movError) throw movError
+
+      // 3. Fetch current available count in Store
+      const { data: currentInventory, error: invError } = await supabase
+        .from('pharmacy_oxygen_cylinder_inventory')
+        .select('cylinder_size_id, cylinder_type_id, status, current_location')
+        .eq('hospital_id', hospitalId)
+
+      if (invError) throw invError
+
+      const start = startDate ? new Date(startDate) : new Date(new Date().setDate(new Date().getDate() - 30))
+      const end = endDate ? new Date(endDate) : new Date()
+
+      const results = (combos || []).map((combo: any) => {
+        // Filter current available in store
+        const currentAvailable = (currentInventory || []).filter(
+          (c: any) => c.cylinder_size_id === combo.size_id && 
+                      c.cylinder_type_id === combo.type_id && 
+                      c.status === 'available' && 
+                      (c.current_location || '').toLowerCase().includes('store')
+        ).length
+
+        // Filter movements after end date (to compute closing balance back to end date)
+        const postEndMovements = (movements || []).filter((m: any) => {
+          if (!m.cylinder || m.cylinder.cylinder_size_id !== combo.size_id || m.cylinder.cylinder_type_id !== combo.type_id) return false
+          const moveDate = new Date(m.moved_at)
+          return moveDate > end
+        })
+
+        // Filter movements within range
+        const rangeMovements = (movements || []).filter((m: any) => {
+          if (!m.cylinder || m.cylinder.cylinder_size_id !== combo.size_id || m.cylinder.cylinder_type_id !== combo.type_id) return false
+          const moveDate = new Date(m.moved_at)
+          return moveDate >= start && moveDate <= end
+        })
+
+        // Reverse account from Now to End to get Closing Balance at End Date
+        let closing = currentAvailable
+        postEndMovements.forEach((m: any) => {
+          const type = m.movement_type
+          const from = (m.from_location || '').toLowerCase()
+          const to = (m.to_location || '').toLowerCase()
+
+          if (type === 'received' || to.includes('store')) {
+            closing--
+          }
+          if (type === 'issued' || from.includes('store')) {
+            closing++
+          }
+        })
+
+        // Compute aggregates inside the selected range
+        let received = 0
+        let issued = 0
+        let returned = 0
+
+        rangeMovements.forEach((m: any) => {
+          const type = m.movement_type
+          const from = (m.from_location || '').toLowerCase()
+          const to = (m.to_location || '').toLowerCase()
+
+          if (type === 'received' || to.includes('store')) {
+            received++
+          } else if (type === 'issued' || from.includes('store')) {
+            issued++
+          } else if (type === 'sent_to_supplier' || (from.includes('store') && to.includes('supplier'))) {
+            returned++
+          }
+        })
+
+        // Opening = Closing - Received + Issued
+        const opening = Math.max(0, closing - received + issued)
+
+        return {
+          combo_id: combo.id,
+          display_name: combo.display_name,
+          opening,
+          received,
+          issued,
+          returned,
+          closing
+        }
+      })
+
+      return { data: results, error: null }
+    }
+
+    return { data: [], error: null }
+  } catch (error) {
+    console.error('Error calculating store usage balance:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to calculate store usage balance',
+    }
+  }
+}
+
+/**
+ * Lists return documents for a hospital
+ */
+export async function getReturnDocuments(
+  hospitalId: string
+): Promise<ApiResponse<OxygenReturnDocumentWithRelations[]>> {
+  try {
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('pharmacy_oxygen_return_documents')
+        .select(`
+          *,
+          supplier:suppliers(id, company_name, supplier_code),
+          items:pharmacy_oxygen_return_document_items(
+            id,
+            cylinder:pharmacy_oxygen_cylinder_inventory(
+              id,
+              serial_number,
+              qr_code,
+              cylinder_size_id,
+              cylinder_type_id
+            )
+          )
+        `)
+        .eq('hospital_id', hospitalId)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      // Fetch combos to manually map display_name
+      const { data: combos } = await supabase
+        .from('pharmacy_oxygen_size_type_combos')
+        .select('size_id, type_id, display_name')
+
+      const comboMap = new Map<string, string>()
+      ;(combos || []).forEach((c: any) => {
+        comboMap.set(`${c.size_id}_${c.type_id}`, c.display_name)
+      })
+
+      const enriched = (data || []).map((doc: any) => ({
+        ...doc,
+        items: (doc.items || []).map((item: any) => {
+          if (item.cylinder) {
+            const displayName = comboMap.get(`${item.cylinder.cylinder_size_id}_${item.cylinder.cylinder_type_id}`) || 'Standard Cylinder'
+            return {
+              ...item,
+              cylinder: {
+                ...item.cylinder,
+                combo: { display_name: displayName }
+              }
+            }
+          }
+          return item
+        })
+      }))
+
+      return { data: enriched as unknown as OxygenReturnDocumentWithRelations[], error: null }
+    }
+    return { data: [], error: null }
+  } catch (error) {
+    console.error('Error fetching return documents:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch return documents',
+    }
+  }
+}
+
+/**
+ * Fetches a single return document with its items
+ */
+export async function getReturnDocumentById(
+  documentId: string
+): Promise<ApiResponse<OxygenReturnDocumentWithRelations>> {
+  try {
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('pharmacy_oxygen_return_documents')
+        .select(`
+          *,
+          supplier:suppliers(*),
+          creator:users(id, full_name),
+          items:pharmacy_oxygen_return_document_items(
+            id,
+            cylinder:pharmacy_oxygen_cylinder_inventory(
+              id,
+              serial_number,
+              qr_code,
+              cylinder_size_id,
+              cylinder_type_id
+            )
+          )
+        `)
+        .eq('id', documentId)
+        .single()
+
+      if (error) throw error
+
+      // Fetch combos to manually map display_name
+      const { data: combos } = await supabase
+        .from('pharmacy_oxygen_size_type_combos')
+        .select('size_id, type_id, display_name')
+
+      const comboMap = new Map<string, string>()
+      ;(combos || []).forEach((c: any) => {
+        comboMap.set(`${c.size_id}_${c.type_id}`, c.display_name)
+      })
+
+      const enriched = {
+        ...data,
+        items: (data.items || []).map((item: any) => {
+          if (item.cylinder) {
+            const displayName = comboMap.get(`${item.cylinder.cylinder_size_id}_${item.cylinder.cylinder_type_id}`) || 'Standard Cylinder'
+            return {
+              ...item,
+              cylinder: {
+                ...item.cylinder,
+                combo: { display_name: displayName }
+              }
+            }
+          }
+          return item
+        })
+      }
+
+      return { data: enriched as unknown as OxygenReturnDocumentWithRelations, error: null }
+    }
+    return { data: null, error: 'Supabase not configured' }
+  } catch (error) {
+    console.error('Error fetching return document details:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch return document details',
+    }
+  }
+}
+
+/**
+ * Filters cylinders that are empty (status='issued') for the return document creator
+ */
+export async function getEmptyCylindersInStore(
+  hospitalId: string
+): Promise<ApiResponse<OxygenCylinderWithRelations[]>> {
+  try {
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('pharmacy_oxygen_cylinder_inventory')
+        .select(`
+          *,
+          department:departments(*)
+        `)
+        .eq('hospital_id', hospitalId)
+        .eq('status', 'issued')
+        .order('serial_number', { ascending: true })
+
+      if (error) throw error
+
+      // Fetch combos to manually map display_name
+      const { data: combos } = await supabase
+        .from('pharmacy_oxygen_size_type_combos')
+        .select('size_id, type_id, display_name')
+
+      const comboMap = new Map<string, string>()
+      ;(combos || []).forEach((c: any) => {
+        comboMap.set(`${c.size_id}_${c.type_id}`, c.display_name)
+      })
+
+      const rows = (data || []).map((row: any) => {
+        const displayName = comboMap.get(`${row.cylinder_size_id}_${row.cylinder_type_id}`) || 'Standard Cylinder'
+        return {
+          ...row,
+          type_info: {
+            type_name: displayName
+          },
+          current_location: {
+            location_name: row.current_location || 'Department'
+          },
+          assigned_ward: row.department ? {
+            department_name: row.department.department_name || row.department.name
+          } : null
+        }
+      }) as unknown as OxygenCylinderWithRelations[]
+
+      return { data: rows, error: null }
+    }
+    return { data: [], error: null }
+  } catch (error) {
+    console.error('Error fetching empty cylinders in store:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch empty cylinders',
+    }
+  }
+}
+
+/**
+ * Creates a return document, updates cylinder statuses, and records movements
+ */
+export async function createReturnDocument(
+  hospitalId: string,
+  supplierId: string,
+  returnDate: string,
+  cylinderIds: string[],
+  remarks: string,
+  createdBy: string
+): Promise<ApiResponse<OxygenReturnDocument>> {
+  try {
+    if (isSupabaseConfigured()) {
+      const today = new Date()
+      const yyyy = today.getFullYear()
+      const mm = String(today.getMonth() + 1).padStart(2, '0')
+      const dd = String(today.getDate()).padStart(2, '0')
+      const todayStr = `${yyyy}${mm}${dd}`
+      const randomSuffix = Math.floor(1000 + Math.random() * 9000)
+      const documentNumber = `O2-RET-${todayStr}-${randomSuffix}`
+
+      // 1. Insert Return Document
+      const { data: doc, error: docError } = await supabase
+        .from('pharmacy_oxygen_return_documents')
+        .insert({
+          hospital_id: hospitalId,
+          document_number: documentNumber,
+          supplier_id: supplierId,
+          status: 'completed',
+          returned_date: returnDate,
+          remarks: remarks || null,
+          created_by: createdBy
+        })
+        .select('*')
+        .single()
+
+      if (docError) throw docError
+
+      const docId = doc.id
+
+      // 2. Fetch cylinders to get their current locations before updating
+      const { data: cylinders, error: fetchError } = await supabase
+        .from('pharmacy_oxygen_cylinder_inventory')
+        .select('id, current_location, department_id')
+        .in('id', cylinderIds)
+
+      if (fetchError) throw fetchError
+
+      // 3. Insert Items, Update Cylinders, and Log Movements
+      if (cylinderIds.length > 0) {
+        // Prepare items
+        const itemRows = cylinderIds.map((cid) => ({
+          return_document_id: docId,
+          cylinder_id: cid
+        }))
+
+        const { error: itemError } = await supabase
+          .from('pharmacy_oxygen_return_document_items')
+          .insert(itemRows)
+
+        if (itemError) throw itemError
+
+        // Update each cylinder
+        for (const cylinderId of cylinderIds) {
+          const cyl = (cylinders || []).find((c) => c.id === cylinderId)
+          const fromLoc = cyl?.current_location || 'Department'
+          const deptId = cyl?.department_id || null
+
+          // Update status to returned_to_supplier
+          const { error: updateError } = await supabase
+            .from('pharmacy_oxygen_cylinder_inventory')
+            .update({
+              status: 'returned_to_supplier',
+              current_location: 'Supplier',
+              department_id: null,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', cylinderId)
+
+          if (updateError) throw updateError
+
+          // Log movement
+          const { error: moveError } = await supabase
+            .from('pharmacy_oxygen_cylinder_movements')
+            .insert({
+              hospital_id: hospitalId,
+              cylinder_id: cylinderId,
+              movement_type: 'sent_to_supplier',
+              from_location: fromLoc,
+              to_location: 'Supplier',
+              department_id: deptId,
+              moved_by: createdBy,
+              moved_at: new Date().toISOString(),
+              remarks: `Returned via return doc ${documentNumber}. Remarks: ${remarks || ''}`
+            })
+
+          if (moveError) throw moveError
+        }
+      }
+
+      return { data: doc as OxygenReturnDocument, error: null }
+    }
+
+    return { data: null, error: 'Supabase not configured' }
+  } catch (error) {
+    console.error('Error creating return document:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to create return document',
+    }
+  }
+}
+
+/**
+ * Lists request documents for a hospital
+ */
+export async function getRequestDocuments(
+  hospitalId: string
+): Promise<ApiResponse<OxygenRequestDocumentWithRelations[]>> {
+  try {
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('pharmacy_oxygen_request_documents')
+        .select(`
+          *,
+          supplier:suppliers(id, company_name, supplier_code),
+          items:pharmacy_oxygen_request_document_items(*)
+        `)
+        .eq('hospital_id', hospitalId)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      return { data: (data || []) as unknown as OxygenRequestDocumentWithRelations[], error: null }
+    }
+    return { data: [], error: null }
+  } catch (error) {
+    console.error('Error fetching request documents:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch request documents',
+    }
+  }
+}
+
+/**
+ * Fetches a single request document with its items
+ */
+export async function getRequestDocumentById(
+  documentId: string
+): Promise<ApiResponse<OxygenRequestDocumentWithRelations>> {
+  try {
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('pharmacy_oxygen_request_documents')
+        .select(`
+          *,
+          supplier:suppliers(*),
+          creator:users(id, full_name),
+          items:pharmacy_oxygen_request_document_items(*)
+        `)
+        .eq('id', documentId)
+        .single()
+
+      if (error) throw error
+
+      return { data: data as unknown as OxygenRequestDocumentWithRelations, error: null }
+    }
+    return { data: null, error: 'Supabase not configured' }
+  } catch (error) {
+    console.error('Error fetching request document details:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch request document details',
+    }
+  }
+}
+
+/**
+ * Creates a request document with item rows
+ */
+export async function createRequestDocument(
+  hospitalId: string,
+  supplierId: string,
+  requestedDate: string,
+  remarks: string,
+  items: { size_code: string; quantity: number; usage_notes: string }[],
+  createdBy: string
+): Promise<ApiResponse<OxygenRequestDocument>> {
+  try {
+    if (isSupabaseConfigured()) {
+      const today = new Date()
+      const yyyy = today.getFullYear()
+      const mm = String(today.getMonth() + 1).padStart(2, '0')
+      const dd = String(today.getDate()).padStart(2, '0')
+      const todayStr = `${yyyy}${mm}${dd}`
+      const randomSuffix = Math.floor(1000 + Math.random() * 9000)
+      const documentNumber = `O2-REQ-${todayStr}-${randomSuffix}`
+
+      // 1. Insert Request Document
+      const { data: doc, error: docError } = await supabase
+        .from('pharmacy_oxygen_request_documents')
+        .insert({
+          hospital_id: hospitalId,
+          document_number: documentNumber,
+          supplier_id: supplierId,
+          status: 'completed',
+          requested_date: requestedDate,
+          remarks: remarks || null,
+          created_by: createdBy
+        })
+        .select('*')
+        .single()
+
+      if (docError) throw docError
+
+      const docId = doc.id
+
+      // 2. Insert Items
+      if (items.length > 0) {
+        const itemRows = items.map((item) => ({
+          request_document_id: docId,
+          size_code: item.size_code,
+          quantity: item.quantity,
+          usage_notes: item.usage_notes || null
+        }))
+
+        const { error: itemError } = await supabase
+          .from('pharmacy_oxygen_request_document_items')
+          .insert(itemRows)
+
+        if (itemError) throw itemError
+      }
+
+      return { data: doc as OxygenRequestDocument, error: null }
+    }
+
+    return { data: null, error: 'Supabase not configured' }
+  } catch (error) {
+    console.error('Error creating request document:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to create request document',
+    }
+  }
+}
 

@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { supabase, isSupabaseConfigured } from './supabase'
 
 /**
  * Create a Supabase Auth user account
@@ -13,8 +13,13 @@ export async function createAuthUser(
   email: string,
   password: string,
   userId?: string
-): Promise<{ success: boolean; error?: string; authUserId?: string; warning?: string }> {
+): Promise<{ success: boolean; error?: string; authUserId?: string }> {
   try {
+    if (!isSupabaseConfigured()) {
+      // In mock mode, just return success
+      return { success: true }
+    }
+
     if (!email || !password) {
       return {
         success: false,
@@ -34,7 +39,7 @@ export async function createAuthUser(
         'Please set VITE_SUPABASE_SERVICE_ROLE_KEY in your .env file, ' +
         'or use a Supabase Edge Function for secure user creation.'
       )
-
+      
       // Try using signUp as fallback (requires email confirmation)
       // This is less ideal but works without service role key
       const { data, error } = await supabase.auth.signUp({
@@ -51,12 +56,12 @@ export async function createAuthUser(
       if (error) {
         // If user already exists, that's okay - they can log in
         if (error.message.includes('already registered')) {
-          return { success: true, authUserId: (data as any).user?.id }
+          return { success: true, authUserId: data.user?.id }
         }
         return { success: false, error: error.message }
       }
 
-      return { success: true, authUserId: (data as any).user?.id }
+      return { success: true, authUserId: data.user?.id }
     }
 
     // Check if auth user already exists by email FIRST (before creating)
@@ -70,26 +75,91 @@ export async function createAuthUser(
         },
       }
     )
-
+    
     if (checkByEmailResponse.ok) {
       const usersData = await checkByEmailResponse.json()
       if (usersData.users && usersData.users.length > 0) {
-        // Find the user with the exact email match in the list
-        const existingAuthUser = usersData.users.find((u: any) => u.email.toLowerCase() === email.toLowerCase())
-
-        if (existingAuthUser) {
-          // If userId was provided and it doesn't match existing user, log a warning but REUSE the existing Auth user
-          // This situation can happen if an auth account was created earlier (e.g. via dashboard or failed attempt)
-          if (userId && existingAuthUser.id !== userId) {
-            console.warn(
-              `Auth user email conflict for ${email}: existing auth ID ${existingAuthUser.id} ` +
-              `differs from requested ID ${userId}. Reusing existing Auth user.`
-            )
+        const existingAuthUser = usersData.users[0]
+        
+        // CRITICAL: Verify the email matches exactly - don't reuse if email is different
+        // This prevents reusing an Auth account that belongs to a different user
+        if (existingAuthUser.email && existingAuthUser.email.toLowerCase() !== email.toLowerCase()) {
+          return {
+            success: false,
+            error: `An Auth account with a different email (${existingAuthUser.email}) was found when searching for ${email}. ` +
+                   `This indicates a data inconsistency. Cannot reuse this Auth account. Please contact system administrator.`,
+            authUserId: existingAuthUser.id,
           }
-
-          // Update password for existing user (or just ensure it is valid)
+        }
+        
+        // If userId was provided and it doesn't match existing user, log a warning but REUSE the existing Auth user
+        // This situation can happen if an auth account was created earlier (e.g. via dashboard or failed attempt)
+        if (userId && existingAuthUser.id !== userId) {
+          console.warn(
+            `Auth user email conflict for ${email}: existing auth ID ${existingAuthUser.id} ` +
+            `differs from requested ID ${userId}. Reusing existing Auth user.`
+          )
+        }
+        
+        // Update password for existing user (or just ensure it is valid)
+        const updateResponse = await fetch(
+          `${supabaseUrl}/auth/v1/admin/users/${existingAuthUser.id}`,
+          {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${serviceRoleKey}`,
+              apikey: serviceRoleKey,
+            },
+            body: JSON.stringify({
+              password,
+              email_confirm: true,
+            }),
+          }
+        )
+        
+        if (updateResponse.ok) {
+          // Always return the existing Auth user ID - caller can update public.users.id if needed
+          return { success: true, authUserId: existingAuthUser.id }
+        } else {
+          const errorData = await updateResponse.json().catch(() => ({}))
+          return {
+            success: false,
+            error: `Failed to update existing Auth user: ${errorData.msg || updateResponse.statusText}`,
+            authUserId: existingAuthUser.id,
+          }
+        }
+      }
+    }
+    
+    // If userId provided, check if that UUID already exists in auth.users
+    // NOTE: 404 is expected and means the UUID is available - we can proceed with creation
+    if (userId) {
+      try {
+        const checkByIdResponse = await fetch(
+          `${supabaseUrl}/auth/v1/admin/users/${userId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${serviceRoleKey}`,
+              apikey: serviceRoleKey,
+            },
+          }
+        )
+        
+        if (checkByIdResponse.ok) {
+          // User already exists with this UUID - check if it's the same email
+          const existingUser = await checkByIdResponse.json()
+          if (existingUser.email !== email) {
+            return {
+              success: false,
+              error: `An Auth account with ID ${userId} already exists with email ${existingUser.email}. Cannot use this ID for ${email}.`,
+              authUserId: userId,
+            }
+          }
+          
+          // Same email, update password
           const updateResponse = await fetch(
-            `${supabaseUrl}/auth/v1/admin/users/${existingAuthUser.id}`,
+            `${supabaseUrl}/auth/v1/admin/users/${userId}`,
             {
               method: 'PUT',
               headers: {
@@ -103,26 +173,22 @@ export async function createAuthUser(
               }),
             }
           )
-
+          
           if (updateResponse.ok) {
-            // Always return the existing Auth user ID - caller can update public.users.id if needed
-            return { success: true, authUserId: existingAuthUser.id }
-          } else {
-            const errorData = await updateResponse.json().catch(() => ({}))
-            return {
-              success: false,
-              error: `Failed to update existing Auth user: ${errorData.msg || updateResponse.statusText}`,
-              authUserId: existingAuthUser.id,
-            }
+            return { success: true, authUserId: userId }
           }
+        } else if (checkByIdResponse.status === 404) {
+          // 404 is expected - UUID doesn't exist, we can proceed with creation
+          // This is not an error, just continue to create the user
+        } else {
+          // Some other error occurred, log it but continue
+          console.warn(`Unexpected status ${checkByIdResponse.status} when checking user by ID:`, await checkByIdResponse.text().catch(() => ''))
         }
+      } catch (error) {
+        // Network error or other issue - log but continue
+        console.warn('Error checking user by ID, continuing with creation:', error)
       }
     }
-
-    // SKIP checking if user exists by ID via GET request
-    // This often returns 404 for new users, which logs a scary error in the browser console.
-    // Instead, we just try to create the user (POST) and handle any ID conflicts if they occur.
-    // The creation logic below already handles retries with auto-generated IDs.
 
     // User doesn't exist, create new one
     // NOTE: Supabase Admin API may not support setting custom 'id' when creating users
@@ -135,12 +201,12 @@ export async function createAuthUser(
         user_id: userId || undefined,
       },
     }
-
+    
     // Only try to set custom ID if provided - Supabase may reject this
     if (userId) {
       createBody.id = userId
     }
-
+    
     const response = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
       method: 'POST',
       headers: {
@@ -153,11 +219,11 @@ export async function createAuthUser(
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-
+      
       // If creating with custom ID failed, try creating without ID
       if (userId && (response.status === 400 || response.status === 422 || response.status === 500)) {
         console.warn(`Failed to create Auth user with custom ID ${userId}: ${errorData.msg || response.statusText}. Retrying without custom ID...`)
-
+        
         const retryResponse = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
           method: 'POST',
           headers: {
@@ -175,7 +241,7 @@ export async function createAuthUser(
             // Don't include 'id' - let Supabase generate it
           }),
         })
-
+        
         if (retryResponse.ok) {
           const createdUser = await retryResponse.json()
           return {
@@ -191,7 +257,7 @@ export async function createAuthUser(
           }
         }
       }
-
+      
       // If user already exists by email, that's okay
       if (response.status === 422 || errorData.msg?.includes('already')) {
         // Try to get the existing user
@@ -204,7 +270,7 @@ export async function createAuthUser(
             },
           }
         )
-
+        
         if (getUserResponse.ok) {
           const users = await getUserResponse.json()
           if (users.users && users.users.length > 0) {
@@ -238,6 +304,10 @@ export async function confirmAuthUserEmail(
   email: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    if (!isSupabaseConfigured()) {
+      return { success: true }
+    }
+
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
     const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
 
@@ -274,15 +344,7 @@ export async function confirmAuthUserEmail(
       }
     }
 
-    const authUser = usersData.users.find((u: any) => u.email.toLowerCase() === email.toLowerCase())
-    if (!authUser) {
-      return {
-        success: false,
-        error: 'User with exact email not found',
-      }
-    }
-
-    const authUserId = authUser.id
+    const authUserId = usersData.users[0].id
 
     // Update user to confirm email
     const response = await fetch(`${supabaseUrl}/auth/v1/admin/users/${authUserId}`, {
@@ -320,12 +382,16 @@ export async function confirmAuthUserEmail(
  */
 export async function checkAuthUserExists(email: string): Promise<{ exists: boolean; userId?: string; error?: string }> {
   try {
+    if (!isSupabaseConfigured()) {
+      return { exists: false }
+    }
+
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
     const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
 
     if (!serviceRoleKey || serviceRoleKey === 'placeholder-service-key') {
       // Fallback: try to check via signIn (less reliable but works without service key)
-      return { exists: false }
+      return { exists: false, error: 'Service role key not configured' }
     }
 
     const response = await fetch(
@@ -344,10 +410,7 @@ export async function checkAuthUserExists(email: string): Promise<{ exists: bool
 
     const data = await response.json()
     if (data.users && data.users.length > 0) {
-      const match = data.users.find((u: any) => u.email.toLowerCase() === email.toLowerCase())
-      if (match) {
-        return { exists: true, userId: match.id }
-      }
+      return { exists: true, userId: data.users[0].id }
     }
 
     return { exists: false }
@@ -367,6 +430,10 @@ export async function fixMissingAuthAccount(
   password: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    if (!isSupabaseConfigured()) {
+      return { success: false, error: 'Supabase not configured' }
+    }
+
     // Check if Auth account already exists
     const checkResult = await checkAuthUserExists(email)
     if (checkResult.exists) {
@@ -393,6 +460,10 @@ export async function updateAuthUserPassword(
   newPassword: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    if (!isSupabaseConfigured()) {
+      return { success: true }
+    }
+
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
     const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
 

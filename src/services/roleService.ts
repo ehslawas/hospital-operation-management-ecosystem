@@ -1,37 +1,118 @@
-import { supabase } from './supabase'
-import type { Role, Permission } from '@/types'
+import { supabase, isSupabaseConfigured } from './supabase'
+import { mockRoles, mockPermissions, mockRolePermissions } from './mockData'
+import type { Role, Permission, RolePermission, PaginatedResponse, SortConfig } from '@/types'
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants'
 
-
+interface GetRolesParams {
+  page?: number
+  pageSize?: number
+  search?: string
+  isSystemRole?: boolean
+  hospitalId?: string
+  sort?: SortConfig
+}
 
 /**
  * Get paginated list of roles
  */
-export async function getAllRoles(): Promise<Role[]> {
+export async function getRoles({
+  page = 1,
+  pageSize = DEFAULT_PAGE_SIZE,
+  search,
+  isSystemRole,
+  hospitalId,
+  sort,
+}: GetRolesParams): Promise<PaginatedResponse<Role>> {
   try {
-    // Add timeout wrapper for reliability
-    const TIMEOUT_MS = 30000
-    const query = supabase
-      .from('roles')
-      .select('*')
-      .order('role_name', { ascending: true })
-      .limit(1000)
+    if (isSupabaseConfigured()) {
+      // Supabase implementation
+      let query = supabase.from('roles').select('*', { count: 'exact' })
 
-    const { data, error } = await Promise.race([
-      query,
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Roles query timed out')), TIMEOUT_MS)
-      )
-    ]) as any
+      if (search) {
+        query = query.or(`role_name.ilike.%${search}%,role_code.ilike.%${search}%,description.ilike.%${search}%`)
+      }
+      if (isSystemRole !== undefined) {
+        query = query.eq('is_system_role', isSystemRole)
+      }
+      if (hospitalId) {
+        query = query.eq('hospital_id', hospitalId)
+      }
 
-    if (error) {
-      console.error('Error fetching roles from Supabase:', error)
-      throw new Error(error.message)
+      if (sort) {
+        query = query.order(sort.key, { ascending: sort.direction === 'asc' })
+      } else {
+        query = query.order('role_name', { ascending: true })
+      }
+
+      const from = (page - 1) * pageSize
+      const to = from + pageSize - 1
+      query = query.range(from, to)
+
+      const { data, error, count } = await query
+
+      if (error) {
+        console.error('Error fetching roles from Supabase:', error)
+        throw new Error(error.message)
+      }
+
+      const totalPages = count ? Math.ceil(count / pageSize) : 0
+
+      return {
+        data: (data || []) as Role[],
+        total: count || 0,
+        page,
+        pageSize,
+        totalPages,
+      }
+    } else {
+      // Mock data implementation
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      let filteredRoles = mockRoles.filter((role) => {
+        const matchesSearch = search
+          ? role.role_name.toLowerCase().includes(search.toLowerCase()) ||
+            role.role_code.toLowerCase().includes(search.toLowerCase()) ||
+            (role.description && role.description.toLowerCase().includes(search.toLowerCase()))
+          : true
+        const matchesSystemRole = isSystemRole !== undefined ? role.is_system_role === isSystemRole : true
+        const matchesHospital = hospitalId ? role.hospital_id === hospitalId : true
+        return matchesSearch && matchesSystemRole && matchesHospital
+      })
+
+      if (sort) {
+        filteredRoles.sort((a, b) => {
+          const aValue = a[sort.key as keyof Role]
+          const bValue = b[sort.key as keyof Role]
+
+          if (typeof aValue === 'string' && typeof bValue === 'string') {
+            return sort.direction === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue)
+          }
+          if (typeof aValue === 'boolean' && typeof bValue === 'boolean') {
+            return sort.direction === 'asc' ? (aValue === bValue ? 0 : aValue ? 1 : -1) : aValue === bValue ? 0 : aValue ? -1 : 1
+          }
+          return 0
+        })
+      } else {
+        filteredRoles.sort((a, b) => a.role_name.localeCompare(b.role_name))
+      }
+
+      const total = filteredRoles.length
+      const totalPages = Math.ceil(total / pageSize)
+      const startIndex = (page - 1) * pageSize
+      const endIndex = startIndex + pageSize
+      const paginatedRoles = filteredRoles.slice(startIndex, endIndex)
+
+      return {
+        data: paginatedRoles,
+        total,
+        page,
+        pageSize,
+        totalPages,
+      }
     }
-    return (data || []) as Role[]
   } catch (error) {
     console.error('Error fetching roles:', error)
-    // Return empty array instead of throwing to prevent cascade failures
-    return []
+    throw error
   }
 }
 
@@ -40,16 +121,18 @@ export async function getAllRoles(): Promise<Role[]> {
  */
 export async function getRoleById(id: string): Promise<Role | null> {
   try {
-    const { data, error } = await Promise.race([
-      supabase.from('roles').select('*').eq('id', id).single(),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Role query timed out')), 10000))
-    ]) as any
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase.from('roles').select('*').eq('id', id).maybeSingle()
 
-    if (error) {
-      console.error('Error fetching role from Supabase:', error)
-      throw new Error(error.message)
+      if (error) {
+        console.error('Error fetching role from Supabase:', error)
+        throw new Error(error.message)
+      }
+      return data as Role
+    } else {
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      return mockRoles.find((r) => r.id === id) || null
     }
-    return data as Role
   } catch (error) {
     console.error('Error fetching role:', error)
     throw error
@@ -57,130 +140,113 @@ export async function getRoleById(id: string): Promise<Role | null> {
 }
 
 /**
- * Get all permissions (synthesized from new modules and features)
+ * Get all permissions
  */
 export async function getAllPermissions(): Promise<Permission[]> {
   try {
-    // Fetch all modules
-    const { data: modules, error: modError } = await Promise.race([
-      supabase
-        .from('modules')
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('permissions')
         .select('*')
-        .eq('is_active', true)
-        .order('display_order', { ascending: true }),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Modules query timed out')), 10000))
-    ]) as any
+        .order('module', { ascending: true })
+        .order('permission_name', { ascending: true })
 
-    if (modError) throw modError
-
-    // Synthesize permissions from modules (View, Create, Edit, Delete for each module)
-    // This maintains backward compatibility with the legacy RolePermissionPage UI
-    const permissions: Permission[] = []
-
-    modules?.forEach((mod: any) => {
-      const actions = ['view', 'create', 'edit', 'delete']
-      actions.forEach(action => {
-        permissions.push({
-          id: `${mod.id}:${action}`,
-          permission_code: `${mod.module_code}:${action}`,
-          permission_name: `${action.charAt(0).toUpperCase() + action.slice(1)} ${mod.module_name}`,
-          module: mod.module_code,
-          feature: 'general',
-          description: `${action} access for ${mod.module_name}`,
-          created_at: mod.created_at.toISOString(),
-          updated_at: mod.updated_at.toISOString()
-        })
+      if (error) {
+        console.error('Error fetching permissions from Supabase:', error)
+        throw new Error(error.message)
+      }
+      return (data || []) as Permission[]
+    } else {
+      await new Promise((resolve) => setTimeout(resolve, 200))
+      return [...mockPermissions].sort((a, b) => {
+        if (a.module !== b.module) {
+          return a.module.localeCompare(b.module)
+        }
+        return a.permission_name.localeCompare(b.permission_name)
       })
-    })
-
-    return permissions
+    }
   } catch (error) {
     console.error('Error fetching permissions:', error)
-    return []
+    throw error
   }
 }
 
 /**
- * Get permissions for a role (new RBAC schema)
+ * Get permissions for a role
  */
 export async function getRolePermissions(roleId: string): Promise<Permission[]> {
   try {
-    const { data, error } = await Promise.race([
-      supabase
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
         .from('role_permissions')
-        .select('*, module:modules(*)')
-        .eq('role_id', roleId),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Role permissions query timed out')), 10000))
-    ]) as any
+        .select('permission:permissions(*)')
+        .eq('role_id', roleId)
 
-    if (error) {
-      console.error('Error fetching role permissions from Supabase:', error)
-      throw new Error(error.message)
+      if (error) {
+        console.error('Error fetching role permissions from Supabase:', error)
+        throw new Error(error.message)
+      }
+
+      return (data || []).map((rp: { permission: Permission }) => rp.permission) as Permission[]
+    } else {
+      await new Promise((resolve) => setTimeout(resolve, 200))
+      const rolePermissionIds = mockRolePermissions
+        .filter((rp) => rp.role_id === roleId)
+        .map((rp) => rp.permission_id)
+      return mockPermissions.filter((p) => rolePermissionIds.includes(p.id))
     }
-
-    const permissions: Permission[] = []
-    data?.forEach((rp: any) => {
-      if (!rp.module) return
-
-      if (rp.can_view) permissions.push({ id: `${rp.module_id}:view`, permission_code: `${rp.module.module_code}:view`, permission_name: `View ${rp.module.module_name}`, module: rp.module.module_code, created_at: rp.granted_at })
-      if (rp.can_create) permissions.push({ id: `${rp.module_id}:create`, permission_code: `${rp.module.module_code}:create`, permission_name: `Create ${rp.module.module_name}`, module: rp.module.module_code, created_at: rp.granted_at })
-      if (rp.can_edit) permissions.push({ id: `${rp.module_id}:edit`, permission_code: `${rp.module.module_code}:edit`, permission_name: `Edit ${rp.module.module_name}`, module: rp.module.module_code, created_at: rp.granted_at })
-      if (rp.can_delete) permissions.push({ id: `${rp.module_id}:delete`, permission_code: `${rp.module.module_code}:delete`, permission_name: `Delete ${rp.module.module_name}`, module: rp.module.module_code, created_at: rp.granted_at })
-    })
-
-    return permissions as any[]
   } catch (error) {
     console.error('Error fetching role permissions:', error)
-    return []
+    throw error
   }
 }
 
 /**
- * Update role permissions (new RBAC schema)
+ * Update role permissions
  */
 export async function updateRolePermissions(
-  roleId: string,
-  synthesizedPermissionIds: string[],
+  roleId: string, 
+  permissionIds: string[],
   grantedBy?: string
 ): Promise<void> {
   try {
-    // synthesizedPermissionIds are in format 'module_id:action'
-    const moduleMap = new Map<string, { can_view: boolean; can_create: boolean; can_edit: boolean; can_delete: boolean }>()
+    if (isSupabaseConfigured()) {
+      // Get current user if not provided
+      const { data: { user } } = await supabase.auth.getUser()
+      const grantedByUserId = grantedBy || user?.id
 
-    synthesizedPermissionIds.forEach(idPair => {
-      const [moduleId, action] = idPair.split(':')
-      if (!moduleId || !action) return
+      // Delete existing permissions
+      const { error: deleteError } = await supabase.from('role_permissions').delete().eq('role_id', roleId)
+      if (deleteError) throw deleteError
 
-      if (!moduleMap.has(moduleId)) {
-        moduleMap.set(moduleId, { can_view: false, can_create: false, can_edit: false, can_delete: false })
+      // Insert new permissions
+      if (permissionIds.length > 0) {
+        const rolePermissions = permissionIds.map((permissionId) => ({
+          role_id: roleId,
+          permission_id: permissionId,
+          granted_by: grantedByUserId || null,
+        }))
+        const { error } = await supabase.from('role_permissions').insert(rolePermissions)
+        if (error) throw error
       }
-
-      const perms = moduleMap.get(moduleId)!
-      if (action === 'view') perms.can_view = true
-      if (action === 'create') perms.can_create = true
-      if (action === 'edit') perms.can_edit = true
-      if (action === 'delete') perms.can_delete = true
-    })
-
-    // Get current user
-    const { data: { user } } = await supabase.auth.getUser()
-    const grantedByUserId = grantedBy || user?.id
-
-    // delete existing
-    const { error: delError } = await supabase.from('role_permissions').delete().eq('role_id', roleId)
-    if (delError) throw delError
-
-    // insert new
-    const records = Array.from(moduleMap.entries()).map(([moduleId, perms]) => ({
-      role_id: roleId,
-      module_id: moduleId,
-      ...perms,
-      granted_by: grantedByUserId
-    }))
-
-    if (records.length > 0) {
-      const { error: insError } = await supabase.from('role_permissions').insert(records)
-      if (insError) throw insError
+    } else {
+      // Mock implementation
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      // Remove existing permissions for this role
+      const index = mockRolePermissions.findIndex((rp) => rp.role_id === roleId)
+      while (index !== -1) {
+        mockRolePermissions.splice(index, 1)
+      }
+      // Add new permissions
+      permissionIds.forEach((permissionId) => {
+        mockRolePermissions.push({
+          id: `rp-${Date.now()}-${Math.random()}`,
+          role_id: roleId,
+          permission_id: permissionId,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+      })
     }
   } catch (error) {
     console.error('Error updating role permissions:', error)
@@ -188,123 +254,28 @@ export async function updateRolePermissions(
   }
 }
 
-
-
 /**
- * Synchronize system roles defined in constants to the database
+ * Get all roles (for dropdowns)
  */
-export async function syncSystemRoles(): Promise<{ success: boolean; inserted: number }> {
+export async function getAllRoles(): Promise<Role[]> {
   try {
-    const rolesToSync = [
-      { role_code: 'system_admin', role_name: 'System Administrator', description: 'Full system access across all hospitals' },
-      { role_code: 'hospital_admin', role_name: 'Hospital System Administrator', description: 'Full access to a specific hospital system and management functions.' },
-      { role_code: 'medical_officer', role_name: 'Medical Officer', description: 'Qualified medical practitioner providing clinical care and diagnosis.' },
-      { role_code: 'assistant_medical_officer', role_name: 'Assistant Medical Officer', description: 'Penolong Pegawai Perubatan (PPP) providing clinical support and emergency care.' },
-      { role_code: 'senior_assistant_medical_officer', role_name: 'Senior Assistant Medical Officer', description: 'Senior Penolong Pegawai Perubatan (PPP) with advanced clinical and supervisory duties.' },
-      { role_code: 'pharmacist', role_name: 'Pharmacist', description: 'Pegawai Farmasi responsible for medication management and clinical pharmacy.' },
-      { role_code: 'assistant_pharmacist', role_name: 'Assistant Pharmacist', description: 'Penolong Pegawai Farmasi (PPF) assisting in pharmacy operations and dispensing.' },
-      { role_code: 'matron', role_name: 'Matron', description: 'Senior nursing administrator overseeing nursing services and standards.' },
-      { role_code: 'sister', role_name: 'Sister', description: 'Ketua Jururawat (Nursing Sister) in charge of ward management and clinical supervision.' },
-      { role_code: 'nurse', role_name: 'Nurse', description: 'Jururawat providing direct patient care and clinical assistance.' },
-      { role_code: 'hospital_administrator', role_name: 'Hospital Administrator', description: 'Pegawai Tadbir managing non-clinical hospital operations and resources.' },
-      { role_code: 'hospital_driver', role_name: 'Hospital Driver', description: 'Pemandu responsible for transportation of patients and official hospital logistics.' },
-      { role_code: 'general_service_assistant', role_name: 'General Service Assistant', description: 'Pembantu Perawatan Kesihatan (PPK) providing general support and patient handling.' },
-      { role_code: 'radiographer', role_name: 'Radiographer', description: 'Juru X-Ray performing diagnostic imaging and radiology services.' },
-      { role_code: 'medical_lab_technician', role_name: 'Medical Laboratory Technologist', description: 'Juruteknologi Makmal Perubatan (JTMP) conducting laboratory tests and analysis.' },
-      { role_code: 'pathologist', role_name: 'Pathologist', description: 'Pakar Patologi specializing in laboratory medicine and disease diagnosis.' },
-      { role_code: 'physiotherapist', role_name: 'Physiotherapist', description: 'Fisioterapis providing physical rehabilitation and therapy services.' },
-      { role_code: 'occupational_therapist', role_name: 'Occupational Therapist', description: 'Jurupulih Perubatan Kerja providing functional rehabilitation and therapy.' },
-      { role_code: 'hospital_director', role_name: 'Hospital Director', description: 'Pengarah Hospital responsible for overall clinical and administrative governance.' },
-    ]
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('roles')
+        .select('*')
+        .order('role_name', { ascending: true })
 
-    const fullRoles = rolesToSync.map(r => ({
-      ...r,
-      is_system_role: true,
-      updated_at: new Date().toISOString()
-    }))
-
-    // Upsert roles based on role_code
-    const { data, error } = await supabase
-      .from('roles')
-      .upsert(fullRoles, { onConflict: 'role_code' })
-      .select()
-
-    if (error) {
-      console.error('Error syncing system roles:', error)
-      return { success: false, inserted: 0 }
-    }
-
-    return { success: true, inserted: data?.length || 0 }
-  } catch (error) {
-    console.error('Failed to sync system roles:', error)
-    return { success: false, inserted: 0 }
-  }
-}
-
-/**
- * Create a new role
- */
-export async function createRole(roleData: Partial<Role>): Promise<Role> {
-  try {
-    const { data, error } = await supabase
-      .from('roles')
-      .insert({
-        ...roleData,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .select()
-      .single()
-
-    if (error) {
-      console.error('Error creating role in Supabase:', error)
-      throw new Error(error.message)
-    }
-    return data as Role
-  } catch (error) {
-    console.error('Error creating role:', error)
-    throw error
-  }
-}
-
-/**
- * Update an existing role
- */
-export async function updateRole(id: string, updates: Partial<Role>): Promise<Role> {
-  try {
-    const { data, error } = await supabase
-      .from('roles')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .select()
-      .single()
-
-    if (error) {
-      console.error('Error updating role in Supabase:', error)
-      throw new Error(error.message)
-    }
-    return data as Role
-  } catch (error) {
-    console.error('Error updating role:', error)
-    throw error
-  }
-}
-
-/**
- * Delete a role
- */
-export async function deleteRole(id: string): Promise<void> {
-  try {
-    const { error } = await supabase.from('roles').delete().eq('id', id)
-    if (error) {
-      console.error('Error deleting role from Supabase:', error)
-      throw new Error(error.message)
+      if (error) {
+        console.error('Error fetching roles from Supabase:', error)
+        throw new Error(error.message)
+      }
+      return (data || []) as Role[]
+    } else {
+      await new Promise((resolve) => setTimeout(resolve, 200))
+      return [...mockRoles].sort((a, b) => a.role_name.localeCompare(b.role_name))
     }
   } catch (error) {
-    console.error('Error deleting role:', error)
+    console.error('Error fetching roles:', error)
     throw error
   }
 }

@@ -72,28 +72,28 @@ export function FastMovingTable({ items, bare = false }: FastMovingTableProps) {
         {paddedItems.map((item, index) => {
           const color = colorsFor(item.category);
           return (
-            <div key={item.id} className={`flex items-center justify-between p-2.5 xs:p-3 sm:p-3 rounded-lg border ${color.border} ${color.bg} min-h-[44px] touch-target cursor-pointer hover:opacity-90 transition-opacity`} suppressHydrationWarning>
-              <div className="flex items-center gap-2 xs:gap-3 min-w-0 flex-1" suppressHydrationWarning>
-                <span className="inline-flex items-center justify-center w-7 h-7 xs:w-8 xs:h-8 rounded-full text-[10px] xs:text-xs font-bold bg-slate-100 text-slate-700 flex-shrink-0" suppressHydrationWarning>
+            <div key={item.id} className={`flex items-center justify-between p-3 rounded-lg border ${color.border} ${color.bg}`} suppressHydrationWarning>
+              <div className="flex items-center gap-3 min-w-0" suppressHydrationWarning>
+                <span className="inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold bg-slate-100 text-slate-700" suppressHydrationWarning>
                   {item.name ? item.rank : index + 1}
                 </span>
-                <div className="min-w-0 flex-1 pr-2" suppressHydrationWarning>
-                  <p className="text-xs xs:text-sm font-medium text-gray-900 truncate leading-tight" suppressHydrationWarning>{item.name || '-'}</p>
-                  <div className="flex items-center gap-1.5 xs:gap-2 mt-0.5 flex-wrap" suppressHydrationWarning>
-                    <span className="text-[10px] xs:text-xs text-gray-600 font-mono truncate" suppressHydrationWarning>{item.sku || '-'}</span>
-                    <span className={`inline-flex items-center px-1.5 xs:px-2 py-0.5 rounded-full text-[9px] xs:text-[10px] font-medium ${color.chip} flex-shrink-0`} suppressHydrationWarning>
+                <div className="min-w-0" suppressHydrationWarning>
+                  <p className="text-sm font-medium text-gray-900 truncate" suppressHydrationWarning>{item.name || '-'}</p>
+                  <div className="flex items-center gap-2" suppressHydrationWarning>
+                    <span className="text-xs text-gray-600 font-mono" suppressHydrationWarning>{item.sku || '-'}</span>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${color.chip}`} suppressHydrationWarning>
                       {item.category}
                     </span>
                   </div>
-                  <p className="text-[10px] xs:text-xs text-gray-600 truncate mt-0.5" suppressHydrationWarning>
+                  <p className="text-xs text-gray-600" suppressHydrationWarning>
                     Balance: {(item.onHand - item.minLevel) || 0} | Min: {item.minLevel > 0 ? item.minLevel.toLocaleString() : '-'}
                   </p>
-                  <p className="text-[10px] xs:text-xs text-gray-600 truncate" suppressHydrationWarning>
+                  <p className="text-xs text-gray-600" suppressHydrationWarning>
                     Location: {item.location || '-'}
                   </p>
                 </div>
               </div>
-              <div className={`flex items-center justify-center h-9 w-9 xs:h-10 xs:w-10 ${color.circle} rounded-full text-white text-xs font-bold flex-shrink-0 ml-2 touch-target`} suppressHydrationWarning>
+              <div className={`flex items-center justify-center h-8 w-8 ${color.circle} rounded-full text-white text-xs font-bold flex-shrink-0 ml-2`} suppressHydrationWarning>
                 {item.usagePerMonth > 0 ? item.usagePerMonth : '-'}
               </div>
             </div>

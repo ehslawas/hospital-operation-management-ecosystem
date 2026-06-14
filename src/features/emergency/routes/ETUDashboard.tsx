@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useMemo, useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
-import { Card, CardContent } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { Textarea } from "@/components/ui/Textarea";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
+import { useSearchParams } from "next/navigation";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -17,14 +17,14 @@ import {
   SelectValue,
   SelectContent,
   SelectItem,
-} from "@/components/ui/Select";
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { toast } from "@/components/ui";
+import { toast } from "sonner";
 import {
   Loader2,
   Plus,
@@ -183,7 +183,7 @@ const MOCK_PATIENTS = [
 const QUEUE_LABELS: Record<string, { title: string; icon: React.ElementType; color: string }> = {
   pendingAssessment: { title: "Pending Assessment", icon: ClipboardList, color: "bg-amber-100 text-amber-700" },
   triageAssessment: { title: "Triage Assessment", icon: Ambulance, color: "bg-red-100 text-red-700" },
-  pendingAdmit: { title: "Pending to Admit", icon: BedDouble, color: "bg-indigo-100 text-indigo-700" },
+  pendingAdmit: { title: "Pending to Admit", icon: BedDouble, color: "bg-indigo-100 text-indigo-700" }, 
   pendingRefer: { title: "Pending to Refer", icon: ArrowRightLeft, color: "bg-emerald-100 text-emerald-700" },
 };
 
@@ -210,8 +210,8 @@ function QueueHeader({ label, count, icon: Icon, color }: { label: string; count
 export default function ETUDashboard() {
   const searchParams = useSearchParams();
   const patientId = searchParams.get('patientId');
-
-  const seeded = useMemo(() => MOCK_PATIENTS.map((p, i) => ({ ...p, _arrivedAt: Date.now() - (i + 1) * 20 * 60 * 1000 })), []);
+  
+  const seeded = useMemo(() => MOCK_PATIENTS.map((p, i) => ({ ...p, _arrivedAt: Date.now() - (i+1)*20*60*1000 })), []);
   const [patients, setPatients] = useState(seeded);
   const [activePatient, setActivePatient] = useState<any | null>(null);
   const [saving, setSaving] = useState(false);
@@ -229,7 +229,7 @@ export default function ETUDashboard() {
     }
   }, [patientId, patients]);
   // expose save handler to right summary
-  const [saveAssessmentFn, setSaveAssessmentFn] = useState<null | (() => void)>(null);
+  const [saveAssessmentFn, setSaveAssessmentFn] = useState<null | (()=>void)>(null);
 
   // when selected patient changes, hydrate orders snapshot
   React.useEffect(() => {
@@ -238,11 +238,11 @@ export default function ETUDashboard() {
     else setOrders({ meds: [], labs: [], imaging: [] });
   }, [activePatient]);
 
-  function addOrder(kind: 'meds' | 'labs' | 'imaging', value: any) {
+  function addOrder(kind: 'meds'|'labs'|'imaging', value: any){
     setOrders(prev => ({ ...prev, [kind]: [...prev[kind], value] }));
   }
-  function removeOrder(kind: 'meds' | 'labs' | 'imaging', index: number) {
-    setOrders(prev => ({ ...prev, [kind]: prev[kind].filter((_, i) => i !== index) }));
+  function removeOrder(kind: 'meds'|'labs'|'imaging', index: number){
+    setOrders(prev => ({ ...prev, [kind]: prev[kind].filter((_, i)=> i!==index) }));
   }
 
   function updatePatient(id: string, updater: (prev: any) => any) {
@@ -256,7 +256,7 @@ export default function ETUDashboard() {
     results.push({ name: "Search finds patient by name", pass: MOCK_PATIENTS.some(p => String(p.name).toLowerCase().includes(q)) });
     const expected = ["pendingAssessment", "triageAssessment", "pendingAdmit", "pendingRefer"];
     const keysOk = expected.every(k => Object.hasOwn(QUEUE_LABELS, k));
-    const classified = MOCK_PATIENTS.reduce((acc: Record<string, number>, p) => { acc[p.status] = (acc[p.status] || 0) + 1; return acc; }, {});
+    const classified = MOCK_PATIENTS.reduce((acc: Record<string, number>, p) => { acc[p.status] = (acc[p.status]||0)+1; return acc; }, {});
     const haveKnownStatusesOnly = Object.keys(classified).every(k => expected.includes(k));
     results.push({ name: "Queue keys & classification valid", pass: keysOk && haveKnownStatusesOnly });
     const out = uniquePush(uniquePush(["A"], "B"), "A");
@@ -264,35 +264,35 @@ export default function ETUDashboard() {
 
     // Additional smoke tests
     const regions = [
-      "Head", "Neck", "Chest", "Abdomen", "Back", "Pelvis", "Left Shoulder", "Right Shoulder", "Left Arm", "Right Arm", "Left Hand", "Right Hand", "Left Thigh", "Right Thigh", "Left Leg", "Right Leg", "Left Foot", "Right Foot"
+      "Head","Neck","Chest","Abdomen","Back","Pelvis","Left Shoulder","Right Shoulder","Left Arm","Right Arm","Left Hand","Right Hand","Left Thigh","Right Thigh","Left Leg","Right Leg","Left Foot","Right Foot"
     ];
     results.push({ name: "BodyMap has 18 regions", pass: regions.length === 18 });
     results.push({ name: "BodyMap region keys unique", pass: new Set(regions).size === regions.length });
     // Toggle simulation: select Head, then toggle Head off => should end empty
-    const toggle = (sel: string[], r: string) => sel.includes(r) ? sel.filter(x => x !== r) : [...sel, r];
+    const toggle = (sel: string[], r: string) => sel.includes(r) ? sel.filter(x=>x!==r) : [...sel, r];
     const toggled = toggle(toggle([], 'Head'), 'Head');
     results.push({ name: "BodyMap toggle adds then removes", pass: Array.isArray(toggled) && toggled.length === 0 });
 
     results.push({ name: "Acuity colors cover all patients", pass: MOCK_PATIENTS.every(p => Boolean(ACUITY_COLORS[p.acuity])) });
     const paracetamol = FORMULARY.find(f => f.label === "Tab. Paracetamol 500 mg");
     results.push({ name: "Formulary includes Paracetamol 500 with defaults", pass: Boolean(paracetamol && paracetamol.defaultDose && paracetamol.frequency) });
-    results.push({ name: "Formulary includes Aspirin STAT", pass: FORMULARY.some(f => f.name === "Aspirin" && f.frequency === "STAT") });
-    results.push({ name: "Durations include 5/7 and custom", pass: DURATION_OPTIONS.some(d => d.value === "5/7") && DURATION_OPTIONS.some(d => d.value === "custom") });
-    results.push({ name: "Vitals present for all patients", pass: MOCK_PATIENTS.every(p => p.vitals && 'hr' in p.vitals && 'bp' in p.vitals) });
+    results.push({ name: "Formulary includes Aspirin STAT", pass: FORMULARY.some(f=>f.name==="Aspirin" && f.frequency==="STAT") });
+    results.push({ name: "Durations include 5/7 and custom", pass: DURATION_OPTIONS.some(d=>d.value==="5/7") && DURATION_OPTIONS.some(d=>d.value==="custom") });
+    results.push({ name: "Vitals present for all patients", pass: MOCK_PATIENTS.every(p=>p.vitals && 'hr' in p.vitals && 'bp' in p.vitals) });
 
     const allPass = results.every(r => r.pass);
-    results.forEach(r => r.pass ? toast.success(`PASS: ${r.name}`) : toast.error(`FAIL: ${r.name}${r.note ? ` – ${r.note}` : ""}`));
+    results.forEach(r => r.pass ? toast.success(`PASS: ${r.name}`) : toast.error(`FAIL: ${r.name}${r.note?` – ${r.note}`:""}`));
     if (allPass) toast.success("All smoke tests passed"); else toast.error("Some tests failed – see messages");
   }
 
   if (!activePatient) {
-    return (
+  return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
           <p className="text-slate-600">Loading patient data...</p>
-        </div>
-      </div>
+            </div>
+          </div>
     );
   }
 
@@ -300,48 +300,48 @@ export default function ETUDashboard() {
     <div className="space-y-4">
       <AssessmentTabs
         patient={activePatient}
-        onUpdate={(updater) => updatePatient(activePatient.id, updater)}
-        onSummary={() => { }}
+        onUpdate={(updater)=>updatePatient(activePatient.id, updater)}
+        onSummary={()=>{}}
         saving={saving}
         setSaving={setSaving}
         orders={orders}
         onAddOrder={addOrder}
         onRemoveOrder={removeOrder}
-        registerSave={(fn) => setSaveAssessmentFn(() => fn)}
+        registerSave={(fn)=> setSaveAssessmentFn(()=>fn)}
       />
     </div>
   );
 }
 
-function AssessmentTabs({ patient, onUpdate, onSummary, saving, setSaving, orders, onAddOrder, onRemoveOrder, registerSave }: { patient: any; onUpdate: (u: any) => void; onSummary: (d: "admit" | "discharge" | "refer") => void; saving: boolean; setSaving: (b: boolean) => void; orders: { meds: any[]; labs: any[]; imaging: any[] }; onAddOrder: (k: 'meds' | 'labs' | 'imaging', v: any) => void; onRemoveOrder: (k: 'meds' | 'labs' | 'imaging', i: number) => void; registerSave: (fn: () => void) => void; }) {
+function AssessmentTabs({ patient, onUpdate, onSummary, saving, setSaving, orders, onAddOrder, onRemoveOrder, registerSave }: { patient: any; onUpdate: (u: any)=>void; onSummary: (d: "admit"|"discharge"|"refer")=>void; saving: boolean; setSaving: (b: boolean)=>void; orders: {meds:any[];labs:any[];imaging:any[]}; onAddOrder:(k:'meds'|'labs'|'imaging', v:any)=>void; onRemoveOrder:(k:'meds'|'labs'|'imaging', i:number)=>void; registerSave:(fn:()=>void)=>void; }) {
   const [tab, setTab] = useState("assessment");
   return (
     <Tabs value={tab} onValueChange={setTab} className="w-full">
       <TabsList className="w-full h-auto bg-transparent p-0 gap-0 border-b border-slate-200 flex justify-start">
-        <TabsTrigger
-          value="assessment"
+        <TabsTrigger 
+          value="assessment" 
           className="px-6 py-4 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:bg-blue-50/50 data-[state=inactive]:text-slate-600 data-[state=inactive]:hover:text-slate-900 data-[state=inactive]:hover:bg-slate-50 font-semibold transition-all"
         >
           <div className="flex items-center gap-3">
-            <Stethoscope className="h-5 w-5" />
+            <Stethoscope className="h-5 w-5"/>
             <span>Assessment</span>
           </div>
         </TabsTrigger>
-        <TabsTrigger
-          value="history"
+        <TabsTrigger 
+          value="history" 
           className="px-6 py-4 rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:text-emerald-600 data-[state=active]:bg-emerald-50/50 data-[state=inactive]:text-slate-600 data-[state=inactive]:hover:text-slate-900 data-[state=inactive]:hover:bg-slate-50 font-semibold transition-all"
         >
           <div className="flex items-center gap-3">
-            <History className="h-5 w-5" />
+            <History className="h-5 w-5"/>
             <span>Medical History</span>
           </div>
         </TabsTrigger>
-        <TabsTrigger
-          value="personal"
+        <TabsTrigger 
+          value="personal" 
           className="px-6 py-4 rounded-none border-b-2 border-transparent data-[state=active]:border-purple-600 data-[state=active]:text-purple-600 data-[state=active]:bg-purple-50/50 data-[state=inactive]:text-slate-600 data-[state=inactive]:hover:text-slate-900 data-[state=inactive]:hover:bg-slate-50 font-semibold transition-all"
         >
           <div className="flex items-center gap-3">
-            <UserRound className="h-5 w-5" />
+            <UserRound className="h-5 w-5"/>
             <span>Personal History</span>
           </div>
         </TabsTrigger>
@@ -356,19 +356,19 @@ function AssessmentTabs({ patient, onUpdate, onSummary, saving, setSaving, order
       </TabsContent>
 
       <TabsContent value="personal" className="mt-8">
-        <PersonalHistory data={patient.personal} onChange={(data) => onUpdate((p: any) => ({ ...p, personal: data }))} />
+        <PersonalHistory data={patient.personal} onChange={(data)=>onUpdate((p:any)=>({ ...p, personal: data }))} />
       </TabsContent>
     </Tabs>
   );
 }
 
-function AssessmentForm({ patient, onUpdate, onSummary, saving, setSaving, orders, onAddOrder, onRemoveOrder, registerSave }: { patient: any; onUpdate: (u: any) => void; onSummary: (d: "admit" | "discharge" | "refer") => void; saving: boolean; setSaving: (b: boolean) => void; orders: { meds: any[]; labs: any[]; imaging: any[] }; onAddOrder: (k: 'meds' | 'labs' | 'imaging', v: any) => void; onRemoveOrder: (k: 'meds' | 'labs' | 'imaging', i: number) => void; registerSave: (fn: () => void) => void; }) {
+function AssessmentForm({ patient, onUpdate, onSummary, saving, setSaving, orders, onAddOrder, onRemoveOrder, registerSave }: { patient:any; onUpdate:(u:any)=>void; onSummary:(d:"admit"|"discharge"|"refer")=>void; saving:boolean; setSaving:(b:boolean)=>void; orders:{meds:any[];labs:any[];imaging:any[]}; onAddOrder:(k:'meds'|'labs'|'imaging', v:any)=>void; onRemoveOrder:(k:'meds'|'labs'|'imaging', i:number)=>void; registerSave:(fn:()=>void)=>void; }) {
   const [complaint, setComplaint] = useState(patient.chiefComplaint || "");
   const [examNotes, setExamNotes] = useState("");
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [regionFindings, setRegionFindings] = useState<Record<string, string>>({});
   const [plan, setPlan] = useState("");
-  const [summary, setSummary] = useState<"admit" | "discharge" | "refer" | "">("");
+  const [summary, setSummary] = useState<"admit"|"discharge"|"refer"|"">("");
   const [bp, setBp] = useState("");
   const [hr, setHr] = useState("");
   const [rr, setRr] = useState("");
@@ -378,19 +378,19 @@ function AssessmentForm({ patient, onUpdate, onSummary, saving, setSaving, order
   const [weight, setWeight] = useState("");
 
   function toggleRegion(r: string) {
-    setSelectedRegions((prev) => prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r]);
+    setSelectedRegions((prev) => prev.includes(r) ? prev.filter(x=>x!==r) : [...prev, r]);
   }
 
   function updateRegionFinding(region: string, finding: string) {
     setRegionFindings((prev) => ({ ...prev, [region]: finding }));
   }
 
-  function addOrderLocal(kind: 'meds' | 'labs' | 'imaging', value: any) { if (!value) return; onAddOrder(kind, value); }
+  function addOrderLocal(kind: 'meds'|'labs'|'imaging', value: any) { if (!value) return; onAddOrder(kind, value); }
 
   async function saveAll() {
     setSaving(true);
-    await new Promise(r => setTimeout(r, 700));
-    onUpdate((p: any) => ({
+    await new Promise(r=>setTimeout(r, 700));
+    onUpdate((p:any)=>({
       ...p,
       chiefComplaint: complaint,
       lastUpdated: now(),
@@ -400,7 +400,7 @@ function AssessmentForm({ patient, onUpdate, onSummary, saving, setSaving, order
     setSaving(false);
   }
 
-  React.useEffect(() => { registerSave(() => { void saveAll(); }); }, [complaint, examNotes, selectedRegions, regionFindings, plan, orders, bp, hr, rr, temp, spo2, pain, weight]);
+  React.useEffect(()=> { registerSave(()=>{ void saveAll(); }); }, [complaint, examNotes, selectedRegions, regionFindings, plan, orders, bp, hr, rr, temp, spo2, pain, weight]);
 
   return (
     <div className="grid gap-3 lg:grid-cols-[1.5fr_1fr]">
@@ -413,7 +413,7 @@ function AssessmentForm({ patient, onUpdate, onSummary, saving, setSaving, order
               </div>
               Patient Complaint
             </Label>
-            <Textarea value={complaint} onChange={(e) => setComplaint(e.target.value)} placeholder="Describe the presenting complaint…" className="min-h-[120px] border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
+            <Textarea value={complaint} onChange={(e)=>setComplaint(e.target.value)} placeholder="Describe the presenting complaint…" className="min-h-[120px] border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
           </CardContent>
         </Card>
         <Card className="rounded-lg shadow-md border-slate-200 hover:shadow-lg transition-shadow">
@@ -427,31 +427,31 @@ function AssessmentForm({ patient, onUpdate, onSummary, saving, setSaving, order
             <div className="grid grid-cols-4 gap-2">
               <div>
                 <label className="text-xs font-semibold text-slate-600 mb-1 block">BP (mmHg)</label>
-                <Input value={bp} onChange={(e) => setBp(e.target.value)} placeholder="120/80" className="h-9 text-sm border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
+                <Input value={bp} onChange={(e)=>setBp(e.target.value)} placeholder="120/80" className="h-9 text-sm border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
               </div>
               <div>
                 <label className="text-xs font-semibold text-slate-600 mb-1 block">HR (bpm)</label>
-                <Input value={hr} onChange={(e) => setHr(e.target.value)} placeholder="72" type="number" className="h-9 text-sm border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
+                <Input value={hr} onChange={(e)=>setHr(e.target.value)} placeholder="72" type="number" className="h-9 text-sm border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
               </div>
               <div>
                 <label className="text-xs font-semibold text-slate-600 mb-1 block">RR (bpm)</label>
-                <Input value={rr} onChange={(e) => setRr(e.target.value)} placeholder="16" type="number" className="h-9 text-sm border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
+                <Input value={rr} onChange={(e)=>setRr(e.target.value)} placeholder="16" type="number" className="h-9 text-sm border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
               </div>
               <div>
                 <label className="text-xs font-semibold text-slate-600 mb-1 block">Temp (°C)</label>
-                <Input value={temp} onChange={(e) => setTemp(e.target.value)} placeholder="37.0" type="number" step="0.1" className="h-9 text-sm border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
+                <Input value={temp} onChange={(e)=>setTemp(e.target.value)} placeholder="37.0" type="number" step="0.1" className="h-9 text-sm border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
               </div>
               <div>
                 <label className="text-xs font-semibold text-slate-600 mb-1 block">SpO2 (%)</label>
-                <Input value={spo2} onChange={(e) => setSpo2(e.target.value)} placeholder="98" type="number" className="h-9 text-sm border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
+                <Input value={spo2} onChange={(e)=>setSpo2(e.target.value)} placeholder="98" type="number" className="h-9 text-sm border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
               </div>
               <div>
                 <label className="text-xs font-semibold text-slate-600 mb-1 block">Pain (0-10)</label>
-                <Input value={pain} onChange={(e) => setPain(e.target.value)} placeholder="5" type="number" min="0" max="10" className="h-9 text-sm border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
+                <Input value={pain} onChange={(e)=>setPain(e.target.value)} placeholder="5" type="number" min="0" max="10" className="h-9 text-sm border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
               </div>
               <div className="col-span-2">
                 <label className="text-xs font-semibold text-slate-600 mb-1 block">Weight (kg)</label>
-                <Input value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="70" type="number" step="0.1" className="h-9 text-sm border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
+                <Input value={weight} onChange={(e)=>setWeight(e.target.value)} placeholder="70" type="number" step="0.1" className="h-9 text-sm border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
               </div>
             </div>
           </CardContent>
@@ -462,13 +462,13 @@ function AssessmentForm({ patient, onUpdate, onSummary, saving, setSaving, order
               <Label className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <div className="h-8 w-8 rounded-lg bg-purple-100 text-purple-600 grid place-items-center">
                   <ClipboardList className="h-4 w-4" />
-                </div>
+            </div>
                 Physical Examination
               </Label>
               <UIBadge className="bg-blue-100 text-blue-700 border border-blue-200 font-semibold">Head-to-Toe</UIBadge>
             </div>
             <BodyMap selected={selectedRegions} onToggle={toggleRegion} findings={regionFindings} onFindingChange={updateRegionFinding} />
-            <Textarea value={examNotes} onChange={(e) => setExamNotes(e.target.value)} placeholder="Document significant exam findings…" className="min-h-[100px] border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
+            <Textarea value={examNotes} onChange={(e)=>setExamNotes(e.target.value)} placeholder="Document significant exam findings…" className="min-h-[100px] border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
           </CardContent>
         </Card>
         <Card className="rounded-lg shadow-md border-slate-200 hover:shadow-lg transition-shadow">
@@ -479,7 +479,7 @@ function AssessmentForm({ patient, onUpdate, onSummary, saving, setSaving, order
               </div>
               Management Plan
             </Label>
-            <Textarea value={plan} onChange={(e) => setPlan(e.target.value)} placeholder="Outline plan: monitoring, IV access, oxygen, analgesia, referral triggers…" className="min-h-[120px] border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
+            <Textarea value={plan} onChange={(e)=>setPlan(e.target.value)} placeholder="Outline plan: monitoring, IV access, oxygen, analgesia, referral triggers…" className="min-h-[120px] border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
           </CardContent>
         </Card>
       </div>
@@ -493,13 +493,13 @@ function AssessmentForm({ patient, onUpdate, onSummary, saving, setSaving, order
               </div>
               Orders
             </Label>
-
+            
             <div className="space-y-5">
-              <MedicationOrders patient={patient} items={orders.meds} onAdd={(v) => addOrderLocal('meds', v)} onRemove={(i) => onRemoveOrder('meds', i)} />
-
-              <LabOrders items={orders.labs} onAdd={(v) => addOrderLocal('labs', v)} onRemove={(i) => onRemoveOrder('labs', i)} />
-
-              <ImagingOrders items={orders.imaging} onAdd={(v) => addOrderLocal('imaging', v)} onRemove={(i) => onRemoveOrder('imaging', i)} />
+            <MedicationOrders patient={patient} items={orders.meds} onAdd={(v)=>addOrderLocal('meds', v)} onRemove={(i)=>onRemoveOrder('meds', i)} />
+              
+            <LabOrders items={orders.labs} onAdd={(v)=>addOrderLocal('labs', v)} onRemove={(i)=>onRemoveOrder('labs', i)} />
+              
+            <ImagingOrders items={orders.imaging} onAdd={(v)=>addOrderLocal('imaging', v)} onRemove={(i)=>onRemoveOrder('imaging', i)} />
             </div>
           </CardContent>
         </Card>
@@ -509,27 +509,27 @@ function AssessmentForm({ patient, onUpdate, onSummary, saving, setSaving, order
             <div className="flex items-center gap-2 bg-green-600 text-white rounded-lg px-3 py-2 shadow-md">
               <CheckCircle2 className="h-5 w-5" />
               <span className="font-bold text-base">DISPOSITION SUMMARY</span>
-            </div>
+              </div>
             <div className="grid gap-4">
               <div className="flex items-center gap-4 p-3 bg-white rounded-lg border border-slate-200">
-                <Checkbox id="sum-admit" checked={summary === "admit"} onCheckedChange={() => setSummary("admit")} className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600" />
+                <Checkbox id="sum-admit" checked={summary==="admit"} onCheckedChange={()=>setSummary("admit")} className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600" />
                 <Label htmlFor="sum-admit" className="cursor-pointer font-semibold text-slate-700">Admit</Label>
-                <Checkbox id="sum-discharge" checked={summary === "discharge"} onCheckedChange={() => setSummary("discharge")} className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600" />
+                <Checkbox id="sum-discharge" checked={summary==="discharge"} onCheckedChange={()=>setSummary("discharge")} className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600" />
                 <Label htmlFor="sum-discharge" className="cursor-pointer font-semibold text-slate-700">Discharge</Label>
-                <Checkbox id="sum-refer" checked={summary === "refer"} onCheckedChange={() => setSummary("refer")} className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600" />
+                <Checkbox id="sum-refer" checked={summary==="refer"} onCheckedChange={()=>setSummary("refer")} className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600" />
                 <Label htmlFor="sum-refer" className="cursor-pointer font-semibold text-slate-700">Refer</Label>
               </div>
               <div className="flex flex-col gap-2">
                 <Button variant="outline" onClick={saveAll} disabled={saving} className="gap-2 h-11 font-semibold border-2">
-                  {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <ClipboardList className="h-5 w-5" />}
+                  {saving ? <Loader2 className="h-5 w-5 animate-spin"/> : <ClipboardList className="h-5 w-5"/>}
                   Save Assessment
                 </Button>
-                <Button onClick={() => {
-                  if (!summary) { toast.error("Choose a summary decision first"); return; }
+                <Button onClick={()=>{
+                  if(!summary){ toast.error("Choose a summary decision first"); return; }
                   onSummary(summary as any);
                   toast.success(`Disposition: ${summary.toUpperCase()}`);
                 }} className="gap-1.5 h-8 px-3 bg-blue-600 hover:bg-blue-700 font-medium text-xs shadow-md">
-                  <BedDouble className="h-3.5 w-3.5" />
+                  <BedDouble className="h-3.5 w-3.5"/>
                   Confirm Disposition
                 </Button>
               </div>
@@ -541,20 +541,20 @@ function AssessmentForm({ patient, onUpdate, onSummary, saving, setSaving, order
   );
 }
 
-function SectionTitle({ icon: Icon, title }: { icon: any; title: string }) {
+function SectionTitle({ icon: Icon, title }: { icon:any; title:string }){
   return (
     <div className="flex items-center gap-2 pb-3 border-b border-slate-200 mb-3">
       <div className="h-7 w-7 rounded-md bg-gradient-to-br from-blue-500 to-blue-600 text-white grid place-items-center shadow-sm">
-        <Icon className="h-4 w-4" />
+        <Icon className="h-4 w-4"/>
       </div>
       <span className="font-bold text-slate-800 text-sm uppercase tracking-wide">{title}</span>
     </div>
   );
 }
 
-const DRUG_FREQUENCIES = ["OD", "BD", "TDS", "QID", "QHS", "PRN", "STAT"];
+const DRUG_FREQUENCIES = ["OD","BD","TDS","QID","QHS","PRN","STAT"];
 
-const FORMULARY: { label: string; name: string; form: "Tab." | "Cap." | "Syp." | "Neb." | "Inj." | "Susp." | "Cream" | "Oint." | "Lotion" | "Drops" | string; strength: string; defaultDose: string; frequency: string }[] = [
+const FORMULARY: { label: string; name: string; form: "Tab."|"Cap."|"Syp."|"Neb."|"Inj."|"Susp."|"Cream"|"Oint."|"Lotion"|"Drops"|string; strength: string; defaultDose: string; frequency: string }[] = [
   // Analgesics & Antipyretics
   { label: "Tab. Paracetamol 500 mg", name: "Paracetamol", form: "Tab.", strength: "500 mg", defaultDose: "1000 mg", frequency: "QID" },
   { label: "Tab. Paracetamol 1000 mg", name: "Paracetamol", form: "Tab.", strength: "1000 mg", defaultDose: "1000 mg", frequency: "QID" },
@@ -776,7 +776,7 @@ const DURATION_OPTIONS = [
   { value: "custom", label: "Custom date…" },
 ];
 
-function MedicationOrders({ patient, items, onAdd, onRemove }: { patient: any; items: any[]; onAdd: (v: any) => void; onRemove: (i: number) => void }) {
+function MedicationOrders({ patient, items, onAdd, onRemove }:{ patient:any; items:any[]; onAdd:(v:any)=>void; onRemove:(i:number)=>void}){
   const [drugLabel, setDrugLabel] = useState("");
   const [dosage, setDosage] = useState("");
   const [freq, setFreq] = useState("OD");
@@ -786,14 +786,14 @@ function MedicationOrders({ patient, items, onAdd, onRemove }: { patient: any; i
   const [notes, setNotes] = useState("");
   const allergies: string[] = patient?.personal?.allergies || [];
 
-  function pickByLabel(label: string) {
+  function pickByLabel(label: string){
     const d = FORMULARY.find(x => x.label.toLowerCase() === label.toLowerCase());
-    if (d) { setDosage(d.defaultDose); setFreq(d.frequency); }
+    if(d){ setDosage(d.defaultDose); setFreq(d.frequency); }
   }
 
   const hasAllergy = (label: string) => {
-    const n = (label || "").toLowerCase();
-    return (allergies || []).some(a => n.includes(String(a).toLowerCase()));
+    const n = (label||"").toLowerCase();
+    return (allergies||[]).some(a => n.includes(String(a).toLowerCase()));
   };
 
   // Auto-calculate quantity
@@ -802,14 +802,14 @@ function MedicationOrders({ patient, items, onAdd, onRemove }: { patient: any; i
       // Extract strength from drug label (e.g., "250 mg" from "Cap. Amoxicillin 250 mg")
       const strengthMatch = drugLabel.match(/(\d+\.?\d*)\s*(mg|g|ml)/i);
       const drugStrength = strengthMatch ? parseFloat(strengthMatch[1]) : 0;
-
+      
       // Extract dose amount (e.g., "500" from "500mg")
       const doseMatch = dosage.match(/(\d+\.?\d*)/);
       const doseAmount = doseMatch ? parseFloat(doseMatch[1]) : 0;
-
+      
       // Calculate pills per dose
       const pillsPerDose = drugStrength > 0 ? Math.ceil(doseAmount / drugStrength) : 1;
-
+      
       // For STAT (immediate, one-time dose), quantity is just pills per dose
       if (freq === 'STAT') {
         if (pillsPerDose > 0) {
@@ -817,17 +817,17 @@ function MedicationOrders({ patient, items, onAdd, onRemove }: { patient: any; i
         }
         return;
       }
-
+      
       // Convert frequency to times per day
       const freqMap: Record<string, number> = {
         "OD": 1, "BD": 2, "TDS": 3, "QID": 4, "QHS": 1, "PRN": 1
       };
       const timesPerDay = freqMap[freq] || 1;
-
+      
       // Extract days from duration (e.g., "5" from "5/7")
       const daysMatch = durationSel.match(/(\d+)/);
       const days = daysMatch ? parseInt(daysMatch[1]) : 0;
-
+      
       // Calculate total quantity
       if (pillsPerDose > 0 && timesPerDay > 0 && days > 0) {
         const totalQty = pillsPerDose * timesPerDay * days;
@@ -838,9 +838,9 @@ function MedicationOrders({ patient, items, onAdd, onRemove }: { patient: any; i
     }
   }, [drugLabel, dosage, freq, durationSel]);
 
-  function add() {
-    if (!drugLabel) { toast.error("Choose a medication"); return; }
-    if (!dosage) { toast.error("Dosage required"); return; }
+  function add(){
+    if(!drugLabel){ toast.error("Choose a medication"); return; }
+    if(!dosage){ toast.error("Dosage required"); return; }
     const duration = durationSel === 'custom' && customDate ? `until ${customDate}` : durationSel;
     const item = { drugLabel, dosage, frequency: freq, duration, quantity: qty, notes };
     onAdd(item);
@@ -850,12 +850,12 @@ function MedicationOrders({ patient, items, onAdd, onRemove }: { patient: any; i
   return (
     <div className="grid gap-4 bg-blue-50/30 rounded-xl p-4 border-2 border-blue-200">
       <div className="flex items-center gap-2 bg-blue-600 text-white rounded-lg px-3 py-2 shadow-md">
-        <Pill className="h-5 w-5" />
+        <Pill className="h-5 w-5"/>
         <span className="font-bold text-base">MEDICATION</span>
       </div>
-      {allergies.length > 0 && (
+      {allergies.length>0 && (
         <div className="flex items-start gap-2 text-amber-800 bg-amber-50 border-2 border-amber-400 rounded-lg p-3 shadow-sm">
-          <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5"/> 
           <div className="text-sm"><span className="font-bold">Allergies:</span> {allergies.join(', ')}</div>
         </div>
       )}
@@ -865,86 +865,86 @@ function MedicationOrders({ patient, items, onAdd, onRemove }: { patient: any; i
           <div className="grid md:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-slate-700 mb-1.5 block">Search Medication</label>
-              <Input
-                list="formulary-list"
-                value={drugLabel}
-                onChange={(e) => { setDrugLabel(e.target.value); pickByLabel(e.target.value); }}
+              <Input 
+                list="formulary-list" 
+                value={drugLabel} 
+                onChange={(e)=>{ setDrugLabel(e.target.value); pickByLabel(e.target.value); }} 
                 placeholder="e.g., Tab. Paracetamol 500 mg"
                 className="h-10 bg-white"
               />
-              <datalist id="formulary-list">
-                {drugLabel.trim() !== '' && FORMULARY.filter(d =>
-                  d.label.toLowerCase().includes(drugLabel.toLowerCase())
-                ).map(d => <option key={d.label} value={d.label} />)}
-              </datalist>
-              {hasAllergy(drugLabel) && (
+          <datalist id="formulary-list">
+            {drugLabel.trim() !== '' && FORMULARY.filter(d => 
+              d.label.toLowerCase().includes(drugLabel.toLowerCase())
+            ).map(d=> <option key={d.label} value={d.label} />)}
+          </datalist>
+          {hasAllergy(drugLabel) && (
                 <div className="mt-1.5 text-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">
                   ⚠ Potential allergy conflict with <span className="font-bold">{drugLabel}</span>
                 </div>
-              )}
-            </div>
+          )}
+        </div>
 
             <div>
               <label className="text-xs font-semibold text-slate-700 mb-1.5 block">Dosage</label>
-              <Input value={dosage} onChange={(e) => setDosage(e.target.value)} placeholder="e.g., 500mg" className="h-10 bg-white" />
+              <Input value={dosage} onChange={(e)=>setDosage(e.target.value)} placeholder="e.g., 500mg" className="h-10 bg-white"/>
             </div>
           </div>
 
           <div className={`grid gap-3 ${freq === 'STAT' ? 'grid-cols-2' : 'grid-cols-3'}`}>
             <div>
               <label className="text-xs font-semibold text-slate-700 mb-1.5 block">Frequency</label>
-              <select className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200" value={freq} onChange={(e) => {
+              <select className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200" value={freq} onChange={(e)=>{
                 setFreq(e.target.value);
-                if (e.target.value === 'STAT') setDurationSel('stat');
+                if(e.target.value === 'STAT') setDurationSel('stat');
               }}>
                 <option value="" disabled>Select</option>
-                {DRUG_FREQUENCIES.map(f => <option key={f} value={f}>{f}</option>)}
-              </select>
+          {DRUG_FREQUENCIES.map(f=> <option key={f} value={f}>{f}</option>)}
+        </select>
             </div>
 
             {freq !== 'STAT' && (
               <div>
                 <label className="text-xs font-semibold text-slate-700 mb-1.5 block">Duration</label>
-                <select className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200" value={durationSel} onChange={(e) => setDurationSel(e.target.value)}>
+                <select className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200" value={durationSel} onChange={(e)=>setDurationSel(e.target.value)}>
                   <option value="" disabled>Select</option>
-                  {DURATION_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                </select>
+          {DURATION_OPTIONS.map(opt=> <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+        </select>
               </div>
             )}
 
             <div>
               <label className="text-xs font-semibold text-slate-700 mb-1.5 block">Quantity</label>
-              <Input type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="Auto" className="h-10 bg-white" />
-            </div>
+              <Input type="number" min="1" value={qty} onChange={(e)=>setQty(e.target.value)} placeholder="Auto" className="h-10 bg-white"/>
+      </div>
           </div>
 
-          {durationSel === 'custom' && (
+      {durationSel === 'custom' && (
             <div>
               <label className="text-xs font-semibold text-slate-700 mb-1.5 block">End Date</label>
-              <Input type="date" value={customDate} onChange={(e) => setCustomDate(e.target.value)} className="h-10 bg-white" />
-            </div>
-          )}
+              <Input type="date" value={customDate} onChange={(e)=>setCustomDate(e.target.value)} className="h-10 bg-white"/>
+        </div>
+      )}
 
           <div>
             <label className="text-xs font-semibold text-slate-700 mb-1.5 block">Notes / Route / Timing</label>
-            <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Additional instructions..." className="h-10 bg-white" />
+            <Input value={notes} onChange={(e)=>setNotes(e.target.value)} placeholder="Additional instructions..." className="h-10 bg-white"/>
           </div>
 
           <Button type="button" onClick={add} className="h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs shadow-md w-auto ml-auto">
-            <Plus className="h-3.5 w-3.5 mr-1" />Add Medication
+            <Plus className="h-3.5 w-3.5 mr-1"/>Add Medication
           </Button>
         </div>
       </div>
 
-      {items.length > 0 && (
+      {items.length>0 && (
         <ul className="grid gap-2">
-          {items.map((m, idx) => {
+          {items.map((m, idx)=> {
             const allergyFlag = hasAllergy(m.drugLabel || (m as any).drug);
             return (
-              <li key={idx} className={`border rounded-xl p-2 text-sm ${allergyFlag ? 'border-red-300 bg-red-50' : ''}`}>
+              <li key={idx} className={`border rounded-xl p-2 text-sm ${allergyFlag? 'border-red-300 bg-red-50':''}`}>
                 <div className="flex items-start justify-between">
                   <div className="grid">
-                    <div className="font-medium">{idx + 1}. {m.drugLabel || (m as any).drug}</div>
+                    <div className="font-medium">{idx+1}. {m.drugLabel || (m as any).drug}</div>
                     <div className="text-xs text-slate-600">
                       {m.dosage} {m.frequency}{m.frequency === 'STAT' ? '' : ` x ${m.duration}`}
                     </div>
@@ -953,7 +953,7 @@ function MedicationOrders({ patient, items, onAdd, onRemove }: { patient: any; i
                   </div>
                   <div className="flex items-center gap-2">
                     {allergyFlag && <UIBadge className="ml-2 bg-red-600 text-white">ALLERGY</UIBadge>}
-                    <Button variant="ghost" size="sm" onClick={() => onRemove(idx)}>Remove</Button>
+                    <Button variant="ghost" size="sm" onClick={()=>onRemove(idx)}>Remove</Button>
                   </div>
                 </div>
               </li>
@@ -965,10 +965,10 @@ function MedicationOrders({ patient, items, onAdd, onRemove }: { patient: any; i
   );
 }
 
-const LAB_TESTS = ["FBC", "U&E", "LFT", "CRP", "ESR", "Troponin", "ABG", "Urinalysis"];
-const PRIORITIES = ["Routine", "Urgent", "Stat"];
+const LAB_TESTS = ["FBC","U&E","LFT","CRP","ESR","Troponin","ABG","Urinalysis"];
+const PRIORITIES = ["Routine","Urgent","Stat"];
 
-function LabOrders({ items, onAdd, onRemove }: { items: any[]; onAdd: (v: any) => void; onRemove: (i: number) => void }) {
+function LabOrders({ items, onAdd, onRemove }:{ items:any[]; onAdd:(v:any)=>void; onRemove:(i:number)=>void }){
   const [test, setTest] = useState("FBC");
   const [priority, setPriority] = useState("Routine");
   const [itemStatuses, setItemStatuses] = useState<Record<number, string>>({});
@@ -977,7 +977,7 @@ function LabOrders({ items, onAdd, onRemove }: { items: any[]; onAdd: (v: any) =
   const handleSend = (idx: number, labTest: string) => {
     setItemStatuses(prev => ({ ...prev, [idx]: 'sent' }));
     toast.success(`Lab request sent: ${labTest}`);
-
+    
     // Simulate lab receiving the request after 3 seconds
     setTimeout(() => {
       setItemStatuses(prev => ({ ...prev, [idx]: 'received' }));
@@ -1058,37 +1058,37 @@ function LabOrders({ items, onAdd, onRemove }: { items: any[]; onAdd: (v: any) =
   return (
     <div className="grid gap-4 bg-emerald-50/30 rounded-xl p-4 border-2 border-emerald-200">
       <div className="flex items-center gap-2 bg-emerald-600 text-white rounded-lg px-3 py-2 shadow-md">
-        <FlaskConical className="h-5 w-5" />
+        <FlaskConical className="h-5 w-5"/>
         <span className="font-bold text-base">LABORATORY</span>
       </div>
       <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-        <div className="grid gap-3">
+    <div className="grid gap-3">
           <div className="grid md:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-slate-700 mb-1.5 block">Lab Test</label>
-              <select className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200" value={test} onChange={(e) => setTest(e.target.value)}>
-                {LAB_TESTS.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
+              <select className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200" value={test} onChange={(e)=>setTest(e.target.value)}>
+          {LAB_TESTS.map(t=> <option key={t} value={t}>{t}</option>)}
+        </select>
             </div>
             <div>
               <label className="text-xs font-semibold text-slate-700 mb-1.5 block">Priority</label>
-              <select className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200" value={priority} onChange={(e) => setPriority(e.target.value)}>
-                {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
+              <select className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200" value={priority} onChange={(e)=>setPriority(e.target.value)}>
+          {PRIORITIES.map(p=> <option key={p} value={p}>{p}</option>)}
+        </select>
             </div>
           </div>
-          <Button type="button" onClick={() => onAdd({ test, priority })} className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs shadow-md w-auto ml-auto">
-            <Plus className="h-3.5 w-3.5 mr-1" />Add Lab Test
+          <Button type="button" onClick={()=> onAdd({ test, priority })} className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs shadow-md w-auto ml-auto">
+            <Plus className="h-3.5 w-3.5 mr-1"/>Add Lab Test
           </Button>
         </div>
       </div>
-      {items.length > 0 && (
+      {items.length>0 && (
         <ul className="grid gap-2">
-          {items.map((l, idx) => {
+          {items.map((l, idx)=> {
             const status = itemStatuses[idx] || 'draft';
             const isSent = status === 'sent';
             const isReceived = status === 'received';
-
+            
             return (
               <li key={idx} className="flex items-center justify-between bg-white border rounded-lg p-3 text-sm hover:bg-slate-50 transition">
                 <div className="flex items-center gap-2">
@@ -1098,34 +1098,34 @@ function LabOrders({ items, onAdd, onRemove }: { items: any[]; onAdd: (v: any) =
                 </div>
                 <div className="flex items-center gap-2">
                   {!isSent && !isReceived && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleSend(idx, l.test)}
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={()=> handleSend(idx, l.test)} 
                       className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 text-xs h-7 px-2"
                     >
                       Send
                     </Button>
                   )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setViewingResult(generateMockResults(l.test))}
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={()=> setViewingResult(generateMockResults(l.test))} 
                     className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 text-xs h-7 px-2"
                   >
                     View Result
                   </Button>
                   {!isReceived && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={()=> {
                         if (isSent) {
                           handleCancel(idx, l.test);
                         } else {
                           onRemove(idx);
                         }
-                      }}
+                      }} 
                       className={`text-xs h-7 px-2 ${isSent ? 'text-orange-600 hover:text-orange-700 hover:bg-orange-50' : 'text-red-600 hover:text-red-700 hover:bg-red-50'}`}
                     >
                       {isSent ? 'Cancel' : 'Remove'}
@@ -1135,7 +1135,7 @@ function LabOrders({ items, onAdd, onRemove }: { items: any[]; onAdd: (v: any) =
                     <span className="text-xs text-slate-400 px-2">Cannot cancel</span>
                   )}
                 </div>
-              </li>
+            </li>
             );
           })}
         </ul>
@@ -1148,97 +1148,98 @@ function LabOrders({ items, onAdd, onRemove }: { items: any[]; onAdd: (v: any) =
             <div className="p-6">
               <div className="mb-4">
                 <h2 className="text-2xl font-bold text-emerald-700 flex items-center gap-2">
-                  <FlaskConical className="h-6 w-6" />
+                  <FlaskConical className="h-6 w-6"/>
                   {viewingResult?.testName || 'Laboratory Results'}
                 </h2>
               </div>
-
-              <div className="space-y-4">
-                {/* Header Info */}
-                <div className="bg-emerald-50 border-2 border-emerald-200 rounded-lg p-4">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="font-semibold text-slate-600">Report Date:</span>
-                      <span className="ml-2 text-slate-800">{viewingResult.date}</span>
-                    </div>
-                    <div>
-                      <span className="font-semibold text-slate-600">Status:</span>
-                      <span className="ml-2 bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">Completed</span>
-                    </div>
+              
+            <div className="space-y-4">
+              {/* Header Info */}
+              <div className="bg-emerald-50 border-2 border-emerald-200 rounded-lg p-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="font-semibold text-slate-600">Report Date:</span>
+                    <span className="ml-2 text-slate-800">{viewingResult.date}</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-slate-600">Status:</span>
+                    <span className="ml-2 bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">Completed</span>
                   </div>
                 </div>
-
-                {/* Results Table */}
-                <div className="border-2 border-slate-200 rounded-xl overflow-hidden">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="bg-slate-100 border-b-2 border-slate-200">
-                        <th className="text-left px-4 py-3 font-bold text-slate-700">Parameter</th>
-                        <th className="text-center px-4 py-3 font-bold text-slate-700">Value</th>
-                        <th className="text-center px-4 py-3 font-bold text-slate-700">Unit</th>
-                        <th className="text-center px-4 py-3 font-bold text-slate-700">Reference Range</th>
-                        <th className="text-center px-4 py-3 font-bold text-slate-700">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {viewingResult.items.map((item: any, idx: number) => (
-                        <tr
-                          key={idx}
-                          className={`border-b border-slate-200 hover:bg-slate-50 ${item.status === 'high' ? 'bg-red-50' :
-                            item.status === 'low' ? 'bg-yellow-50' :
-                              'bg-white'
-                            }`}
-                        >
-                          <td className="px-4 py-3 font-medium text-slate-800">{item.parameter}</td>
-                          <td className="px-4 py-3 text-center font-bold text-slate-900">{item.value}</td>
-                          <td className="px-4 py-3 text-center text-slate-600">{item.unit}</td>
-                          <td className="px-4 py-3 text-center text-slate-600">{item.range}</td>
-                          <td className="px-4 py-3 text-center">
-                            {item.status === 'normal' && (
-                              <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">
-                                NORMAL
-                              </span>
-                            )}
-                            {item.status === 'high' && (
-                              <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-bold flex items-center justify-center gap-1">
-                                ↑ HIGH
-                              </span>
-                            )}
-                            {item.status === 'low' && (
-                              <span className="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-xs font-bold flex items-center justify-center gap-1">
-                                ↓ LOW
-                              </span>
-                            )}
-                            {item.status === 'pending' && (
-                              <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-xs font-bold">
-                                PENDING
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Footer Notes */}
-                <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
-                  <p className="text-xs text-slate-600">
-                    <span className="font-bold">Note:</span> Abnormal values are highlighted.
-                    Please correlate with clinical findings. For urgent concerns, contact the on-call physician immediately.
-                  </p>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex gap-3 justify-end pt-2">
-                  <Button variant="outline" onClick={() => toast.success('Results printed')}>
-                    Print Results
-                  </Button>
-                  <Button onClick={() => setViewingResult(null)}>
-                    Close
-                  </Button>
-                </div>
               </div>
+
+              {/* Results Table */}
+              <div className="border-2 border-slate-200 rounded-xl overflow-hidden">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-slate-100 border-b-2 border-slate-200">
+                      <th className="text-left px-4 py-3 font-bold text-slate-700">Parameter</th>
+                      <th className="text-center px-4 py-3 font-bold text-slate-700">Value</th>
+                      <th className="text-center px-4 py-3 font-bold text-slate-700">Unit</th>
+                      <th className="text-center px-4 py-3 font-bold text-slate-700">Reference Range</th>
+                      <th className="text-center px-4 py-3 font-bold text-slate-700">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {viewingResult.items.map((item: any, idx: number) => (
+                      <tr 
+                        key={idx} 
+                        className={`border-b border-slate-200 hover:bg-slate-50 ${
+                          item.status === 'high' ? 'bg-red-50' : 
+                          item.status === 'low' ? 'bg-yellow-50' : 
+                          'bg-white'
+                        }`}
+                      >
+                        <td className="px-4 py-3 font-medium text-slate-800">{item.parameter}</td>
+                        <td className="px-4 py-3 text-center font-bold text-slate-900">{item.value}</td>
+                        <td className="px-4 py-3 text-center text-slate-600">{item.unit}</td>
+                        <td className="px-4 py-3 text-center text-slate-600">{item.range}</td>
+                        <td className="px-4 py-3 text-center">
+                          {item.status === 'normal' && (
+                            <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">
+                              NORMAL
+                            </span>
+                          )}
+                          {item.status === 'high' && (
+                            <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-bold flex items-center justify-center gap-1">
+                              ↑ HIGH
+                            </span>
+                          )}
+                          {item.status === 'low' && (
+                            <span className="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-xs font-bold flex items-center justify-center gap-1">
+                              ↓ LOW
+                            </span>
+                          )}
+                          {item.status === 'pending' && (
+                            <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-xs font-bold">
+                              PENDING
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Footer Notes */}
+              <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+                <p className="text-xs text-slate-600">
+                  <span className="font-bold">Note:</span> Abnormal values are highlighted. 
+                  Please correlate with clinical findings. For urgent concerns, contact the on-call physician immediately.
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 justify-end pt-2">
+                <Button variant="outline" onClick={() => toast.success('Results printed')}>
+                  Print Results
+                </Button>
+                <Button onClick={() => setViewingResult(null)}>
+                  Close
+                </Button>
+              </div>
+            </div>
             </div>
           </div>
         </div>
@@ -1247,10 +1248,10 @@ function LabOrders({ items, onAdd, onRemove }: { items: any[]; onAdd: (v: any) =
   );
 }
 
-const IMAGING_TYPES = ["CXR", "CT Brain", "CT Abdomen", "US Abdomen", "US DVT", "KUB", "MRI Brain"];
+const IMAGING_TYPES = ["CXR","CT Brain","CT Abdomen","US Abdomen","US DVT","KUB","MRI Brain"]; 
 const BODY_PARTS = [
-  "Head", "Neck", "Chest", "Abdomen", "Pelvis",
-  "Left Shoulder", "Right Shoulder", "Left Arm", "Right Arm",
+  "Head", "Neck", "Chest", "Abdomen", "Pelvis", 
+  "Left Shoulder", "Right Shoulder", "Left Arm", "Right Arm", 
   "Left Forearm", "Right Forearm", "Left Hand", "Right Hand",
   "Left Hip", "Right Hip", "Left Thigh", "Right Thigh",
   "Left Leg", "Right Leg", "Left Knee", "Right Knee",
@@ -1259,7 +1260,7 @@ const BODY_PARTS = [
   "Other"
 ];
 
-function ImagingOrders({ items, onAdd, onRemove }: { items: any[]; onAdd: (v: any) => void; onRemove: (i: number) => void }) {
+function ImagingOrders({ items, onAdd, onRemove }:{ items:any[]; onAdd:(v:any)=>void; onRemove:(i:number)=>void }){
   const [modality, setModality] = useState("CXR");
   const [bodyPart, setBodyPart] = useState("Chest");
   const [priority, setPriority] = useState("Routine");
@@ -1269,7 +1270,7 @@ function ImagingOrders({ items, onAdd, onRemove }: { items: any[]; onAdd: (v: an
   const handleSend = (idx: number, imagingType: string) => {
     setItemStatuses(prev => ({ ...prev, [idx]: 'sent' }));
     toast.success(`Imaging request sent: ${imagingType}`);
-
+    
     // Simulate imaging dept receiving the request after 3 seconds
     setTimeout(() => {
       setItemStatuses(prev => ({ ...prev, [idx]: 'received' }));
@@ -1330,80 +1331,80 @@ function ImagingOrders({ items, onAdd, onRemove }: { items: any[]; onAdd: (v: an
   return (
     <div className="grid gap-4 bg-purple-50/30 rounded-xl p-4 border-2 border-purple-200">
       <div className="flex items-center gap-2 bg-purple-600 text-white rounded-lg px-3 py-2 shadow-md">
-        <Scan className="h-5 w-5" />
+        <Scan className="h-5 w-5"/>
         <span className="font-bold text-base">IMAGING</span>
       </div>
       <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-        <div className="grid gap-3">
+    <div className="grid gap-3">
           <div className="grid md:grid-cols-3 gap-3">
             <div>
               <label className="text-xs font-semibold text-slate-700 mb-1.5 block">Imaging Type</label>
-              <select className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200" value={modality} onChange={(e) => setModality(e.target.value)}>
-                {IMAGING_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
+              <select className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200" value={modality} onChange={(e)=>setModality(e.target.value)}>
+          {IMAGING_TYPES.map(t=> <option key={t} value={t}>{t}</option>)}
+        </select>
             </div>
             <div>
               <label className="text-xs font-semibold text-slate-700 mb-1.5 block">Body Part</label>
-              <select className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200" value={bodyPart} onChange={(e) => setBodyPart(e.target.value)}>
-                {BODY_PARTS.map(bp => <option key={bp} value={bp}>{bp}</option>)}
-              </select>
-            </div>
-            <div>
+              <select className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200" value={bodyPart} onChange={(e)=>setBodyPart(e.target.value)}>
+          {BODY_PARTS.map(bp=> <option key={bp} value={bp}>{bp}</option>)}
+        </select>
+      </div>
+      <div>
               <label className="text-xs font-semibold text-slate-700 mb-1.5 block">Priority</label>
-              <select className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200" value={priority} onChange={(e) => setPriority(e.target.value)}>
-                {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
-            </div>
+              <select className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200" value={priority} onChange={(e)=>setPriority(e.target.value)}>
+          {PRIORITIES.map(p=> <option key={p} value={p}>{p}</option>)}
+        </select>
+      </div>
           </div>
-          <Button type="button" onClick={() => { if (!modality) { toast.error("Select imaging type"); return; } onAdd({ modality, bodyPart, priority }); }} className="h-8 px-3 bg-purple-600 hover:bg-purple-700 text-white font-medium text-xs shadow-md w-auto ml-auto">
-            <Plus className="h-3.5 w-3.5 mr-1" />Add Imaging
+          <Button type="button" onClick={()=>{ if(!modality){ toast.error("Select imaging type"); return;} onAdd({ modality, bodyPart, priority }); }} className="h-8 px-3 bg-purple-600 hover:bg-purple-700 text-white font-medium text-xs shadow-md w-auto ml-auto">
+            <Plus className="h-3.5 w-3.5 mr-1"/>Add Imaging
           </Button>
         </div>
       </div>
-      {items.length > 0 && (
+      {items.length>0 && (
         <ul className="grid gap-2">
-          {items.map((im, idx) => {
+          {items.map((im, idx)=> {
             const status = itemStatuses[idx] || 'draft';
             const isSent = status === 'sent';
             const isReceived = status === 'received';
-
+            
             return (
               <li key={idx} className="flex items-center justify-between bg-white border rounded-lg p-3 text-sm hover:bg-slate-50 transition">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium">{im.modality}{im.bodyPart ? ` (${im.bodyPart})` : ''} <span className="text-slate-500">• {im.priority}</span></span>
+                  <span className="font-medium">{im.modality}{im.bodyPart?` (${im.bodyPart})`:''} <span className="text-slate-500">• {im.priority}</span></span>
                   {isSent && !isReceived && <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">Sent</span>}
                   {isReceived && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Received</span>}
                 </div>
                 <div className="flex items-center gap-2">
                   {!isSent && !isReceived && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleSend(idx, im.modality)}
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={()=> handleSend(idx, im.modality)} 
                       className="text-purple-600 hover:text-purple-700 hover:bg-purple-50 text-xs h-7 px-2"
                     >
                       Send
                     </Button>
                   )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setViewingResult(generateMockImagingResults(im.modality, im.bodyPart))}
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={()=> setViewingResult(generateMockImagingResults(im.modality, im.bodyPart))} 
                     className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 text-xs h-7 px-2"
                   >
                     View Result
                   </Button>
                   {!isReceived && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={()=> {
                         if (isSent) {
                           handleCancel(idx, im.modality);
                         } else {
                           onRemove(idx);
                         }
-                      }}
+                      }} 
                       className={`text-xs h-7 px-2 ${isSent ? 'text-orange-600 hover:text-orange-700 hover:bg-orange-50' : 'text-red-600 hover:text-red-700 hover:bg-red-50'}`}
                     >
                       {isSent ? 'Cancel' : 'Remove'}
@@ -1413,7 +1414,7 @@ function ImagingOrders({ items, onAdd, onRemove }: { items: any[]; onAdd: (v: an
                     <span className="text-xs text-slate-400 px-2">Cannot cancel</span>
                   )}
                 </div>
-              </li>
+            </li>
             );
           })}
         </ul>
@@ -1426,71 +1427,71 @@ function ImagingOrders({ items, onAdd, onRemove }: { items: any[]; onAdd: (v: an
             <div className="p-6">
               <div className="mb-4">
                 <h2 className="text-2xl font-bold text-purple-700 flex items-center gap-2">
-                  <Scan className="h-6 w-6" />
+                  <Scan className="h-6 w-6"/>
                   {viewingResult?.imagingType || 'Imaging Results'}
                 </h2>
               </div>
-
-              <div className="space-y-4">
-                {/* Header Info */}
-                <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-4">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="font-semibold text-slate-600">Report Date:</span>
-                      <span className="ml-2 text-slate-800">{viewingResult.date}</span>
-                    </div>
-                    <div>
-                      <span className="font-semibold text-slate-600">Status:</span>
-                      <span className="ml-2 bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">Reported</span>
-                    </div>
+              
+            <div className="space-y-4">
+              {/* Header Info */}
+              <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="font-semibold text-slate-600">Report Date:</span>
+                    <span className="ml-2 text-slate-800">{viewingResult.date}</span>
                   </div>
-                </div>
-
-                {/* Image Placeholder */}
-                <div className="bg-slate-100 border-2 border-slate-300 rounded-xl p-8 flex items-center justify-center min-h-[200px]">
-                  <div className="text-center">
-                    <div className="text-6xl mb-4">{viewingResult.image}</div>
-                    <p className="text-slate-600 text-sm">Image viewer would be displayed here</p>
+                  <div>
+                    <span className="font-semibold text-slate-600">Status:</span>
+                    <span className="ml-2 bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">Reported</span>
                   </div>
-                </div>
-
-                {/* Findings Section */}
-                <div className="bg-white border-2 border-slate-200 rounded-xl p-6">
-                  <h3 className="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2">
-                    <ClipboardList className="h-5 w-5 text-purple-600" />
-                    Findings
-                  </h3>
-                  <p className="text-slate-700 leading-relaxed">{viewingResult.findings}</p>
-                </div>
-
-                {/* Impression Section */}
-                <div className="bg-purple-50 border-2 border-purple-300 rounded-xl p-6">
-                  <h3 className="text-lg font-bold text-purple-800 mb-3">Impression</h3>
-                  <p className="text-purple-900 font-medium">{viewingResult.impression}</p>
-                </div>
-
-                {/* Radiologist Info */}
-                <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
-                  <p className="text-xs text-slate-600">
-                    <span className="font-bold">Reported by:</span> Dr. Sarah Johnson, Consultant Radiologist
-                    <br />
-                    <span className="font-bold">Verified:</span> {new Date().toLocaleDateString()}
-                  </p>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex gap-3 justify-end pt-2">
-                  <Button variant="outline" onClick={() => toast.success('Report printed')}>
-                    Print Report
-                  </Button>
-                  <Button variant="outline" onClick={() => toast.success('Images downloaded')}>
-                    Download Images
-                  </Button>
-                  <Button onClick={() => setViewingResult(null)}>
-                    Close
-                  </Button>
                 </div>
               </div>
+
+              {/* Image Placeholder */}
+              <div className="bg-slate-100 border-2 border-slate-300 rounded-xl p-8 flex items-center justify-center min-h-[200px]">
+                <div className="text-center">
+                  <div className="text-6xl mb-4">{viewingResult.image}</div>
+                  <p className="text-slate-600 text-sm">Image viewer would be displayed here</p>
+                </div>
+              </div>
+
+              {/* Findings Section */}
+              <div className="bg-white border-2 border-slate-200 rounded-xl p-6">
+                <h3 className="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2">
+                  <ClipboardList className="h-5 w-5 text-purple-600"/>
+                  Findings
+                </h3>
+                <p className="text-slate-700 leading-relaxed">{viewingResult.findings}</p>
+              </div>
+
+              {/* Impression Section */}
+              <div className="bg-purple-50 border-2 border-purple-300 rounded-xl p-6">
+                <h3 className="text-lg font-bold text-purple-800 mb-3">Impression</h3>
+                <p className="text-purple-900 font-medium">{viewingResult.impression}</p>
+              </div>
+
+              {/* Radiologist Info */}
+              <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+                <p className="text-xs text-slate-600">
+                  <span className="font-bold">Reported by:</span> Dr. Sarah Johnson, Consultant Radiologist
+                  <br />
+                  <span className="font-bold">Verified:</span> {new Date().toLocaleDateString()}
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 justify-end pt-2">
+                <Button variant="outline" onClick={() => toast.success('Report printed')}>
+                  Print Report
+                </Button>
+                <Button variant="outline" onClick={() => toast.success('Images downloaded')}>
+                  Download Images
+                </Button>
+                <Button onClick={() => setViewingResult(null)}>
+                  Close
+                </Button>
+              </div>
+            </div>
             </div>
           </div>
         </div>
@@ -1500,24 +1501,24 @@ function ImagingOrders({ items, onAdd, onRemove }: { items: any[]; onAdd: (v: an
 }
 
 function MedicalHistory({ visits }: { visits: any[] }) {
-  const sorted = [...(visits || [])].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const sorted = [...(visits||[])].sort((a,b)=> new Date(b.date).getTime() - new Date(a.date).getTime());
   const [viewingVisit, setViewingVisit] = useState<any>(null);
 
   return (
     <div className="grid gap-3">
       {sorted.length === 0 && <div className="text-sm text-slate-500">No previous visits recorded.</div>}
-      {sorted.map((v, i) => (
+      {sorted.map((v, i)=> (
         <div key={i} onClick={() => setViewingVisit(v)} className="cursor-pointer">
           <Card className="rounded-2xl hover:shadow-lg transition-all hover:border-blue-300">
-            <CardContent className="p-4 grid gap-1">
+          <CardContent className="p-4 grid gap-1">
               <div className="text-sm font-medium text-blue-700">{new Date(v.date).toLocaleString()}</div>
-              <div className="text-sm"><span className="font-medium">Complaint:</span> {v.complaint}</div>
-              <div className="text-sm"><span className="font-medium">Plan:</span> {v.plan}</div>
-              <div className="text-sm"><span className="font-medium">Tests:</span> {(v.tests || []).join(', ') || '-'} </div>
-              <div className="text-sm"><span className="font-medium">Medication:</span> {(v.meds || []).join(', ') || '-'} </div>
+            <div className="text-sm"><span className="font-medium">Complaint:</span> {v.complaint}</div>
+            <div className="text-sm"><span className="font-medium">Plan:</span> {v.plan}</div>
+            <div className="text-sm"><span className="font-medium">Tests:</span> {(v.tests||[]).join(', ') || '-'} </div>
+            <div className="text-sm"><span className="font-medium">Medication:</span> {(v.meds||[]).join(', ') || '-'} </div>
               <div className="text-xs text-blue-600 mt-2 font-medium">Click to view full assessment →</div>
-            </CardContent>
-          </Card>
+          </CardContent>
+        </Card>
         </div>
       ))}
 
@@ -1529,7 +1530,7 @@ function MedicalHistory({ visits }: { visits: any[] }) {
               {/* Header */}
               <div className="mb-4 pb-3 border-b-2 border-slate-300 bg-blue-600 text-white rounded-lg px-4 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <History className="h-6 w-6" />
+                  <History className="h-6 w-6"/>
                   <div>
                     <h2 className="text-xl font-bold">Previous Visit - Full Assessment</h2>
                     <p className="text-sm text-blue-100">{new Date(viewingVisit.date).toLocaleString()}</p>
@@ -1548,12 +1549,12 @@ function MedicalHistory({ visits }: { visits: any[] }) {
                   <Card className="rounded-lg shadow-sm border-2 border-slate-200">
                     <CardContent className="p-3">
                       <div className="flex items-center gap-2 mb-2">
-                        <ClipboardList className="h-5 w-5 text-blue-600" />
+                        <ClipboardList className="h-5 w-5 text-blue-600"/>
                         <h3 className="font-bold text-slate-800">Patient Complaint</h3>
                       </div>
-                      <Textarea
-                        value={viewingVisit.complaint || 'Not recorded'}
-                        readOnly
+                      <Textarea 
+                        value={viewingVisit.complaint || 'Not recorded'} 
+                        readOnly 
                         className="min-h-[60px] bg-slate-100 cursor-not-allowed resize-none"
                       />
                     </CardContent>
@@ -1564,34 +1565,34 @@ function MedicalHistory({ visits }: { visits: any[] }) {
                     <CardContent className="p-3">
                       <div className="flex items-center gap-2 mb-3">
                         <div className="h-6 w-6 rounded-md bg-red-600 text-white grid place-items-center">
-                          <Stethoscope className="h-4 w-4" />
+                          <Stethoscope className="h-4 w-4"/>
                         </div>
                         <h3 className="font-bold text-red-900">Vital Signs + Pain Score + Weight</h3>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <div>
                           <label className="text-xs font-semibold text-slate-700 block mb-1">BP (mmHg)</label>
-                          <Input value={viewingVisit.assessment?.vitals?.bp || '-'} readOnly className="h-9 bg-slate-100 cursor-not-allowed" />
+                          <Input value={viewingVisit.assessment?.vitals?.bp || '-'} readOnly className="h-9 bg-slate-100 cursor-not-allowed"/>
                         </div>
                         <div>
                           <label className="text-xs font-semibold text-slate-700 block mb-1">HR (bpm)</label>
-                          <Input value={viewingVisit.assessment?.vitals?.hr || '-'} readOnly className="h-9 bg-slate-100 cursor-not-allowed" />
+                          <Input value={viewingVisit.assessment?.vitals?.hr || '-'} readOnly className="h-9 bg-slate-100 cursor-not-allowed"/>
                         </div>
                         <div>
                           <label className="text-xs font-semibold text-slate-700 block mb-1">RR (/min)</label>
-                          <Input value={viewingVisit.assessment?.vitals?.rr || '-'} readOnly className="h-9 bg-slate-100 cursor-not-allowed" />
+                          <Input value={viewingVisit.assessment?.vitals?.rr || '-'} readOnly className="h-9 bg-slate-100 cursor-not-allowed"/>
                         </div>
                         <div>
                           <label className="text-xs font-semibold text-slate-700 block mb-1">Temp (°C)</label>
-                          <Input value={viewingVisit.assessment?.vitals?.temp || '-'} readOnly className="h-9 bg-slate-100 cursor-not-allowed" />
+                          <Input value={viewingVisit.assessment?.vitals?.temp || '-'} readOnly className="h-9 bg-slate-100 cursor-not-allowed"/>
                         </div>
                         <div>
                           <label className="text-xs font-semibold text-slate-700 block mb-1">SpO2 (%)</label>
-                          <Input value={viewingVisit.assessment?.vitals?.spo2 || '-'} readOnly className="h-9 bg-slate-100 cursor-not-allowed" />
+                          <Input value={viewingVisit.assessment?.vitals?.spo2 || '-'} readOnly className="h-9 bg-slate-100 cursor-not-allowed"/>
                         </div>
                         <div>
                           <label className="text-xs font-semibold text-slate-700 block mb-1">Pain (0-10)</label>
-                          <Input value={viewingVisit.assessment?.vitals?.pain || '-'} readOnly className="h-9 bg-slate-100 cursor-not-allowed" />
+                          <Input value={viewingVisit.assessment?.vitals?.pain || '-'} readOnly className="h-9 bg-slate-100 cursor-not-allowed"/>
                         </div>
                       </div>
                     </CardContent>
@@ -1601,7 +1602,7 @@ function MedicalHistory({ visits }: { visits: any[] }) {
                   <Card className="rounded-lg shadow-sm border-2 border-slate-200">
                     <CardContent className="p-3">
                       <div className="flex items-center gap-2 mb-2">
-                        <Stethoscope className="h-5 w-5 text-purple-600" />
+                        <Stethoscope className="h-5 w-5 text-purple-600"/>
                         <h3 className="font-bold text-slate-800">Physical Examination</h3>
                       </div>
                       {viewingVisit.assessment?.selectedRegions && viewingVisit.assessment.selectedRegions.length > 0 ? (
@@ -1609,9 +1610,9 @@ function MedicalHistory({ visits }: { visits: any[] }) {
                           <strong>Selected Regions:</strong> {viewingVisit.assessment.selectedRegions.join(', ')}
                         </div>
                       ) : null}
-                      <Textarea
-                        value={viewingVisit.assessment?.examNotes || 'No examination notes recorded'}
-                        readOnly
+                      <Textarea 
+                        value={viewingVisit.assessment?.examNotes || 'No examination notes recorded'} 
+                        readOnly 
                         className="min-h-[100px] bg-slate-100 cursor-not-allowed resize-none"
                       />
                     </CardContent>
@@ -1621,12 +1622,12 @@ function MedicalHistory({ visits }: { visits: any[] }) {
                   <Card className="rounded-lg shadow-sm border-2 border-green-200 bg-green-50/30">
                     <CardContent className="p-3">
                       <div className="flex items-center gap-2 mb-2">
-                        <ClipboardList className="h-5 w-5 text-green-600" />
+                        <ClipboardList className="h-5 w-5 text-green-600"/>
                         <h3 className="font-bold text-green-900">Management Plan</h3>
                       </div>
-                      <Textarea
-                        value={viewingVisit.plan || 'Not recorded'}
-                        readOnly
+                      <Textarea 
+                        value={viewingVisit.plan || 'Not recorded'} 
+                        readOnly 
                         className="min-h-[80px] bg-slate-100 cursor-not-allowed resize-none"
                       />
                     </CardContent>
@@ -1638,7 +1639,7 @@ function MedicalHistory({ visits }: { visits: any[] }) {
                   {/* Medication Orders */}
                   <div className="bg-blue-50/30 rounded-lg p-3 border-2 border-blue-200">
                     <div className="flex items-center gap-2 bg-blue-600 text-white rounded-lg px-3 py-2 mb-3">
-                      <Pill className="h-5 w-5" />
+                      <Pill className="h-5 w-5"/>
                       <span className="font-bold text-base">MEDICATION</span>
                     </div>
                     {viewingVisit.assessment?.orders?.meds && viewingVisit.assessment.orders.meds.length > 0 ? (
@@ -1660,7 +1661,7 @@ function MedicalHistory({ visits }: { visits: any[] }) {
                   {/* Laboratory Orders */}
                   <div className="bg-emerald-50/30 rounded-lg p-3 border-2 border-emerald-200">
                     <div className="flex items-center gap-2 bg-emerald-600 text-white rounded-lg px-3 py-2 mb-3">
-                      <FlaskConical className="h-5 w-5" />
+                      <FlaskConical className="h-5 w-5"/>
                       <span className="font-bold text-base">LABORATORY</span>
                     </div>
                     {viewingVisit.assessment?.orders?.labs && viewingVisit.assessment.orders.labs.length > 0 ? (
@@ -1680,7 +1681,7 @@ function MedicalHistory({ visits }: { visits: any[] }) {
                   {/* Imaging Orders */}
                   <div className="bg-purple-50/30 rounded-lg p-3 border-2 border-purple-200">
                     <div className="flex items-center gap-2 bg-purple-600 text-white rounded-lg px-3 py-2 mb-3">
-                      <Scan className="h-5 w-5" />
+                      <Scan className="h-5 w-5"/>
                       <span className="font-bold text-base">IMAGING</span>
                     </div>
                     {viewingVisit.assessment?.orders?.imaging && viewingVisit.assessment.orders.imaging.length > 0 ? (
@@ -1701,15 +1702,16 @@ function MedicalHistory({ visits }: { visits: any[] }) {
                   {/* Disposition Summary */}
                   <div className="rounded-lg shadow-md border-2 border-green-200 bg-gradient-to-br from-green-50/30 to-white">
                     <div className="bg-green-600 text-white rounded-lg px-3 py-2 mb-3 flex items-center gap-2">
-                      <BedDouble className="h-5 w-5" />
+                      <BedDouble className="h-5 w-5"/>
                       <span className="font-bold text-base">DISPOSITION SUMMARY</span>
                     </div>
                     <div className="p-3">
                       {viewingVisit.disposition ? (
-                        <div className={`p-2 rounded-lg font-bold text-center ${viewingVisit.disposition === 'admit' ? 'bg-orange-100 text-orange-800' :
+                        <div className={`p-2 rounded-lg font-bold text-center ${
+                          viewingVisit.disposition === 'admit' ? 'bg-orange-100 text-orange-800' :
                           viewingVisit.disposition === 'discharge' ? 'bg-green-100 text-green-800' :
-                            'bg-blue-100 text-blue-800'
-                          }`}>
+                          'bg-blue-100 text-blue-800'
+                        }`}>
                           {viewingVisit.disposition.toUpperCase()}
                         </div>
                       ) : (
@@ -1734,7 +1736,7 @@ function MedicalHistory({ visits }: { visits: any[] }) {
   );
 }
 
-function PersonalHistory({ data, onChange }: { data: any; onChange: (d: any) => void }) {
+function PersonalHistory({ data, onChange }: { data:any; onChange:(d:any)=>void }){
   const [illnesses, setIllnesses] = useState<string[]>(data?.illnesses || []);
   const [background, setBackground] = useState<string>(data?.background || "");
   const [surgeries, setSurgeries] = useState<string[]>(data?.surgeries || []);
@@ -1742,7 +1744,7 @@ function PersonalHistory({ data, onChange }: { data: any; onChange: (d: any) => 
   const [allergies, setAllergies] = useState<string[]>(data?.allergies || []);
 
   function add(setter: any, arr: string[], value: string) {
-    if (!value) return; setter([...arr, value]);
+    if(!value) return; setter([...arr, value]);
   }
 
   function save() {
@@ -1755,58 +1757,58 @@ function PersonalHistory({ data, onChange }: { data: any; onChange: (d: any) => 
       <Card className="rounded-2xl">
         <CardContent className="p-4 grid gap-2">
           <Label>Patient Illnesses</Label>
-          <TagEditor items={illnesses} onAdd={(v) => add(setIllnesses, illnesses, v)} onRemove={(i) => setIllnesses(illnesses.filter((_, idx) => idx !== i))} placeholder="e.g., Diabetes, Hypertension" />
+          <TagEditor items={illnesses} onAdd={(v)=>add(setIllnesses, illnesses, v)} onRemove={(i)=>setIllnesses(illnesses.filter((_,idx)=>idx!==i))} placeholder="e.g., Diabetes, Hypertension" />
         </CardContent>
       </Card>
 
       <Card className="rounded-2xl">
         <CardContent className="p-4 grid gap-2">
           <Label>Patient Background</Label>
-          <Textarea value={background} onChange={(e) => setBackground(e.target.value)} placeholder="Occupation, family, social background…" />
+          <Textarea value={background} onChange={(e)=>setBackground(e.target.value)} placeholder="Occupation, family, social background…" />
         </CardContent>
       </Card>
 
       <Card className="rounded-2xl">
         <CardContent className="p-4 grid gap-2">
           <Label>Patient Surgeries</Label>
-          <TagEditor items={surgeries} onAdd={(v) => add(setSurgeries, surgeries, v)} onRemove={(i) => setSurgeries(surgeries.filter((_, idx) => idx !== i))} placeholder="e.g., Appendectomy 2018" />
+          <TagEditor items={surgeries} onAdd={(v)=>add(setSurgeries, surgeries, v)} onRemove={(i)=>setSurgeries(surgeries.filter((_,idx)=>idx!==i))} placeholder="e.g., Appendectomy 2018" />
         </CardContent>
       </Card>
 
       <Card className="rounded-2xl">
         <CardContent className="p-4 grid gap-2">
           <Label>Patient Lifestyle</Label>
-          <Textarea value={lifestyle} onChange={(e) => setLifestyle(e.target.value)} placeholder="Diet, exercise, smoking, alcohol, sleep…" />
+          <Textarea value={lifestyle} onChange={(e)=>setLifestyle(e.target.value)} placeholder="Diet, exercise, smoking, alcohol, sleep…" />
         </CardContent>
       </Card>
 
       <Card className="rounded-2xl md:col-span-2">
         <CardContent className="p-4 grid gap-2">
           <Label>Allergies</Label>
-          <TagEditor items={allergies} onAdd={(v) => setAllergies([...(allergies || []), v])} onRemove={(i) => setAllergies(allergies.filter((_, idx) => idx !== i))} placeholder="e.g., Penicillin, NSAIDs" />
+          <TagEditor items={allergies} onAdd={(v)=>setAllergies([...(allergies||[]), v])} onRemove={(i)=>setAllergies(allergies.filter((_,idx)=>idx!==i))} placeholder="e.g., Penicillin, NSAIDs" />
         </CardContent>
       </Card>
 
       <div className="md:col-span-2 flex justify-end">
-        <Button onClick={save} className="gap-2"><CheckCircle2 className="h-4 w-4" /> Save Personal History</Button>
+        <Button onClick={save} className="gap-2"><CheckCircle2 className="h-4 w-4"/> Save Personal History</Button>
       </div>
     </div>
   );
 }
 
-function TagEditor({ items, onAdd, onRemove, placeholder }: { items: string[]; onAdd: (v: string) => void; onRemove: (i: number) => void; placeholder: string; }) {
+function TagEditor({ items, onAdd, onRemove, placeholder }: { items:string[]; onAdd:(v:string)=>void; onRemove:(i:number)=>void; placeholder:string; }){
   const [value, setValue] = useState("");
   return (
     <div className="grid gap-2">
       <div className="flex gap-2">
-        <Input value={value} onChange={(e) => setValue(e.target.value)} placeholder={placeholder} onKeyDown={(e) => { if (e.key === 'Enter') { onAdd(value.trim()); setValue(""); } }} />
-        <Button type="button" onClick={() => { onAdd(value.trim()); setValue(""); }}>Add</Button>
+        <Input value={value} onChange={(e)=>setValue(e.target.value)} placeholder={placeholder} onKeyDown={(e)=>{ if(e.key==='Enter'){ onAdd(value.trim()); setValue(""); }}} />
+        <Button type="button" onClick={()=>{ onAdd(value.trim()); setValue(""); }}>Add</Button>
       </div>
       <div className="flex flex-wrap gap-2">
-        {items.map((it, idx) => (
+        {items.map((it, idx)=> (
           <UIBadge key={idx} className="bg-slate-100 text-slate-900 px-3 py-1 rounded-full flex items-center gap-2">
             {it}
-            <button onClick={() => onRemove(idx)} className="text-xs opacity-60 hover:opacity-100">×</button>
+            <button onClick={()=>onRemove(idx)} className="text-xs opacity-60 hover:opacity-100">×</button>
           </UIBadge>
         ))}
       </div>
@@ -1814,9 +1816,9 @@ function TagEditor({ items, onAdd, onRemove, placeholder }: { items: string[]; o
   );
 }
 
-function BodyMap({ selected, onToggle, findings, onFindingChange }: {
-  selected: string[];
-  onToggle: (r: string) => void;
+function BodyMap({ selected, onToggle, findings, onFindingChange }: { 
+  selected: string[]; 
+  onToggle: (r:string)=>void;
   findings: Record<string, string>;
   onFindingChange: (region: string, finding: string) => void;
 }) {
@@ -1875,31 +1877,28 @@ function BodyMap({ selected, onToggle, findings, onFindingChange }: {
       {/* Clickable Body Diagram */}
       <div className="p-6 bg-white rounded-xl border-2 border-slate-200">
         <div className="relative max-w-3xl mx-auto cursor-pointer" onClick={handleImageClick}>
-          <img
-            src="https://www.mygcphysio.com.au/wp-content/uploads/2020/09/Body-chart.png"
-            srcSet="https://www.mygcphysio.com.au/wp-content/uploads/2020/09/Body-chart.png 1x"
-            alt="Body Chart - Click to select regions"
-            className="w-full h-auto select-none"
+          <img 
+            src="https://www.mygcphysio.com.au/wp-content/uploads/2020/09/Body-chart.png" 
+            alt="Body Chart - Click to select regions" 
+            className="w-full h-auto select-none" 
             draggable="false"
-            loading="lazy"
-            decoding="async"
           />
           {/* Professional gradient overlay for selected regions */}
           <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute top-0 left-0 w-full h-full pointer-events-none">
             <defs>
               <linearGradient id="medicalBlue" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" style={{ stopColor: '#3b82f6', stopOpacity: 0.6 }} />
-                <stop offset="100%" style={{ stopColor: '#1d4ed8', stopOpacity: 0.4 }} />
+                <stop offset="0%" style={{stopColor: '#3b82f6', stopOpacity: 0.6}} />
+                <stop offset="100%" style={{stopColor: '#1d4ed8', stopOpacity: 0.4}} />
               </linearGradient>
               <filter id="glow">
-                <feGaussianBlur stdDeviation="0.3" result="coloredBlur" />
+                <feGaussianBlur stdDeviation="0.3" result="coloredBlur"/>
                 <feMerge>
-                  <feMergeNode in="coloredBlur" />
-                  <feMergeNode in="SourceGraphic" />
+                  <feMergeNode in="coloredBlur"/>
+                  <feMergeNode in="SourceGraphic"/>
                 </feMerge>
               </filter>
             </defs>
-
+            
             {/* Front view highlights */}
             {selected.includes("Head") && <ellipse cx="25" cy="10.5" rx="8" ry="4.5" fill="url(#medicalBlue)" filter="url(#glow)" />}
             {selected.includes("Neck") && <rect x="20" y="15" width="10" height="4" rx="1" fill="url(#medicalBlue)" filter="url(#glow)" />}
@@ -1918,7 +1917,7 @@ function BodyMap({ selected, onToggle, findings, onFindingChange }: {
             {selected.includes("Right Leg") && <rect x="26" y="77" width="8" height="18" rx="1.5" fill="url(#medicalBlue)" filter="url(#glow)" />}
             {selected.includes("Left Foot") && <ellipse cx="19.5" cy="97.5" rx="5.5" ry="2.5" fill="url(#medicalBlue)" filter="url(#glow)" />}
             {selected.includes("Right Foot") && <ellipse cx="30.5" cy="97.5" rx="5.5" ry="2.5" fill="url(#medicalBlue)" filter="url(#glow)" />}
-
+            
             {/* Back view highlights */}
             {selected.includes("Head") && <ellipse cx="75" cy="10.5" rx="8" ry="4.5" fill="url(#medicalBlue)" filter="url(#glow)" />}
             {selected.includes("Neck") && <rect x="70" y="15" width="10" height="4" rx="1" fill="url(#medicalBlue)" filter="url(#glow)" />}
@@ -1940,7 +1939,7 @@ function BodyMap({ selected, onToggle, findings, onFindingChange }: {
           <div className="absolute top-2 left-1/4 -translate-x-1/2 text-xs font-bold text-slate-600 uppercase">Front View</div>
           <div className="absolute top-2 right-1/4 translate-x-1/2 text-xs font-bold text-slate-600 uppercase">Back View</div>
         </div>
-      </div>
+        </div>
 
       {/* Selected Regions with Findings */}
       {selected.length > 0 && (
@@ -1948,7 +1947,7 @@ function BodyMap({ selected, onToggle, findings, onFindingChange }: {
           <div className="flex items-center gap-2 mb-4">
             <div className="h-6 w-6 rounded-md bg-blue-600 text-white grid place-items-center text-xs font-bold">{selected.length}</div>
             <span className="font-bold text-blue-900">Selected Regions & Findings:</span>
-          </div>
+        </div>
           <div className="grid gap-3">
             {selected.map((region) => (
               <div key={region} className="bg-white rounded-lg border-2 border-blue-200 p-3">
@@ -1962,19 +1961,19 @@ function BodyMap({ selected, onToggle, findings, onFindingChange }: {
                         title="Remove region"
                       >
                         ×
-                      </button>
-                    </div>
+          </button>
+        </div>
                     <Input
                       placeholder="Enter findings (e.g., swelling, bruising, tenderness, deformity...)"
                       value={findings[region] || ""}
                       onChange={(e) => onFindingChange(region, e.target.value)}
                       className="w-full border-slate-300 focus:border-blue-500 focus:ring-blue-500"
                     />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+        </div>
+        </div>
+        </div>
+        ))}
+      </div>
         </div>
       )}
     </div>

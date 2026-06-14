@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { AlertTriangle, Package, Search, ThermometerSun } from 'lucide-react'
-import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
+import { useAuthStore } from '@/stores/authStore'
 import { Table, Spinner, Input, Badge } from '@/components/ui'
 import { getStockLevelSummary } from '@/services/pharmacy/inventoryService'
 import type { StockLevelSummary, InventoryFilter } from '@/types/pharmacy'
@@ -9,7 +9,6 @@ import type { ApiResponse, Column } from '@/types'
 export const InventoryOverviewPage: React.FC = () => {
   const { user } = useAuthStore()
   const hospitalId = user?.hospital_id
-  const isSessionReady = useIsSessionReady()
 
   const [items, setItems] = useState<StockLevelSummary[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -64,7 +63,7 @@ export const InventoryOverviewPage: React.FC = () => {
   ]
 
   useEffect(() => {
-    if (!isSessionReady || !hospitalId) return
+    if (!hospitalId) return
 
     const load = async () => {
       setIsLoading(true)
@@ -93,7 +92,7 @@ export const InventoryOverviewPage: React.FC = () => {
     }
 
     void load()
-  }, [isSessionReady, hospitalId, search])
+  }, [hospitalId, search])
 
   const renderStatusBadge = (status: StockLevelSummary['status']) => {
     const map: Record<
@@ -116,16 +115,16 @@ export const InventoryOverviewPage: React.FC = () => {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Package className="w-6 h-6 text-teal-600" />
-            Pharmacy Inventory
-          </h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Real-time overview of drug and non-drug stock levels for your hospital.
-          </p>
+      <div className="flex-1">
+        <div className="flex items-center gap-3 mb-1">
+          <div className="p-2.5 bg-teal-600 rounded-xl text-white shadow-lg shadow-teal-200">
+            <Package className="w-6 h-6" />
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Pharmacy Inventory</h1>
         </div>
+        <p className="text-gray-500 font-medium ml-14">
+          Real-time overview of drug and non-drug stock levels for your hospital
+        </p>
       </div>
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

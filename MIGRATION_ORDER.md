@@ -171,9 +171,6 @@
 
 -- 13. Add hospital_id to system_backups
 \i supabase/migrations/018_add_hospital_id_to_system_backups.sql
-
--- 14. Allow Optional Manual PO Fields (Drop Constraints)
-\i supabase/migrations/051_allow_optional_manual_po_fields.sql
 ```
 
 ## Verification

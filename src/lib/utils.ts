@@ -38,11 +38,11 @@ export function formatDateTime(date: Date | string): string {
 /**
  * Format currency
  */
-export function formatCurrency(amount: number, currency = 'MYR'): string {
-  return new Intl.NumberFormat('en-MY', {
-    style: 'currency',
-    currency,
-  }).format(amount)
+export function formatCurrency(amount: number): string {
+  return `RM ${new Intl.NumberFormat('en-MY', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount)}`
 }
 
 /**

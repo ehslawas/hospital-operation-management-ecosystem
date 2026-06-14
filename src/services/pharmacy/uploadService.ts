@@ -14,7 +14,7 @@ export interface UploadedFile {
   file_hash: string
   file_size: number
   file_type: 'excel' | 'pdf' | 'image'
-  catalog_type: 'drug' | 'non_drug' | 'contract'
+  catalog_type: 'drug' | 'non_drug'
   upload_status: 'pending' | 'processing' | 'completed' | 'failed'
   items_imported: number
   errors_count: number
@@ -69,7 +69,8 @@ export async function checkFileDuplicate(
       .eq('file_hash', fileHash)
       .eq('upload_status', 'completed')
       .order('uploaded_at', { ascending: false })
-      .maybeSingle()
+      .limit(1)
+      .single()
 
     if (error && error.code !== 'PGRST116') {
       // PGRST116 is "not found" which is fine
@@ -106,15 +107,15 @@ export async function recordFileUpload(
   hospitalId: string,
   file: File,
   fileHash: string,
-  catalogType: 'drug' | 'non_drug' | 'contract',
+  catalogType: 'drug' | 'non_drug',
   uploadedBy?: string
 ): Promise<ApiResponse<UploadedFile>> {
   try {
     const fileType = file.name.toLowerCase().endsWith('.pdf')
       ? 'pdf'
       : file.type.startsWith('image/')
-        ? 'image'
-        : 'excel'
+      ? 'image'
+      : 'excel'
 
     const uploadRecord: Partial<UploadedFile> = {
       hospital_id: hospitalId,
@@ -165,7 +166,7 @@ export async function recordFileUpload(
           .select('*')
           .eq('hospital_id', hospitalId)
           .eq('file_hash', fileHash)
-          .maybeSingle()
+          .single()
 
         if (existingError) {
           console.error(
@@ -175,11 +176,14 @@ export async function recordFileUpload(
           throw error
         }
 
-        // For any existing record (including completed), reset and reuse it to allow re-uploads
-        // This enables users to update existing data by re-uploading the same file
-        console.log(
-          `[recordFileUpload] Reusing existing record (status: ${existing.upload_status}) for re-upload`
-        )
+        // If the previous upload was completed, treat this as a true duplicate
+        if (existing.upload_status === 'completed') {
+          return {
+            data: null,
+            error:
+              'This file has already been uploaded successfully. Duplicate uploads are not allowed for the same file content.',
+          }
+        }
 
         // For pending/processing/failed statuses, reset and reuse the same record
         const resetData: Partial<UploadedFile> = {
@@ -277,3 +281,36 @@ export async function updateUploadRecord(
   }
 }
 
+/**
+ * Upload LPO document to storage
+ */
+export async function uploadLpoDocument(
+  file: File,
+  poId: string
+): Promise<ApiResponse<string>> {
+  try {
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      return { data: null, error: 'Only PDF documents are allowed for LPO uploads.' }
+    }
+    const { uploadFile } = await import('../supabase')
+    const fileExt = file.name.split('.').pop()
+    const fileName = `lpo_${poId}_${Date.now()}.${fileExt}`
+    const filePath = `pharmacy/lpo/${poId}/${fileName}`
+
+    const { url, error } = await uploadFile('pharmacy-procurement', filePath, file)
+
+    if (error) {
+      // If bucket doesn't exist, try falling back to a more generic bucket if needed
+      // but for now we follow the instruction to use 'pharmacy-procurement'
+      throw new Error(error)
+    }
+
+    return { data: url || '', error: null }
+  } catch (error) {
+    console.error('Error uploading LPO document:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to upload LPO document',
+    }
+  }
+}

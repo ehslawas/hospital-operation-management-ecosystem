@@ -1,10 +1,11 @@
 import React, { lazy, Suspense } from 'react'
+import MyGalleryPage from '../pages/hub/gallery/MyGalleryPage'
 import {
   createBrowserRouter,
   RouterProvider,
   Navigate,
 } from 'react-router-dom'
-import { MainLayout } from '@/components/layout'
+import { MainLayout, HubLayout } from '@/components/layout'
 import { LoadingOverlay } from '@/components/ui'
 import { ProtectedRoute } from './ProtectedRoute'
 import { ROUTES, SYSTEM_ROLES } from '@/lib/constants'
@@ -15,9 +16,30 @@ const DashboardPage = lazy(() => import('@/pages/dashboard/DashboardPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 const PrivacyPolicyPage = lazy(() => import('@/pages/legal/PrivacyPolicyPage'))
 const TermsOfServicePage = lazy(() => import('@/pages/legal/TermsOfServicePage'))
-const ModulePlaceholderPage = lazy(() => import('@/pages/ModulePlaceholderPage'))
 
+// Hub pages
+const ModuleHubPage = lazy(() => import('@/pages/hub/ModuleHubPage'))
+const CylinderSubMenu = lazy(() => import('@/pages/hub/modules/CylinderSubMenu'))
+const InventorySubMenu = lazy(() => import('@/pages/hub/modules/InventorySubMenu'))
+const WarrantSubMenu = lazy(() => import('@/pages/hub/modules/WarrantSubMenu'))
+const SuratSubMenu = lazy(() => import('@/pages/hub/modules/SuratSubMenu'))
+const BorangSubMenu = lazy(() => import('@/pages/hub/modules/BorangSubMenu'))
+const SuhuSubMenu = lazy(() => import('@/pages/hub/modules/SuhuSubMenu'))
+const AdminSubMenu = lazy(() => import('@/pages/hub/modules/AdminSubMenu'))
+const PerolehanSubMenu = lazy(() => import('@/pages/hub/modules/PerolehanSubMenu'))
+const FileSubMenu = lazy(() => import('@/pages/hub/modules/FileSubMenu'))
+const FormulariSubMenu = lazy(() => import('@/pages/hub/modules/FormulariSubMenu'))
+const PorterSubMenu = lazy(() => import('@/pages/hub/modules/PorterSubMenu'))
+const TransporterSubMenu = lazy(() => import('@/pages/hub/modules/TransporterSubMenu'))
+const PriviledgingSubMenu = lazy(() => import('@/pages/hub/modules/PriviledgingSubMenu'))
+const TempahanSubMenu = lazy(() => import('@/pages/hub/modules/TempahanSubMenu'))
+const KunciSubMenu = lazy(() => import('@/pages/hub/modules/KunciSubMenu'))
+const CutiSubMenu = lazy(() => import('@/pages/hub/modules/CutiSubMenu'))
+const TimeOffSubMenu = lazy(() => import('@/pages/hub/modules/TimeOffSubMenu'))
 
+// Gallery pages
+// const GalleryPage = lazy(() => import('../pages/hub/gallery/GalleryPage'))
+const AlbumDetailPage = lazy(() => import('../pages/hub/gallery/AlbumDetailPage'))
 
 
 // Admin pages
@@ -84,7 +106,7 @@ const NonDrugCatalogPage = lazy(() => import('@/pages/pharmacy/catalog/NonDrugCa
 const SupplierCatalogPage = lazy(() => import('@/pages/pharmacy/catalog/SupplierCatalogPage'))
 const ContractCatalogPage = lazy(() => import('@/pages/pharmacy/catalog/ContractCatalogPage'))
 const FacilityCatalogPage = lazy(() => import('@/pages/pharmacy/catalog/FacilityCatalogPage'))
-
+const MyWarrantDashboard = lazy(() => import('@/pages/mywarrant/MyWarrantDashboard'))
 
 // Fallback loading component
 const PageLoader = () => <LoadingOverlay fullScreen message="Loading page..." />
@@ -92,6 +114,180 @@ const PageLoader = () => <LoadingOverlay fullScreen message="Loading page..." />
 // Create router with v7 future flags
 const router = createBrowserRouter(
   [
+  {
+    path: ROUTES.HUB,
+    element: (
+      <ProtectedRoute>
+        <HubLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      {
+        path: 'test-route',
+        element: <div className="p-20 text-white">Route is working!</div>,
+      },
+      {
+        index: true,
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <ModuleHubPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'gallery',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <MyGalleryPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'gallery/:albumId',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <AlbumDetailPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'cylinder',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <CylinderSubMenu />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'inventory',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <InventorySubMenu />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'warrant',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <WarrantSubMenu />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'surat',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <SuratSubMenu />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'borang',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <BorangSubMenu />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'suhu',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <SuhuSubMenu />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'admin',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <AdminSubMenu />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'perolehan',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <PerolehanSubMenu />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'file',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <FileSubMenu />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'formulari',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <FormulariSubMenu />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'porter',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <PorterSubMenu />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'transporter',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <TransporterSubMenu />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'priviledging',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <PriviledgingSubMenu />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'tempahan',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <TempahanSubMenu />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'kunci',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <KunciSubMenu />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'cuti',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <CutiSubMenu />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'time-off',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <TimeOffSubMenu />
+          </Suspense>
+        ),
+      },
+    ],
+  },
   {
     path: ROUTES.LOGIN,
     element: (
@@ -126,7 +322,7 @@ const router = createBrowserRouter(
     children: [
       {
         index: true,
-        element: <Navigate to={ROUTES.DASHBOARD} replace />,
+        element: <Navigate to={ROUTES.HUB} replace />,
       },
       {
         path: 'dashboard',
@@ -431,7 +627,7 @@ const router = createBrowserRouter(
             SYSTEM_ROLES.PHARMACY_STAFF,
           ]}>
             <Suspense fallback={<PageLoader />}>
-              <PharmacyLogisticsDashboard />
+              <MyWarrantDashboard />
             </Suspense>
           </ProtectedRoute>
         ),
@@ -601,8 +797,6 @@ const router = createBrowserRouter(
         ),
       },
       {
-        path: 'pharmacy/inventory/slow-moving',
-
         path: 'pharmacy/inventory/slow-moving',
         element: (
           <ProtectedRoute allowedRoles={[
@@ -1218,5 +1412,4 @@ export const AppRouter: React.FC = () => {
 }
 
 export default AppRouter
-
 

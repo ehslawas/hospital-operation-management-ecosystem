@@ -46,8 +46,7 @@ export const InquiryForm: React.FC<InquiryFormProps> = ({ onSuccess }) => {
     setIsLoading(true)
 
     try {
-      // Cast data to ensure inquiryType is treated as defined after validation
-      const result = await submitInquiry(data as any)
+      const result = await submitInquiry(data)
 
       if (result.success) {
         setIsSuccess(true)
@@ -74,15 +73,15 @@ export const InquiryForm: React.FC<InquiryFormProps> = ({ onSuccess }) => {
         <div className="w-16 h-16 bg-success-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <CheckCircle className="w-8 h-8 text-success-600" />
         </div>
-
+        
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
           Inquiry Sent Successfully!
         </h3>
-
+        
         <p className="text-sm text-gray-600 mb-6">
           Thank you for contacting us. Our team will review your inquiry and get back to you soon.
         </p>
-
+        
         <Button
           type="button"
           variant="outline"
@@ -108,8 +107,7 @@ export const InquiryForm: React.FC<InquiryFormProps> = ({ onSuccess }) => {
           label="Your Name"
           placeholder="Enter your name"
           leftIcon={<User className="w-5 h-5" />}
-          error={!!errors.name}
-          errorMessage={errors.name?.message}
+          error={errors.name?.message}
           required
         />
 
@@ -119,8 +117,7 @@ export const InquiryForm: React.FC<InquiryFormProps> = ({ onSuccess }) => {
           label="Email Address"
           placeholder="Enter your email"
           leftIcon={<Mail className="w-5 h-5" />}
-          error={!!errors.email}
-          errorMessage={errors.email?.message}
+          error={errors.email?.message}
           required
         />
       </div>
@@ -144,8 +141,7 @@ export const InquiryForm: React.FC<InquiryFormProps> = ({ onSuccess }) => {
         {...register('subject')}
         label="Subject"
         placeholder="Brief description of your inquiry"
-        error={!!errors.subject}
-        errorMessage={errors.subject?.message}
+        error={errors.subject?.message}
         required
       />
 
@@ -153,8 +149,7 @@ export const InquiryForm: React.FC<InquiryFormProps> = ({ onSuccess }) => {
         {...register('message')}
         label="Message"
         placeholder="Please describe your inquiry in detail..."
-        error={!!errors.message}
-        errorMessage={errors.message?.message}
+        error={errors.message?.message}
         rows={5}
         required
       />

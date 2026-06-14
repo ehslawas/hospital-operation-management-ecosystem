@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { supabase, isSupabaseConfigured } from './supabase'
 import type { HospitalModule, HospitalModuleWithRelations, ModuleCode, ApiResponse } from '@/types'
 import { MODULE_DEFINITIONS } from '@/lib/constants'
 
@@ -9,24 +9,32 @@ export async function getHospitalModules(
   hospitalId: string
 ): Promise<ApiResponse<HospitalModuleWithRelations[]>> {
   try {
-    const { data, error } = await supabase
-      .from('hospital_modules')
-      .select(
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('hospital_modules')
+        .select(
+          `
+          *,
+          hospital:hospitals(*),
+          enabled_by_user:users!hospital_modules_enabled_by_fkey(*),
+          disabled_by_user:users!hospital_modules_disabled_by_fkey(*)
         `
-        *,
-        hospital:hospitals(*),
-        enabled_by_user:users!hospital_modules_enabled_by_fkey(*),
-        disabled_by_user:users!hospital_modules_disabled_by_fkey(*)
-      `
-      )
-      .eq('hospital_id', hospitalId)
-      .order('module_code', { ascending: true })
+        )
+        .eq('hospital_id', hospitalId)
+        .order('module_code', { ascending: true })
 
-    if (error) throw error
+      if (error) throw error
 
-    return {
-      data: data as any,
-      error: null,
+      return {
+        data: data as any,
+        error: null,
+      }
+    } else {
+      // Supabase is required
+      return {
+        data: null,
+        error: 'Supabase is not configured. Module access requires database connection.',
+      }
     }
   } catch (error) {
     console.error('Error fetching hospital modules:', error)
@@ -46,85 +54,93 @@ export async function enableHospitalModule(
   enabledBy: string
 ): Promise<ApiResponse<HospitalModule>> {
   try {
-    // Check if module already exists
-    const { data: existing, error: checkError } = await supabase
-      .from('hospital_modules')
-      .select('id')
-      .eq('hospital_id', hospitalId)
-      .eq('module_code', moduleCode)
-      .single()
-
-    if (checkError && checkError.code !== 'PGRST116') {
-      throw checkError
-    }
-
-    if (existing) {
-      // Update existing
-      const { data, error } = await supabase
+    if (isSupabaseConfigured()) {
+      // Check if module already exists
+      const { data: existing, error: checkError } = await supabase
         .from('hospital_modules')
-        .update({
-          is_enabled: true,
-          enabled_at: new Date().toISOString(),
-          enabled_by: enabledBy,
-          disabled_at: null,
-          disabled_by: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', existing.id)
-        .select()
+        .select('id')
+        .eq('hospital_id', hospitalId)
+        .eq('module_code', moduleCode)
         .single()
 
-      if (error) throw error
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError
+      }
 
-      // Sync with departments
-      await syncDepartmentFromModule(hospitalId, moduleCode, true)
+      if (existing) {
+        // Update existing
+        const { data, error } = await supabase
+          .from('hospital_modules')
+          .update({
+            is_enabled: true,
+            enabled_at: new Date().toISOString(),
+            enabled_by: enabledBy,
+            disabled_at: null,
+            disabled_by: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existing.id)
+          .select()
+          .single()
 
-      // Log audit
-      await logAuditEvent({
-        user_id: enabledBy,
-        action: 'enable_module',
-        module: 'system_admin',
-        entity_type: 'hospital_module',
-        entity_id: data.id,
-        new_values: { module_code: moduleCode, hospital_id: hospitalId },
-      })
+        if (error) throw error
 
-      return {
-        data: data as HospitalModule,
-        error: null,
+        // Sync with departments
+        await syncDepartmentFromModule(hospitalId, moduleCode, true)
+
+        // Log audit
+        await logAuditEvent({
+          user_id: enabledBy,
+          action: 'enable_module',
+          module: 'system_admin',
+          entity_type: 'hospital_module',
+          entity_id: data.id,
+          new_values: { module_code: moduleCode, hospital_id: hospitalId },
+        })
+
+        return {
+          data: data as HospitalModule,
+          error: null,
+        }
+      } else {
+        // Create new
+        const { data, error } = await supabase
+          .from('hospital_modules')
+          .insert({
+            hospital_id: hospitalId,
+            module_code: moduleCode,
+            is_enabled: true,
+            enabled_at: new Date().toISOString(),
+            enabled_by: enabledBy,
+          })
+          .select()
+          .single()
+
+        if (error) throw error
+
+        // Sync with departments
+        await syncDepartmentFromModule(hospitalId, moduleCode, true)
+
+        // Log audit
+        await logAuditEvent({
+          user_id: enabledBy,
+          action: 'enable_module',
+          module: 'system_admin',
+          entity_type: 'hospital_module',
+          entity_id: data.id,
+          new_values: { module_code: moduleCode, hospital_id: hospitalId },
+        })
+
+        return {
+          data: data as HospitalModule,
+          error: null,
+        }
       }
     } else {
-      // Create new
-      const { data, error } = await supabase
-        .from('hospital_modules')
-        .insert({
-          hospital_id: hospitalId,
-          module_code: moduleCode,
-          is_enabled: true,
-          enabled_at: new Date().toISOString(),
-          enabled_by: enabledBy,
-        })
-        .select()
-        .single()
-
-      if (error) throw error
-
-      // Sync with departments
-      await syncDepartmentFromModule(hospitalId, moduleCode, true)
-
-      // Log audit
-      await logAuditEvent({
-        user_id: enabledBy,
-        action: 'enable_module',
-        module: 'system_admin',
-        entity_type: 'hospital_module',
-        entity_id: data.id,
-        new_values: { module_code: moduleCode, hospital_id: hospitalId },
-      })
-
+      // Supabase is required
       return {
-        data: data as HospitalModule,
-        error: null,
+        data: null,
+        error: 'Supabase is not configured. Module management requires database connection.',
       }
     }
   } catch (error) {
@@ -145,37 +161,45 @@ export async function disableHospitalModule(
   disabledBy: string
 ): Promise<ApiResponse<HospitalModule>> {
   try {
-    const { data, error } = await supabase
-      .from('hospital_modules')
-      .update({
-        is_enabled: false,
-        disabled_at: new Date().toISOString(),
-        disabled_by: disabledBy,
-        updated_at: new Date().toISOString(),
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('hospital_modules')
+        .update({
+          is_enabled: false,
+          disabled_at: new Date().toISOString(),
+          disabled_by: disabledBy,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('hospital_id', hospitalId)
+        .eq('module_code', moduleCode)
+        .select()
+        .single()
+
+      if (error) throw error
+
+      // Sync with departments
+      await syncDepartmentFromModule(hospitalId, moduleCode, false)
+
+      // Log audit
+      await logAuditEvent({
+        user_id: disabledBy,
+        action: 'disable_module',
+        module: 'system_admin',
+        entity_type: 'hospital_module',
+        entity_id: data.id,
+        old_values: { module_code: moduleCode, hospital_id: hospitalId },
       })
-      .eq('hospital_id', hospitalId)
-      .eq('module_code', moduleCode)
-      .select()
-      .single()
 
-    if (error) throw error
-
-    // Sync with departments
-    await syncDepartmentFromModule(hospitalId, moduleCode, false)
-
-    // Log audit
-    await logAuditEvent({
-      user_id: disabledBy,
-      action: 'disable_module',
-      module: 'system_admin',
-      entity_type: 'hospital_module',
-      entity_id: data.id,
-      old_values: { module_code: moduleCode, hospital_id: hospitalId },
-    })
-
-    return {
-      data: data as HospitalModule,
-      error: null,
+      return {
+        data: data as HospitalModule,
+        error: null,
+      }
+    } else {
+      // Supabase is required
+      return {
+        data: null,
+        error: 'Supabase is not configured. Module management requires database connection.',
+      }
     }
   } catch (error) {
     console.error('Error disabling module:', error)
@@ -228,32 +252,39 @@ export async function syncAllModulesToDepartments(
   hospitalId: string
 ): Promise<ApiResponse<{ synced: number; errors: number }>> {
   try {
-    // Get all enabled modules for this hospital
-    const { data: modules, error: modulesError } = await supabase
-      .from('hospital_modules')
-      .select('module_code, is_enabled')
-      .eq('hospital_id', hospitalId)
-      .eq('is_enabled', true)
+    if (isSupabaseConfigured()) {
+      // Get all enabled modules for this hospital
+      const { data: modules, error: modulesError } = await supabase
+        .from('hospital_modules')
+        .select('module_code, is_enabled')
+        .eq('hospital_id', hospitalId)
+        .eq('is_enabled', true)
 
-    if (modulesError) throw modulesError
+      if (modulesError) throw modulesError
 
-    let synced = 0
-    let errors = 0
+      let synced = 0
+      let errors = 0
 
-    // Sync each enabled module
-    for (const module of modules || []) {
-      try {
-        await syncDepartmentFromModule(hospitalId, module.module_code as ModuleCode, true)
-        synced++
-      } catch (err) {
-        console.error(`Failed to sync module ${module.module_code}:`, err)
-        errors++
+      // Sync each enabled module
+      for (const module of modules || []) {
+        try {
+          await syncDepartmentFromModule(hospitalId, module.module_code as ModuleCode, true)
+          synced++
+        } catch (err) {
+          console.error(`Failed to sync module ${module.module_code}:`, err)
+          errors++
+        }
       }
-    }
 
-    return {
-      data: { synced, errors },
-      error: null,
+      return {
+        data: { synced, errors },
+        error: null,
+      }
+    } else {
+      return {
+        data: null,
+        error: 'Supabase is not configured. Module sync requires database connection.',
+      }
     }
   } catch (error) {
     console.error('Error syncing modules to departments:', error)
@@ -272,19 +303,24 @@ export async function isModuleEnabled(
   moduleCode: ModuleCode
 ): Promise<boolean> {
   try {
-    const { data, error } = await supabase
-      .from('hospital_modules')
-      .select('is_enabled')
-      .eq('hospital_id', hospitalId)
-      .eq('module_code', moduleCode)
-      .single()
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('hospital_modules')
+        .select('is_enabled')
+        .eq('hospital_id', hospitalId)
+        .eq('module_code', moduleCode)
+        .single()
 
-    if (error && error.code !== 'PGRST116') {
-      console.error('Error checking module:', error)
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error checking module:', error)
+        return false
+      }
+
+      return data?.is_enabled || false
+    } else {
+      // Supabase is required
       return false
     }
-
-    return data?.is_enabled || false
   } catch (error) {
     console.error('Error checking module:', error)
     return false
@@ -299,6 +335,8 @@ async function syncDepartmentFromModule(
   moduleCode: ModuleCode,
   isEnabled: boolean
 ): Promise<void> {
+  if (!isSupabaseConfigured()) return
+
   try {
     const moduleDef = MODULE_DEFINITIONS.find((m) => m.code === moduleCode)
     if (!moduleDef) {
@@ -380,6 +418,10 @@ async function logAuditEvent(event: {
   old_values?: Record<string, unknown>
   new_values?: Record<string, unknown>
 }): Promise<void> {
+  if (!isSupabaseConfigured()) {
+    return // Silently fail if Supabase not configured
+  }
+
   try {
     const { error } = await supabase.from('audit_logs').insert({
       ...event,
@@ -388,9 +430,11 @@ async function logAuditEvent(event: {
     })
 
     if (error) {
+      // Log error but don't throw - audit logging is non-critical
       console.warn('Audit log insert failed:', error)
     }
   } catch (err) {
+    // Catch any unexpected errors
     console.warn('Unexpected error in audit logging:', err)
   }
 }

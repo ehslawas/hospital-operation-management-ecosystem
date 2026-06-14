@@ -908,7 +908,7 @@ export default function ReportsPage() {
                 <IconChart className="h-8 w-8 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">{department === 'Office Admin' ? 'Office Admin Reports' : 'Pharmacy Logistics Reports'}</h1>
+                <h1 className="text-3xl font-bold text-gray-900">{department === 'Office Admin' ? 'Office Admin Reports' : 'MyWarrant Reports'}</h1>
                 <p className="text-gray-600 mt-1">{department === 'Office Admin' ? 'Oxygen • Purchasing • Payment • Receiving' : 'Comprehensive reporting and analytics dashboard'}</p>
               </div>
             </div>

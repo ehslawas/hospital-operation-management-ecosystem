@@ -1,12 +1,14 @@
 // System Log Service - For System Admin to view logs from all hospitals
-import { supabase } from './supabase'
+import { supabase, isSupabaseConfigured } from './supabase'
 import type {
+  HospitalLog,
   HospitalLogWithRelations,
   HospitalLogCategory,
   HospitalLogSeverity,
   PaginatedResponse,
   SortConfig,
   Hospital,
+  User,
 } from '@/types'
 // System Log Service - For System Admin to view logs from all hospitals
 
@@ -53,58 +55,69 @@ export async function getSystemLogs(
     sort,
   } = params
 
-  let query = supabase
-    .from('hospital_logs')
-    .select('*, user:users(*), hospital:hospitals(*)', { count: 'exact' })
+  if (isSupabaseConfigured()) {
+    let query = supabase
+      .from('hospital_logs')
+      .select('*, user:users(*), hospital:hospitals(*)', { count: 'exact' })
 
-  if (hospitalId) {
-    query = query.eq('hospital_id', hospitalId)
-  }
-  if (category && category !== 'all') {
-    query = query.eq('category', category)
-  }
-  if (severity && severity !== 'all') {
-    query = query.eq('severity', severity)
-  }
-  if (userId) {
-    query = query.eq('user_id', userId)
-  }
-  if (module) {
-    query = query.eq('module', module)
-  }
-  if (action) {
-    query = query.eq('action', action)
-  }
-  if (search) {
-    query = query.or(`action.ilike.%${search}%,description.ilike.%${search}%,module.ilike.%${search}%`)
-  }
-  if (startDate) {
-    query = query.gte('created_at', startDate)
-  }
-  if (endDate) {
-    query = query.lte('created_at', endDate)
-  }
+    if (hospitalId) {
+      query = query.eq('hospital_id', hospitalId)
+    }
+    if (category && category !== 'all') {
+      query = query.eq('category', category)
+    }
+    if (severity && severity !== 'all') {
+      query = query.eq('severity', severity)
+    }
+    if (userId) {
+      query = query.eq('user_id', userId)
+    }
+    if (module) {
+      query = query.eq('module', module)
+    }
+    if (action) {
+      query = query.eq('action', action)
+    }
+    if (search) {
+      query = query.or(`action.ilike.%${search}%,description.ilike.%${search}%,module.ilike.%${search}%`)
+    }
+    if (startDate) {
+      query = query.gte('created_at', startDate)
+    }
+    if (endDate) {
+      query = query.lte('created_at', endDate)
+    }
 
-  if (sort) {
-    query = query.order(sort.key, { ascending: sort.direction === 'asc' })
+    if (sort) {
+      query = query.order(sort.key, { ascending: sort.direction === 'asc' })
+    } else {
+      query = query.order('created_at', { ascending: false })
+    }
+
+    const from = (page - 1) * pageSize
+    const to = from + pageSize - 1
+    query = query.range(from, to)
+
+    const { data, error, count } = await query
+
+    if (error) throw error
+
+    return {
+      data: (data || []) as SystemLogWithRelations[],
+      total: count || 0,
+      page,
+      pageSize,
+      totalPages: Math.ceil((count || 0) / pageSize),
+    }
   } else {
-    query = query.order('created_at', { ascending: false })
-  }
-
-  const from = (page - 1) * pageSize
-  const to = from + pageSize - 1
-  query = query.range(from, to)
-
-  const { data, error, count } = await query
-
-  if (error) throw error
-
-  return {
-    data: (data || []) as SystemLogWithRelations[],
-    total: count || 0,
-    page,
-    pageSize,
-    totalPages: Math.ceil((count || 0) / pageSize),
+    // Supabase is required for System Logs
+    return {
+      data: [],
+      total: 0,
+      page,
+      pageSize,
+      totalPages: 0,
+    }
   }
 }
 
@@ -121,48 +134,69 @@ export async function getSystemLogStatistics(days: number = 7): Promise<{
   startDate.setDate(startDate.getDate() - days)
   const startDateStr = startDate.toISOString()
 
-  const { data, error } = await supabase
-    .from('hospital_logs')
-    .select('category, severity, hospital_id, hospital:hospitals(hospital_name)')
-    .gte('created_at', startDateStr)
+  if (isSupabaseConfigured()) {
+    const { data, error } = await supabase
+      .from('hospital_logs')
+      .select('category, severity, hospital_id, hospital:hospitals(hospital_name)')
+      .gte('created_at', startDateStr)
 
-  if (error) throw error
+    if (error) throw error
 
-  const byCategory: Record<string, number> = {
-    authentication: 0,
-    user_activity: 0,
-    administrative: 0,
-    security: 0,
-    system: 0,
-  }
-  const bySeverity: Record<string, number> = {
-    info: 0,
-    warning: 0,
-    error: 0,
-    critical: 0,
-  }
-  const byHospitalMap: Record<string, { hospital_id: string; hospital_name: string; count: number }> = {}
-
-  data?.forEach((log: any) => {
-    byCategory[log.category] = (byCategory[log.category] || 0) + 1
-    bySeverity[log.severity] = (bySeverity[log.severity] || 0) + 1
-
-    const hospitalId = log.hospital_id
-    if (!byHospitalMap[hospitalId]) {
-      byHospitalMap[hospitalId] = {
-        hospital_id: hospitalId,
-        hospital_name: log.hospital?.hospital_name || 'Unknown',
-        count: 0,
-      }
+    const byCategory: Record<string, number> = {
+      authentication: 0,
+      user_activity: 0,
+      administrative: 0,
+      security: 0,
+      system: 0,
     }
-    byHospitalMap[hospitalId].count++
-  })
+    const bySeverity: Record<string, number> = {
+      info: 0,
+      warning: 0,
+      error: 0,
+      critical: 0,
+    }
+    const byHospitalMap: Record<string, { hospital_id: string; hospital_name: string; count: number }> = {}
 
-  return {
-    total: data?.length || 0,
-    byCategory: byCategory as Record<HospitalLogCategory, number>,
-    bySeverity: bySeverity as Record<HospitalLogSeverity, number>,
-    byHospital: Object.values(byHospitalMap),
+    data?.forEach((log: any) => {
+      byCategory[log.category] = (byCategory[log.category] || 0) + 1
+      bySeverity[log.severity] = (bySeverity[log.severity] || 0) + 1
+
+      const hospitalId = log.hospital_id
+      if (!byHospitalMap[hospitalId]) {
+        byHospitalMap[hospitalId] = {
+          hospital_id: hospitalId,
+          hospital_name: log.hospital?.hospital_name || 'Unknown',
+          count: 0,
+        }
+      }
+      byHospitalMap[hospitalId].count++
+    })
+
+    return {
+      total: data?.length || 0,
+      byCategory: byCategory as Record<HospitalLogCategory, number>,
+      bySeverity: bySeverity as Record<HospitalLogSeverity, number>,
+      byHospital: Object.values(byHospitalMap),
+    }
+  } else {
+    // Supabase is required
+    return {
+      total: 0,
+      byCategory: {
+        authentication: 0,
+        user_activity: 0,
+        administrative: 0,
+        security: 0,
+        system: 0,
+      } as Record<HospitalLogCategory, number>,
+      bySeverity: {
+        info: 0,
+        warning: 0,
+        error: 0,
+        critical: 0,
+      } as Record<HospitalLogSeverity, number>,
+      byHospital: [],
+    }
   }
 }
 
@@ -171,12 +205,17 @@ export async function getSystemLogStatistics(days: number = 7): Promise<{
  */
 export async function getSystemLogModules(): Promise<string[]> {
   try {
-    const { data, error } = await supabase.from('hospital_logs').select('module').not('module', 'is', null)
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase.from('hospital_logs').select('module').not('module', 'is', null)
 
-    if (error) throw error
+      if (error) throw error
 
-    const uniqueModules = Array.from(new Set((data || []).map((log) => log.module).filter(Boolean)))
-    return uniqueModules.sort()
+      const uniqueModules = Array.from(new Set((data || []).map((log) => log.module).filter(Boolean)))
+      return uniqueModules.sort()
+    } else {
+      // Supabase is required
+      return []
+    }
   } catch (error) {
     console.error('Error fetching modules:', error)
     throw error
@@ -188,12 +227,17 @@ export async function getSystemLogModules(): Promise<string[]> {
  */
 export async function getSystemLogActions(): Promise<string[]> {
   try {
-    const { data, error } = await supabase.from('hospital_logs').select('action')
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase.from('hospital_logs').select('action')
 
-    if (error) throw error
+      if (error) throw error
 
-    const uniqueActions = Array.from(new Set((data || []).map((log) => log.action)))
-    return uniqueActions.sort()
+      const uniqueActions = Array.from(new Set((data || []).map((log) => log.action)))
+      return uniqueActions.sort()
+    } else {
+      // Supabase is required
+      return []
+    }
   } catch (error) {
     console.error('Error fetching actions:', error)
     throw error

@@ -1,130 +1,227 @@
-# Implementation Plan: Cylinder QR Label Generator Modernization
+# Modernization Plan for Hospital Operations Portal — Absolute Visual Consistency
 
-Redesign the **Cylinder QR Label Generator** sub-module inside the Medical Oxygen Dashboard to match the project's premium golden reference design system (PO style). Additionally, refactor the cylinder selection logic to separate tracked asset cylinders from supplier loan cylinders (1.4m³ and 8.0m³), providing generic quantity-scan QR codes for loans instead of tracking individual cylinders.
+As a Senior Google Engineer, I have performed a rigorous, element-by-element audit of the entire codebase to unify our user interface. Our north star target is the **Purchase Order List Page** (`PurchaseOrderListPage.tsx`), which represents a pristine, highly-interactive, premium enterprise dashboard design.
 
-## User Review Required
-
-Document anything that requires user review or feedback.
-> [!IMPORTANT]
-> - **Generic QR Payload Representation**: For the 1.4m³ and 8.0m³ loan cylinders, scanning will produce a generic text payload (`LOAN-1.4M3-GENERIC` and `LOAN-8.0M3-GENERIC`) rather than an individual database asset ID.
-> - **Print Layout Scale**: The printable window will format a standard 2" x 2" (50mm x 50mm) label layout with print-only media stylesheets to fit thermal sticker printers natively.
-
-## Workflow & Logic Architecture
-
-### Mermaid Diagram
-```mermaid
-graph TD
-    A[User visits QR Generator Page] --> B{Select Category}
-    B -- Tracked Assets --> C[Dropdown: Individual Cylinders]
-    B -- Supplier Loans --> D[Dropdown: Generic Loan Sizes]
-    C --> E[Select specific cylinder e.g. OXY-2024-001]
-    D --> F[Select generic size e.g. 1.4m³ Loan]
-    E --> G[Generate label with unique QR & Serial Number]
-    F --> H[Generate label with generic bulk QR & Quantity only]
-    G --> I[Preview realistic sticker & print label]
-    H --> I
-    I --> J[Trigger Print Window with 2x2 Label Layout]
-```
-
-### ASCII Layout Design
-```text
-+---------------------------------------------------------------------------------------------------------+
-|                                  CYLINDER QR LABEL GENERATOR REDESIGN                                  |
-+---------------------------------------------------------------------------------------------------------+
-| [ Ambient Radial Light Blur ]                                                                           |
-|                                                                                                         |
-| PHARMACY > INVENTORY > DISTRIBUTION                                                                     |
-|                                                                                                         |
-| ( Rotating Icon )   Cylinder QR Label Generator                                                         |
-|                     Generate unique tracking labels for assets or generic quantity labels for loans.    |
-|                                                                                                         |
-| +-------------------------------------------------------+ +-------------------------------------------+ |
-| | [Selector Card: Rounded-[2.5rem]]                     | | [Preview Card: Rounded-[2.5rem]]          | |
-| |                                                       | |                                           | |
-| |   1. Select Category (Tactile Slide Toggle)           | |   If Empty:                               | |
-| |   [ Tracked Assets ] [ Supplier Loans ]               | |   +-----------------------------------+   | |
-| |                                                       | |   | [ Pulsing Scan Line ]             |   | |
-| |   2. Choose Cylinder (Custom Rounded Dropdown)        | |   | Please select a cylinder to ...   |   | |
-| |   +-----------------------------------------------+   | |   +-----------------------------------+   | |
-| |   | -- Choose Cylinder --                       v |   | |                                           | |
-| |   +-----------------------------------------------+   | |   If Generated:                           | |
-| |                                                       | |   +-----------------------------------+   | |
-| |   [Button: Generate Printable Label]                  | |   |        KKM MEDICAL OXYGEN         |   | |
-| |   - Tactile scale, hover glow animation               | |   |                                   |   | |
-| |                                                       | |   |      [ REAL DYNAMIC QR CODE ]     |   | |
-| |                                                       | |   |       (api.qrserver.com API)      |   | |
-| |                                                       | |   |                                   |   | |
-| |   |  Serial: LOAN-1.4M3-GENERIC                       | |   |  Serial: LOAN-1.4M3-GENERIC       |   | |
-| |   |  Type: Loan 101-F (1.4M³)                         | |   |  Type: Loan 101-F (1.4M³)         |   | |
-| |   |  [Badge: GENERIC QUANTITY ONLY]                   | |   |  [Badge: GENERIC QUANTITY ONLY]   |   | |
-| |   +-----------------------------------------------+   | |   +-----------------------------------+   | |
-| |                                                       | |   | [Icon] Print Scan Label           |   | |
-| |   [Button: Print Scan Label]                          | |   |                                   |   | |
-| +-------------------------------------------------------+ +-------------------------------------------+ |
-+---------------------------------------------------------------------------------------------------------+
-```
+To deliver **100% absolute consistency** (as you emphasized: *"from KPI box, box and text style, paging, numbering, everything"*), we will apply a strict, unified design protocol to every page.
 
 ---
 
-## Proposed Changes
+## 💎 The Golden Reference Design System (PO Style)
 
-### UI & Styling Modernization
+To achieve absolute consistency, every single page listed in this plan will be refactored to implement the exact same **7 Design Pillars**:
 
-#### [MODIFY] [OxygenDashboardPage.tsx](file:///c:/Users/60113/Downloads/My%20Home/hospital-operation-management-ecosystem/src/pages/pharmacy/oxygen/OxygenDashboardPage.tsx)
+### 1. The Page Ambient & Layout Wrapper
+* **Pristine Gradient Background**: `#fcfdfe` base background with smooth, subtle radial blur monuments behind content:
+  ```tsx
+  <div className="min-h-screen bg-[#fcfdfe] relative font-sans overflow-x-hidden">
+    {/* Premium Ambient Radial Lights */}
+    <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-br from-blue-500/[0.04] to-indigo-500/[0.02] rounded-full blur-[140px] pointer-events-none -z-10 animate-pulse-subtle" />
+    <div className="absolute top-1/4 left-0 w-[500px] h-[500px] bg-gradient-to-tr from-sky-500/[0.02] to-teal-500/[0.03] rounded-full blur-[120px] pointer-events-none -z-10" />
+    <div className="w-full p-6 lg:p-8 space-y-6">
+  ```
 
-1. **State Addition**:
-   - `const [qrCategory, setQrCategory] = useState<'assets' | 'loans'>('assets')`
-   - Automatically reset selection when switching tabs.
+### 2. Page Navigation & Breadcrumbs
+* **Structured Hierarchy**: Every page will feature a breadcrumb header using capitalized, tracked (`tracking-widest`), small (`text-[10px]`) font style:
+  ```tsx
+  <nav className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+    <button onClick={() => navigate('/pharmacy')} className="hover:text-indigo-600 transition-colors">Pharmacy</button>
+    <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
+    <span className="text-slate-800 font-extrabold tracking-wide">[Current Module]</span>
+  </nav>
+  ```
 
-2. **Dropdown Filtering & Selection**:
-   - Filter out cylinders belonging to loan sizes from the individual selector:
-     `const standardCylinders = cylinders.filter(c => !c.size_info?.is_loan)`
-   - When **Tracked Assets** is active:
-     - Render standard select element populated with `standardCylinders`.
-   - When **Supplier Loans** is active:
-     - Render dropdown populated with two static options:
-       - Value `generic-loan-1.4`: "1.4m³ Loan Cylinder (Generic)"
-       - Value `generic-loan-8.0`: "8.0m³ Loan Cylinder (Generic)"
+### 3. Icon Monument & Header Title
+* **Icon Monolith Container**: A distinct, dark gradient container (`from-slate-900 to-indigo-950`) with an elegant rotation animation on hover:
+  ```tsx
+  <div className="w-14 h-14 bg-gradient-to-tr from-slate-900 to-indigo-950 border border-slate-800/80 rounded-2xl flex items-center justify-center shadow-lg shadow-slate-900/10 hover:rotate-2 transition-transform duration-300">
+    <Icon className="h-6 w-6 text-white" />
+  </div>
+  ```
+* **Gradient Typography**: Large titles styled with a clean slate gradient:
+  ```tsx
+  <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900">
+    [Page Name]
+  </h1>
+  ```
+* **Sparkle Description**: Small subtitle accompanied by a pulsing indigo sparkle:
+  ```tsx
+  <p className="text-slate-500 font-semibold text-[11px] flex items-center gap-1.5">
+    <Sparkles className="w-3 h-3 text-indigo-500 animate-pulse" />
+    [Actionable sub-heading text]
+  </p>
+  ```
 
-3. **Generate Action Handlers**:
-   - When generating from a standard asset: Set `generatedLabel` to selected cylinder database record (standard behavior).
-   - When generating from a generic loan size:
-     - Create a mock `OxygenCylinderWithRelations` payload:
-       ```typescript
-       {
-         id: 'generic-loan-1.4',
-         serial_number: 'LOAN-1.4M3-GENERIC',
-         status: 'available',
-         qr_code: 'LOAN-1.4M3-GENERIC',
-         type_info: { type_code: 'F', type_name: 'Loan 101-F (1.4M³)' },
-         size_info: { code: '101-F', capacity: '1.40', unit: 'm3', is_loan: true }
-       }
-       ```
-       (And similar for `8.0` with code `101-N` and capacity `8.00`).
+### 4. Consolidated KPI Metrics Card Container & KPI Box Styles
+* **Luxurious Card Monument Wrapper**: An outer white container that encloses all KPI boxes, providing elevation and spacing:
+  ```tsx
+  <div className="bg-white p-6 sm:p-8 rounded-[2.5rem] border border-slate-200 shadow-xl mb-10 relative z-10">
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+  ```
+* **KPI Individual Cards**: Must feature the standard hover scale animations, exact spacing, custom back-rounded decorative shapes, and unified light-accent background fills:
+  ```tsx
+  <motion.div
+    className="bg-slate-50/50 border-2 border-slate-100 p-6 rounded-[2.5rem] relative overflow-hidden group hover:border-slate-200 hover:shadow-xl hover:shadow-slate-100/40 hover:-translate-y-1 transition-all duration-300 cursor-default"
+  >
+    {/* Decorative background shape */}
+    <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/[0.03] rounded-full -mr-12 -mt-12 group-hover:scale-110 transition-transform duration-300" />
+    
+    <div className="flex items-start gap-4 relative z-10">
+      <div className="w-12 h-12 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center justify-center text-indigo-600 shadow-sm group-hover:scale-110 transition-transform duration-300">
+        <Icon className="w-6 h-6" />
+      </div>
+      <div className="space-y-1 flex-1">
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">[Metric Name]</p>
+        <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">[Value]</h3>
+        <p className="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5 pt-0.5">
+          [Dynamic change stats / descriptors]
+        </p>
+      </div>
+    </div>
+  </motion.div>
+  ```
 
-4. **Realistic Label Preview Panel**:
-   - Add a subtle background scanner pulse animation in empty state.
-   - Use dynamic real QR code image:
-     `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(generatedLabel.qr_code || generatedLabel.serial_number)}`
-   - Render a pill status badge:
-     - Standard: "ASSET TAGGED" (emerald color).
-     - Loan: "GENERIC LOAN • QUANTITY ONLY" (blue color).
+### 5. Standardized Filters Toolbar Bar
+* **The Elegant Bar Wrapper**: Smoothly blended into the main dashboard card container:
+  ```tsx
+  <div className="bg-slate-50/50 p-4 rounded-3xl border border-slate-200/60 shadow-sm mb-6">
+  ```
 
-5. **Thermal Print Dialog Implementation**:
-   - Clicking "Print Scan Label" opens a print window:
-     - Renders a clean sticker layout with CSS print media overrides (`@page { size: 2in 2in; margin: 0; }`).
-     - Loads a clean QR image and uses clean sans-serif/monospace typography.
-     - Triggers window print and automatically closes the dialog after window focus.
+### 6. Premium Tables & Slide-in Row Highlights
+* **Luxurious Main Table Card**:
+  ```tsx
+  <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/30 border border-slate-200/80 overflow-hidden relative z-10">
+  ```
+* **Table Header styling**: Uppercase, high-tracking (`tracking-[0.2em]`) headers with smooth text-color values over a soft gradient background:
+  ```tsx
+  <tr className="bg-gradient-to-r from-slate-50 to-indigo-50/10 border-b border-slate-200/80">
+    <th className="px-8 py-5 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">...</th>
+  ```
+* **Slide-in Hover Row Accent**: An ultra-premium visual feedback where a dynamic indigo line slides into view on row hover:
+  ```tsx
+  <tr key={item.id} className="hover:bg-slate-50/50 transition-colors duration-200 group cursor-pointer relative">
+    <td className="w-1.5 p-0 relative">
+      <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-indigo-600 scale-y-0 group-hover:scale-y-100 transition-transform duration-300 origin-center rounded-r" />
+    </td>
+  ```
+
+### 7. Unified Premium Paging Controls (Numbering & Navigation)
+* **Precise Counts & Quick Jump Jump-to Dropdowns**:
+  ```tsx
+  <div className="mt-8 pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+    {/* Page indicator info */}
+    <div className="text-xs font-semibold text-slate-400 flex items-center gap-1.5 uppercase tracking-wider">
+      Showing <span className="text-slate-900 font-bold">{(page - 1) * pageSize + 1}</span> to <span className="text-slate-900 font-bold">{Math.min(page * pageSize, totalRecords)}</span> of <span className="text-slate-900 font-bold">{totalRecords}</span> entries
+    </div>
+
+    <div className="flex flex-wrap items-center gap-3">
+      {/* Quick jump Selector */}
+      {totalPages > 1 && (
+        <div className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/50">
+          <span>Jump to</span>
+          <select 
+            value={page}
+            onChange={(e) => setPage(Number(e.target.value))}
+            className="bg-white border border-slate-200/80 rounded-lg px-1.5 py-0.5 font-bold text-slate-700 outline-none focus:border-indigo-500 cursor-pointer"
+          >
+            {Array.from({ length: totalPages }).map((_, i) => (
+              <option key={i + 1} value={i + 1}>{i + 1}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* standard Controls */}
+      <div className="flex items-center gap-1 bg-slate-100/60 p-1 rounded-2xl border border-slate-200/20">
+        <button onClick={() => setPage(1)} disabled={page === 1} className="w-9 h-9 flex items-center justify-center rounded-xl transition-all disabled:opacity-20 disabled:cursor-not-allowed hover:bg-white hover:shadow-sm text-slate-650 active:scale-95">
+          <ChevronsLeft size={15} />
+        </button>
+        <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="w-9 h-9 flex items-center justify-center rounded-xl transition-all disabled:opacity-20 disabled:cursor-not-allowed hover:bg-white hover:shadow-sm text-slate-650 active:scale-95">
+          <ChevronLeft size={15} />
+        </button>
+
+        {/* Unified Pill Buttons */}
+        {pagesArray.map(pageNum => (
+          <button key={pageNum} onClick={() => setPage(pageNum)} className={cn("h-9 w-9 rounded-xl font-bold text-xs active:scale-95 transition-all border", page === pageNum ? 'bg-slate-900 text-white border-slate-900 shadow-md shadow-slate-900/10' : 'border-slate-200/30 text-slate-500 bg-white hover:bg-slate-50')}>
+            {pageNum}
+          </button>
+        ))}
+
+        <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="w-9 h-9 flex items-center justify-center rounded-xl transition-all disabled:opacity-20 disabled:cursor-not-allowed hover:bg-white hover:shadow-sm text-slate-650 active:scale-95">
+          <ChevronRight size={15} />
+        </button>
+        <button onClick={() => setPage(totalPages)} disabled={page >= totalPages} className="w-9 h-9 flex items-center justify-center rounded-xl transition-all disabled:opacity-20 disabled:cursor-not-allowed hover:bg-white hover:shadow-sm text-slate-650 active:scale-95">
+          <ChevronsRight size={15} />
+        </button>
+      </div>
+    </div>
+  </div>
+  ```
 
 ---
 
-## Verification Plan
+## 🎯 Target Pages & Detailed Audit Plan
 
-### Automated Build Checks
-- Run compiler checks: `npm run build` or Vite typechecks.
+Here is the exhaustive action plan mapping every single page that will be modernized. We will execute the work in 4 highly-structured batches:
 
-### Manual Verification
-- Select "Tracked Assets" -> Check that loan cylinders (serial numbers starting with `101-N-` or `101-F-`) are excluded.
-- Select "Supplier Loans" -> Check that "1.4m³ Loan Cylinder (Generic)" and "8.0m³ Loan Cylinder (Generic)" are shown.
-- Click "Generate Printable Label" for both types, check that the dynamic QR code is rendered and is scan-ready.
-- Click "Print Scan Label" -> Check that the browser print dialog is triggered with a clean sticker layout.
+### BATCH 1: Procurement Overhaul (High Impact)
+1. **LPO List Page (`LPOListPage.tsx`)**
+   - **Current**: Standard basic rounded list style.
+   - **Modernization**: Replace header, introduce the dual ambient lights, wrap KPI cards into the `rounded-[2.5rem]` card container, upgrade individual cards with background shapes, apply the gradient table header with tracking and slide-in hover accents, and rebuild the pagination block.
+2. **Order Tracking Page (`OrderTrackingPage.tsx`)**
+   - **Current**: Features Style D (blue bar accent, plain typography, bare input fields).
+   - **Modernization**: Completely strip legacy header, insert gradient monument + text header, insert breadcrumb path, upgrade filters to the `rounded-3xl` container, apply the slide-in hover accent onto table rows, and update the pagination block.
+3. **Goods Receiving Registry (`ReceivingPage.tsx`)**
+   - **Current**: Features Style B (dark `bg-slate-900` banner hero, huge italic text, dark brutalist tables).
+   - **Modernization**: Eliminate dark banner hero entirely. Build the elegant light `#fcfdfe` layout. Move metric logs from dark inline boxes to the white outer card with standard KPI boxes. Replace dark table header and pager with standard PO paging styling.
+4. **Credit Note Audit (`CreditNoteAuditPage.tsx`)**
+   - **Current**: Features Style C (pulsing abstract background blur blobs, huge solid green header box).
+   - **Modernization**: Remove background blobs. Standardize top icon monument. Unify table headers and build the premium paging controls.
+5. **Penalty Ledger (`PenaltyPage.tsx`)**
+   - **Current**: Features Style C (amber/red blur blobs, thick header box, inconsistent buttons).
+   - **Modernization**: Strip background blobs. Apply the golden reference pagination, KPI card structures, table row side-bar hover accents, and unified toolbar filters.
+
+### BATCH 2: Catalog Overhaul
+1. **Drug Catalog (`DrugCatalogPage.tsx`)**
+   - **Current**: Style E (Legacy minimal card list, basic inputs, old KPI borders).
+   - **Modernization**: Introduce ambient lights, add breadcrumbs, construct a beautiful `rounded-[2.5rem]` metric monument wrapper containing standard custom KPI boxes, wrap search inputs in a `rounded-3xl` filter bar, and replace action buttons with gradient triggers.
+2. **Non-Drug Catalog (`NonDrugCatalogPage.tsx`)**
+   - **Current**: Style E (basic minimal card list).
+   - **Modernization**: Apply identical layout modernization as the Drug Catalog to guarantee unified listing behavior.
+3. **Supplier Catalog (`SupplierCatalogPage.tsx`)**
+   - **Current**: Style E (Legacy grids, simple header, custom border shapes).
+   - **Modernization**: Wrap the grid system into the premium white background container card, replace top widgets with reference KPI boxes, standardize the filter toolbar, and implement consistent header monuments.
+4. **Contract Catalog (`ContractCatalogPage.tsx`)**
+   - **Current**: Incomplete layout styling (basic text headers, bare sync controls).
+   - **Modernization**: Build standard breadcrumbs, insert rotating icon monument, wrap Google Sheets status indicator cleanly within standard tokens, and upgrade table pagination.
+
+### BATCH 3: Reports & System Logs Overhaul
+1. **Reports Manager (`ReportsPage.tsx`)**
+   - **Current**: Style E (basic dashboard listing, default gray background containers).
+   - **Modernization**: Add ambient blur overlays, build elegant icon monument header, replace gray filters container with standard `bg-slate-50/50 rounded-3xl`, reconstruct report template list blocks as standard interactive cards, and replace primary buttons.
+2. **System Logs Registry (`SystemLogsPage.tsx`)**
+   - **Current**: Minimal table controls, basic search toolbar.
+   - **Modernization**: Add standard breadcrumb navigation, insert the rotating dark-slate monument, upgrade KPI charts/metrics to match our golden layout, refactor the main log search/filter block, apply table row side-bar hover accents, and integrate the reference pager.
+
+### BATCH 4: Financial & MyWarrant Overhaul (Alignment)
+1. **Warrant Ledger (`WarrantPage.tsx`)**
+   - **Current**: Custom warrant styles.
+   - **Modernization**: Audit all KPI cards, table grid parameters, and paging layout elements to achieve a 100% exact visual match with the reference.
+2. **Budget Overview (`BudgetOverviewPage.tsx`)**
+   - **Current**: Legacy charts and budget layout components.
+   - **Modernization**: Sync elements to match the unified standard, converting custom selectors and tables.
+3. **APPL Allocation (`APPLAllocationPage.tsx`)**
+   - **Current**: Basic allocation controls.
+   - **Modernization**: Unify page wrappers, table controls, row hovers, filters, and pager.
+4. **CC Allocation (`CCAllocationPage.tsx`)**
+   - **Current**: Basic allocation controls.
+   - **Modernization**: Apply full alignment sweep across pagination, table rows, and KPI cards.
+
+---
+
+## 🛠️ Verification & Quality Assurance Plan
+
+To ensure zero regressions, we will follow a rigorous testing protocol:
+1. **Type Safety Verification**: Run `npm run build` or TypeScript compiler checks after each batch to ensure zero compilation regressions.
+2. **Visual Inspection Grid**: Use visual review checklists to verify that the spacing, font sizes, icons, borders, pagination buttons, jump-to dropdowns, and margins are exactly identical across all 15 pages.
+3. **Responsive Flow Analysis**: Test viewports on Desktop, Tablet, and Mobile scales to ensure proper columns wrapping and overflow handling.
+4. **Interaction Tests**: Click through page tabs, open filtering boxes, input search text, and test the pagination/jump selectors on every page to verify complete functionality.

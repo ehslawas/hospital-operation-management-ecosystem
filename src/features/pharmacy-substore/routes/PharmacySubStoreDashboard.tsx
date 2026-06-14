@@ -1,40 +1,21 @@
 'use client';
 
 import { useState } from 'react';
-import type { StockItem, PurchaseOrder, WardRequisition, PharmacySubStoreStats } from '../types/PharmacySubStore';
+import {
+  getStockItems,
+  getPurchaseOrders,
+  getWardRequisitions,
+  getPharmacySubStoreStats,
+} from '../services/mockSubStoreData';
+import type { StockItem, PurchaseOrder, WardRequisition } from '../types/PharmacySubStore';
 
 export default function PharmacySubStoreDashboard() {
   const [activeTab, setActiveTab] = useState<'stock' | 'po' | 'requisitions'>('stock');
-
-  const [stockItems, setStockItems] = useState<StockItem[]>([]);
-  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
-  const [requisitions, setRequisitions] = useState<WardRequisition[]>([]);
-
-  const stats: PharmacySubStoreStats = {
-    totalStockItems: 0,
-    totalStockValue: 0,
-    lowStockItems: 0,
-    criticalStockItems: 0,
-    outOfStockItems: 0,
-    expiredItems: 0,
-    nearExpiryItems: 0,
-    expiryValueAtRisk: 0,
-    pendingPOs: 0,
-    awaitingDelivery: 0,
-    totalPOValuePending: 0,
-    pendingRequisitions: 0,
-    todaysRequisitions: 0,
-    averageProcessingTime: 0,
-    receiptsToday: 0,
-    issuesToday: 0,
-    requisitionsProcessed: 0,
-    monthlyPurchaseValue: 0,
-    monthlyIssueValue: 0,
-    stockTurnoverRatio: 0,
-    fillRate: 0,
-    coldChainItems: 0,
-    coldChainStockValue: 0
-  };
+  
+  const stockItems = getStockItems();
+  const purchaseOrders = getPurchaseOrders();
+  const requisitions = getWardRequisitions();
+  const stats = getPharmacySubStoreStats();
 
   // KPI counters
   const pendingRequestsCount = requisitions.filter(r => r.status === 'pending').length;
@@ -110,7 +91,7 @@ export default function PharmacySubStoreDashboard() {
                 Stock management, purchase orders, and ward requisitions
               </p>
             </div>
-            <div className="flex items-center gap-4"></div>
+          <div className="flex items-center gap-4"></div>
           </div>
         </div>
       </div>
@@ -158,7 +139,7 @@ export default function PharmacySubStoreDashboard() {
           </div>
         </div>
 
-
+        
 
         {/* Tab Navigation */}
         <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
@@ -166,28 +147,31 @@ export default function PharmacySubStoreDashboard() {
             <div className="flex">
               <button
                 onClick={() => setActiveTab('stock')}
-                className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors ${activeTab === 'stock'
-                  ? 'text-indigo-600 border-b-2 border-indigo-600'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
+                className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors ${
+                  activeTab === 'stock'
+                    ? 'text-indigo-600 border-b-2 border-indigo-600'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
               >
                 📦 Low Stock Item ({lowStockCount})
               </button>
               <button
                 onClick={() => setActiveTab('po')}
-                className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors ${activeTab === 'po'
-                  ? 'text-indigo-600 border-b-2 border-indigo-600'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
+                className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors ${
+                  activeTab === 'po'
+                    ? 'text-indigo-600 border-b-2 border-indigo-600'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
               >
                 📝 Near Expiry Item ({nearExpiryCount})
               </button>
               <button
                 onClick={() => setActiveTab('requisitions')}
-                className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors ${activeTab === 'requisitions'
-                  ? 'text-indigo-600 border-b-2 border-indigo-600'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
+                className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors ${
+                  activeTab === 'requisitions'
+                    ? 'text-indigo-600 border-b-2 border-indigo-600'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
               >
                 🏥 Slow Moving Item ({slowMovingCount})
               </button>
@@ -277,7 +261,7 @@ export default function PharmacySubStoreDashboard() {
                         {/* Earliest expiring batch info */}
                         {item.batches && (
                           <p className="mt-2 text-xs text-red-600 font-medium">
-                            ⚠️ Earliest expiry: {new Date(item.batches.map(b => b.expiryDate).sort((a: any, b: any) => new Date(a).getTime() - new Date(b).getTime())[0] as any).toLocaleDateString('en-MY')}
+                            ⚠️ Earliest expiry: {new Date(item.batches.map(b => b.expiryDate).sort((a:any,b:any)=> new Date(a).getTime()-new Date(b).getTime())[0] as any).toLocaleDateString('en-MY')}
                           </p>
                         )}
                       </div>

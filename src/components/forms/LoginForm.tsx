@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { motion } from 'framer-motion'
 import { LogIn, User, Lock, AlertTriangle, Eye, EyeOff } from 'lucide-react'
-import { Button } from '@/components/ui'
+import { Button, Input } from '@/components/ui'
 import { loginSchema, type LoginFormData } from '@/lib/validators'
 import { login } from '@/services/authService'
 import { useAuthStore } from '@/stores/authStore'
@@ -30,6 +30,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     handleSubmit,
     formState: { errors },
     setError,
+    setValue,
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {

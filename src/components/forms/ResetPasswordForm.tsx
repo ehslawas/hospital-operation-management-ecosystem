@@ -58,21 +58,21 @@ export const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({ onBack }) 
         <div className="w-16 h-16 bg-success-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <CheckCircle className="w-8 h-8 text-success-600" />
         </div>
-
+        
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
           Check Your Email
         </h3>
-
+        
         <p className="text-sm text-gray-600 mb-6">
           We've sent password reset instructions to{' '}
           <span className="font-medium text-gray-900">{getValues('email')}</span>
         </p>
-
+        
         <div className="space-y-3">
           <p className="text-xs text-gray-500">
             Didn't receive the email? Check your spam folder or try again.
           </p>
-
+          
           <Button
             type="button"
             variant="ghost"
@@ -109,8 +109,7 @@ export const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({ onBack }) 
         label="Email Address"
         placeholder="Enter your email"
         leftIcon={<Mail className="w-5 h-5" />}
-        error={!!errors.email}
-        errorMessage={errors.email?.message}
+        error={errors.email?.message}
         autoComplete="email"
         required
       />

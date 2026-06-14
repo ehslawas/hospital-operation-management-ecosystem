@@ -1,7 +1,7 @@
 import React from 'react'
 import { motion } from 'framer-motion'
 import { FileText, AlertTriangle, CheckCircle, Shield, Users, Ban } from 'lucide-react'
-import { Button, LogoImage } from '@/components/ui'
+import { Button } from '@/components/ui'
 import { useNavigate } from 'react-router-dom'
 import { ROUTES } from '@/lib/constants'
 
@@ -154,11 +154,9 @@ Address: Block E1, E3, E6, E7 & E10, Parcel E, Federal Government Administrative
             animate={{ opacity: 1, y: 0 }}
             className="flex items-center gap-6"
           >
-            <LogoImage
+            <img
               src="/512px-Jata_MalaysiaV2.svg.png"
               alt="Jata Negara Malaysia"
-              size={64}
-              priority
               className="w-24 h-24 object-contain drop-shadow-2xl"
             />
             <div className="flex-1">

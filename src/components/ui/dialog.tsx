@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 interface DialogProps {
@@ -13,13 +12,7 @@ interface DialogProps {
 
 export function Dialog({ open, onOpenChange, children, size = 'md' }: DialogProps) {
   const [isAnimating, setIsAnimating] = React.useState(false);
-  const [mounted, setMounted] = React.useState(false);
-
-  React.useEffect(() => {
-    setMounted(true);
-    return () => setMounted(false);
-  }, []);
-
+  
   React.useEffect(() => {
     if (open) {
       document.body.style.overflow = 'hidden';
@@ -34,8 +27,8 @@ export function Dialog({ open, onOpenChange, children, size = 'md' }: DialogProp
     };
   }, [open]);
 
-  if (!open || !mounted) return null;
-
+  if (!open) return null;
+  
   const sizeClasses = {
     sm: 'max-w-sm',
     md: 'max-w-md',
@@ -44,24 +37,25 @@ export function Dialog({ open, onOpenChange, children, size = 'md' }: DialogProp
     full: 'max-w-[90vw] max-h-[90vh]',
   };
 
-  return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 lg:p-8">
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 lg:p-8">
       {/* Backdrop with fade-in animation */}
-      <div
-        className={`fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${isAnimating ? 'opacity-100' : 'opacity-0'
-          }`}
+      <div 
+        className={`fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${
+          isAnimating ? 'opacity-100' : 'opacity-0'
+        }`}
         onClick={() => onOpenChange(false)}
       />
-
+      
       {/* Dialog Content with scale and fade animation */}
-      <div
-        className={`relative z-[9999] w-full ${sizeClasses[size]} transition-all duration-300 flex flex-col items-center ${isAnimating ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4'
-          }`}
+      <div 
+        className={`relative z-50 w-full ${sizeClasses[size]} transition-all duration-300 ${
+          isAnimating ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4'
+        }`}
       >
         {children}
       </div>
-    </div>,
-    document.body
+    </div>
   );
 }
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { AlertTriangle, Package, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react'
-import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
+import { useAuthStore } from '@/stores/authStore'
 import { Table, Spinner, Input, Badge, Select } from '@/components/ui'
 import { getNonDrugs, getNonDrugCategories } from '@/services/pharmacy/inventoryService'
 import type { NonDrugWithRelations, NonDrugCategory, InventoryFilter } from '@/types/pharmacy'
@@ -8,7 +8,6 @@ import type { NonDrugWithRelations, NonDrugCategory, InventoryFilter } from '@/t
 export const NonDrugInventoryPage: React.FC = () => {
   const { user } = useAuthStore()
   const hospitalId = user?.hospital_id
-  const isSessionReady = useIsSessionReady()
 
   const [items, setItems] = useState<NonDrugWithRelations[]>([])
   const [categories, setCategories] = useState<NonDrugCategory[]>([])
@@ -39,7 +38,7 @@ export const NonDrugInventoryPage: React.FC = () => {
 
   // Load non-drugs with filters
   const loadItems = useCallback(async () => {
-    if (!isSessionReady || !hospitalId) return
+    if (!hospitalId) return
 
     setIsLoading(true)
     setError(null)
@@ -62,7 +61,7 @@ export const NonDrugInventoryPage: React.FC = () => {
     }
 
     setIsLoading(false)
-  }, [isSessionReady, hospitalId, search, categoryId, status, page])
+  }, [hospitalId, search, categoryId, status, page])
 
   useEffect(() => {
     void loadItems()
@@ -77,19 +76,19 @@ export const NonDrugInventoryPage: React.FC = () => {
     return itemStatus === 'active' ? (
       <Badge variant="success">Active</Badge>
     ) : (
-      <Badge variant="gray">Inactive</Badge>
+      <Badge variant="secondary">Inactive</Badge>
     )
   }
 
   const renderStockBadge = (stockStatus?: string) => {
-    if (!stockStatus) return <Badge variant="gray">—</Badge>
-    const map: Record<string, { color: 'success' | 'warning' | 'error' | 'gray'; label: string }> = {
+    if (!stockStatus) return <Badge variant="secondary">—</Badge>
+    const map: Record<string, { color: 'success' | 'warning' | 'error' | 'secondary'; label: string }> = {
       in_stock: { color: 'success', label: 'In Stock' },
       low_stock: { color: 'warning', label: 'Low' },
       critical: { color: 'error', label: 'Critical' },
-      out_of_stock: { color: 'gray', label: 'Out' },
+      out_of_stock: { color: 'secondary', label: 'Out' },
     }
-    const cfg = map[stockStatus] || { color: 'gray', label: stockStatus }
+    const cfg = map[stockStatus] || { color: 'secondary', label: stockStatus }
     return <Badge variant={cfg.color}>{cfg.label}</Badge>
   }
 

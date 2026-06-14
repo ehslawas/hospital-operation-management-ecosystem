@@ -1,11 +1,13 @@
 import React, { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { motion } from 'framer-motion'
 import { Save, X, User, Mail, Hash, Phone, Briefcase, Lock, Eye, EyeOff, RefreshCw } from 'lucide-react'
-import { Button, Input } from '@/components/ui'
+import { Button, Input, Modal } from '@/components/ui'
 import { hospitalAdminSchema, type HospitalAdminFormData } from '@/lib/validators'
 import { createHospitalAdmin } from '@/services/hospitalAdminService'
 import { useToastStore } from '@/stores/toastStore'
+import { cn } from '@/lib/utils'
 
 interface HospitalAdminFormProps {
   hospitalId: string
@@ -38,6 +40,7 @@ export const HospitalAdminForm: React.FC<HospitalAdminFormProps> = ({
     handleSubmit,
     formState: { errors },
     setValue,
+    watch,
   } = useForm<HospitalAdminFormData>({
     resolver: zodResolver(hospitalAdminSchema),
     defaultValues: {
@@ -137,8 +140,7 @@ export const HospitalAdminForm: React.FC<HospitalAdminFormProps> = ({
           <Input
             {...register('fullName')}
             placeholder="Enter full name"
-            error={!!errors.fullName}
-            errorMessage={errors.fullName?.message}
+            error={errors.fullName?.message}
             disabled={isLoading}
           />
         </div>
@@ -153,8 +155,7 @@ export const HospitalAdminForm: React.FC<HospitalAdminFormProps> = ({
             type="email"
             {...register('email')}
             placeholder="admin@hospital.gov.my"
-            error={!!errors.email}
-            errorMessage={errors.email?.message}
+            error={errors.email?.message}
             disabled={isLoading}
           />
         </div>
@@ -168,8 +169,7 @@ export const HospitalAdminForm: React.FC<HospitalAdminFormProps> = ({
           <Input
             {...register('employeeId')}
             placeholder="HKL001"
-            error={!!errors.employeeId}
-            errorMessage={errors.employeeId?.message}
+            error={errors.employeeId?.message}
             disabled={isLoading}
           />
         </div>
@@ -183,8 +183,7 @@ export const HospitalAdminForm: React.FC<HospitalAdminFormProps> = ({
           <Input
             {...register('icNumber')}
             placeholder="000000000000"
-            error={!!errors.icNumber}
-            errorMessage={errors.icNumber?.message}
+            error={errors.icNumber?.message}
             disabled={isLoading}
           />
         </div>
@@ -199,8 +198,7 @@ export const HospitalAdminForm: React.FC<HospitalAdminFormProps> = ({
             type="tel"
             {...register('phoneNumber')}
             placeholder="0123456789"
-            error={!!errors.phoneNumber}
-            errorMessage={errors.phoneNumber?.message}
+            error={errors.phoneNumber?.message}
             disabled={isLoading}
           />
         </div>
@@ -214,8 +212,7 @@ export const HospitalAdminForm: React.FC<HospitalAdminFormProps> = ({
           <Input
             {...register('jawatan')}
             placeholder="Pegawai Tadbir N41"
-            error={!!errors.jawatan}
-            errorMessage={errors.jawatan?.message}
+            error={errors.jawatan?.message}
             disabled={isLoading}
           />
         </div>
@@ -231,8 +228,7 @@ export const HospitalAdminForm: React.FC<HospitalAdminFormProps> = ({
               type={showPassword ? 'text' : 'password'}
               {...register('password')}
               placeholder="Enter password"
-              error={!!errors.password}
-              errorMessage={errors.password?.message}
+              error={errors.password?.message}
               disabled={isLoading}
               className="pr-10"
             />
@@ -262,8 +258,7 @@ export const HospitalAdminForm: React.FC<HospitalAdminFormProps> = ({
               type={showConfirmPassword ? 'text' : 'password'}
               {...register('confirmPassword')}
               placeholder="Confirm password"
-              error={!!errors.confirmPassword}
-              errorMessage={errors.confirmPassword?.message}
+              error={errors.confirmPassword?.message}
               disabled={isLoading}
               className="pr-10"
             />

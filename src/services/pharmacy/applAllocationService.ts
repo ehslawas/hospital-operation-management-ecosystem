@@ -4,65 +4,19 @@
  * linked to warrants with vote_code 990102
  */
 
-import { supabase } from '../supabase'
+import { supabase, isSupabaseConfigured } from '../supabase'
 import type { ApiResponse } from '@/types'
 import type {
   APPLExpense,
   APPLExpenseWithRelations,
   APPLAllocationSummary,
+  Warrant,
 } from '@/types/pharmacy'
-import { getWarrants, WARRANT_DEPARTMENTS } from './warrantService'
-
-// Helper to validate UUID format
-const isUUID = (str: string | null | undefined): boolean => {
-  if (!str) return false
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-  return uuidRegex.test(str)
-}
-
-/**
- * Resolves missing item names and codes for purchase order items in bulk.
- * Used for legacy records where item_name was not persisted in pharmacy_purchase_order_items.
- */
-async function resolveItemNames(purchaseOrders: any[]) {
-  const itemsToResolve = purchaseOrders.flatMap(po =>
-    (po.items || []).filter((item: any) => !item.item_name && item.item_id && item.item_type !== 'manual')
-  )
-
-  if (itemsToResolve.length === 0) return
-
-  const drugIds = [...new Set(itemsToResolve.filter((i: any) => i.item_type === 'drug').map((i: any) => i.item_id))]
-  const nonDrugIds = [...new Set(itemsToResolve.filter((i: any) => i.item_type === 'non_drug').map((i: any) => i.item_id))]
-
-  const [drugs, nonDrugs, applDrugs, applNonDrugs] = await Promise.all([
-    drugIds.length > 0 ? supabase.from('drugs').select('id, drug_name, drug_code').in('id', drugIds) : Promise.resolve({ data: [] }),
-    nonDrugIds.length > 0 ? supabase.from('non_drugs').select('id, item_name, item_code').in('id', nonDrugIds) : Promise.resolve({ data: [] }),
-    drugIds.length > 0 ? supabase.from('appl_drugs').select('id, item_name, item_code').in('id', drugIds) : Promise.resolve({ data: [] }),
-    nonDrugIds.length > 0 ? supabase.from('appl_non_drugs').select('id, item_name, item_code').in('id', nonDrugIds) : Promise.resolve({ data: [] }),
-  ])
-
-  const drugMap = new Map()
-  drugs.data?.forEach(d => drugMap.set(d.id, { name: d.drug_name, code: d.drug_code }))
-  applDrugs.data?.forEach(d => drugMap.set(d.id, { name: d.item_name, code: d.item_code }))
-
-  const nonDrugMap = new Map()
-  nonDrugs.data?.forEach(d => nonDrugMap.set(d.id, { name: d.item_name, code: d.item_code }))
-  applNonDrugs.data?.forEach(d => nonDrugMap.set(d.id, { name: d.item_name, code: d.item_code }))
-
-  itemsToResolve.forEach((item: any) => {
-    const map = item.item_type === 'drug' ? drugMap : nonDrugMap
-    const resolved = map.get(item.item_id)
-    if (resolved) {
-      item.item_name = resolved.name
-      item.item_code = resolved.code
-    } else {
-      item.item_name = 'Unknown Item'
-    }
-  })
-}
+import { getWarrants, getSharedDepartments, normalize } from './warrantService'
 
 /**
  * Get APPL expenses for a hospital
+ * @deprecated Use getExpenseList from budgetEngine.ts instead.
  */
 export async function getAPPLExpenses(
   hospitalId: string,
@@ -74,103 +28,124 @@ export async function getAPPLExpenses(
     poType?: string
     category?: string
     voteActivity?: string
-    department?: string
   }
 ): Promise<ApiResponse<APPLExpenseWithRelations[]>> {
   try {
-    let query = supabase
-      .from('pharmacy_appl_expenses')
-      .select(`
-        *,
-        warrant:pharmacy_warrants(*),
-        purchase_order:pharmacy_purchase_orders(
+    if (isSupabaseConfigured()) {
+      let query = supabase
+        .from('pharmacy_appl_expenses')
+        .select(`
           *,
-          items:pharmacy_purchase_order_items(*)
-        ),
-        created_by_user:users(id, full_name, email)
-      `)
-      .eq('hospital_id', hospitalId)
-      .eq('fiscal_year', fiscalYear)
+          warrant:pharmacy_warrants(*),
+          purchase_order:pharmacy_purchase_orders(*, approver:users!pharmacy_purchase_orders_approved_by_fkey(full_name)),
+          created_by_user:users(id, full_name, email)
+        `)
+        .eq('hospital_id', hospitalId)
+        .eq('fiscal_year', fiscalYear)
 
-    if (filters?.startDate) query = query.gte('expense_date', filters.startDate)
-    if (filters?.endDate) query = query.lte('expense_date', filters.endDate)
-    if (filters?.status) query = query.eq('status', filters.status)
-    if (filters?.poType) query = query.eq('po_type', filters.poType)
-    if (filters?.category) query = query.eq('category', filters.category)
-    if (filters?.department) query = query.eq('department', filters.department)
+      if (filters?.startDate) {
+        query = query.gte('expense_date', filters.startDate)
+      }
 
-    const { data, error } = await query.order('expense_date', { ascending: false })
-    if (error) throw error
+      if (filters?.endDate) {
+        query = query.lte('expense_date', filters.endDate)
+      }
 
-    const expenses = (data || []) as APPLExpenseWithRelations[]
-    await resolveItemNames(expenses.map(e => e.purchase_order).filter(Boolean) as any[])
+      if (filters?.status) {
+        query = query.eq('status', filters.status)
+      }
 
-    return { data: expenses, error: null }
+      if (filters?.poType) {
+        query = query.eq('po_type', filters.poType)
+      }
+
+      if (filters?.category) {
+        query = query.eq('category', filters.category)
+      }
+
+      if (filters?.voteActivity) {
+        query = query.eq('vote_activity', filters.voteActivity)
+      }
+
+      const { data, error } = await query.order('expense_date', { ascending: false })
+
+      const rows = (data || []) as any[]
+
+      // Collect PO IDs that need approver fallback
+      const poIdsToLookup = rows
+        .filter(row => row.purchase_order && !row.purchase_order.approver && !row.purchase_order.signature_snapshot?.headName)
+        .map(row => row.purchase_order.id)
+
+      if (poIdsToLookup.length > 0) {
+        try {
+          const { data: allLogs } = await supabase
+            .from('approval_logs')
+            .select(`
+              entity_id,
+              approved_by,
+              users:users!approval_logs_approved_by_fkey1(full_name)
+            `)
+            .in('entity_id', poIdsToLookup)
+            .eq('entity_type', 'purchase_order')
+            .order('created_at', { ascending: false })
+
+          if (allLogs) {
+            // Map latest log for each PO
+            const latestLogsMap = new Map()
+            allLogs.forEach((log: any) => {
+              if (!latestLogsMap.has(log.entity_id)) {
+                latestLogsMap.set(log.entity_id, log)
+              }
+            })
+
+            // Apply to rows
+            rows.forEach(row => {
+              if (row.purchase_order && !row.purchase_order.approver) {
+                const log = latestLogsMap.get(row.purchase_order.id)
+                if (log && log.users) {
+                  row.purchase_order.approver = {
+                    full_name: log.users.full_name
+                  }
+                }
+              }
+            })
+          }
+        } catch (fallbackError) {
+          console.warn('Approver fallback failed:', fallbackError)
+        }
+      }
+
+      return { data: rows as APPLExpenseWithRelations[], error: null }
+    }
+
+    return { data: [], error: null }
   } catch (error) {
     console.error('Error fetching APPL expenses:', error)
-    return { data: null, error: error instanceof Error ? error.message : 'Failed to fetch APPL expenses' }
-  }
-}
-
-/**
- * Sync a single purchase order to APPL expenses immediately
- */
-export async function syncSinglePOToAPPLAllocation(
-  hospitalId: string,
-  poId: string
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const { data: po, error: poError } = await supabase
-      .from('pharmacy_purchase_orders')
-      .select('id, vote_code, order_date, status')
-      .eq('id', poId)
-      .single()
-
-    if (poError) {
-      console.error('Error fetching PO for sync (APPL):', poError)
-      return { success: false, error: `Failed to fetch PO: ${poError.message}` }
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch APPL expenses',
     }
-
-    if (!po) return { success: false, error: 'PO not found' }
-
-    if (po.status === 'cancelled') {
-      const { error: deleteError } = await supabase
-        .from('pharmacy_appl_expenses')
-        .delete()
-        .eq('hospital_id', hospitalId)
-        .eq('po_id', poId)
-
-      if (deleteError) {
-        console.error('Error deleting expense for cancelled PO (APPL):', deleteError)
-        return { success: false, error: `Failed to remove expense: ${deleteError.message}` }
-      }
-      return { success: true }
-    }
-
-    if (po.vote_code !== '990102') return { success: true }
-
-    const fiscalYear = new Date(po.order_date).getFullYear()
-    const result = await syncAPPLExpensesFromPOs(hospitalId, fiscalYear)
-    if (result.error) return { success: false, error: result.error }
-
-    return { success: true }
-  } catch (error) {
-    console.error('Error in single PO sync (APPL):', error)
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown sync error' }
   }
 }
 
 /**
  * Sync APPL expenses from Purchase Orders
+ * Automatically creates expense records from POs linked to warrants with vote_code 990102
+ * @deprecated Legacy synchronization logic is no longer used. budgetEngine queries POs directly.
  */
 export async function syncAPPLExpensesFromPOs(
   hospitalId: string,
   fiscalYear: number
 ): Promise<ApiResponse<{ synced: number; errors: string[] }>> {
   try {
+    if (!isSupabaseConfigured()) {
+      return { data: { synced: 0, errors: [] }, error: null }
+    }
+
+    // Get all warrants with vote_code 990102 for the fiscal year
     const startDate = `${fiscalYear}-01-01`
     const endDate = `${fiscalYear}-12-31`
-
+    
     const warrantsResult = await getWarrants(hospitalId, {
       startDate,
       endDate,
@@ -178,117 +153,182 @@ export async function syncAPPLExpensesFromPOs(
     })
 
     if (warrantsResult.error || !warrantsResult.data) {
-      return { data: null, error: warrantsResult.error || 'Failed to fetch warrants' }
+      return {
+        data: null,
+        error: warrantsResult.error || 'Failed to fetch warrants',
+      }
     }
 
+    // Get ALL purchase orders for the fiscal year with vote_code 990102
+    // Include all statuses (draft, pending_approval, approved, sent, etc.) so we can track them
     const { data: purchaseOrders, error: poError } = await supabase
       .from('pharmacy_purchase_orders')
       .select('*')
       .eq('hospital_id', hospitalId)
-      .eq('vote_code', '990102')
+      .eq('vote_code', '990102') // CRITICAL: Only sync POs with vote_code 990102
       .gte('order_date', startDate)
       .lte('order_date', endDate)
+      // Include all statuses - we want to track expenses at all stages
+      // .in('status', ['approved', 'sent', 'partial_received', 'completed'])
 
     if (poError) throw poError
-    if (!purchaseOrders || purchaseOrders.length === 0) return { data: { synced: 0, errors: [] }, error: null }
 
+    if (!purchaseOrders || purchaseOrders.length === 0) {
+      return { data: { synced: 0, errors: [] }, error: null }
+    }
+
+    // Get existing expenses to check for duplicates and fix incorrect vote_activity
+    const { data: existingExpenses, error: existingError } = await supabase
+      .from('pharmacy_appl_expenses')
+      .select('id, po_id, vote_activity')
+      .eq('hospital_id', hospitalId)
+      .eq('fiscal_year', fiscalYear)
+
+    if (existingError) throw existingError
+
+    // Create a map of existing expenses by po_id for quick lookup
+    const existingExpensesMap = new Map((existingExpenses || []).map((e: any) => [e.po_id, e]))
+    const existingPoIds = new Set((existingExpenses || []).map((e: any) => e.po_id))
+    
+    // Track expenses that need to be updated (wrong vote_activity)
+    const expensesToUpdate: Array<{ id: string; vote_activity: string | null }> = []
+
+    // Filter POs that should be tracked (must have vote_code 990102)
     const expensesToCreate: any[] = []
     const errors: string[] = []
 
     for (const po of purchaseOrders) {
-      const poDate = new Date(po.order_date)
-      const matchingWarrant = warrantsResult.data.find((w) => {
-        const warrantDate = new Date(w.warrant_date)
-        const daysDiff = Math.abs((poDate.getTime() - warrantDate.getTime()) / (1000 * 60 * 60 * 24))
-        if (po.vote_activity && w.vote_activity) {
-          return po.vote_activity === w.vote_activity && daysDiff <= 180
-        }
-        return daysDiff <= 90
-      })
-
-      let category = po.category
-      if (!category) {
-        const { data: poItems } = await supabase
-          .from('pharmacy_purchase_order_items')
-          .select('item_type')
-          .eq('po_id', po.id)
-          .limit(1)
-
-        category = poItems && poItems.length > 0
-          ? (poItems[0].item_type === 'drug' ? 'drug' : 'non_drug')
-          : matchingWarrant?.category || null
+      // CRITICAL: Only process POs with vote_code 990102
+      if (po.vote_code !== '990102') {
+        continue
       }
 
-      const expenseStatus =
-        po.status === 'cancelled' ? 'cancelled' :
-          po.status === 'completed' ? 'completed' :
-            (po.status === 'approved' || po.status === 'sent' || po.status === 'partial_received') ? 'approved' :
-              'pending'
+      // Check if expense already exists
+      const existingExpense = existingExpensesMap.get(po.id)
+      
+      // If expense exists, check if vote_activity needs to be corrected
+      if (existingExpense) {
+        if (existingExpense.vote_activity !== po.vote_activity) {
+          // Vote activity mismatch - needs to be updated
+          expensesToUpdate.push({
+            id: existingExpense.id,
+            vote_activity: po.vote_activity || null,
+          })
+        }
+        // Skip creating new expense, but we'll update the vote_activity if needed
+        continue
+      }
 
-      let dept = po.department || matchingWarrant?.department || null
-      if (dept) {
-        const normalizedInput = dept.trim().toLowerCase()
-          .replace(/\s+and\s+/g, '_')
-          .replace(/\s+department$/i, '')
-          .replace(/\s+/g, '_')
-          .replace(/_+/g, '_')
-          .replace(/^_|_$/g, '')
-
-        const found = WARRANT_DEPARTMENTS.find(d =>
-          d.value.toLowerCase() === normalizedInput ||
-          d.label.toLowerCase() === dept.trim().toLowerCase()
+      // Find matching warrant by vote_activity - MUST match PO's vote_activity exactly
+      // This ensures expenses are allocated to the correct activity
+      let matchingWarrant = null
+      if (po.vote_activity) {
+        // Only match warrant if it has the SAME vote_activity as the PO
+        matchingWarrant = warrantsResult.data.find((w) => 
+          w.vote_activity === po.vote_activity
         )
-        if (found) dept = found.value
       }
 
-      const amount = Number(po.total_amount)
-      if (!amount || amount <= 0) continue
+      // CRITICAL: Do NOT match by date proximity if vote_activity doesn't match
+      // This prevents expenses from being allocated to the wrong activity
+      // If no matching warrant found, that's okay - we'll still use the PO's vote_activity
 
-      const expenseFiscalYear = po.order_date ? new Date(po.order_date).getFullYear() : fiscalYear
-      if (isNaN(expenseFiscalYear)) continue
+      // Determine category from PO items if available, otherwise use PO's category field
+      const { data: poItems } = await supabase
+        .from('pharmacy_purchase_order_items')
+        .select('item_type')
+        .eq('po_id', po.id)
+        .limit(1)
 
-      expensesToCreate.push({
-        hospital_id: hospitalId,
-        fiscal_year: expenseFiscalYear,
-        warrant_id: matchingWarrant?.id || null,
-        po_id: po.id,
-        expense_date: po.order_date,
-        po_number: po.po_number,
-        lpo_number: po.po_type === 'lpo' ? po.po_number : null,
-        po_type: po.po_type || 'regular',
-        amount: amount,
-        status: expenseStatus,
-        category: category,
-        vote_activity: po.vote_activity || matchingWarrant?.vote_activity || null,
-        department: dept,
-        created_by: isUUID(po.created_by) ? po.created_by : null,
-      })
+      let category = po.category || undefined
+      if (!category && poItems && poItems.length > 0) {
+        category = poItems[0].item_type === 'drug' ? 'drug' : 'non_drug'
+      }
+      if (!category && matchingWarrant) {
+        category = matchingWarrant.category || undefined
+      }
+
+      // Map PO status to expense status
+      let expenseStatus = 'pending'
+      if (po.status === 'completed') {
+        expenseStatus = 'completed'
+      } else if (po.status === 'approved' || po.status === 'sent' || po.status === 'partial_received') {
+        expenseStatus = 'approved'
+      } else if (po.status === 'pending_approval') {
+        expenseStatus = 'pending'
+      } else if (po.status === 'draft') {
+        expenseStatus = 'pending'
+      } else if (po.status === 'cancelled') {
+        expenseStatus = 'cancelled'
+      }
+
+      if (po.total_amount && po.total_amount > 0) {
+        expensesToCreate.push({
+          hospital_id: hospitalId,
+          fiscal_year: fiscalYear,
+          warrant_id: matchingWarrant?.id || null,
+          po_id: po.id,
+          expense_date: po.order_date,
+          po_number: po.po_number,
+          lpo_number: po.po_type === 'lpo' ? po.po_number : null,
+          po_type: po.po_type || 'regular',
+          amount: Number(po.total_amount),
+          status: expenseStatus,
+          category: category || null,
+          // CRITICAL: Always use PO's vote_activity - never override with warrant's vote_activity
+          // The PO's vote_activity is the source of truth
+          vote_activity: po.vote_activity || null,
+          created_by: po.created_by,
+        })
+      }
     }
 
-    if (expensesToCreate.length > 0) {
-      const { error: upsertError } = await supabase
-        .from('pharmacy_appl_expenses')
-        .upsert(expensesToCreate, { onConflict: 'hospital_id,fiscal_year,po_id' })
+    // Update existing expenses with incorrect vote_activity
+    if (expensesToUpdate.length > 0) {
+      for (const update of expensesToUpdate) {
+        const { error: updateError } = await supabase
+          .from('pharmacy_appl_expenses')
+          .update({ vote_activity: update.vote_activity })
+          .eq('id', update.id)
 
-      if (upsertError) {
-        for (const exp of expensesToCreate) {
-          const { error: indError } = await supabase
-            .from('pharmacy_appl_expenses')
-            .upsert(exp, { onConflict: 'hospital_id,fiscal_year,po_id' })
-          if (indError) errors.push(`PO ${exp.po_id}: ${indError.message}`)
+        if (updateError) {
+          errors.push(`Failed to update expense ${update.id}: ${updateError.message}`)
+          console.error('Error updating APPL expense vote_activity:', updateError)
         }
       }
     }
 
-    return { data: { synced: expensesToCreate.length, errors }, error: null }
+    // Insert new expenses
+    if (expensesToCreate.length > 0) {
+      const { error: insertError } = await supabase
+        .from('pharmacy_appl_expenses')
+        .insert(expensesToCreate)
+
+      if (insertError) {
+        errors.push(insertError.message)
+        console.error('Error inserting APPL expenses:', insertError)
+      }
+    }
+
+    return {
+      data: {
+        synced: expensesToCreate.length + expensesToUpdate.length,
+        errors,
+      },
+      error: null,
+    }
   } catch (error) {
     console.error('Error syncing APPL expenses:', error)
-    return { data: null, error: error instanceof Error ? error.message : 'Failed to sync APPL expenses' }
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to sync APPL expenses',
+    }
   }
 }
 
 /**
  * Get APPL allocation summary
+ * @deprecated Use getUnifiedBudgetSummary from budgetEngine.ts instead.
  */
 export async function getAPPLAllocationSummary(
   hospitalId: string,
@@ -301,6 +341,7 @@ export async function getAPPLAllocationSummary(
   }
 ): Promise<ApiResponse<APPLAllocationSummary>> {
   try {
+    // Get allocation from warrants (vote_code 990102)
     const startDate = `${fiscalYear}-01-01`
     const endDate = `${fiscalYear}-12-31`
 
@@ -309,47 +350,106 @@ export async function getAPPLAllocationSummary(
       endDate,
       voteCode: '990102',
     })
-
-    if (warrantsResult.error) return { data: null, error: warrantsResult.error }
-
+    
+    // Filter by vote activity if specified
     let filteredWarrants = warrantsResult.data || []
-    if (filters?.department && filters.department !== 'all') {
-      filteredWarrants = filteredWarrants.filter((w) => w.department?.toLowerCase() === filters.department?.toLowerCase())
-    }
-    if (filters?.voteActivity && filters.voteActivity !== 'all') {
+    if (filters?.voteActivity) {
       filteredWarrants = filteredWarrants.filter((w) => w.vote_activity === filters.voteActivity)
     }
-    if (filters?.category && filters.category !== 'all') {
-      filteredWarrants = filteredWarrants.filter((w) => w.category?.toLowerCase() === filters.category?.toLowerCase())
+    if (filters?.department && filters.department !== 'all') {
+      filteredWarrants = filteredWarrants.filter((w) => w.department === filters.department)
+    }
+    if (filters?.category) {
+      filteredWarrants = filteredWarrants.filter((w) => w.category === filters.category)
+    }
+
+    if (warrantsResult.error) {
+      return {
+        data: null,
+        error: warrantsResult.error,
+      }
     }
 
     const warrants = filteredWarrants
     const totalAllocation = warrants.reduce((sum, w) => sum + Number(w.amount), 0)
 
+    // Get expenses
     const expensesResult = await getAPPLExpenses(hospitalId, fiscalYear, {
       ...filters,
       voteActivity: filters?.voteActivity,
     })
 
-    if (expensesResult.error) return { data: null, error: expensesResult.error }
+    if (expensesResult.error) {
+      return {
+        data: null,
+        error: expensesResult.error,
+      }
+    }
 
-    const expenses = (expensesResult.data || []).filter((e) => {
-      if (filters?.department && filters.department !== 'all') {
-        if (e.department?.toLowerCase() !== filters.department.toLowerCase()) return false
+    let rawExpenses = expensesResult.data || []
+    
+    // Filter out cancelled expenses first to ensure they don't block active ones during deduplication
+    const nonCancelledExpenses = rawExpenses.filter(e => e.status !== 'cancelled')
+    
+    // Deduplicate by po_id to prevent double counting
+    const uniqueExpensesMap = new Map()
+    nonCancelledExpenses.forEach(e => {
+      if (!uniqueExpensesMap.has(e.po_id)) {
+        uniqueExpensesMap.set(e.po_id, e)
       }
-      if (filters?.voteActivity && filters.voteActivity !== 'all') {
-        const activity = e.vote_activity || e.warrant?.vote_activity
-        if (activity !== filters.voteActivity) return false
-      }
-      return true
     })
+    let validExpenses = Array.from(uniqueExpensesMap.values())
 
-    const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0)
-    const totalBalance = totalAllocation - totalExpenses
-    const totalLiabilities = expenses.filter((e) => e.status === 'approved').reduce((sum, e) => sum + Number(e.amount), 0)
-    const netExpenses = expenses.filter((e) => e.status === 'completed').reduce((sum, e) => sum + Number(e.amount), 0)
-    const usagePercentage = totalAllocation > 0 ? (totalExpenses / totalAllocation) * 100 : 0
+    const selectedDept = filters?.department !== 'all' ? filters?.department : null
+    const sharedDepts = selectedDept ? getSharedDepartments(selectedDept) : []
 
+    let pooledExpenses = validExpenses
+    let specificExpenses = validExpenses
+
+    if (selectedDept) {
+      // Pooled expenses (all departments in the shared group)
+      pooledExpenses = validExpenses.filter((e) => {
+        const normWarrantDept = normalize(e.warrant?.department || null)
+        const normPoDept = normalize(e.purchase_order?.department || null)
+        return sharedDepts.includes(normWarrantDept) || sharedDepts.includes(normPoDept)
+      })
+      
+      // Specific expenses (only the selected department)
+      specificExpenses = validExpenses.filter((e) => {
+        const normWarrantDept = normalize(e.warrant?.department || null)
+        const normPoDept = normalize(e.purchase_order?.department || null)
+        return normWarrantDept === selectedDept || normPoDept === selectedDept
+      })
+    }
+
+    const VALID_STATUSES = ['approved', 'sent', 'partial_received', 'completed']
+    const LIABILITY_STATUSES = ['approved', 'sent', 'partial_received']
+
+    // Metrics based on specific data for accuracy
+    const totalExpenses = specificExpenses
+      .filter((e) => VALID_STATUSES.includes(e.status))
+      .reduce((sum, e) => sum + Number(e.amount), 0)
+
+    const totalLiabilities = specificExpenses
+      .filter((e) => LIABILITY_STATUSES.includes(e.status))
+      .reduce((sum, e) => sum + Number(e.amount), 0)
+      
+    const netExpenses = specificExpenses
+      .filter((e) => e.status === 'completed')
+      .reduce((sum, e) => sum + Number(e.amount), 0)
+
+    // Balance calculation: Use pooled data ONLY if no specific activity filter is applied
+    // If an activity filter is applied, we must use specificExpenses to avoid "leakage"
+    const relevantExpensesForBalance = filters?.voteActivity || filters?.category ? specificExpenses : pooledExpenses
+    
+    const totalEffectiveExpenses = relevantExpensesForBalance
+      .filter((e) => VALID_STATUSES.includes(e.status))
+      .reduce((sum, e) => sum + Number(e.amount), 0)
+
+    const totalBalance = totalAllocation - totalEffectiveExpenses
+    const usagePercentage = totalAllocation > 0 ? (totalEffectiveExpenses / totalAllocation) * 100 : 0
+
+    // Quarterly breakdown
     const quarterly = [1, 2, 3, 4].map((quarter) => {
       const quarterStartMonth = (quarter - 1) * 3
       const quarterStart = new Date(fiscalYear, quarterStartMonth, 1)
@@ -360,38 +460,74 @@ export async function getAPPLAllocationSummary(
         return warrantDate >= quarterStart && warrantDate <= quarterEnd
       })
 
-      const quarterExpenses = expenses.filter((e) => {
+      const quarterPooled = pooledExpenses.filter((e) => {
+        const expenseDate = new Date(e.expense_date)
+        return expenseDate >= quarterStart && expenseDate <= quarterEnd
+      })
+
+      const quarterSpecific = specificExpenses.filter((e) => {
         const expenseDate = new Date(e.expense_date)
         return expenseDate >= quarterStart && expenseDate <= quarterEnd
       })
 
       const quarterAllocation = quarterWarrants.reduce((sum, w) => sum + Number(w.amount), 0)
-      const quarterExpensesAmount = quarterExpenses.reduce((sum, e) => sum + Number(e.amount), 0)
-      const quarterBalance = quarterAllocation - quarterExpensesAmount
-      const quarterUsage = quarterAllocation > 0 ? (quarterExpensesAmount / quarterAllocation) * 100 : 0
+      const quarterPooledAmount = quarterPooled
+        .filter((e) => VALID_STATUSES.includes(e.status))
+        .reduce((sum, e) => sum + Number(e.amount), 0)
+      const quarterSpecificAmount = quarterSpecific
+        .filter((e) => VALID_STATUSES.includes(e.status))
+        .reduce((sum, e) => sum + Number(e.amount), 0)
+
+      const quarterBalance = quarterAllocation - quarterPooledAmount
+      const quarterUsage = quarterAllocation > 0 ? (quarterPooledAmount / quarterAllocation) * 100 : 0
 
       return {
         quarter: quarter as 1 | 2 | 3 | 4,
         allocation: quarterAllocation,
-        expenses: quarterExpensesAmount,
+        expenses: quarterSpecificAmount,
         balance: quarterBalance,
         usage_percentage: quarterUsage,
       }
     })
 
-    const voteActivityMap = new Map<string, { allocation: number; expenses: number; liabilities: number; netExpenses: number; count: number }>()
+    // Breakdown by vote activity
+    const voteActivityMap = new Map<string, { 
+      allocation: number
+      expenses: number
+      pooledExpenses: number
+      liabilities: number
+      netExpenses: number
+      count: number
+    }>()
+    
     warrants.forEach((w) => {
       const activity = w.vote_activity || 'other'
-      const current = voteActivityMap.get(activity) || { allocation: 0, expenses: 0, liabilities: 0, netExpenses: 0, count: 0 }
+      const current = voteActivityMap.get(activity) || { allocation: 0, expenses: 0, pooledExpenses: 0, liabilities: 0, netExpenses: 0, count: 0 }
       current.allocation += Number(w.amount)
       voteActivityMap.set(activity, current)
     })
-    expenses.forEach((e) => {
+
+    pooledExpenses.forEach((e) => {
       const activity = e.vote_activity || 'other'
-      const current = voteActivityMap.get(activity) || { allocation: 0, expenses: 0, liabilities: 0, netExpenses: 0, count: 0 }
-      current.expenses += Number(e.amount)
-      if (e.status === 'approved') current.liabilities += Number(e.amount)
-      if (e.status === 'completed') current.netExpenses += Number(e.amount)
+      const current = voteActivityMap.get(activity) || { allocation: 0, expenses: 0, pooledExpenses: 0, liabilities: 0, netExpenses: 0, count: 0 }
+      if (VALID_STATUSES.includes(e.status)) {
+        current.pooledExpenses += Number(e.amount)
+      }
+      voteActivityMap.set(activity, current)
+    })
+
+    specificExpenses.forEach((e) => {
+      const activity = e.vote_activity || 'other'
+      const current = voteActivityMap.get(activity) || { allocation: 0, expenses: 0, pooledExpenses: 0, liabilities: 0, netExpenses: 0, count: 0 }
+      if (VALID_STATUSES.includes(e.status)) {
+        current.expenses += Number(e.amount)
+      }
+      if (LIABILITY_STATUSES.includes(e.status)) {
+        current.liabilities += Number(e.amount)
+      }
+      if (e.status === 'completed') {
+        current.netExpenses += Number(e.amount)
+      }
       current.count += 1
       voteActivityMap.set(activity, current)
     })
@@ -400,41 +536,60 @@ export async function getAPPLAllocationSummary(
       vote_activity,
       allocation: data.allocation,
       expenses: data.expenses,
-      balance: data.allocation - data.expenses,
+      balance: data.allocation - data.pooledExpenses,
       liabilities: data.liabilities,
       net_expenses: data.netExpenses,
       count: data.count,
     }))
 
-    const categoryMap = new Map<string, { allocation: number; expenses: number; count: number }>()
+    // Breakdown by category
+    const categoryMap = new Map<string, { allocation: number; expenses: number; pooledExpenses: number; count: number }>()
+    
     warrants.forEach((w) => {
       const cat = w.category || 'other'
-      const current = categoryMap.get(cat) || { allocation: 0, expenses: 0, count: 0 }
+      const current = categoryMap.get(cat) || { allocation: 0, expenses: 0, pooledExpenses: 0, count: 0 }
       current.allocation += Number(w.amount)
       categoryMap.set(cat, current)
     })
-    expenses.forEach((e) => {
+
+    pooledExpenses.forEach((e) => {
       const cat = e.category || 'other'
-      const current = categoryMap.get(cat) || { allocation: 0, expenses: 0, count: 0 }
-      current.expenses += Number(e.amount)
+      const current = categoryMap.get(cat) || { allocation: 0, expenses: 0, pooledExpenses: 0, count: 0 }
+      if (VALID_STATUSES.includes(e.status)) {
+        current.pooledExpenses += Number(e.amount)
+      }
+      categoryMap.set(cat, current)
+    })
+
+    specificExpenses.forEach((e) => {
+      const cat = e.category || 'other'
+      const current = categoryMap.get(cat) || { allocation: 0, expenses: 0, pooledExpenses: 0, count: 0 }
+      if (VALID_STATUSES.includes(e.status)) {
+        current.expenses += Number(e.amount)
+      }
       current.count += 1
       categoryMap.set(cat, current)
     })
+
     const byCategory = Array.from(categoryMap.entries()).map(([category, data]) => ({
       category,
       allocation: data.allocation,
       expenses: data.expenses,
-      balance: data.allocation - data.expenses,
+      balance: data.allocation - data.pooledExpenses,
       count: data.count,
     }))
 
+    // Breakdown by PO type
     const poTypeMap = new Map<string, { expenses: number; count: number }>()
-    expenses.forEach((e) => {
+    specificExpenses.forEach((e) => {
       const current = poTypeMap.get(e.po_type) || { expenses: 0, count: 0 }
-      current.expenses += Number(e.amount)
+      if (VALID_STATUSES.includes(e.status)) {
+        current.expenses += Number(e.amount)
+      }
       current.count += 1
       poTypeMap.set(e.po_type, current)
     })
+
     const byPoType = Array.from(poTypeMap.entries()).map(([po_type, data]) => ({
       po_type: po_type as any,
       expenses: data.expenses,
@@ -449,7 +604,7 @@ export async function getAPPLAllocationSummary(
       total_liabilities: totalLiabilities,
       net_expenses: netExpenses,
       usage_percentage: usagePercentage,
-      total_count: expenses.length,
+      total_count: specificExpenses.length,
       quarterly,
       by_vote_activity: byVoteActivity,
       by_category: byCategory,
@@ -459,7 +614,10 @@ export async function getAPPLAllocationSummary(
     return { data: summary, error: null }
   } catch (error) {
     console.error('Error calculating APPL allocation summary:', error)
-    return { data: null, error: error instanceof Error ? error.message : 'Failed to calculate APPL allocation summary' }
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to calculate APPL allocation summary',
+    }
   }
 }
 
@@ -480,39 +638,137 @@ export async function upsertAPPLExpense(
   }
 ): Promise<ApiResponse<APPLExpense>> {
   try {
-    const { data: po, error: poError } = await supabase
-      .from('pharmacy_purchase_orders')
-      .select('po_number, po_type')
-      .eq('id', data.po_id)
-      .single()
+    if (isSupabaseConfigured()) {
+      // Get PO details
+      const { data: po, error: poError } = await supabase
+        .from('pharmacy_purchase_orders')
+        .select('po_number, po_type')
+        .eq('id', data.po_id)
+        .single()
 
-    if (poError) throw poError
+      if (poError) throw poError
 
-    const expenseData = {
-      hospital_id: hospitalId,
-      fiscal_year: data.fiscal_year,
-      warrant_id: data.warrant_id || null,
-      po_id: data.po_id,
-      expense_date: data.expense_date,
-      po_number: po.po_number,
-      lpo_number: po.po_type === 'lpo' ? po.po_number : null,
-      po_type: po.po_type,
-      amount: data.amount,
-      status: data.status || 'pending',
-      category: data.category || null,
-      created_by: userId,
+      const expenseData = {
+        hospital_id: hospitalId,
+        fiscal_year: data.fiscal_year,
+        warrant_id: data.warrant_id || null,
+        po_id: data.po_id,
+        expense_date: data.expense_date,
+        po_number: po.po_number,
+        lpo_number: po.po_type === 'lpo' ? po.po_number : null,
+        po_type: po.po_type,
+        amount: data.amount,
+        status: data.status || 'pending',
+        category: data.category || null,
+        created_by: userId,
+      }
+
+      const { data: inserted, error } = await supabase
+        .from('pharmacy_appl_expenses')
+        .upsert(expenseData, {
+          onConflict: 'hospital_id,fiscal_year,po_id',
+        })
+        .select('*')
+        .single()
+
+      if (error) throw error
+
+      return { data: inserted as APPLExpense, error: null }
     }
 
-    const { data: inserted, error } = await supabase
-      .from('pharmacy_appl_expenses')
-      .upsert(expenseData, { onConflict: 'hospital_id,fiscal_year,po_id' })
-      .select('*')
+    return {
+      data: null,
+      error: 'Supabase not configured',
+    }
+  } catch (error) {
+    console.error('Error upserting APPL expense:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to upsert APPL expense',
+    }
+  }
+}
+
+/**
+ * Get detailed purchase order information including items
+ */
+export async function getPurchaseOrderDetails(
+  hospitalId: string,
+  poId: string
+): Promise<ApiResponse<any>> {
+  try {
+    if (!isSupabaseConfigured()) {
+      return { data: null, error: 'Supabase not configured' }
+    }
+
+    const { data, error } = await supabase
+      .from('pharmacy_purchase_orders')
+      .select(`
+        *,
+        supplier:suppliers!pharmacy_purchase_orders_supplier_id_fkey(*),
+        items:pharmacy_purchase_order_items(*),
+        creator:users!pharmacy_purchase_orders_created_by_fkey(id, full_name, email),
+        approver:users!pharmacy_purchase_orders_approved_by_fkey(id, full_name, email),
+        canceller:users!pharmacy_purchase_orders_cancelled_by_fkey(id, full_name, email),
+        lpo:pharmacy_lpo(lpo_number)
+      `)
+      .eq('hospital_id', hospitalId)
+      .eq('id', poId)
       .single()
 
     if (error) throw error
-    return { data: inserted as APPLExpense, error: null }
+
+    const row = data as any
+    if (row.lpo && row.lpo.length > 0) {
+      row.lpo_number = row.lpo[0].lpo_number
+    }
+
+    // Fetch all relevant logs for this PO
+    const { data: logs } = await supabase
+      .from('approval_logs')
+      .select(`
+        *,
+        users!approval_logs_approved_by_fkey1(full_name)
+      `)
+      .eq('entity_id', poId)
+      .eq('entity_type', 'purchase_order')
+      .order('created_at', { ascending: false })
+
+    if (logs) {
+      // Use action instead of status (the DB schema uses 'action')
+      const approvalLog = logs.find((l: any) => l.action === 'approved' || l.action === 'auto_approved')
+      const cancellationLog = logs.find((l: any) => l.action === 'cancelled' || l.action === 'rejected')
+
+      if (approvalLog) {
+        row.approver_name = approvalLog.users?.full_name || row.creator?.full_name || 'Unknown User'
+        row.approved_at = approvalLog.created_at
+      } else if (row.approver) {
+        row.approver_name = row.approver.full_name
+        // row.approved_at is already set from row.approved_at join
+      }
+
+      if (row.canceller) {
+        row.cancelled_by_name = row.canceller.full_name
+      }
+
+      if (cancellationLog) {
+        if (!row.cancelled_by_name) {
+          row.cancelled_by_name = cancellationLog.users?.full_name
+        }
+        if (!row.cancelled_at) {
+          row.cancelled_at = cancellationLog.created_at
+        }
+        row.cancellation_reason = cancellationLog.notes || row.notes
+      }
+    }
+
+    return { data: row, error: null }
   } catch (error) {
-    console.error('Error upserting APPL expense:', error)
-    return { data: null, error: error instanceof Error ? error.message : 'Failed to upsert APPL expense' }
+    console.error('Error fetching PO details:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch PO details',
+    }
   }
 }
+

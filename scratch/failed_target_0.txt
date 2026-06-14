@@ -1,3 +1,0 @@
-    // 3. QR CODE LABEL GENERATOR
-    if (currentPath === '/pharmacy/oxygen/qr') {
-      const standardCylinders = cylinders.filter(c => !c.size_info?.is_loan && !c.serial_number?.startsWith('101-'))

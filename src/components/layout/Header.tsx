@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Bell, Search, Menu, Settings } from 'lucide-react'
+import { Bell, Search, Menu, Settings, Home } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useSidebar } from '@/stores/uiStore'
 import { Avatar, Badge } from '@/components/ui'
@@ -10,10 +10,15 @@ import { SYSTEM_ROLES, MODULE_DEFINITIONS, ROLE_DISPLAY_NAMES, ROUTES } from '@/
  * Get current module name based on route
  */
 const getCurrentModule = (pathname: string): { name: string; code?: string } | null => {
+  // Medical Oxygen / MyCylinder
+  if (pathname.startsWith('/pharmacy/oxygen')) {
+    return { name: 'MyCylinder', code: 'cylinder' }
+  }
+
   // Pharmacy Logistics
   if (pathname.startsWith('/pharmacy')) {
     const module = MODULE_DEFINITIONS.find(m => m.code === 'pharmacy_logistics')
-    return { name: module?.name || 'Pharmacy Logistics', code: 'pharmacy_logistics' }
+    return { name: module?.name || 'MyWarrant', code: 'pharmacy_logistics' }
   }
 
   // System Admin
@@ -24,6 +29,12 @@ const getCurrentModule = (pathname: string): { name: string; code?: string } | n
   // Hospital Admin
   if (pathname.startsWith('/admin') && !pathname.includes('/modules')) {
     return { name: 'Hospital Administration', code: 'hospital_admin' }
+  }
+
+  // Transporter
+  if (pathname.startsWith('/hub/transporter')) {
+    const module = MODULE_DEFINITIONS.find(m => m.code === 'system_transporter')
+    return { name: module?.name || 'MyTransporter', code: 'system_transporter' }
   }
 
   // Dashboard
@@ -49,7 +60,7 @@ const getModuleFromRole = (roleCode?: string): string | null => {
     SYSTEM_ROLES.PHARMACY_STOREKEEPER,
     SYSTEM_ROLES.PHARMACY_STAFF,
   ].includes(roleCode as any)) {
-    return 'Pharmacy Logistics'
+    return 'MyWarrant'
   }
 
   // System Admin
@@ -88,44 +99,48 @@ export const Header: React.FC = () => {
 
   return (
     <header className="fixed top-0 left-0 right-0 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white z-40 shadow-lg">
-      <div className="min-h-[112px] px-8 py-5 flex items-center justify-between">
+      <div className="h-20 sm:min-h-[112px] px-4 sm:px-8 flex items-center justify-between">
         {/* Left Side - Branding */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
           <button
             onClick={toggleSidebar}
             className="lg:hidden p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
           >
-            <Menu className="w-5 h-5" />
+            <Menu className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
 
-          {/* Jata Negara & Branding */}
-          <div className="flex items-center gap-4">
+          {/* Jata Negara & Branding - Clickable to return home */}
+          <div 
+            className="flex items-center gap-2 sm:gap-4 cursor-pointer group"
+            onClick={() => navigate('/')}
+            title="Return to Landing Page"
+          >
             <img
               src="/512px-Jata_MalaysiaV2.svg.png"
               alt="Jata Negara"
-              className="w-20 h-20 object-contain flex-shrink-0"
+              className="w-10 h-10 sm:w-20 sm:h-20 object-contain flex-shrink-0 group-hover:scale-105 transition-transform duration-200"
             />
             <div className="flex flex-col">
               <div className="flex items-baseline gap-2">
-                <h1 className="text-3xl font-bold tracking-tight">H.O.M.E.</h1>
+                <h1 className="text-lg sm:text-3xl font-bold tracking-tight group-hover:text-cyan-200 transition-colors">H.O.M.E.</h1>
               </div>
-              <p className="text-sm text-slate-300 leading-tight">
+              <p className="text-[10px] sm:text-sm text-slate-300 leading-tight group-hover:text-slate-200 transition-colors">
                 Hospital Operation & Management Ecosystem
               </p>
-              <p className="text-xs text-slate-400 leading-tight mt-1">
+              <p className="text-[8px] sm:text-xs text-slate-400 leading-tight mt-0.5 sm:mt-1">
                 KEMENTERIAN KESIHATAN MALAYSIA
               </p>
             </div>
           </div>
 
           {/* Divider */}
-          <div className="w-px h-12 bg-white/20 mx-2" />
+          <div className="hidden lg:block w-px h-12 bg-white/20 mx-2" />
 
           {/* Module & Role Info */}
-          <div className="flex flex-col gap-1">
+          <div className="hidden lg:flex flex-col gap-1">
             <div className="flex items-center gap-2">
               <span className="text-xs text-slate-400 uppercase tracking-wide">Module:</span>
-              <Badge variant="primary" size="sm" className="bg-teal-500/20 text-teal-100 border-teal-400/30">
+              <Badge variant="primary" size="sm" className="bg-teal-600 text-white border-none px-3 rounded-full font-bold">
                 {currentModule.name}
               </Badge>
             </div>
@@ -137,9 +152,18 @@ export const Header: React.FC = () => {
         </div>
 
         {/* Right Side */}
-        <div className="flex items-center gap-3">
-          {/* Search */}
-          <button className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+        <div className="flex items-center gap-1 sm:gap-3">
+          {/* Home / Landing Page */}
+          <button 
+            onClick={() => navigate('/')}
+            className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+            title="Return to Landing Page"
+          >
+            <Home className="w-5 h-5" />
+          </button>
+
+          {/* Search - Hidden on very small mobile */}
+          <button className="hidden xs:block p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
             <Search className="w-5 h-5" />
           </button>
 
@@ -149,18 +173,13 @@ export const Header: React.FC = () => {
             <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full" />
           </button>
 
-          {/* Settings */}
-          <button className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
-            <Settings className="w-5 h-5" />
-          </button>
-
           {/* Divider */}
-          <div className="w-px h-6 bg-white/20" />
+          <div className="hidden sm:block w-px h-6 bg-white/20" />
 
           {/* User */}
           <button
             onClick={() => navigate(ROUTES.PROFILE)}
-            className="flex items-center gap-3 hover:bg-white/10 rounded-lg px-2 py-1 transition-colors"
+            className="flex items-center gap-2 sm:gap-3 hover:bg-white/10 rounded-lg px-2 py-1 transition-colors"
           >
             <div className="text-right hidden sm:block">
               <p className="text-sm font-medium text-white">
@@ -173,8 +192,8 @@ export const Header: React.FC = () => {
             <Avatar
               src={user?.profile_photo_url}
               name={user?.full_name}
-              size="md"
-              className="ring-2 ring-white/20"
+              size="sm"
+              className="sm:w-10 sm:h-10 ring-2 ring-white/20"
             />
           </button>
         </div>
@@ -184,4 +203,3 @@ export const Header: React.FC = () => {
 }
 
 export default Header
-

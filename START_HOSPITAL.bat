@@ -7,9 +7,6 @@ echo.
 
 cd /d "%~dp0"
 
-REM Add Portable NodeJS to PATH
-set "PATH=%PATH%;C:\Users\hospital3\NodeJS"
-
 REM Get the computer's IP address
 for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4 Address" ^| findstr /v "172."') do (
     set IP=%%a

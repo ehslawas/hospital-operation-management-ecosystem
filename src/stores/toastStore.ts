@@ -1,22 +1,21 @@
 import { create } from 'zustand'
-import type { Toast } from '@/types'
+import type { Toast, ToastType } from '@/types'
 import { generateId } from '@/lib/utils'
 import { TOAST_DURATION } from '@/lib/constants'
 
 interface ToastState {
   toasts: Toast[]
-
+  
   // Actions
   addToast: (toast: Omit<Toast, 'id'>) => string
   removeToast: (id: string) => void
   clearToasts: () => void
-
+  
   // Convenience methods
   success: (title: string, message?: string) => string
   error: (title: string, message?: string) => string
   warning: (title: string, message?: string) => string
   info: (title: string, message?: string) => string
-  minimal: (title: string, message?: string) => string
 }
 
 export const useToastStore = create<ToastState>((set, get) => ({
@@ -31,7 +30,7 @@ export const useToastStore = create<ToastState>((set, get) => ({
     }
 
     set((state) => ({
-      toasts: [...state.toasts, newToast].slice(-3), // Keep max 3 toasts visible
+      toasts: [...state.toasts, newToast],
     }))
 
     // Auto-remove after duration
@@ -87,15 +86,6 @@ export const useToastStore = create<ToastState>((set, get) => ({
       title,
       message,
       duration: TOAST_DURATION.MEDIUM,
-    })
-  },
-
-  minimal: (title, message) => {
-    return get().addToast({
-      type: 'info',
-      title,
-      message,
-      duration: TOAST_DURATION.MINIMAL,
     })
   },
 }))

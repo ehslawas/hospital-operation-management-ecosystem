@@ -8,7 +8,6 @@ interface ImportMetaEnv {
   readonly VITE_OPENROUTER_API_KEY?: string
   readonly VITE_SERPER_API_KEY?: string // For web search integration
   readonly VITE_TAVILY_API_KEY?: string // Alternative web search
-  readonly VITE_GROK_API_KEY?: string // Grok Vision API for LPO analysis
 }
 
 interface ImportMeta {

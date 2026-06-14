@@ -70,22 +70,13 @@ export interface Department extends BaseEntity {
   department_code: string
   department_name: string
   description?: string
-  phone?: string
-  email?: string
   head_of_department_id?: string
   status: DepartmentStatus
-  approval_type: 'standard' | 'exempt'
-  // Enhanced fields
-  kkm_unit_code?: string
-  location?: string
-  unit_type?: 'clinical' | 'clinical_support' | 'non_clinical' | 'admin'
 }
 
 export interface DepartmentWithRelations extends Department {
   hospital?: Hospital
   head_of_department?: User
-  staff?: UserWithRelations[]
-  staff_count?: number
 }
 
 // Role types
@@ -111,64 +102,6 @@ export interface RolePermission extends BaseEntity {
   permission_id: string
   granted_by: string
   granted_at: string
-}
-
-// Resource Permission Types
-export interface ResourcePermission extends BaseEntity {
-  resource_code: string
-  resource_name: string
-  module: string
-  permission_tag: string[]
-  description?: string
-}
-
-export interface RoleDepartmentPermission extends BaseEntity {
-  role_id: string
-  department_id?: string // NULL means global/all departments
-  resource_id: string
-  can_view: boolean
-  can_create: boolean
-  can_edit: boolean
-  can_delete: boolean
-  can_approve: boolean
-  granted_by?: string
-  granted_at: string
-}
-
-// Approval Workflow Types
-export type ApprovalRouteType = 'standard' | 'exempt'
-export type ApprovalAction = 'approved' | 'rejected' | 'escalated' | 'auto_finalized'
-
-export interface ApprovalRoute extends BaseEntity {
-  route_name: string
-  route_type: ApprovalRouteType
-  step_order: number
-  approver_role_id: string
-  is_final: boolean
-  description?: string
-}
-
-export interface ApprovalLog extends BaseEntity {
-  entity_type: string
-  entity_id: string
-  approval_route_id?: string
-  step_order: number
-  action: ApprovalAction
-  approved_by: string
-  comments?: string
-  ip_address?: string
-  user_agent?: string
-}
-
-export interface ApprovalRouteWithRelations extends ApprovalRoute {
-  approver_role?: Role
-}
-
-export interface RoleDepartmentPermissionWithRelations extends RoleDepartmentPermission {
-  role?: Role
-  department?: Department
-  resource?: ResourcePermission
-  granted_by_user?: User
 }
 
 // Access Request types
@@ -234,14 +167,6 @@ export interface Inquiry extends BaseEntity {
   status: InquiryStatus
   assigned_to?: string
   resolved_at?: string
-}
-
-export interface InquiryFormData {
-  name: string
-  email: string
-  subject: string
-  message: string
-  inquiryType: InquiryType
 }
 
 // Login History types
@@ -528,7 +453,7 @@ export interface FilterConfig {
 }
 
 // System Admin Types - Module Codes for all available modules
-export type ModuleCode =
+export type ModuleCode = 
   // Pharmacy Modules
   | 'pharmacy_logistics'
   | 'pharmacy_substore'
@@ -653,7 +578,7 @@ export interface SystemStatistics {
 // =====================================================
 
 // Memo System Types
-export type MemoType = 'announcement' | 'policy' | 'event' | 'emergency' | 'maintenance' | 'stock_alert'
+export type MemoType = 'announcement' | 'policy' | 'event' | 'emergency' | 'maintenance'
 export type MemoStatus = 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'published' | 'archived'
 export type MemoPriority = 'low' | 'normal' | 'high' | 'urgent'
 
@@ -672,13 +597,6 @@ export interface Memo extends BaseEntity {
   expiry_date?: string
   target_departments?: string[]
   attachments?: string[]
-  // New fields for letters and running numbers
-  ref_number?: string
-  is_letter?: boolean
-  recipient_name?: string
-  recipient_address?: string
-  through_name?: string
-  through_designation?: string
 }
 
 export interface MemoWithRelations extends Memo {
@@ -700,24 +618,15 @@ export interface SensitiveDataRequest extends BaseEntity {
   patient_name: string
   patient_ic: string
   data_category: SensitiveDataCategory
-  urgency: SensitiveDataUrgency
   justification: string
+  urgency: SensitiveDataUrgency
   status: SensitiveDataRequestStatus
+  access_duration_hours: number
   approved_by?: string
   approved_at?: string
-  rejection_reason?: string
-  access_granted_until?: string
+  denial_reason?: string
+  access_expires_at?: string
   access_logs?: SensitiveDataAccessLog[]
-}
-
-// Running Numbers
-export interface DepartmentRunningNumber extends BaseEntity {
-  department_id: string
-  type: 'memo' | 'letter'
-  prefix: string
-  current_sequence: number
-  year: number
-  last_updated_at?: string
 }
 
 export interface SensitiveDataRequestWithRelations extends SensitiveDataRequest {
@@ -900,13 +809,6 @@ export interface UserSession extends BaseEntity {
 
 export interface UserSessionWithRelations extends UserSession {
   user?: User
-}
-
-export interface FacilityStatistics {
-  totalUsers: number
-  activeUsers: number
-  pendingUsers: number
-  totalLogs: number
 }
 
 // Pharmacy Types - Re-export from pharmacy module

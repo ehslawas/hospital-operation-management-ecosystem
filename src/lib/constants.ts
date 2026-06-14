@@ -243,13 +243,37 @@ export const TOAST_DURATION = {
   SHORT: 3000,
   MEDIUM: 5000,
   LONG: 8000,
-  MINIMAL: 1500,
 } as const
 
 // Routes
 export const ROUTES = {
   LOGIN: '/login',
   DASHBOARD: '/dashboard',
+  
+  // Hub / Module Landing Page
+  HUB: '/hub',
+  HUB_CYLINDER: '/hub/cylinder',
+  HUB_INVENTORY: '/hub/inventory',
+  HUB_WARRANT: '/hub/warrant',
+  HUB_SURAT: '/hub/surat',
+  HUB_BORANG: '/hub/borang',
+  HUB_SUHU: '/hub/suhu',
+  HUB_ADMIN: '/hub/admin',
+  HUB_PEROLEHAN: '/hub/perolehan',
+  HUB_GALLERY: '/hub/gallery',
+  HUB_MEMO: '/hub/memo',
+  HUB_CROSSBORDER: '/hub/crossborder',
+  HUB_FILE: '/hub/file',
+  HUB_FORMULARI: '/hub/formulari',
+  HUB_PORTER: '/hub/porter',
+  HUB_TRANSPORTER: '/hub/transporter',
+  HUB_PRIVILEDGING: '/hub/priviledging',
+  HUB_TEMPAHAN: '/hub/tempahan',
+  HUB_PERHIMPUNAN: '/hub/perhimpunan',
+  HUB_KUNCI: '/hub/kunci',
+  HUB_CUTI: '/hub/cuti',
+  HUB_TIMEOFF: '/hub/time-off',
+
   RESET_PASSWORD: '/reset-password',
   PROFILE: '/profile',
   
@@ -309,7 +333,8 @@ export const ROUTES = {
   PHARMACY_OXYGEN_CYLINDERS: '/pharmacy/oxygen/cylinders',
   PHARMACY_OXYGEN_CONSUMPTION: '/pharmacy/oxygen/consumption',
   
-
+  // MyWarrant
+  MYWARRANT_DASHBOARD: '/pharmacy/dashboard',
 
   // Financial
   PHARMACY_FINANCIAL: '/pharmacy/financial',
@@ -773,4 +798,22 @@ export const SENSITIVE_DATA_REQUEST_STATUS = {
   APPROVED: 'approved',
   DENIED: 'denied',
   EXPIRED: 'expired',
+  REVOKED: 'revoked',
 } as const
+
+// Hospital Log Categories
+export const HOSPITAL_LOG_CATEGORY = {
+  AUTHENTICATION: 'authentication',
+  USER_ACTIVITY: 'user_activity',
+  ADMINISTRATIVE: 'administrative',
+  SECURITY: 'security',
+  SYSTEM: 'system',
+} as const
+
+export const HOSPITAL_LOG_SEVERITY = {
+  INFO: 'info',
+  WARNING: 'warning',
+  ERROR: 'error',
+  CRITICAL: 'critical',
+} as const
+

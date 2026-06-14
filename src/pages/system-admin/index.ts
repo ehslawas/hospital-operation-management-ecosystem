@@ -1,5 +1,0 @@
-export { default as SystemAdminDashboard } from './SystemAdminDashboard'
-export { default as TenantManagementPage } from './TenantManagementPage'
-export { default as AnalyticsOverviewPage } from './AnalyticsOverviewPage'
-export { default as GlobalAuditTrailPage } from './GlobalAuditTrailPage'
-export { default as HealthMonitoringPage } from './HealthMonitoringPage'

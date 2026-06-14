@@ -1,42 +1,23 @@
 'use client';
 
 import { useState } from 'react';
-import type { DialysisPatient, DialysisSession, DialysisMachine, DialysisStaff, HaemodialysisStats } from '../types/Haemodialysis';
+import {
+  getDialysisPatients,
+  getDialysisSessions,
+  getDialysisMachines,
+  getDialysisStaff,
+  getHaemodialysisStats,
+} from '../services/mockHaemodialysisData';
+import type { DialysisPatient, DialysisSession, DialysisMachine } from '../types/Haemodialysis';
 
 export default function HaemodialysisDashboard() {
   const [activeTab, setActiveTab] = useState<'sessions' | 'patients' | 'machines'>('sessions');
-  const [patients, setPatients] = useState<DialysisPatient[]>([]);
-  const [sessions, setSessions] = useState<DialysisSession[]>([]);
-  const [machines, setMachines] = useState<DialysisMachine[]>([]);
-  const [staff, setStaff] = useState<DialysisStaff[]>([]);
-
-  const stats: HaemodialysisStats = {
-    totalActivePatients: 0,
-    scheduledToday: 0,
-    completedToday: 0,
-    ongoingSessions: 0,
-    morningSessionsToday: 0,
-    afternoonSessionsToday: 0,
-    eveningSessionsToday: 0,
-    averageKtV: 0,
-    adequateDialysisRate: 0,
-    complicationRate: 0,
-    totalMachines: 0,
-    availableMachines: 0,
-    machinesInUse: 0,
-    machinesOffline: 0,
-    averageSessionDuration: 0,
-    machineUtilizationRate: 0,
-    patientWaitTime: 0,
-    missedSessionsThisMonth: 0,
-    adverseEventsThisMonth: 0,
-    waterQualityTests: 0,
-    waterQualityPassRate: 0,
-    avfRate: 0,
-    catheterRate: 0,
-    nursesOnDuty: 0,
-    doctorsOnDuty: 0
-  };
+  
+  const patients = getDialysisPatients();
+  const sessions = getDialysisSessions();
+  const machines = getDialysisMachines();
+  const staff = getDialysisStaff();
+  const stats = getHaemodialysisStats();
 
   const getSessionStatusColor = (status: string) => {
     const colors = {
@@ -167,28 +148,31 @@ export default function HaemodialysisDashboard() {
             <div className="flex">
               <button
                 onClick={() => setActiveTab('sessions')}
-                className={`flex-1 px-6 py-4 text-sm font-semibold ${activeTab === 'sessions'
+                className={`flex-1 px-6 py-4 text-sm font-semibold ${
+                  activeTab === 'sessions'
                     ? 'text-cyan-600 border-b-2 border-cyan-600'
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
+                }`}
               >
                 🩺 Today's Sessions ({sessions.length})
               </button>
               <button
                 onClick={() => setActiveTab('patients')}
-                className={`flex-1 px-6 py-4 text-sm font-semibold ${activeTab === 'patients'
+                className={`flex-1 px-6 py-4 text-sm font-semibold ${
+                  activeTab === 'patients'
                     ? 'text-cyan-600 border-b-2 border-cyan-600'
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
+                }`}
               >
                 👥 Patient List ({patients.length})
               </button>
               <button
                 onClick={() => setActiveTab('machines')}
-                className={`flex-1 px-6 py-4 text-sm font-semibold ${activeTab === 'machines'
+                className={`flex-1 px-6 py-4 text-sm font-semibold ${
+                  activeTab === 'machines'
                     ? 'text-cyan-600 border-b-2 border-cyan-600'
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
+                }`}
               >
                 🏥 Machines ({machines.length})
               </button>
@@ -258,10 +242,11 @@ export default function HaemodialysisDashboard() {
                         <div className="flex items-center gap-3 mb-2">
                           <span className="text-sm font-semibold text-gray-900">{patient.patientName}</span>
                           <span className="text-xs text-gray-600">({patient.age}y, {patient.gender})</span>
-                          <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${patient.adequacy === 'adequate' ? 'bg-green-100 text-green-800' :
-                              patient.adequacy === 'borderline' ? 'bg-yellow-100 text-yellow-800' :
-                                'bg-red-100 text-red-800'
-                            }`}>
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+                            patient.adequacy === 'adequate' ? 'bg-green-100 text-green-800' :
+                            patient.adequacy === 'borderline' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
                             Kt/V: {patient.lastKtV}
                           </span>
                         </div>
@@ -303,11 +288,12 @@ export default function HaemodialysisDashboard() {
                         <h4 className="text-sm font-bold text-gray-900">{machine.machineNumber}</h4>
                         <p className="text-xs text-gray-600">{machine.manufacturer} {machine.model}</p>
                       </div>
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${machine.status === 'available' ? 'bg-green-600 text-white' :
-                          machine.status === 'in-use' ? 'bg-blue-600 text-white' :
-                            machine.status === 'maintenance' ? 'bg-yellow-600 text-white' :
-                              'bg-red-600 text-white'
-                        }`}>
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                        machine.status === 'available' ? 'bg-green-600 text-white' :
+                        machine.status === 'in-use' ? 'bg-blue-600 text-white' :
+                        machine.status === 'maintenance' ? 'bg-yellow-600 text-white' :
+                        'bg-red-600 text-white'
+                      }`}>
                         {machine.status === 'in-use' && '🔄 In Use'}
                         {machine.status === 'available' && '✓ Available'}
                         {machine.status === 'maintenance' && '🔧 Maintenance'}

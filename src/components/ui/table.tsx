@@ -1,109 +1,15 @@
 import React from 'react';
-import { FileX2 } from 'lucide-react';
 
-export interface Column<T> {
-  key: string;
-  label: string;
-  sortable?: boolean;
-  className?: string;
-  render?: (value: any, item: T) => React.ReactNode;
-  align?: 'left' | 'center' | 'right';
-}
-
-export interface TableProps<T = any> {
-  data?: T[];
-  columns?: Column<T>[];
-  children?: React.ReactNode;
+interface TableProps {
+  children: React.ReactNode;
   className?: string;
   striped?: boolean;
   hoverable?: boolean;
-  isLoading?: boolean;
-  emptyMessage?: React.ReactNode;
-  sortConfig?: { key: string; direction: 'asc' | 'desc' } | null;
-  onSort?: (key: string) => void;
-  onRowClick?: (item: T) => void;
 }
 
-function TableImpl<T>({
-  data,
-  columns,
-  children,
-  className = '',
-  striped = false,
-  hoverable = true,
-  isLoading = false,
-  emptyMessage = 'No data available',
-  sortConfig = null,
-  onSort,
-  onRowClick,
-}: TableProps<T>) {
-  // Data-driven rendering
-  if (data && columns) {
-    return (
-      <div className={`w-full overflow-hidden rounded-2xl glass-card ${className}`}>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
-            <TableHeader>
-              <TableRow hoverable={false}>
-                {columns.map((column) => (
-                  <TableHead
-                    key={column.key}
-                    sortable={column.sortable}
-                    sortDirection={sortConfig && sortConfig.key && sortConfig.key === column.key ? sortConfig.direction : null}
-                    onSort={() => onSort?.(column.key)}
-                    align={column.align}
-                    className={column.className}
-                  >
-                    {column.label}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow hoverable={false}>
-                  <TableCell colSpan={columns.length} className="py-12 text-center text-slate-500">
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                      Loading...
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : data.length === 0 ? (
-                <TableEmpty message={emptyMessage} colSpan={columns.length} />
-              ) : (
-                data.map((item: any, rowIndex) => (
-                  <TableRow
-                    key={item.id || rowIndex}
-                    hoverable={hoverable}
-                    striped={striped}
-                    index={rowIndex}
-                    onClick={() => onRowClick?.(item)}
-                  >
-                    {columns.map((column) => (
-                      <TableCell
-                        key={column.key}
-                        align={column.align}
-                        className={column.className}
-                      >
-                        {column.render
-                          ? column.render(item[column.key], item)
-                          : item[column.key]}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </table>
-        </div>
-      </div>
-    );
-  }
-
-  // Low-level composition rendering
+export function Table({ children, className = '', striped = false, hoverable = true }: TableProps) {
   return (
-    <div className={`w-full overflow-hidden rounded-2xl glass-card ${className}`}>
+    <div className={`w-full overflow-hidden rounded-xl border border-gray-200/70 bg-white shadow-md ${className}`}>
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
           {children}
@@ -120,7 +26,7 @@ interface TableHeaderProps {
 
 export function TableHeader({ children, className = '' }: TableHeaderProps) {
   return (
-    <thead className={`bg-slate-50/80 border-b border-slate-200/60 ${className}`}>
+    <thead className={`bg-gradient-to-r from-slate-50 via-blue-50/40 to-indigo-50/30 border-b-2 border-gray-200 ${className}`}>
       {children}
     </thead>
   );
@@ -129,9 +35,11 @@ export function TableHeader({ children, className = '' }: TableHeaderProps) {
 interface TableBodyProps {
   children: React.ReactNode;
   className?: string;
+  striped?: boolean;
+  hoverable?: boolean;
 }
 
-export function TableBody({ children, className = '' }: TableBodyProps) {
+export function TableBody({ children, className = '', striped = false, hoverable = true }: TableBodyProps) {
   return (
     <tbody className={className}>
       {children}
@@ -149,12 +57,12 @@ interface TableRowProps {
 }
 
 export function TableRow({ children, className = '', onClick, hoverable = true, striped = false, index = 0 }: TableRowProps) {
-  const stripedClass = striped && index % 2 === 0 ? 'bg-slate-50/30' : 'bg-transparent';
-  const hoverClass = hoverable ? 'hover:bg-blue-50/60 transition-colors duration-200' : '';
+  const stripedClass = striped && index % 2 === 0 ? 'bg-gray-50/50' : 'bg-white';
+  const hoverClass = hoverable ? 'hover:bg-blue-50/50 transition-colors duration-150' : '';
   const clickableClass = onClick ? 'cursor-pointer' : '';
-
+  
   return (
-    <tr
+    <tr 
       className={`border-b border-gray-100 last:border-0 ${stripedClass} ${hoverClass} ${clickableClass} ${className}`}
       onClick={onClick}
     >
@@ -168,40 +76,40 @@ interface TableHeadProps {
   className?: string;
   sortable?: boolean;
   sortDirection?: 'asc' | 'desc' | null;
-  onSort?: (e: React.MouseEvent) => void;
+  onSort?: () => void;
   align?: 'left' | 'center' | 'right';
 }
 
-export function TableHead({
-  children,
-  className = '',
-  sortable = false,
+export function TableHead({ 
+  children, 
+  className = '', 
+  sortable = false, 
   sortDirection = null,
   onSort,
-  align = 'left'
+  align = 'left' 
 }: TableHeadProps) {
   const alignClass = align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left';
   const sortableClass = sortable ? 'cursor-pointer select-none hover:bg-blue-100/50 transition-colors' : '';
-
+  
   return (
-    <th
-      className={`px-6 py-4 text-xs font-bold text-royal-blue tracking-wider uppercase ${alignClass} ${sortableClass} ${className}`}
+    <th 
+      className={`px-6 py-4 text-sm font-bold text-gray-700 tracking-wide uppercase ${alignClass} ${sortableClass} ${className}`}
       onClick={sortable ? onSort : undefined}
     >
-      <div className={`flex items-center gap-2 ${align === 'center' ? 'justify-center' : align === 'right' ? 'justify-end' : ''}`}>
+      <div className="flex items-center gap-2">
         {children}
         {sortable && (
           <div className="inline-flex flex-col">
-            <svg
-              className={`w-3 h-3 ${sortDirection === 'asc' ? 'text-blue-600' : 'text-gray-400'}`}
-              fill="currentColor"
+            <svg 
+              className={`w-3 h-3 ${sortDirection === 'asc' ? 'text-blue-600' : 'text-gray-400'}`} 
+              fill="currentColor" 
               viewBox="0 0 20 20"
             >
               <path d="M10 5l-5 5h10l-5-5z" />
             </svg>
-            <svg
-              className={`w-3 h-3 -mt-1 ${sortDirection === 'desc' ? 'text-blue-600' : 'text-gray-400'}`}
-              fill="currentColor"
+            <svg 
+              className={`w-3 h-3 -mt-1 ${sortDirection === 'desc' ? 'text-blue-600' : 'text-gray-400'}`} 
+              fill="currentColor" 
               viewBox="0 0 20 20"
             >
               <path d="M10 15l5-5H5l5 5z" />
@@ -218,33 +126,22 @@ interface TableCellProps {
   className?: string;
   align?: 'left' | 'center' | 'right';
   colSpan?: number;
-  rowSpan?: number;
   as?: 'td' | 'th';
 }
 
-export function TableCell({ children, className = '', align = 'left', colSpan, rowSpan, as = 'td' }: TableCellProps) {
+export function TableCell({ children, className = '', align = 'left', colSpan, as: Component = 'td' }: TableCellProps) {
   const alignClass = align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left';
-
-  if (as === 'th') {
-    return (
-      <th
-        className={`px-6 py-4 text-sm font-bold text-gray-700 tracking-wide uppercase ${alignClass} ${className}`}
-        colSpan={colSpan}
-        rowSpan={rowSpan}
-      >
-        {children}
-      </th>
-    );
-  }
+  const baseClass = Component === 'th' 
+    ? 'px-6 py-4 text-sm font-bold text-gray-700 tracking-wide uppercase'
+    : 'px-6 py-4 text-sm text-gray-700';
 
   return (
-    <td
-      className={`px-6 py-4 text-sm text-gray-700 ${alignClass} ${className}`}
+    <Component 
+      className={`${baseClass} ${alignClass} ${className}`}
       colSpan={colSpan}
-      rowSpan={rowSpan}
     >
       {children}
-    </td>
+    </Component>
   );
 }
 
@@ -276,60 +173,39 @@ export function TableCaption({ children, className = '' }: TableCaptionProps) {
 
 // Empty state for tables
 interface TableEmptyProps {
-  message?: React.ReactNode;
+  message?: string;
   icon?: React.ReactNode;
   action?: React.ReactNode;
-  colSpan?: number;
 }
 
-// Import moved to top
-
-export function TableEmpty({
-  message = 'No data available',
+export function TableEmpty({ 
+  message = 'No data available', 
   icon,
-  action,
-  colSpan = 100
+  action 
 }: TableEmptyProps) {
   return (
     <TableRow hoverable={false}>
-      <TableCell colSpan={colSpan} className="py-16">
+      <TableCell colSpan={100} className="py-12">
         <div className="flex flex-col items-center justify-center text-center">
-          <div className="mb-6 p-4 rounded-full bg-slate-50 border border-slate-100 shadow-sm">
-            {icon || <FileX2 className="w-10 h-10 text-slate-300" />}
-          </div>
-          <h3 className="text-lg font-semibold text-slate-900 mb-1">No records found</h3>
-          <p className="text-slate-500 max-w-sm mx-auto mb-6">{message}</p>
-          {action && <div>{action}</div>}
+          {icon && <div className="mb-4 text-gray-400">{icon}</div>}
+          <p className="text-gray-500 font-medium mb-2">{message}</p>
+          {action && <div className="mt-4">{action}</div>}
         </div>
       </TableCell>
     </TableRow>
   );
 }
 
-// Attach sub-components directly to Table function
-Object.assign(TableImpl, {
-  Head: TableHeader,
-  Body: TableBody,
-  Row: TableRow,
-  Cell: TableCell,
-  Header: TableHead,
-  Footer: TableFooter,
-  Caption: TableCaption,
-  Empty: TableEmpty,
-});
+// Attach components for compound component pattern
+Table.Header = TableHeader;
+Table.Body = TableBody;
+Table.Row = TableRow;
+Table.Head = TableHeader; // Mapping Table.Head to TableHeader for consistency with some usage patterns
+Table.Cell = TableCell;
+Table.TH = TableHead;
+Table.Footer = TableFooter;
+Table.Caption = TableCaption;
+Table.Empty = TableEmpty;
 
-// Type assertion for TypeScript
-type TableWithSubComponents = typeof TableImpl & {
-  Head: typeof TableHeader;
-  Body: typeof TableBody;
-  Row: typeof TableRow;
-  Cell: typeof TableCell;
-  Header: typeof TableHead;
-  Footer: typeof TableFooter;
-  Caption: typeof TableCaption;
-  Empty: typeof TableEmpty;
-};
-
-// Export Table with sub-components attached
-export const Table = TableImpl as unknown as TableWithSubComponents;
 export default Table;
+

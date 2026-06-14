@@ -68,7 +68,7 @@ export async function generateHospitalInfo(
   // Optional: Use web search to get real information first
   // This requires integrating a web search API (see webSearchService.ts)
   let webSearchData: { address?: string; phone?: string; email?: string; searchResults?: string } | null = null
-
+  
   if (USE_WEB_SEARCH && hospitalName) {
     try {
       const { searchHospitalInfo } = await import('./webSearchService')
@@ -80,10 +80,10 @@ export async function generateHospitalInfo(
           email: searchResult.email,
           searchResults: searchResult.searchResults.map(r => `${r.title}: ${r.snippet}`).join('\n'),
         }
-        console.info('Web search found information:', {
-          phone: webSearchData.phone,
-          email: webSearchData.email,
-          address: webSearchData.address
+        console.info('Web search found information:', { 
+          phone: webSearchData.phone, 
+          email: webSearchData.email, 
+          address: webSearchData.address 
         })
       }
     } catch (error) {
@@ -94,10 +94,10 @@ export async function generateHospitalInfo(
   // Build the prompt
   let prompt = ''
   if (description) {
-    const webSearchContext = webSearchData
+    const webSearchContext = webSearchData 
       ? `\n\nREAL INFORMATION FROM WEB SEARCH:\n${webSearchData.searchResults}\n\nUse this real information for phone, email, and address fields.`
       : ''
-
+    
     prompt = `You are a Malaysian hospital information expert. Extract and structure hospital information from the provided text.${webSearchContext}
 
 CRITICAL INSTRUCTIONS:
@@ -135,10 +135,10 @@ Return ONLY valid JSON, no other text:
   "email": "string"
 }`
   } else if (hospitalName) {
-    const webSearchContext = webSearchData
+    const webSearchContext = webSearchData 
       ? `\n\nREAL INFORMATION FROM WEB SEARCH:\n${webSearchData.searchResults}\n\nUse this real information for phone, email, and address fields.`
       : ''
-
+    
     prompt = `You are a Malaysian hospital information expert. Generate hospital information for: "${hospitalName}"${webSearchContext}
 
 IMPORTANT RULES:
@@ -233,7 +233,7 @@ Return ONLY valid JSON, no other text:
         const retryAfter = response.headers.get('Retry-After')
         const cooldownSeconds = retryAfter ? parseInt(retryAfter, 10) * 1000 : RATE_LIMIT_COOLDOWN
         rateLimitUntil = Date.now() + cooldownSeconds
-
+        
         const message = retryAfter
           ? `Rate limit exceeded. Please wait ${retryAfter} seconds before trying again.`
           : 'Rate limit exceeded. Please wait a moment before trying again.'
@@ -253,7 +253,7 @@ Return ONLY valid JSON, no other text:
     // Parse JSON from AI response
     // AI might return JSON wrapped in markdown code blocks
     let jsonText = aiResponse.trim()
-
+    
     // Remove markdown code blocks if present
     if (jsonText.startsWith('```')) {
       jsonText = jsonText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '')
@@ -295,7 +295,7 @@ Return ONLY valid JSON, no other text:
     }
 
     let state = parsed.state || ''
-
+    
     // If it's a code, convert to full name
     if (state && stateCodeToName[state.toUpperCase()]) {
       state = stateCodeToName[state.toUpperCase()]
@@ -357,7 +357,7 @@ Return ONLY valid JSON, no other text:
     return result
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
-
+    
     // Check if it's a rate limit error
     if (errorMessage.includes('RATE_LIMIT_EXCEEDED') || errorMessage.includes('429')) {
       // Rate limit cooldown is already set above
@@ -366,7 +366,7 @@ Return ONLY valid JSON, no other text:
       // Only log non-rate-limit errors as warnings
       console.warn('AI API call failed, using intelligent pattern matching:', error)
     }
-
+    
     // Fallback to pattern matching if API fails
     return fallbackGenerate(params)
   }
@@ -421,7 +421,7 @@ function fallbackGenerate(params: GenerateHospitalInfoParams): HospitalAISuggest
     'SAB': 'Sabah',
     'LAB': 'Labuan',
   }
-
+  
   const stateCode = state || ''
   const stateName = stateCodeToName[stateCode] || stateCode || ''
 
@@ -447,7 +447,7 @@ function generateHospitalCode(name: string): string {
 
   // Check if it's a hospital (should start with H)
   const isHospital = name.toLowerCase().includes('hospital')
-
+  
   // Remove common words
   const cleanName = name
     .replace(/\b(Hospital|Klinik|Clinic|Kesihatan|Health)\b/gi, '')
@@ -553,8 +553,26 @@ function generateEmail(name: string): string {
 /**
  * Extract phone number from text, or generate placeholder
  */
-function generatePhone(_state: string, _text?: string): string {
-  // If no phone found in text, don't generate placeholder
+function generatePhone(state: string, text?: string): string {
+  // First, try to extract phone from text
+  if (text) {
+    // Malaysian phone patterns
+    const phonePatterns = [
+      /(\+?6?0?\d{1,3}[-.\s]?\d{3,4}[-.\s]?\d{3,4})/g, // Various formats
+      /(\(\d{2,3}\)\s?\d{3,4}\s?\d{3,4})/g, // (03) 1234 5678
+      /(\d{2,3}-\d{3,4}\s?\d{3,4})/g, // 03-1234 5678
+    ]
+
+    for (const pattern of phonePatterns) {
+      const matches = text.match(pattern)
+      if (matches && matches[0]) {
+        return matches[0].trim()
+      }
+    }
+  }
+
+  // If no phone found in text, don't generate fake numbers
+  // Return empty - user should fill this manually
   return ''
 }
 
@@ -626,8 +644,6 @@ export interface ExtractedCatalogItem {
   storage_conditions?: string
   is_controlled?: boolean
   requires_prescription?: boolean
-  packaging_description?: string
-  notes?: string
   confidence?: number
 }
 
@@ -663,29 +679,61 @@ async function extractTextFromPDF(file: File): Promise<string> {
   try {
     // Check if pdf.js is already loaded
     let pdfjsLib: any = null
-
+    
     if (typeof window !== 'undefined') {
-      // Prefer the version imported at the top of pdfExtractor
-      const { pdfjsLib: importedLib } = await import('../utils/pdfExtractor');
-      pdfjsLib = importedLib;
+      // Check if already available on window
+      pdfjsLib = (window as any).pdfjsLib || (window as any).pdfjs || (window as any).pdfjsDist
     }
-
-    // Loaded via imports in pdfExtractor.ts
-
+    
+    // If not available, load from CDN
+    if (!pdfjsLib) {
+      pdfjsLib = await new Promise((resolve, reject) => {
+        // Check if script already exists
+        const existingScript = document.querySelector('script[src*="pdf.js"]')
+        if (existingScript) {
+          // Wait a bit for it to load
+          setTimeout(() => {
+            pdfjsLib = (window as any).pdfjsLib || (window as any).pdfjs || (window as any).pdfjsDist
+            if (pdfjsLib) {
+              resolve(pdfjsLib)
+            } else {
+              reject(new Error('PDF.js failed to load'))
+            }
+          }, 500)
+          return
+        }
+        
+        const script = document.createElement('script')
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
+        script.onload = () => {
+          // Try multiple possible global names
+          pdfjsLib = (window as any).pdfjsLib || (window as any).pdfjs || (window as any).pdfjsDist
+          if (pdfjsLib) {
+            resolve(pdfjsLib)
+          } else {
+            reject(new Error('PDF.js loaded but not available on window'))
+          }
+        }
+        script.onerror = () => {
+          reject(new Error('Failed to load PDF.js from CDN'))
+        }
+        document.head.appendChild(script)
+      })
+    }
+    
     if (!pdfjsLib) {
       throw new Error('PDF.js library not available')
     }
-
+    
     // Set worker source
     if (pdfjsLib.GlobalWorkerOptions) {
-      // Use static path from public folder
-      pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`
     }
-
+    
     const arrayBuffer = await file.arrayBuffer()
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
     let fullText = ''
-
+    
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i)
       const textContent = await page.getTextContent()
@@ -694,7 +742,7 @@ async function extractTextFromPDF(file: File): Promise<string> {
         .join(' ')
       fullText += pageText + '\n\n'
     }
-
+    
     return fullText
   } catch (error) {
     console.warn('PDF text extraction not available, using vision-only analysis:', error)
@@ -708,7 +756,7 @@ async function extractTextFromPDF(file: File): Promise<string> {
  */
 export async function analyzeCatalogDocument(
   file: File,
-  catalogType: 'drug' | 'non_drug' | 'contract'
+  catalogType: 'drug' | 'non_drug'
 ): Promise<DocumentExtractionResult> {
   try {
     const fileType = file.type
@@ -736,10 +784,13 @@ export async function analyzeCatalogDocument(
 
     // Use Vision AI to analyze the document
     const visionModel = 'google/gemini-2.0-flash-exp:free' // Vision-capable model
-
+    
     // Build prompt based on catalog type
-    const catalogTypeLabel = catalogType === 'drug' ? 'drug' : catalogType === 'contract' ? 'contract' : 'non-drug'
-
+    const catalogTypeLabel = catalogType === 'drug' ? 'drug' : 'non-drug'
+    const requiredFields = catalogType === 'drug' 
+      ? ['drug_code', 'drug_name']
+      : ['item_code', 'item_name']
+    
     const prompt = `You are an expert at extracting pharmaceutical catalog information from documents.
 
 CRITICAL: Analyze this ${catalogTypeLabel} catalog document and extract ONLY actual product/item data from DATA ROWS, NOT from table headers or column labels.
@@ -767,8 +818,6 @@ ${catalogType === 'drug' ? `
 - supplier (Supplier name - exact name from document)
 - procurement_vote (APPL, CC, DP, or LP - from the procurement vote column, NOT from item code)
 - price (Price in RM - numeric value only)
-- packaging_description (e.g., Box of 100, 500mg/tablet)
-- notes (Any additional remarks or catatan)
 - status (active, inactive, or discontinued)
 - min_stock_level
 - max_stock_level
@@ -786,8 +835,6 @@ ${catalogType === 'drug' ? `
 - supplier (Supplier name - exact name from document)
 - procurement_vote (APPL, CC, DP, or LP - from the procurement vote column, NOT from item code)
 - price (Price in RM - numeric value only)
-- packaging_description (e.g., Pack of 10, roll, set)
-- notes (Any additional remarks or catatan)
 - status (active, inactive, or discontinued)
 - unit_of_measure (e.g., unit, box, pack)
 - min_stock_level
@@ -848,12 +895,12 @@ IMPORTANT:
     // Add image if available
     if (imageBase64) {
       // Determine image format from base64 or file type
-      const imageFormat = fileType.includes('png') ? 'image/png' :
-        fileType.includes('jpg') || fileType.includes('jpeg') ? 'image/jpeg' :
-          fileType.includes('gif') ? 'image/gif' :
-            fileType.includes('webp') ? 'image/webp' :
-              'image/jpeg' // default
-
+      const imageFormat = fileType.includes('png') ? 'image/png' : 
+                         fileType.includes('jpg') || fileType.includes('jpeg') ? 'image/jpeg' :
+                         fileType.includes('gif') ? 'image/gif' :
+                         fileType.includes('webp') ? 'image/webp' :
+                         'image/jpeg' // default
+      
       messages[0].content.push({
         type: 'image_url',
         image_url: {
@@ -905,7 +952,7 @@ IMPORTANT:
 
     // Parse JSON from AI response
     let jsonText = aiResponse.trim()
-
+    
     // Remove markdown code blocks if present
     if (jsonText.startsWith('```')) {
       jsonText = jsonText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '')
@@ -926,7 +973,7 @@ IMPORTANT:
     // Validate and normalize extracted items
     const items: ExtractedCatalogItem[] = (parsed.items || []).map((item) => {
       const normalized: ExtractedCatalogItem = { ...item }
-
+      
       // Normalize procurement_vote
       if (normalized.procurement_vote) {
         const vote = String(normalized.procurement_vote).toLowerCase()
@@ -936,7 +983,7 @@ IMPORTANT:
           delete normalized.procurement_vote
         }
       }
-
+      
       // Normalize status
       if (normalized.status) {
         const status = String(normalized.status).toLowerCase()
@@ -946,12 +993,12 @@ IMPORTANT:
           normalized.status = 'active' // default
         }
       }
-
+      
       // Ensure price is a number
       if (normalized.price && typeof normalized.price === 'string') {
-        normalized.price = parseFloat(String(normalized.price).replace(/[^\d.-]/g, '')) || undefined
+        normalized.price = parseFloat(normalized.price.replace(/[^\d.-]/g, '')) || undefined
       }
-
+      
       // Ensure numeric fields are numbers
       if (normalized.min_stock_level && typeof normalized.min_stock_level === 'string') {
         normalized.min_stock_level = parseInt(normalized.min_stock_level) || 0
@@ -965,66 +1012,66 @@ IMPORTANT:
       if (normalized.lead_time_days && typeof normalized.lead_time_days === 'string') {
         normalized.lead_time_days = parseInt(normalized.lead_time_days) || undefined
       }
-
+      
       return normalized
     })
 
     // Filter out invalid items with strict validation
     const invalidItemCodes = ['APPL', 'CC', 'DP', 'LP', 'Contract', 'ITEM CODE', 'ITEM_CODE', 'item code', 'item_code']
     const invalidItemNames = ['each', 'Pack of', 'Contract', 'NON-DRUG NAME', 'NON_DRUG_NAME', 'non-drug name', 'non_drug_name']
-
+    
     const validItems = items.filter((item) => {
       // Check required fields exist
-      const hasRequiredFields = catalogType === 'drug'
+      const hasRequiredFields = catalogType === 'drug' 
         ? (item.drug_code && item.drug_name)
         : (item.item_code && item.item_name)
-
+      
       if (!hasRequiredFields) {
         return false
       }
-
+      
       // Get the code and name for validation
       const code = catalogType === 'drug' ? item.drug_code : item.item_code
       const name = catalogType === 'drug' ? item.drug_name : item.item_name
-
+      
       if (!code || !name) {
         return false
       }
-
+      
       // Validate item code - must NOT be a label or header
       const codeStr = String(code).trim()
       if (invalidItemCodes.some(invalid => codeStr.toUpperCase() === invalid.toUpperCase())) {
         return false
       }
-
+      
       // Validate item name - must NOT be generic text or header
       const nameStr = String(name).trim()
       if (invalidItemNames.some(invalid => nameStr.toLowerCase().includes(invalid.toLowerCase()))) {
         // Check if it's exactly the invalid name or starts with it
-        if (nameStr.toLowerCase() === 'each' ||
-          nameStr.toLowerCase().startsWith('pack of') ||
-          nameStr.toLowerCase() === 'contract') {
+        if (nameStr.toLowerCase() === 'each' || 
+            nameStr.toLowerCase().startsWith('pack of') ||
+            nameStr.toLowerCase() === 'contract') {
           return false
         }
       }
-
+      
       // Additional validation: item code should look like a product code
       // Should contain alphanumeric characters, hyphens, or underscores
       // Should NOT be just a single word that's a common label
       if (codeStr.length < 2) {
         return false
       }
-
+      
       // Item name should be more than just a unit or generic description
       if (nameStr.length < 3) {
         return false
       }
-
+      
       // Reject if name is just a number or single character
       if (/^\d+$/.test(nameStr) || nameStr.length <= 2) {
         return false
       }
-
+      
       return true
     })
 
@@ -1036,15 +1083,15 @@ IMPORTANT:
         const name = catalogType === 'drug' ? item.drug_name : item.item_name
         const codeStr = code ? String(code).trim() : ''
         const nameStr = name ? String(name).trim() : ''
-
+        
         const invalidCodes = ['APPL', 'CC', 'DP', 'LP', 'Contract', 'ITEM CODE', 'ITEM_CODE']
         const invalidNames = ['each', 'Pack of', 'Contract']
-
-        return !code || !name ||
-          invalidCodes.some(inv => codeStr.toUpperCase() === inv.toUpperCase()) ||
-          invalidNames.some(inv => nameStr.toLowerCase().includes(inv.toLowerCase()))
+        
+        return !code || !name || 
+               invalidCodes.some(inv => codeStr.toUpperCase() === inv.toUpperCase()) ||
+               invalidNames.some(inv => nameStr.toLowerCase().includes(inv.toLowerCase()))
       })
-
+      
       console.warn(`Filtered out ${filteredCount} invalid items:`, filteredItems.map(item => ({
         code: catalogType === 'drug' ? item.drug_code : item.item_code,
         name: catalogType === 'drug' ? item.drug_name : item.item_name
@@ -1055,14 +1102,14 @@ IMPORTANT:
       items: validItems,
       total_items: validItems.length,
       confidence: parsed.confidence || 0.8,
-      errors: filteredCount > 0
+      errors: filteredCount > 0 
         ? [`Filtered out ${filteredCount} invalid item(s) (headers, labels, or missing required fields). Only valid product data was imported.`]
         : undefined,
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     console.error('Error analyzing catalog document:', error)
-
+    
     return {
       items: [],
       total_items: 0,

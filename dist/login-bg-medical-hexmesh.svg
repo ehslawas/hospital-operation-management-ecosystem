@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <defs>
+    <!-- Blue→Teal→Green wash -->
+    <linearGradient id="wash" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0ea5e9"/>
+      <stop offset="0.55" stop-color="#22c55e"/>
+      <stop offset="1" stop-color="#14b8a6"/>
+    </linearGradient>
+    <!-- Soft vignette -->
+    <radialGradient id="vign" cx="50%" cy="35%" r="75%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.0"/>
+    </radialGradient>
+    <!-- Grid lines -->
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="1"/>
+    </pattern>
+    <!-- Hexagon cell -->
+    <symbol id="hex" viewBox="0 0 100 86.6">
+      <polygon points="50,0 100,25 100,61.6 50,86.6 0,61.6 0,25" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="2"/>
+    </symbol>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1920" height="1080" fill="url(#wash)"/>
+  <rect width="1920" height="1080" fill="url(#vign)"/>
+  <rect width="1920" height="1080" fill="url(#grid)"/>
+
+  <!-- Honeycomb clusters (like reference) -->
+  <g transform="translate(120,160) scale(1.0)" opacity="0.85">
+    <use href="#hex" x="0" y="0"/>
+    <use href="#hex" x="90" y="-50"/>
+    <use href="#hex" x="180" y="0"/>
+    <use href="#hex" x="270" y="-50"/>
+    <use href="#hex" x="360" y="0"/>
+    <use href="#hex" x="450" y="-50"/>
+    <use href="#hex" x="540" y="0"/>
+  </g>
+  <g transform="translate(820,300) scale(1.1)" opacity="0.85">
+    <use href="#hex" x="0" y="0"/>
+    <use href="#hex" x="90" y="-50"/>
+    <use href="#hex" x="180" y="0"/>
+    <use href="#hex" x="270" y="-50"/>
+    <use href="#hex" x="360" y="0"/>
+  </g>
+  <g transform="translate(1340,180) scale(0.9)" opacity="0.85">
+    <use href="#hex" x="0" y="0"/>
+    <use href="#hex" x="90" y="-50"/>
+    <use href="#hex" x="180" y="0"/>
+    <use href="#hex" x="270" y="-50"/>
+  </g>
+
+  <!-- Connection lines -->
+  <g stroke="#ffffff" stroke-opacity="0.35" stroke-width="2" fill="none">
+    <path d="M210 210 L300 160 L390 210 L480 160 L570 210"/>
+    <path d="M910 350 L1000 300 L1090 350 L1180 300 L1270 350"/>
+    <path d="M1430 230 L1520 180 L1610 230"/>
+  </g>
+
+  <!-- Plus icons -->
+  <g fill="#ffffff" fill-opacity="0.75">
+    <path d="M220 420h10v-30h30v-10h-30v-30h-10v30h-30v10h30z" opacity="0.25"/>
+    <path d="M1520 420h12v-36h36v-12h-36v-36h-12v36h-36v12h36z" opacity="0.2"/>
+    <path d="M620 260h8v-24h24v-8h-24v-24h-8v24h-24v8h24z" opacity="0.25"/>
+  </g>
+
+  <!-- Faint foreground lens -->
+  <rect width="1920" height="1080" fill="#ffffff" opacity="0.06"/>
+</svg>
+
+

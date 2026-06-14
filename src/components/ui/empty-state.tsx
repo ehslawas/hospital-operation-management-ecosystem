@@ -1,5 +1,5 @@
 import React from 'react';
-import Button from './Button';
+import Button from './button';
 
 interface EmptyStateProps {
   icon?: React.ReactNode;
@@ -18,10 +18,10 @@ interface EmptyStateProps {
   size?: 'sm' | 'md' | 'lg';
 }
 
-export function EmptyState({
-  icon,
-  title,
-  description,
+export function EmptyState({ 
+  icon, 
+  title, 
+  description, 
   action,
   secondaryAction,
   className = '',
@@ -32,19 +32,19 @@ export function EmptyState({
     md: 'py-12',
     lg: 'py-16',
   };
-
+  
   const iconSizeClasses = {
     sm: 'w-12 h-12',
     md: 'w-16 h-16',
     lg: 'w-20 h-20',
   };
-
+  
   const titleSizeClasses = {
     sm: 'text-base',
     md: 'text-lg',
     lg: 'text-xl',
   };
-
+  
   return (
     <div className={`flex flex-col items-center justify-center text-center ${sizeClasses[size]} ${className}`}>
       {icon && (
@@ -52,17 +52,17 @@ export function EmptyState({
           {icon}
         </div>
       )}
-
+      
       <h3 className={`${titleSizeClasses[size]} font-bold text-gray-900 mb-2`}>
         {title}
       </h3>
-
+      
       {description && (
         <p className="text-sm text-gray-600 max-w-md mb-6">
           {description}
         </p>
       )}
-
+      
       {(action || secondaryAction) && (
         <div className="flex items-center gap-3">
           {action && (
@@ -73,7 +73,7 @@ export function EmptyState({
               {action.label}
             </Button>
           )}
-
+          
           {secondaryAction && (
             <Button
               variant="ghost"
@@ -89,7 +89,7 @@ export function EmptyState({
 }
 
 // Pre-built empty state variants
-export function NoDataEmptyState({
+export function NoDataEmptyState({ 
   title = 'No data found',
   description = 'There are no items to display at this time.',
   action
@@ -108,7 +108,7 @@ export function NoDataEmptyState({
   );
 }
 
-export function SearchEmptyState({
+export function SearchEmptyState({ 
   searchTerm,
   description = 'Try adjusting your search or filter to find what you\'re looking for.',
   action
@@ -127,7 +127,7 @@ export function SearchEmptyState({
   );
 }
 
-export function ErrorEmptyState({
+export function ErrorEmptyState({ 
   title = 'Something went wrong',
   description = 'We encountered an error loading this data. Please try again.',
   action
@@ -146,7 +146,7 @@ export function ErrorEmptyState({
   );
 }
 
-export function CreateFirstEmptyState({
+export function CreateFirstEmptyState({ 
   title = 'Get started',
   description,
   action

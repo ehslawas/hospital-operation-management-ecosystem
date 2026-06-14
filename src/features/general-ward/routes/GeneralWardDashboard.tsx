@@ -4,16 +4,14 @@ import React, { useState, useEffect } from 'react';
 import { MetricsCard } from '@/features/emergency/components/MetricsCard';
 import { WardCensusBoard } from '../components/WardCensusBoard';
 import { PatientCareModal } from '../components/PatientCareModal';
-import { PharmacyLogisticsWidget } from '@/features/pharmacy-logistics/components/PharmacyLogisticsWidget';
-import type { WardPatient, WardBed } from '../types/Ward';
-import { calculateWardStats } from '../utils/wardUtils';
+import type { WardPatient } from '../types/Ward';
+import { mockWardPatients, mockWardBeds, calculateWardStats } from '../services/mockWardData';
 
 export default function GeneralWardDashboard() {
-  const [patients, setPatients] = useState<WardPatient[]>([]);
-  const [beds, setBeds] = useState<WardBed[]>([]);
+  const [patients, setPatients] = useState<WardPatient[]>(mockWardPatients);
   const [selectedPatient, setSelectedPatient] = useState<WardPatient | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
-
+  
   // Update current time every minute
   useEffect(() => {
     const timer = setInterval(() => {
@@ -21,13 +19,13 @@ export default function GeneralWardDashboard() {
     }, 60000);
     return () => clearInterval(timer);
   }, []);
-
-  const stats = calculateWardStats(patients, beds);
-
+  
+  const stats = calculateWardStats(patients, mockWardBeds);
+  
   const handlePatientClick = (patient: WardPatient) => {
     setSelectedPatient(patient);
   };
-
+  
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -48,7 +46,7 @@ export default function GeneralWardDashboard() {
           </div>
         </div>
       </div>
-
+      
       {/* Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <MetricsCard
@@ -62,7 +60,7 @@ export default function GeneralWardDashboard() {
             </svg>
           }
         />
-
+        
         <MetricsCard
           title="Bed Occupancy"
           value={`${stats.occupancyRate}%`}
@@ -74,7 +72,7 @@ export default function GeneralWardDashboard() {
             </svg>
           }
         />
-
+        
         <MetricsCard
           title="Critical Patients"
           value={stats.criticalPatients}
@@ -86,7 +84,7 @@ export default function GeneralWardDashboard() {
             </svg>
           }
         />
-
+        
         <MetricsCard
           title="Pending Discharge"
           value={stats.pendingDischarges}
@@ -99,7 +97,7 @@ export default function GeneralWardDashboard() {
           }
         />
       </div>
-
+      
       {/* Ward Statistics */}
       <div className="grid md:grid-cols-2 gap-6">
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200/60 p-6">
@@ -111,13 +109,13 @@ export default function GeneralWardDashboard() {
                 <span className="text-lg font-bold text-blue-600">{stats.occupiedBeds}</span>
               </div>
               <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-                <div
+                <div 
                   className="h-full bg-gradient-to-r from-blue-500 to-indigo-500"
                   style={{ width: `${stats.occupancyRate}%` }}
                 />
               </div>
             </div>
-
+            
             <div className="grid grid-cols-3 gap-4 text-center pt-4 border-t border-slate-200">
               <div>
                 <div className="text-2xl font-bold text-green-600">{stats.availableBeds}</div>
@@ -134,7 +132,7 @@ export default function GeneralWardDashboard() {
             </div>
           </div>
         </div>
-
+        
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200/60 p-6">
           <h3 className="text-lg font-bold text-slate-900 mb-4">Patient Status</h3>
           <div className="space-y-3">
@@ -155,15 +153,10 @@ export default function GeneralWardDashboard() {
           </div>
         </div>
       </div>
-
-      {/* Shared Logistics Widget (Permission-aware) */}
-      <div className="mt-6">
-        <PharmacyLogisticsWidget />
-      </div>
-
+      
       {/* Ward Census */}
       <WardCensusBoard patients={patients} onPatientClick={handlePatientClick} />
-
+      
       {/* Patient Care Modal */}
       {selectedPatient && (
         <PatientCareModal

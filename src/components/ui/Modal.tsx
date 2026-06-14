@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { IconButton } from './Button'
 
 export interface ModalProps {
   isOpen: boolean
@@ -11,7 +10,7 @@ export interface ModalProps {
   title?: string
   description?: string
   children: React.ReactNode
-  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl' | 'full'
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | 'full'
   showCloseButton?: boolean
   closeOnOverlayClick?: boolean
   closeOnEscape?: boolean
@@ -27,9 +26,7 @@ const sizes = {
   '3xl': 'max-w-3xl',
   '4xl': 'max-w-4xl',
   '5xl': 'max-w-5xl',
-  '6xl': 'max-w-6xl',
-  '7xl': 'max-w-7xl',
-  full: 'max-w-full',
+  full: 'max-w-6xl',
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -70,7 +67,7 @@ export const Modal: React.FC<ModalProps> = ({
   return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
           {/* Overlay */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -108,15 +105,12 @@ export const Modal: React.FC<ModalProps> = ({
                   )}
                 </div>
                 {showCloseButton && (
-                  <IconButton
+                  <button
                     onClick={onClose}
-                    variant="ghost"
-                    size="md"
-                    aria-label="Close modal"
-                    className="-m-2 text-gray-400 hover:text-gray-600"
+                    className="p-2 -m-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                   >
-                    <X />
-                  </IconButton>
+                    <X className="w-5 h-5" />
+                  </button>
                 )}
               </div>
             )}

@@ -1,720 +1,1111 @@
-import { supabase } from '@/services/supabase'
-import { PurchaseOrderWithRelations } from '@/types/pharmacy'
-import { LPO, LPOWithRelations } from '@/types/pharmacy/procurementNew'
-import { orderTrackingService } from './orderTrackingService'
-import { penaltyService } from './penaltyService'
+// cache bust
+import { supabase, isSupabaseConfigured } from '../supabase'
+import { PDFDocument } from 'pdf-lib'
+import type { ApiResponse, PaginatedResponse } from '@/types'
+import type { 
+  LPOListItem, 
+  LPOStats, 
+  LPOUploadData, 
+  PharmacyLPO,
+  ProcurementFilter
+} from '@/types/pharmacy'
+import { uploadLpoDocument } from './uploadService'
+import { createOrderTrackingForLPO } from './orderTrackingService'
 
-const TABLE_NAME = 'pharmacy_lpo'
+/**
+ * Get LPO statistics (counts for approved POs, pending LPOs, sent/verified LPOs)
+ */
+export async function getLPOStats(
+  hospitalId: string
+): Promise<ApiResponse<LPOStats>> {
+  try {
+    if (isSupabaseConfigured()) {
+      // 1. Get all relevant POs (approved, completed, partial_received) and exclude non-medical categories & SQ/INV placeholders
+      const { data: poData, error: poError } = await supabase
+        .from('pharmacy_purchase_orders')
+        .select('id, status, total_amount, category, vote_code, po_number')
+        .eq('hospital_id', hospitalId)
+        .in('status', ['approved', 'completed', 'partial_received'])
+        .in('vote_code', ['080702', '990102'])
+        .not('po_number', 'ilike', 'SQ-%')
+        .not('po_number', 'ilike', 'INV-%')
+        .not('category', 'in', '("ALAT TULIS", "Alat Tulis", "PRINTING SERVICE", "BEKALAN MAKANAN")')
 
-export const lpoService = {
-    // Create or Update LPO record (Draft)
-    async upsertLPODraft(
-        lpoData: Omit<LPO, 'id' | 'created_at' | 'updated_at' | 'status' | 'po_id'> & { id?: string, po_id?: string | null }
-    ): Promise<LPO> {
-        const payload = {
-            ...lpoData,
-            status: 'draft',
-            updated_at: new Date().toISOString(),
+      if (poError) throw poError
+
+      // 2. Get all LPOs for this hospital that are linked to these POs
+      const { data: lpoData, error: lpoError } = await supabase
+        .from('pharmacy_lpo')
+        .select('po_id, status, po:pharmacy_purchase_orders!inner(status, category, vote_code, po_number)')
+        .eq('hospital_id', hospitalId)
+        .in('po.status', ['approved', 'completed', 'partial_received'])
+        .in('po.vote_code', ['080702', '990102'])
+        .not('po.po_number', 'ilike', 'SQ-%')
+        .not('po.po_number', 'ilike', 'INV-%')
+        .not('po.category', 'in', '("ALAT TULIS", "Alat Tulis", "PRINTING SERVICE", "BEKALAN MAKANAN")')
+
+      if (lpoError) throw lpoError
+
+      const relevantPOs = (poData || [])
+        .filter(po => po.vote_code === '080702' || po.vote_code === '990102')
+        .filter(po => !po.po_number?.toUpperCase().startsWith('SQ-') && !po.po_number?.toUpperCase().startsWith('INV-'))
+      const lpos = (lpoData || [])
+        .filter((lpo: any) => lpo.po?.vote_code === '080702' || lpo.po?.vote_code === '990102')
+        .filter((lpo: any) => !lpo.po?.po_number?.toUpperCase().startsWith('SQ-') && !lpo.po?.po_number?.toUpperCase().startsWith('INV-'))
+      
+      const lpoPoIds = new Set(lpos.map(lpo => lpo.po_id))
+
+      let totalValue = 0
+      let pendingCount = 0
+
+      relevantPOs.forEach(po => {
+        totalValue += po.total_amount || 0
+        if (!lpoPoIds.has(po.id)) {
+          pendingCount++
         }
+      })
 
-        // 1. Check if an LPO for this PO already exists (only if po_id is provided)
-        let existingByPo = null;
-        if (lpoData.po_id) {
-            const result = await supabase
-                .from(TABLE_NAME)
-                .select('id, lpo_number')
-                .eq('po_id', lpoData.po_id)
-                .maybeSingle()
-            existingByPo = result.data;
-        }
+      const stats: LPOStats = {
+        totalApproved: relevantPOs.length,
+        pendingCount,
+        sentCount: lpos.filter(lpo => lpo.status === 'sent').length,
+        verifiedCount: lpos.filter(lpo => lpo.status === 'verified').length,
+        totalValue
+      }
 
-        // 2. Check if an LPO with this LPO number already exists
-        const { data: existingByLpoNum } = await supabase
-            .from(TABLE_NAME)
-            .select('id, po_id')
-            .eq('lpo_number', lpoData.lpo_number)
-            .maybeSingle()
+      return { data: stats, error: null }
+    }
 
-        if (existingByPo) {
-            // Update the existing record for this PO
-            // If the lpo_number we are trying to set is already used by ANOTHER PO, we might have a conflict
-            if (existingByLpoNum && existingByLpoNum.id !== existingByPo.id) {
-                console.warn(`LPO number ${lpoData.lpo_number} is already used by PO ${existingByLpoNum.po_id}. Cannot reassing to PO ${lpoData.po_id}.`);
-                // Return the existing record for the PO but don't change the number to the conflicting one
-                return existingByPo as any;
-            }
+    return { 
+      data: {
+        totalApproved: 361,
+        pendingCount: 202,
+        sentCount: 95,
+        verifiedCount: 67,
+        totalValue: 154000
+      }, 
+      error: null 
+    }
+  } catch (error) {
+    console.error('Error fetching LPO stats:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch LPO stats',
+    }
+  }
+}
 
-            const { data, error } = await supabase
-                .from(TABLE_NAME)
-                .update(payload)
-                .eq('id', existingByPo.id)
-                .select()
-                .single()
-            if (error) throw error
-            return data
-        } else if (existingByLpoNum) {
-            // This LPO number exists but for a DIFFERENT PO.
-            // PREVIOUSLY: We updated the existing record to point to the new PO (Stealing it).
-            // NEW BEHAVIOR: We allow "Shared LPO". Multiple POs can have the same LPO Number.
-            // So we treat this as a fresh insert for the current PO.
+/**
+ * Get LPO List (handles both pending and approved tabs)
+ */
+export async function getLPOList(
+  hospitalId: string,
+  tab: 'pending' | 'approved',
+  filter?: ProcurementFilter,
+  page: number = 1,
+  pageSize: number = 15
+): Promise<ApiResponse<PaginatedResponse<LPOListItem>>> {
+  try {
+    if (isSupabaseConfigured()) {
+      if (tab === 'pending') {
+        // PENDING TAB: POs that are approved but have no LPO record
+        
+        // 1. First get all LPO po_ids to exclude them
+        const { data: existingLpos, error: lpoError } = await supabase
+          .from('pharmacy_lpo')
+          .select('po_id')
+          .eq('hospital_id', hospitalId)
+          .not('po_id', 'is', null)
 
-            console.log(`LPO Number ${lpoData.lpo_number} exists for PO ${existingByLpoNum.po_id}. Creating NEW shared record for PO ${lpoData.po_id}.`)
+        if (lpoError) throw lpoError
+        const lpoPoIds = (existingLpos || []).map(lpo => lpo.po_id)
 
-            // Try to insert with zero-width space suffix to bypass unique constraint if needed
-            let currentLpoNumber = lpoData.lpo_number
-            let attempts = 0
-
-            while (attempts < 5) {
-                try {
-                    const { data, error } = await supabase
-                        .from(TABLE_NAME)
-                        .insert({
-                            ...payload,
-                            lpo_number: currentLpoNumber,
-                            created_at: new Date().toISOString(),
-                        })
-                        .select()
-                        .single()
-
-                    if (error) {
-                        // Check for unique constraint violation (Postgres 23505 or Code 23505)
-                        // Supabase/PostgREST usually returns 409 Object Conflict
-                        if (error.code === '23505' || error.message?.includes('duplicate key') || error.message?.includes('violates unique constraint')) {
-                            console.log('Duplicate constraint hit, appending hidden suffix...')
-                            currentLpoNumber += '\u200B' // Append zero-width space
-                            attempts++
-                            continue
-                        }
-                        throw error
-                    }
-                    return data
-                } catch (err: any) {
-                    if (attempts >= 4) throw err // Give up after retries
-                    // Check again catch block just in case it wasn't caught above
-                    if (err.code === '23505' || err.message?.includes('duplicate key') || err.message?.includes('violates unique constraint')) {
-                        currentLpoNumber += '\u200B'
-                        attempts++
-                    } else {
-                        throw err
-                    }
-                }
-            }
-        } else {
-            // Fresh insert
-            const { data, error } = await supabase
-                .from(TABLE_NAME)
-                .insert({
-                    ...payload,
-                    created_at: new Date().toISOString(),
-                })
-                .select()
-                .single()
-            if (error) throw error
-            return data
-        }
-    },
-
-    // Create LPO record
-    async createLPO(
-        lpoData: Omit<LPO, 'id' | 'created_at' | 'updated_at' | 'status'>
-    ): Promise<LPO> {
-        // 1. Create LPO Record
-        const { data: lpo, error } = await supabase
-            .from(TABLE_NAME)
-            .insert({
-                ...lpoData,
-                status: 'draft',
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-            })
-            .select()
-            .single()
-
-        if (error) throw error
-
-        return lpo
-    },
-
-    // Send LPO to Supplier (Updates status and initializes tracking)
-
-    // Get Pending POs (Approved POs waiting for LPO)
-    async getPendingPOs(hospital_id: string): Promise<PurchaseOrderWithRelations[]> {
-        const { data, error } = await supabase
-            .from('pharmacy_purchase_orders')
-            .select(`
-                *,
-                supplier:suppliers(*),
-                items:pharmacy_purchase_order_items(*)
-            `)
-            .eq('hospital_id', hospital_id)
-            .eq('status', 'approved')
-            .order('created_at', { ascending: false })
-
-        if (error) throw error
-        return data || []
-    },
-
-
-    async sendLPO(id: string, customDeliveryDate?: string): Promise<LPO> {
-        // 1. Update LPO Status and Tracking flag
-        const { data: lpo, error } = await supabase
-            .from(TABLE_NAME)
-            .update({
-                status: 'verified',
-                verify_tracking: true,
-                updated_at: new Date().toISOString(),
-            })
-            .eq('id', id)
-            .select()
-            .single()
-
-        if (error) throw error
-
-        // 2. If no PO is linked, we can't create item tracking, but we've marked it as verified
-        if (!lpo.po_id) {
-            console.log('LPO verified without PO link (ID:', id, ')')
-            return lpo
-        }
-
-        // 3. Fetch PO Details and Items
-        const { data: poData, error: poError } = await supabase
-            .from('pharmacy_purchase_orders')
-            .select(`
-                hospital_id,
-                vote_code,
-                kkm_contract_number,
-                pharmacy_purchase_order_items (
-                    *
-                )
-            `)
-            .eq('id', lpo.po_id)
-            .single()
-
-        if (poError) {
-            console.error('Error fetching PO details for tracking:', poError)
-        } else if (poData && poData.pharmacy_purchase_order_items && poData.pharmacy_purchase_order_items.length > 0) {
-            // 4. Fetch Drug/Non-Drug codes for items
-            const itemsWithCodes = await Promise.all(poData.pharmacy_purchase_order_items.map(async (item: any) => {
-                if (item.item_type === 'drug' && item.item_id) {
-                    const { data: drug } = await supabase.from('drugs').select('code:drug_code').eq('id', item.item_id).maybeSingle()
-                    return { ...item, drug: drug || null }
-                } else if (item.item_type === 'non_drug' && item.item_id) {
-                    const { data: nonDrug } = await supabase.from('non_drugs').select('code:item_code').eq('id', item.item_id).maybeSingle()
-                    return { ...item, non_drug: nonDrug || null }
-                }
-                return item
-            }))
-
-            // 5. Create Tracking Records
-            try {
-                // Check if tracking records already exist
-                const { count } = await supabase
-                    .from('pharmacy_order_tracking')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('lpo_id', id)
-
-                // AUTO-FIX: If records exist but might be stale (e.g. 0 days delivery bug),
-                // we should check if they are all 'pending' and safely recreate them.
-                // For safety, let's just create if count is 0. 
-                // BUT user is blocked. So let's delete and recreate if status is "verified" (implied by this function call)
-                // Actually, `sendLPO` sets status to verified.
-
-                if (count && count > 0) {
-                    // Check if we should force update (e.g. Recalculation needed)
-                    // Best way: Delete existing *pending* records and recreate.
-                    // We avoid deleting partial/completed ones.
-                    const { error: delError } = await supabase
-                        .from('pharmacy_order_tracking')
-                        .delete()
-                        .eq('lpo_id', id)
-                        .eq('status', 'pending') // Only reset pending ones
-
-                    if (delError) console.error('Error clearing stale tracking:', delError)
-                }
-
-                // Re-check count or just insert (UPSERT logic via deletion above)
-                // If we deleted pending ones, we might need to recreate them.
-                // However, createTrackingRecords creates ALL items from PO.
-                // If we have mixed status (some delivered, some pending), this approach is risky (duplicates).
-
-                // SAFE APPROACH: Only create if count == 0 OR if we explicitly cleared them.
-                // Given the bug, nearly all items for this LPO are likely pending.
-                // Let's implement a clean Check-Delete-Create for this specific flow.
-
-                // 1. Fetch existing to see if we have ANY delivered items
-                const { data: existing } = await supabase.from('pharmacy_order_tracking').select('status').eq('lpo_id', id)
-                const hasNonPending = existing?.some(r => r.status !== 'pending')
-
-                if (!hasNonPending) {
-                    // Safe to nuke and recreate
-                    if (existing && existing.length > 0) {
-                        await supabase.from('pharmacy_order_tracking').delete().eq('lpo_id', id)
-                    }
-
-                    await orderTrackingService.createTrackingRecords(
-                        lpo.id,
-                        itemsWithCodes,
-                        lpo.document_date || new Date().toISOString(),
-                        poData.vote_code,
-                        poData.kkm_contract_number,
-                        poData.hospital_id,
-                        customDeliveryDate
-                    )
-                } else {
-                    console.warn(`LPO ${id} has non-pending items. Skipping automatic recalculation to preserve data.`)
-                }
-            } catch (trackingError) {
-                console.error('Failed to create tracking records:', trackingError)
-            }
-        }
-
-        return lpo
-    },
-
-    // Get LPO by ID with relations
-    async getLPOById(id: string): Promise<LPOWithRelations> {
-        const { data, error } = await supabase
-            .from(TABLE_NAME)
-            .select(`
-        *,
-        purchase_order:pharmacy_purchase_orders(*),
-        created_by_user:users(*),
-        tracking_items:pharmacy_order_tracking(*),
-        receiving_records:pharmacy_receiving(*),
-        payment:pharmacy_payments(*),
-        lou:pharmacy_lou(*)
-      `)
-            .eq('id', id)
-            .single()
-
-        if (error) throw error
-        return data
-    },
-
-    // Check if LPO number already exists and is considered processed
-    // Check if LPO number already exists
-    // If poId is provided, returns true ONLY if this specific PO already has this LPO (Block same PO dupes)
-    // If poId is NOT provided, returns true if ANY record exists (Global check)
-    // This allows multiple DIFFERENT POs to share the same LPO number.
-    async checkDuplicateLPO(lpoNumber: string, poId?: string): Promise<boolean> {
-        if (!lpoNumber) return false
-
+        // 2. Query POs
         let query = supabase
-            .from(TABLE_NAME)
-            .select('id, status, document_url, po_id')
-            .eq('lpo_number', lpoNumber)
+          .from('pharmacy_purchase_orders')
+          .select('id, po_number, po_type, order_date, total_amount, vote_code, category, department, manual_supplier_name, supplier:suppliers(company_name), items:pharmacy_purchase_order_items(item_name)')
+          .eq('hospital_id', hospitalId)
+          .eq('status', 'approved')
+          .in('vote_code', ['080702', '990102'])
+          .not('po_number', 'ilike', 'SQ-%')
+          .not('po_number', 'ilike', 'INV-%')
 
-        if (poId) {
-            // Strict check: Is it already linked to THIS PO?
-            query = query.eq('po_id', poId)
-        } else {
-            // Global check: Is it used anywhere?
-            // (Used for initial generic validation if needed)
-            query = query.limit(1)
+        // Apply filters
+        if (filter?.search) {
+          const search = filter.search.trim()
+          if (search) {
+            query = query.or(`po_number.ilike.%${search}%`)
+          }
+        }
+        if (filter?.vote_code) query = query.eq('vote_code', filter.vote_code)
+        if (filter?.category) query = query.eq('category', filter.category)
+        if (filter?.department) query = query.eq('department', filter.department)
+
+        const { data: poData, error: poError } = await query.order('order_date', { ascending: false })
+
+        if (poError) throw poError
+
+        // 3. Filter out POs that already have LPOs and enforce allowed vote codes
+        let pendingPOs = (poData || []).filter(po => !lpoPoIds.includes(po.id) && (po.vote_code === '080702' || po.vote_code === '990102'))
+
+        // Map to standard format
+        let results: LPOListItem[] = pendingPOs.map(po => {
+          const supplierData = Array.isArray(po.supplier) ? po.supplier[0] : po.supplier;
+          return {
+            po_id: po.id,
+            po_number: po.po_number,
+            po_type: po.po_type as any,
+            order_date: po.order_date,
+            total_amount: po.total_amount || 0,
+            vote_code: po.vote_code,
+            category: po.category,
+            department: po.department,
+            supplier_name: po.manual_supplier_name || supplierData?.company_name,
+            item_names: (po.items || []).map((i: any) => i.item_name)
+          }
+        })
+
+        // Apply search filter for supplier name (since it's a join/computed field)
+        if (filter?.search) {
+          const search = filter.search.toLowerCase()
+          results = results.filter(item => 
+            item.po_number?.toLowerCase().includes(search) || 
+            item.supplier_name?.toLowerCase().includes(search) ||
+            item.item_names?.some(name => name.toLowerCase().includes(search))
+          )
         }
 
-        const { data, error } = await query
+        // Pagination
+        const total = results.length
+        const totalPages = Math.ceil(total / pageSize)
+        const start = (page - 1) * pageSize
+        const paginatedData = results.slice(start, start + pageSize)
 
-        if (error) return false
-        if (!data || data.length === 0) return false
+        return {
+          data: { data: paginatedData, total, page, pageSize, totalPages },
+          error: null
+        }
 
-        // If we are checking for a specific PO, and we found a record, it's a duplicate for THAT PO.
-        if (poId) return true
+      } else {
+        // APPROVED TAB: POs joined with LPO records
+        
+        let query = supabase
+          .from('pharmacy_lpo')
+          .select(`
+            id, lpo_number, status, document_date, document_url, verify_tracking, payment_status, sent_for_payment_date,
+            po_id,
+            po:pharmacy_purchase_orders!inner(po_number, po_type, order_date, total_amount, vote_code, category, department, manual_supplier_name, supplier:suppliers(company_name), status, items:pharmacy_purchase_order_items(item_name))
+          `, { count: 'exact' })
+          .eq('hospital_id', hospitalId)
+          .in('po.status', ['approved', 'completed', 'partial_received'])
+          .in('po.vote_code', ['080702', '990102'])
+          .not('po.category', 'in', '("ALAT TULIS", "Alat Tulis", "PRINTING SERVICE", "BEKALAN MAKANAN")')
 
-        // If global check, consider duplicate if it looks "processed"
-        const record = data[0]
-        return ['sent', 'verified', 'uploaded', 'generated'].includes(record.status) || !!record.document_url
-    },
+        // Apply filters - we'll do the search filtering post-fetch for robust cross-table support
+        // since PostgREST doesn't easily support cross-table OR in a single query string.
+        // Client-side filtering is already implemented below in the 'results.filter' block.
+        
+        // Note: For inner joined table filtering in Supabase, we often have to do it post-query 
+        // if we want to filter on the nested PO data in a single request, or we use PostgREST embedded filters.
+        // For simplicity with complex filters, we might fetch and filter, but let's try embedded if possible,
+        // or just rely on post-fetch filtering if count is small. Let's do post-fetch for robust complex filters.
 
-    // Get LPO by Number
-    async getLPOByNumber(lpoNumber: string): Promise<LPOWithRelations> {
-        const { data, error } = await supabase
-            .from(TABLE_NAME)
-            .select(`*`)
-            .eq('lpo_number', lpoNumber)
-            .single()
+        const { data: lpoData, error: lpoError } = await query.order('document_date', { ascending: false })
 
-        if (error) throw error
-        return data
-    },
+        if (lpoError) throw lpoError
 
-    // Get LPOs by Purchase Order ID
-    async getLPOsByPO(poId: string): Promise<LPO[]> {
-        const { data, error } = await supabase
-            .from(TABLE_NAME)
-            .select('*')
-            .eq('po_id', poId)
-            .order('created_at', { ascending: false })
+        let results: LPOListItem[] = (lpoData || [])
+          .filter((lpo: any) => lpo.po?.vote_code === '080702' || lpo.po?.vote_code === '990102')
+          .map((lpo: any) => {
+            const po = lpo.po || {}
+          const supplierData = Array.isArray(po.supplier) ? po.supplier[0] : po.supplier;
+          return {
+            po_id: lpo.po_id,
+            po_number: po.po_number,
+            po_type: po.po_type,
+            order_date: po.order_date,
+            total_amount: po.total_amount || 0,
+            vote_code: po.vote_code,
+            category: po.category,
+            department: po.department,
+            supplier_name: po.manual_supplier_name || supplierData?.company_name,
+            
+            lpo_id: lpo.id,
+            lpo_number: lpo.lpo_number,
+            lpo_status: lpo.status,
+            document_date: lpo.document_date,
+            document_url: lpo.document_url,
+            verify_tracking: lpo.verify_tracking,
+            payment_status: lpo.payment_status,
+            sent_for_payment_date: lpo.sent_for_payment_date,
+            item_names: (po.items || []).map((i: any) => i.item_name)
+          }
+        })
 
-        if (error) throw error
-        return data
-    },
+        // Apply PO-level filters
+        if (filter?.vote_code) results = results.filter(r => r.vote_code === filter.vote_code)
+        if (filter?.category) results = results.filter(r => r.category === filter.category)
+        if (filter?.department) results = results.filter(r => r.department === filter.department)
+        // payment filter is not in ProcurementFilter standard yet, but we could add it.
 
-    // Get All LPOs
-    async getAllLPOs(hospitalId: string): Promise<LPOWithRelations[]> {
-        const { data, error } = await supabase
-            .from(TABLE_NAME)
-            .select(`
-        *,
-        purchase_order:pharmacy_purchase_orders!inner(
+        if (filter?.search) {
+          const search = filter.search.toLowerCase()
+          results = results.filter(item => 
+            item.po_number?.toLowerCase().includes(search) || 
+            item.lpo_number?.toLowerCase().includes(search) ||
+            item.supplier_name?.toLowerCase().includes(search) ||
+            item.item_names?.some(name => name.toLowerCase().includes(search))
+          )
+        }
+
+        // Pagination
+        const total = results.length
+        const totalPages = Math.ceil(total / pageSize)
+        const start = (page - 1) * pageSize
+        const paginatedData = results.slice(start, start + pageSize)
+
+        return {
+          data: { data: paginatedData, total, page, pageSize, totalPages },
+          error: null
+        }
+      }
+    }
+
+    // Mock data fallback
+    return { data: { data: [], total: 0, page, pageSize, totalPages: 0 }, error: null }
+  } catch (error) {
+    console.error('Error fetching LPO list:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch LPO list',
+    }
+  }
+}
+
+/**
+ * Upload new LPO and link it to a PO
+ */
+export async function uploadLPO(
+  hospitalId: string,
+  poId: string,
+  userId: string,
+  data: LPOUploadData
+): Promise<ApiResponse<PharmacyLPO>> {
+  try {
+    if (isSupabaseConfigured()) {
+      let documentUrl = undefined
+      const originalFilename = data.document_file?.name
+      const fileHash = data.file_hash
+
+      // If a file was provided, upload it using the uploadService
+      if (!data.document_file) {
+        throw new Error('LPO Document PDF is required')
+      }
+
+      if (data.document_file.type !== 'application/pdf' && !data.document_file.name.toLowerCase().endsWith('.pdf')) {
+        throw new Error('Only PDF files are allowed for LPO documents')
+      }
+
+      // Slice the PDF to exactly 2 pages if it contains 3 or more pages
+      // (This strips Page 3: "Surat Akuan Penerimaan dan Akuan Pematuhan")
+      let fileToUpload = data.document_file
+      try {
+        const arrayBuffer = await data.document_file.arrayBuffer()
+        const pdfDoc = await PDFDocument.load(arrayBuffer)
+        const pages = pdfDoc.getPages()
+        if (pages.length >= 3) {
+          console.log(`[lpoService] Uploaded PDF has ${pages.length} pages. Slicing to first 2 pages to remove Surat Akuan Penerimaan (Page 3).`)
+          const newPdfDoc = await PDFDocument.create()
+          const copiedPages = await newPdfDoc.copyPages(pdfDoc, [0, 1])
+          copiedPages.forEach(p => newPdfDoc.addPage(p))
+          const pdfBytes = await newPdfDoc.save()
+          const blob = new Blob([pdfBytes], { type: 'application/pdf' })
+          fileToUpload = new File([blob], data.document_file.name, { type: 'application/pdf' })
+        }
+      } catch (err) {
+        console.error('[lpoService] Failed to slice LPO PDF, falling back to original file:', err)
+      }
+
+      // We use a temporary ID for the folder name
+      const tempId = crypto.randomUUID()
+      const uploadResponse = await uploadLpoDocument(fileToUpload, tempId)
+      
+      if (uploadResponse.error) {
+        throw new Error(`Document upload failed: ${uploadResponse.error}`)
+      }
+      
+      documentUrl = uploadResponse.data
+
+      // Check for existing LPO for this PO to avoid duplicates and handle placeholders
+      const { data: existingLPO } = await supabase
+        .from('pharmacy_lpo')
+        .select('id, lpo_number')
+        .eq('po_id', poId)
+        .maybeSingle()
+
+      let result;
+      if (existingLPO) {
+        // Update existing record (useful for fixing placeholders)
+        const { data: updated, error: updateError } = await supabase
+          .from('pharmacy_lpo')
+          .update({
+            lpo_number: data.lpo_number,
+            document_date: data.document_date,
+            document_url: documentUrl,
+            original_filename: originalFilename,
+            file_hash: fileHash,
+            status: 'sent',
+            created_by: userId,
+            expected_delivery_date: data.expected_delivery_date
+          })
+          .eq('id', existingLPO.id)
+          .select('*')
+          .maybeSingle()
+        
+        if (updateError) throw updateError
+        result = updated
+      } else {
+        // Create new record
+        const { data: inserted, error: insertError } = await supabase
+          .from('pharmacy_lpo')
+          .insert({
+            hospital_id: hospitalId,
+            po_id: poId,
+            lpo_number: data.lpo_number,
+            document_date: data.document_date,
+            document_url: documentUrl,
+            original_filename: originalFilename,
+            file_hash: fileHash,
+            status: 'sent',
+            created_by: userId,
+            verify_tracking: false,
+            payment_status: 'pending',
+            expected_delivery_date: data.expected_delivery_date
+          })
+          .select('*')
+          .maybeSingle()
+        
+        if (insertError) throw insertError
+        result = inserted
+      }
+
+      return { data: result as PharmacyLPO, error: null }
+    }
+
+    return { data: null, error: 'Supabase not configured' }
+  } catch (error: any) {
+    console.error('Error uploading LPO:', error)
+    let message = 'Failed to upload LPO'
+    if (error?.code === '23505') {
+      const detail = error.detail || ''
+      const match = detail.match(/\((.*)\)/)
+      const val = match ? match[1] : 'unknown'
+      message = `Conflict: LPO number "${val}" already exists in the database.`
+    } else if (error?.message) {
+      message = error.message
+    } else if (typeof error === 'string') {
+      message = error
+    }
+    
+    return {
+      data: null,
+      error: message
+    }
+  }
+}
+
+/**
+ * Update LPO status
+ */
+export async function updateLPOStatus(
+  lpoId: string,
+  status: 'sent' | 'verified',
+  verifyTracking: boolean = true
+): Promise<ApiResponse<PharmacyLPO>> {
+  try {
+    if (isSupabaseConfigured()) {
+      // If status is verified, check if document exists
+      if (status === 'verified') {
+        const { data: checkLpo } = await supabase
+          .from('pharmacy_lpo')
+          .select('document_url')
+          .eq('id', lpoId)
+          .single();
+        
+        if (!checkLpo?.document_url) {
+          throw new Error('Cannot verify LPO without an uploaded document');
+        }
+      }
+
+      const { data, error } = await supabase
+        .from('pharmacy_lpo')
+        .update({
+          status,
+          verify_tracking: verifyTracking,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', lpoId)
+        .select()
+        .maybeSingle()
+
+      if (error) throw error
+
+      // Trigger tracking creation if verified
+      if (status === 'verified') {
+        await createOrderTrackingForLPO(lpoId)
+      }
+
+      return { data: data as PharmacyLPO, error: null }
+    }
+    return { data: null, error: 'Supabase not configured' }
+  } catch (error) {
+    console.error('Error updating LPO status:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to update LPO status',
+    }
+  }
+}
+/**
+ * Bulk verify LPOs
+ */
+export async function bulkVerifyLPOs(
+  lpoIds: string[]
+): Promise<ApiResponse<any>> {
+  try {
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('pharmacy_lpo')
+        .update({
+          status: 'verified',
+          verify_tracking: true,
+          updated_at: new Date().toISOString()
+        })
+        .in('id', lpoIds)
+        .not('document_url', 'is', null)
+
+      if (error) throw error
+
+      // Trigger tracking creation for each LPO
+      if (lpoIds.length > 0) {
+        await Promise.all(lpoIds.map(id => createOrderTrackingForLPO(id)))
+      }
+
+      return { data, error: null }
+    }
+    return { data: null, error: 'Supabase not configured' }
+  } catch (error) {
+    console.error('Error bulk updating LPO status:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to bulk verify LPOs',
+    }
+  }
+}
+
+/**
+ * Get list of POs that are approved but don't have an LPO linked yet
+ */
+export async function getPendingPOsForLPO(hospitalId: string): Promise<ApiResponse<{ id: string, po_number: string, total_amount: number, manual_supplier_name: string | null, order_date: string }[]>> {
+  try {
+    if (isSupabaseConfigured()) {
+      // 1. Get all approved POs with items
+      const { data: pos, error: poError } = await supabase
+        .from('pharmacy_purchase_orders')
+        .select(`
+          id, 
+          po_number, 
+          total_amount, 
+          manual_supplier_name, 
+          order_date,
+          supplier:suppliers(company_name),
+          items:pharmacy_purchase_order_items(id, item_name, quantity_ordered, unit_price)
+        `)
+        .eq('hospital_id', hospitalId)
+        .eq('status', 'approved')
+        .not('po_number', 'ilike', 'SQ-%')
+        .not('po_number', 'ilike', 'INV-%')
+
+      if (poError) throw poError
+
+      // 2. Get all PO IDs that already have an LPO
+      const { data: linkedLPOs, error: lpoError } = await supabase
+        .from('pharmacy_lpo')
+        .select('po_id')
+        .eq('hospital_id', hospitalId)
+
+      if (lpoError) throw lpoError
+
+      const linkedPoIds = new Set(linkedLPOs?.map(l => l.po_id).filter(Boolean))
+      
+      // 3. Filter POs that are not linked and map supplier name
+      // Exclude Quotations (SQ) and Invoices (INV) as they shouldn't be matched with LPOs
+      const pendingPOs = (pos || [])
+        .filter(po => !linkedPoIds.has(po.id))
+        .filter(po => !po.po_number.toUpperCase().startsWith('SQ-') && !po.po_number.toUpperCase().startsWith('INV-'))
+        .map(po => ({
+          ...po,
+          supplier_name: po.manual_supplier_name || (po as any).supplier?.company_name || 'Generic Supplier'
+        }))
+
+      return { data: pendingPOs as any, error: null }
+
+    }
+    return { data: null, error: 'Supabase not configured' }
+  } catch (error) {
+    console.error('Error fetching pending POs:', error)
+    return { data: null, error: error instanceof Error ? error.message : 'Failed to fetch pending POs' }
+  }
+}
+
+/**
+ * Check if an LPO number already exists in the hospital
+ */
+export async function checkDuplicateLPO(hospitalId: string, lpoNumber: string): Promise<ApiResponse<{ isDuplicate: boolean, existingPoNumber?: string }>> {
+  try {
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('pharmacy_lpo')
+        .select('lpo_number, po_id, pharmacy_purchase_orders!pharmacy_lpo_po_id_fkey(po_number)')
+        .eq('hospital_id', hospitalId)
+        .eq('lpo_number', lpoNumber)
+        .maybeSingle()
+
+      if (error) throw error
+
+      if (data) {
+        return { 
+          data: { 
+            isDuplicate: true, 
+            existingPoNumber: (data.pharmacy_purchase_orders as any)?.po_number 
+          }, 
+          error: null 
+        }
+      }
+
+      return { data: { isDuplicate: false }, error: null }
+    }
+    return { data: null, error: 'Supabase not configured' }
+  } catch (error) {
+    console.error('Error checking duplicate LPO:', error)
+    return { data: null, error: error instanceof Error ? error.message : 'Failed to check duplicate LPO' }
+  }
+}
+/**
+ * Check for existing LPOs to prevent duplicates
+ */
+export async function getExistingLPONumbers(
+  hospitalId: string
+): Promise<ApiResponse<{ lpoNumbers: Set<string>, filenames: Set<string>, hashes: Set<string> }>> {
+  try {
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('pharmacy_lpo')
+        .select(`
+          lpo_number, 
+          document_url,
+          file_hash,
+          original_filename,
+          pharmacy_purchase_orders!pharmacy_lpo_po_id_fkey(po_number)
+        `)
+        .eq('hospital_id', hospitalId)
+        .limit(5000) // Increase limit to handle more historical records
+      
+      if (error) throw error
+      
+      const lpoNumbers = new Set<string>()
+      const filenames = new Set<string>()
+      const hashes = new Set<string>()
+
+      ;(data || []).forEach(r => {
+        // Add Hash (Highest Priority)
+        if (r.file_hash) hashes.add(r.file_hash)
+
+        // Add LPO number
+        if (r.lpo_number) {
+          lpoNumbers.add(r.lpo_number.toUpperCase().replace(/[\s\-_]/g, ''))
+        }
+        
+        // Add linked PO number (if any)
+        const poNum = (r.pharmacy_purchase_orders as any)?.po_number
+        if (poNum) {
+          lpoNumbers.add(poNum.toUpperCase().replace(/[\s\-_]/g, ''))
+        }
+
+        // Add filename and extract timestamp aliases
+        let filename = ''
+        if (r.original_filename) {
+          filename = r.original_filename.toLowerCase()
+        } else if (r.document_url) {
+          const parts = r.document_url.split('/')
+          filename = decodeURIComponent(parts[parts.length - 1]).toLowerCase()
+        }
+        
+        if (filename) {
+          filenames.add(filename)
+          
+          // Also extract the 6+ digit timestamp/identifier from the filename and add it as an LPO number alias
+          const numMatch = filename.match(/(?:^|[^a-zA-Z0-9])(\d{6,})(?:$|[^a-zA-Z0-9])/i)
+          if (numMatch) {
+            lpoNumbers.add(numMatch[1])
+          }
+        }
+      })
+      
+      return { data: { lpoNumbers, filenames, hashes }, error: null }
+    }
+    return { data: null, error: 'Supabase not configured' }
+  } catch (error) {
+    console.error('Error fetching existing LPO data:', error)
+    return { data: null, error: error instanceof Error ? error.message : 'Failed to fetch existing LPOs' }
+  }
+}
+
+/**
+ * Fetch ALL PO IDs that already have an LPO linked
+ */
+export async function getExistingPOIdsWithLPO(hospitalId: string): Promise<ApiResponse<Set<string>>> {
+  try {
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('pharmacy_lpo')
+        .select('po_id')
+        .eq('hospital_id', hospitalId)
+        .not('po_id', 'is', null)
+      
+      if (error) throw error
+      
+      const poIdSet = new Set((data || []).map(r => r.po_id))
+      
+      return { data: poIdSet, error: null }
+    }
+    return { data: null, error: 'Supabase not configured' }
+  } catch (error) {
+    console.error('Error fetching PO IDs with LPO:', error)
+    return { data: null, error: error instanceof Error ? error.message : 'Failed to fetch PO IDs' }
+  }
+}
+
+
+/**
+ * Check for duplicate/existing LPOs in batch
+ * Also checks if the number matches a PO that already has an LPO linked
+ */
+export async function checkDuplicateLPOsBatch(hospitalId: string, lpoNumbers: string[]): Promise<ApiResponse<Record<string, { isDuplicate: boolean, existingPoNumber?: string, type?: 'lpo' | 'po' }>>> {
+  try {
+    if (lpoNumbers.length === 0) return { data: {}, error: null }
+    
+    if (isSupabaseConfigured()) {
+      // Fetch all LPO and PO numbers for this hospital to perform robust local matching
+      // We only select the necessary columns to keep the payload small
+      const { data: allRecords, error } = await supabase
+        .from('pharmacy_lpo')
+        .select(`
+          lpo_number, 
+          po_id, 
+          pharmacy_purchase_orders!pharmacy_lpo_po_id_fkey(po_number)
+        `)
+        .eq('hospital_id', hospitalId)
+
+      if (error) throw error
+
+      const result: Record<string, { isDuplicate: boolean, existingPoNumber?: string, type?: 'lpo' | 'po' }> = {}
+      
+      // Initialize all requested numbers as non-duplicates
+      lpoNumbers.forEach(num => {
+        result[num] = { isDuplicate: false }
+      })
+
+      if (!allRecords) return { data: result, error: null }
+
+      // Update with found duplicates using robust matching
+      lpoNumbers.forEach(searchNum => {
+        const upperSearch = searchNum.toUpperCase().replace(/\s/g, '').replace(/[-_]/g, '')
+        
+        for (const record of allRecords) {
+          const dbLpo = record.lpo_number.toUpperCase().replace(/\s/g, '').replace(/[-_]/g, '')
+          const dbPo = (record.pharmacy_purchase_orders as any)?.po_number?.toUpperCase().replace(/\s/g, '').replace(/[-_]/g, '')
+          
+          // Match against LPO number
+          if (dbLpo === upperSearch || dbLpo.includes(upperSearch) || upperSearch.includes(dbLpo)) {
+            result[searchNum] = {
+              isDuplicate: true,
+              existingPoNumber: (record.pharmacy_purchase_orders as any)?.po_number,
+              type: 'lpo'
+            }
+            break
+          }
+          
+          // Match against PO number
+          if (dbPo && (dbPo === upperSearch || dbPo.includes(upperSearch) || upperSearch.includes(dbPo))) {
+            result[searchNum] = {
+              isDuplicate: true,
+              existingPoNumber: dbPo,
+              type: 'po'
+            }
+            break
+          }
+        }
+      })
+
+      return { data: result, error: null }
+    }
+    return { data: null, error: 'Supabase not configured' }
+  } catch (error) {
+    console.error('Error checking duplicate LPOs batch:', error)
+    return { data: null, error: error instanceof Error ? error.message : 'Failed to check duplicate LPOs' }
+  }
+}
+
+/**
+ * Bulk upload LPOs
+ */
+export async function bulkUploadLPOs(
+  hospitalId: string,
+  userId: string,
+  rows: { po_number: string; lpo_number: string; document_date: string }[]
+): Promise<ApiResponse<{ successCount: number; errors: string[] }>> {
+  try {
+    if (isSupabaseConfigured()) {
+      // 1. Get all approved POs for this hospital to match numbers to IDs
+      const { data: pos, error: poError } = await supabase
+        .from('pharmacy_purchase_orders')
+        .select('id, po_number')
+        .eq('hospital_id', hospitalId)
+        .eq('status', 'approved')
+
+      if (poError) throw poError
+
+      const poMap = new Map(pos?.map(p => [p.po_number, p.id]) || [])
+      const insertData = []
+      const errors = []
+
+      for (const row of rows) {
+        if (!row.po_number || !row.lpo_number) continue;
+        
+        const poId = poMap.get(row.po_number)
+        if (poId) {
+          insertData.push({
+            hospital_id: hospitalId,
+            po_id: poId,
+            lpo_number: row.lpo_number,
+            document_date: row.document_date,
+            status: 'sent',
+            created_by: userId,
+            verify_tracking: false,
+            payment_status: 'pending'
+          })
+        } else {
+          errors.push(`PO Number ${row.po_number} not found or not approved.`)
+        }
+      }
+
+      if (insertData.length > 0) {
+        const { error: insertError } = await supabase
+          .from('pharmacy_lpo')
+          .insert(insertData)
+
+        if (insertError) throw insertError
+      }
+
+      return { 
+        data: { successCount: insertData.length, errors }, 
+        error: null 
+      }
+    }
+    return { data: null, error: 'Supabase not configured' }
+  } catch (error) {
+    console.error('Error bulk uploading LPOs:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to bulk upload LPOs',
+    }
+  }
+}
+
+export async function repairLPONumber(lpoId: string, newLpoNumber: string) {
+  try {
+    const { data, error } = await supabase
+      .from('pharmacy_lpo')
+      .update({ lpo_number: newLpoNumber })
+      .eq('id', lpoId)
+      .select()
+      .maybeSingle()
+
+    if (error) {
+      if (error.code === '23505') {
+        return { data: null, error: `CONFLICT: LPO number "${newLpoNumber}" already exists in the system. Please delete the duplicate record.` }
+      }
+      throw error
+    }
+    return { data, error: null }
+  } catch (error: any) {
+    console.error('Error repairing LPO number:', error)
+    return { data: null, error: error.message || 'Failed to repair LPO number' }
+  }
+}
+
+/**
+ * Update LPO payment status
+ */
+export async function updateLPOPaymentStatus(
+  lpoId: string,
+  status: 'pending' | 'sent_for_payment' | 'paid' | 'cancelled'
+): Promise<ApiResponse<PharmacyLPO>> {
+  try {
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('pharmacy_lpo')
+        .update({
+          payment_status: status,
+          sent_for_payment_date: status === 'sent_for_payment' ? new Date().toISOString() : undefined,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', lpoId)
+        .select()
+        .maybeSingle()
+
+      if (error) throw error
+      return { data: data as PharmacyLPO, error: null }
+    }
+    return { data: null, error: 'Supabase not configured' }
+  } catch (error) {
+    console.error('Error updating LPO payment status:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to update payment status',
+    }
+  }
+}
+
+/**
+ * Create a new supplier assessment
+ */
+export async function createSupplierAssessment(
+  assessment: {
+    lpo_id: string;
+    goods_receipt_id?: string;
+    ratings: {
+      quality: number;
+      support: number;
+      delivery: number;
+    };
+    total_score: number;
+    percentage: number;
+    performance_level: string;
+    comments?: string;
+    assessed_by?: string;
+  }
+): Promise<ApiResponse<any>> {
+  try {
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('pharmacy_supplier_assessments')
+        .insert({
+          ...assessment,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .maybeSingle()
+
+      if (error) throw error
+      return { data, error: null }
+    }
+    return { data: null, error: 'Supabase not configured' }
+  } catch (error) {
+    console.error('Error creating supplier assessment:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to save supplier assessment',
+    }
+  }
+}
+
+/**
+ * Get all supplier assessments with supplier details and items
+ */
+export async function getSupplierAssessments(
+  hospitalId: string
+): Promise<ApiResponse<any[]>> {
+  try {
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('pharmacy_supplier_assessments')
+        .select(`
+          id, lpo_id, ratings, total_score, percentage, performance_level, comments, created_at, goods_receipt_id,
+          lpo:pharmacy_lpo!inner(
+            lpo_number, hospital_id,
+            po:pharmacy_purchase_orders(
+              po_number, total_amount, manual_supplier_name,
+              supplier:suppliers(company_name),
+              items:pharmacy_purchase_order_items(item_name, quantity:quantity_ordered, unit_price)
+            )
+          )
+        `)
+        .eq('lpo.hospital_id', hospitalId)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      let finalData = data || []
+      const goodsReceiptIds = finalData
+        .map((r: any) => r.goods_receipt_id)
+        .filter(Boolean)
+
+      if (goodsReceiptIds.length > 0) {
+        const { data: grData, error: grError } = await supabase
+          .from('pharmacy_goods_receipts')
+          .select('id, gr_number, delivery_note_number')
+          .in('id', goodsReceiptIds)
+
+        if (!grError && grData) {
+          const grMap = new Map(grData.map((gr: any) => [gr.id, gr]))
+          finalData = finalData.map((item: any) => ({
+            ...item,
+            goods_receipt: item.goods_receipt_id ? grMap.get(item.goods_receipt_id) : null
+          }))
+        }
+      }
+
+      return { data: finalData, error: null }
+    }
+
+    // Fallback static mock data for demo / offline development
+    return {
+      data: [
+        {
+          id: 'mock-1',
+          lpo_id: 'lpo-1',
+          ratings: { quality: 5, support: 5, delivery: 5 },
+          total_score: 15,
+          percentage: 100,
+          performance_level: 'SANGAT MEMUASKAN',
+          created_at: new Date().toISOString(),
+          lpo: {
+            lpo_number: 'CO260000000278194',
+            po: {
+              po_number: 'PO-2026-0329',
+              total_amount: 4380.60,
+              manual_supplier_name: 'Generic Supplier',
+              supplier: { company_name: 'Generic Supplier' },
+              items: [
+                { item_name: 'Paracetamol 500mg Tab', quantity: 100, unit_price: 12.50 }
+              ]
+            }
+          }
+        }
+      ],
+      error: null
+    }
+  } catch (error) {
+    console.error('Error fetching supplier assessments:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch supplier assessments',
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LPO BINDING AUDIT
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface LPOAuditRecord {
+  lpo_id: string
+  lpo_number: string
+  document_url: string | null
+  po_id: string
+  po_number: string
+  po_amount: number
+  supplier_name: string
+  items: { item_name: string }[]
+}
+
+/**
+ * Fetch all LPO–PO pairs (with full PO details) needed for the integrity audit.
+ */
+export async function getAllLPOsForAudit(
+  hospitalId: string
+): Promise<ApiResponse<LPOAuditRecord[]>> {
+  try {
+    if (!isSupabaseConfigured()) {
+      return { data: null, error: 'Supabase not configured' }
+    }
+
+    const { data, error } = await supabase
+      .from('pharmacy_lpo')
+      .select(`
+        id,
+        lpo_number,
+        document_url,
+        po_id,
+        po:pharmacy_purchase_orders!inner(
           po_number,
-          hospital_id,
-          supplier:suppliers(company_name)
+          total_amount,
+          manual_supplier_name,
+          supplier:suppliers(company_name),
+          items:pharmacy_purchase_order_items(item_name)
         )
       `)
-            .eq('purchase_order.hospital_id', hospitalId)
-            .order('created_at', { ascending: false })
+      .eq('hospital_id', hospitalId)
+      .not('po_id', 'is', null)
+      .not('document_url', 'is', null)
+      .order('lpo_number', { ascending: true })
 
-        if (error) throw error
-        return data
-    },
+    if (error) throw error
 
-    // Update LPO Status or URL
-    async updateLPO(id: string, updates: Partial<LPO>): Promise<LPO> {
-        const { data, error } = await supabase
-            .from(TABLE_NAME)
-            .update({
-                ...updates,
-                updated_at: new Date().toISOString(),
-            })
-            .eq('id', id)
-            .select()
-            .single()
+    const records: LPOAuditRecord[] = (data || []).map((row: any) => {
+      const po = row.po || {}
+      const supplierData = Array.isArray(po.supplier) ? po.supplier[0] : po.supplier
+      return {
+        lpo_id: row.id,
+        lpo_number: row.lpo_number || '',
+        document_url: row.document_url || null,
+        po_id: row.po_id,
+        po_number: po.po_number || '',
+        po_amount: po.total_amount || 0,
+        supplier_name: po.manual_supplier_name || supplierData?.company_name || '',
+        items: (po.items || []).map((i: any) => ({ item_name: i.item_name || '' })),
+      }
+    })
 
-        if (error) throw error
-        return data
-    },
-
-    // Rename LPO
-    async renameLPO(id: string, newLpoNumber: string): Promise<LPO> {
-        // 1. Check for duplicates globally
-        const isDuplicate = await this.checkDuplicateLPO(newLpoNumber)
-
-        // We only block if it's a "hard" duplicate (already used by another APPROVED/verified LPO)
-        // But checkDuplicateLPO returns true if ANY record exists.
-        // We need to be careful. If I rename "LPO-PENDING-1" to "LPO-123", and "LPO-123" exists...
-        // If "LPO-123" is another PENDING one, maybe we merge? 
-        // For now, strict block: simple and safe.
-        // EXCEPT: If we are renaming to the SAME name (unlikely but possible UI glitch), allow it.
-
-        if (isDuplicate) {
-            // Double check it's not the same record
-            const existing = await this.getLPOByNumber(newLpoNumber)
-            if (existing && existing.id !== id) {
-                throw new Error(`LPO Number "${newLpoNumber}" is already in use.`)
-            }
-        }
-
-        return this.updateLPO(id, { lpo_number: newLpoNumber })
-    },
-
-    // Generate LPO Document (Using jsPDF)
-    // Note: Actual PDF generation logic will be in a separate utility or client-side component,
-    // this service just updates the record with the generated URL.
-    async recordLPOGeneration(id: string, documentUrl: string): Promise<LPO> {
-        return this.updateLPO(id, {
-            document_url: documentUrl,
-            status: 'generated'
-        })
-    },
-
-    // Upload LPO Document manually
-    async uploadLPODocument(id: string, file: File): Promise<LPO> {
-        // 1. Upload to storage
-        const path = `lpo-documents/${id}/${file.name}`
-        const { data: _uploadData, error: uploadError } = await supabase.storage
-            .from('documents') // Assuming 'documents' bucket exists
-            .upload(path, file, {
-                upsert: true
-            })
-
-        if (uploadError) throw uploadError
-
-        // 2. Get public URL (or signed URL if private)
-        const { data: { publicUrl } } = supabase.storage
-            .from('documents')
-            .getPublicUrl(path)
-
-        // 3. Update LPO record
-        return this.updateLPO(id, {
-            document_url: publicUrl,
-            status: 'uploaded'
-        })
-    },
-
-    // Get Approved LPOs (Have documents uploaded)
-    async getApprovedLPOs(
-        hospitalId: string,
-        page: number = 1,
-        pageSize: number = 10,
-        filterStatus: 'all' | 'verified' | 'unverified' = 'all',
-        searchQuery: string = ''
-    ): Promise<{ data: LPOWithRelations[], total: number }> {
-        const from = (page - 1) * pageSize
-        const to = from + pageSize - 1
-
-        // Base query
-        let query = supabase
-            .from(TABLE_NAME)
-            .select(`
-                *,
-                verify_tracking,
-                purchase_order:pharmacy_purchase_orders(
-                    po_number,
-                    hospital_id,
-                    vote_code,
-                    manual_supplier_name,
-                    supplier:suppliers(company_name),
-                    items:pharmacy_purchase_order_items(
-                        item_name,
-                        item_id,
-                        item_type,
-                        quantity_ordered,
-                        unit_price
-                    )
-                ),
-                tracking_items:pharmacy_order_tracking(count)
-            `, { count: 'exact' })
-            .eq('hospital_id', hospitalId)
-            .neq('document_url', null) // Must have document
-            .neq('lpo_number', null)   // Must have LPO number
-            .not('lpo_number', 'ilike', 'PENDING-%') // Exclude temporary unmatched LPOs
-            .not('po_id', 'is', null)  // Strictly must be linked to a PO
-
-        // Apply Status Filter
-        if (filterStatus === 'verified') {
-            query = query.in('status', ['sent', 'verified'])
-        } else if (filterStatus === 'unverified') {
-            query = query.not('status', 'in', '("sent","verified")')
-        }
-
-        query = query.order('created_at', { ascending: false })
-
-        // If searching, we fetch a larger batch and filter on client side to handle joined relations
-        if (searchQuery) {
-            query = query.limit(2000)
-        } else {
-            query = query.range(from, to)
-        }
-
-        const { data, count, error } = await query
-
-        if (error) throw error
-
-        let finalData = data as LPOWithRelations[]
-        let total = count || 0
-
-        // Comprehensive Client-side Search
-        if (searchQuery) {
-            const q = searchQuery.toLowerCase()
-            finalData = finalData.filter(lpo => {
-                const po = lpo.purchase_order as any
-                const matchesLpo = lpo.lpo_number?.toLowerCase().includes(q)
-                const matchesPo = po?.po_number?.toLowerCase().includes(q)
-                const matchesSupplier =
-                    po?.supplier?.company_name?.toLowerCase().includes(q) ||
-                    po?.manual_supplier_name?.toLowerCase().includes(q)
-                const matchesItems = po?.items?.some((item: any) =>
-                    item.item_name?.toLowerCase().includes(q)
-                )
-
-                return matchesLpo || matchesPo || matchesSupplier || matchesItems
-            })
-
-            total = finalData.length
-            // Manual pagination for search results
-            finalData = finalData.slice(from, to + 1)
-        }
-
-        return {
-            data: finalData,
-            total
-        }
-    },
-
-    // Get Unmatched LPOs (Uploaded but not linked to PO)
-    async getUnmatchedLPOs(hospitalId: string): Promise<LPO[]> {
-        const { data, error } = await supabase
-            .from(TABLE_NAME)
-            .select('*')
-            .eq('hospital_id', hospitalId)
-            .is('po_id', null)
-            .order('created_at', { ascending: false })
-
-        if (error) throw error
-        return data || []
-    },
-
-    // Link an Unmatched LPO to a PO Manually
-    async linkLPOToPO(lpoId: string, poId: string, poNumber: string): Promise<void> {
-        const { error } = await supabase
-            .from(TABLE_NAME)
-            .update({
-                po_id: poId,
-                lpo_number: `LPO-${poNumber}`, // Start with default if missing
-                status: 'draft',
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', lpoId)
-
-        if (error) throw error
-    },
-
-    // Get Pending LPOs (Approved POs that need LPO document)
-    // This replaces getPendingPOs but specifically returns POs that are waiting for LPO
-    async getPendingLPOs(
-        hospitalId: string,
-        page: number = 1,
-        pageSize: number = 10,
-        searchQuery: string = ''
-    ): Promise<{ data: PurchaseOrderWithRelations[], total: number }> {
-        const from = (page - 1) * pageSize
-        const to = from + pageSize - 1
-
-        let query = supabase
-            .from('pharmacy_purchase_orders')
-            .select(`
-                *,
-                supplier:suppliers(company_name),
-                items:pharmacy_purchase_order_items(*),
-                lpo:${TABLE_NAME}(id, lpo_number, document_date, document_url, status)
-            `, { count: 'exact' })
-            .eq('hospital_id', hospitalId)
-            // STRICTLY approved POs only. Sent is also okay if LPO was missed (edge case), but mainly approved.
-            .in('status', ['approved', 'sent'])
-            .not('po_number', 'ilike', 'SQ%') // Exclude SQs
-
-        // Note: server-side .or() filter with joined tables is removed due to PostgREST limitations (cause 400 error).
-        // Manual filter below in the function handles this correctly.
-
-        const { data, error } = await query
-            .order('po_number', { ascending: false })
-            .limit(2000) // Increased limit to ensure we capture older records for matching/filtering
-
-        if (error) throw error
-
-        // Filter: Keep strictly if NO completed LPO exists AND matches search if provided
-        const filtered = (data || []).filter(po => {
-            if (searchQuery) {
-                const q = searchQuery.toLowerCase()
-                const matchesSearch =
-                    po.po_number.toLowerCase().includes(q) ||
-                    po.supplier?.company_name?.toLowerCase().includes(q) ||
-                    po.manual_supplier_name?.toLowerCase().includes(q) ||
-                    po.items?.some((item: any) => item.item_name?.toLowerCase().includes(q))
-
-                if (!matchesSearch) return false
-            }
-
-            const lpoData = (po as any).lpo
-            if (!lpoData) return true
-
-            const lpos = Array.isArray(lpoData) ? lpoData : [lpoData]
-            if (lpos.length === 0) return true
-
-            // Check if ANY associated LPO has a document URL
-            // If yes, it's NOT pending (return false)
-            const hasValidLPO = lpos.some((l: any) => l.document_url)
-            return !hasValidLPO
-        })
-
-        // Manual Pagination after filtering
-        const total = filtered.length
-        const paginatedData = filtered.slice(from, to + 1)
-
-        return {
-            data: paginatedData as unknown as PurchaseOrderWithRelations[],
-            total
-        }
-    },
-
-    // Delete LPO record and associated data
-    async deleteLPO(id: string): Promise<void> {
-        console.log('Attempting to delete LPO:', id)
-
-        // 1. Fetch LPO to get document URL
-        const { data: lpo, error: fetchError } = await supabase
-            .from(TABLE_NAME)
-            .select('document_url')
-            .eq('id', id)
-            .single()
-
-        if (fetchError) throw fetchError
-
-        // 1a. Check for blocking relations (Receiving, Payments, LOU)
-        // We run these checks in parallel for speed
-        const [receivingCheck, paymentCheck, louCheck] = await Promise.all([
-            supabase.from('pharmacy_receiving').select('id').eq('lpo_id', id).limit(1),
-            supabase.from('pharmacy_payments').select('id').eq('lpo_id', id).limit(1),
-            supabase.from('pharmacy_lou').select('id').eq('lpo_id', id).limit(1)
-        ])
-
-        if (receivingCheck.data && receivingCheck.data.length > 0) {
-            throw new Error('Cannot delete LPO: Existing receiving/GRN records found. Please delete them first.')
-        }
-        if (paymentCheck.data && paymentCheck.data.length > 0) {
-            throw new Error('Cannot delete LPO: Payment records found. Please revert payments first.')
-        }
-        if (louCheck.data && louCheck.data.length > 0) {
-            throw new Error('Cannot delete LPO: LOU records found.')
-        }
-
-        console.log('No blocking relations found. Proceeding with cascade delete.')
-
-        // 2a. Delete associated penalties (FK constraint)
-        await penaltyService.deletePenaltiesByLPO(id)
-
-        // 2b. Delete tracking records
-        await orderTrackingService.deleteTrackingByLPO(id)
-
-        // 3. Delete from storage if exists
-        if (lpo.document_url) {
-            try {
-                // Extract path from public URL
-                // Format: .../storage/v1/object/public/documents/lpo-documents/ID/FILE
-                const urlParts = lpo.document_url.split('/documents/')
-                if (urlParts.length > 1) {
-                    const path = `lpo-documents/${urlParts[1]}`
-                    await supabase.storage.from('documents').remove([path])
-                }
-            } catch (storageError) {
-                console.error('Failed to delete LPO document from storage:', storageError)
-                // Continue anyway to delete the database record
-            }
-        }
-
-        // 4. Delete LPO record
-        const { error: deleteError } = await supabase
-            .from(TABLE_NAME)
-            .delete()
-            .eq('id', id)
-
-        if (deleteError) throw deleteError
-        console.log('LPO deleted successfully')
-    },
-
-    // Save Supplier Assessment
-    async saveAssessment(assessment: {
-        lpo_id: string,
-        ratings: Record<string, number>,
-        total_score: number,
-        percentage: number,
-        performance_level: string,
-        assessed_by?: string
-    }): Promise<any> {
-        const { data, error } = await supabase
-            .from('pharmacy_supplier_assessments')
-            .insert({
-                lpo_id: assessment.lpo_id,
-                ratings: assessment.ratings,
-                total_score: assessment.total_score,
-                percentage: assessment.percentage,
-                performance_level: assessment.performance_level
-            })
-            .select()
-            .single()
-
-        if (error) throw error
-        return data
+    return { data: records, error: null }
+  } catch (err) {
+    console.error('Error fetching LPOs for audit:', err)
+    return {
+      data: null,
+      error: err instanceof Error ? err.message : 'Failed to fetch LPOs for audit',
     }
+  }
+}
+
+/**
+ * Reassign an LPO to a different PO (fix a wrong binding).
+ */
+export async function rebindLPO(
+  lpoId: string,
+  newPoId: string
+): Promise<ApiResponse<PharmacyLPO>> {
+  try {
+    if (!isSupabaseConfigured()) {
+      return { data: null, error: 'Supabase not configured' }
+    }
+
+    const { data, error } = await supabase
+      .from('pharmacy_lpo')
+      .update({ po_id: newPoId, updated_at: new Date().toISOString() })
+      .eq('id', lpoId)
+      .select('*')
+      .maybeSingle()
+
+    if (error) throw error
+    return { data: data as PharmacyLPO, error: null }
+  } catch (err) {
+    console.error('Error rebinding LPO:', err)
+    return {
+      data: null,
+      error: err instanceof Error ? err.message : 'Failed to rebind LPO',
+    }
+  }
 }

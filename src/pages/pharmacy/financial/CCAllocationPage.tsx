@@ -1,86 +1,98 @@
 import React, { useEffect, useState, useMemo } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   DollarSign,
   TrendingUp,
+  TrendingDown,
   Wallet,
   AlertTriangle,
+  Calendar,
+  FileText,
   RefreshCw,
-  Download,
-  FileDown,
+  Search,
+  Filter,
+  ChevronRight,
+  ChevronLeft,
+  ChevronsLeft,
+  ChevronsRight,
+  Info,
+  BarChart2,
+  PieChart,
+  X,
+  Package,
+  ShoppingCart,
+  Sparkles,
+  Zap
 } from 'lucide-react'
-import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
+import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
-import { Spinner, Button, Badge } from '@/components/ui'
-import { FinancialPageLayout } from '@/components/pharmacy/financial/FinancialPageLayout'
-import { FinancialFilterBar, FilterOption } from '@/components/pharmacy/financial/FinancialFilterBar'
-import { Table } from '@/components/ui/Table'
-import { Pagination } from '@/components/ui/Pagination'
+import { Spinner, Button, Input, Select, Badge, Table } from '@/components/ui'
 import {
-  getCCAllocationSummary,
-  getCCExpenses,
-  syncCCExpensesFromPOs,
+  getUnifiedBudgetSummary,
+  getExpenseList
+} from '@/services/pharmacy/budgetEngine'
+import {
+  getPurchaseOrderDetails,
 } from '@/services/pharmacy/ccAllocationService'
-import {
-  exportCCToPDF,
-  exportCCToCSV,
-} from '@/services/pharmacy/ccExportService'
-import { WARRANT_DEPARTMENTS, WARRANT_VOTE_ACTIVITIES } from '@/services/pharmacy/warrantService'
-import type { CCAllocationSummary, CCExpenseWithRelations } from '@/types/pharmacy'
-import { FinancialStatsGrid } from '@/components/pharmacy/financial/FinancialStatsGrid'
+
+import { WARRANT_CATEGORIES, WARRANT_DEPARTMENTS, normalize } from '@/services/pharmacy/warrantService'
+import type { UnifiedBudgetSummary } from '@/types/pharmacy'
+import { cn, formatCurrency, formatDateTime, formatDate } from '@/lib/utils'
 
 export const CCAllocationPage: React.FC = () => {
   const { user } = useAuthStore()
   const { success: showSuccess, error: showError } = useToastStore()
   const hospitalId = user?.hospital_id
-  const isSessionReady = useIsSessionReady()
 
-  const [summary, setSummary] = useState<CCAllocationSummary | null>(null)
-  const [expenses, setExpenses] = useState<CCExpenseWithRelations[]>([])
+  const [summary, setSummary] = useState<UnifiedBudgetSummary | null>(null)
+  const [expenses, setExpenses] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const [filterDepartment, setFilterDepartment] = useState<string>('all')
-  const [isExporting, setIsExporting] = useState(false)
-  const [isSyncing, setIsSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterVoteActivity, setFilterVoteActivity] = useState<string>('all')
+  const [filterCategory, setFilterCategory] = useState<string>('all')
+  const [filterDepartment, setFilterDepartment] = useState<string>('all')
 
-  // Pagination
+  // Pagination State
   const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
+  const [pageSize] = useState(10)
+
+  // PO Items Drawer State
+  const [selectedPO, setSelectedPO] = useState<any>(null)
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+  const [isLoadingPO, setIsLoadingPO] = useState(false)
+
+  // Years for dropdown
+  const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
 
   // Fetch data
   useEffect(() => {
-    if (!isSessionReady || !hospitalId) return
+    if (!hospitalId) return
 
     const fetchData = async () => {
-      // Trigger background sync first to ensure data is fresh
-      if (hospitalId) {
-        syncCCExpensesFromPOs(hospitalId, selectedYear).catch(console.error)
-      }
-
       setIsLoading(true)
       setError(null)
-      setCurrentPage(1)
 
       try {
-        const voteActivityParam = filterVoteActivity !== 'all' ? filterVoteActivity : undefined
-        const departmentParam = filterDepartment !== 'all' ? filterDepartment : undefined
-        const statusParam = filterStatus !== 'all' ? filterStatus : undefined
-
         const [summaryResult, expensesResult] = await Promise.all([
-          getCCAllocationSummary(hospitalId, selectedYear, {
-            voteActivity: voteActivityParam,
-            category: undefined,
-            department: departmentParam,
+          getUnifiedBudgetSummary({
+            hospitalId,
+            fiscalYear: selectedYear,
+            voteCode: '080702',
+            voteActivity: filterVoteActivity !== 'all' ? filterVoteActivity as any : undefined,
+            category: filterCategory !== 'all' ? filterCategory as any : undefined,
+            department: filterDepartment !== 'all' ? filterDepartment as any : undefined,
           }),
-          getCCExpenses(hospitalId, selectedYear, {
-            status: statusParam,
-            voteActivity: voteActivityParam,
-            category: undefined,
-            department: departmentParam,
+          getExpenseList({
+            hospitalId,
+            fiscalYear: selectedYear,
+            voteCode: '080702',
+            status: filterStatus !== 'all' ? filterStatus : undefined,
+            voteActivity: filterVoteActivity !== 'all' ? filterVoteActivity as any : undefined,
+            category: filterCategory !== 'all' ? filterCategory as any : undefined,
+            department: filterDepartment !== 'all' ? filterDepartment as any : undefined,
           }),
         ])
 
@@ -103,468 +115,854 @@ export const CCAllocationPage: React.FC = () => {
     }
 
     void fetchData()
-  }, [isSessionReady, hospitalId, selectedYear, filterStatus, filterVoteActivity, filterDepartment])
+  }, [hospitalId, selectedYear, filterStatus, filterVoteActivity, filterCategory, filterDepartment])
 
-  const handleSync = async () => {
-    if (!hospitalId) return
+  // Handle PO Click
+  const handlePOClick = async (poId: string) => {
+    if (!hospitalId || !poId) return
 
-    setIsSyncing(true)
+    setIsLoadingPO(true)
+    setIsDrawerOpen(true)
     try {
-      const result = await syncCCExpensesFromPOs(hospitalId, selectedYear)
+      const result = await getPurchaseOrderDetails(hospitalId, poId)
       if (result.error) {
-        showError('Sync failed', result.error)
-      } else if (result.data) {
-        showSuccess('Sync completed', `Synced ${result.data.synced} expenses from Purchase Orders`)
-        window.location.reload()
+        showError('Error', result.error)
+        setIsDrawerOpen(false)
+      } else {
+        setSelectedPO(result.data)
       }
     } catch (err) {
-      showError('Sync failed', err instanceof Error ? err.message : 'Failed to sync expenses')
+      showError('Error', 'Failed to fetch PO details')
+      setIsDrawerOpen(false)
     } finally {
-      setIsSyncing(false)
+      setIsLoadingPO(false)
     }
   }
 
-  // Filtered and Paginated expenses
+  // Filtered expenses
   const filteredExpenses = useMemo(() => {
-    let result = expenses.filter(e => e.status !== 'cancelled')
+    let filtered = expenses
+
+    // CRITICAL: Only show expenses whose PO belongs to CC (vote_code 080702)
+    filtered = filtered.filter((e) => {
+      if (e.purchase_order?.vote_code) {
+        return e.purchase_order.vote_code === '080702'
+      }
+      return true // Keep manual entries without linked PO
+    })
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
-      result = result.filter(
+      filtered = filtered.filter(
         (e) =>
           e.po_number.toLowerCase().includes(query) ||
           (e.lpo_number && e.lpo_number.toLowerCase().includes(query)) ||
-          (e.purchase_order?.supplier?.company_name?.toLowerCase().includes(query))
+          (e.purchase_order?.supplier?.company_name?.toLowerCase().includes(query)) ||
+          (e.purchase_order?.items?.some((item: any) => 
+            (item.item_name && item.item_name.toLowerCase().includes(query)) ||
+            (item.item_code && item.item_code.toLowerCase().includes(query)) ||
+            (item.item_id && item.item_id.toLowerCase().includes(query))
+          ))
       )
     }
 
-    // Additional client-side department filtering for robustness
+    // Filter by department — EXACT match on PO department only (not shared group)
     if (filterDepartment !== 'all') {
-      result = result.filter((e) => {
-        const dept = e.department || e.warrant?.department
-        return dept?.toLowerCase() === filterDepartment.toLowerCase()
-      })
+      filtered = filtered.filter(
+        (e) => {
+          const normPoDept = normalize(e.purchase_order?.department || null)
+          return normPoDept === filterDepartment
+        }
+      )
     }
 
-    // Sort by date (newest first)
-    return result.sort((a, b) => {
-      const dateA = new Date(a.expense_date).getTime()
-      const dateB = new Date(b.expense_date).getTime()
-      if (dateB !== dateA) return dateB - dateA
-      return b.po_number.localeCompare(a.po_number)
-    })
-  }, [expenses, searchQuery, filterDepartment])
+    // CRITICAL: Activity 27401 is strictly for Drug categories
+    if (filterVoteActivity === '27401') {
+      filtered = filtered.filter((e) => e.category !== 'non_drug')
+    }
+    
+    if (filterCategory === 'non_drug') {
+      filtered = filtered.filter((e) => e.vote_activity !== '27401')
+    }
 
+    return filtered;
+  }, [expenses, searchQuery, filterDepartment, filterVoteActivity, filterCategory])
+
+  // Pagination Logic
+  const totalPages = Math.ceil(filteredExpenses.length / pageSize)
   const paginatedExpenses = useMemo(() => {
     const start = (currentPage - 1) * pageSize
     return filteredExpenses.slice(start, start + pageSize)
   }, [filteredExpenses, currentPage, pageSize])
 
+  // Reset to first page when search or filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, filterStatus, filterVoteActivity, filterCategory, filterDepartment, selectedYear])
+
+  // Auto-select category and vote activity for specific non-standard departments
+  useEffect(() => {
+    const nonStandardDepartments = [
+      'maternity_ward',
+      'paediatric_ward',
+      'general_ward',
+      'emergency_trauma',
+      'klinik_pakar',
+      'cssu_cssd',
+      'rehabilitation',
+      'wound_care',
+      'anaesthesiology'
+    ]
+
+    if (nonStandardDepartments.includes(filterDepartment)) {
+      setFilterCategory('non_standard')
+      setFilterVoteActivity('27499')
+    }
+  }, [filterDepartment])
+
+  // Get hospital name
   const hospitalName = user?.hospital?.hospital_name || 'Hospital'
 
-  const handleExportPDF = async () => {
-    if (!summary || filteredExpenses.length === 0) {
-      showError('No data to export', 'Please ensure there are expenses to export')
-      return
-    }
 
-    setIsExporting(true)
-    try {
-      const blob = await exportCCToPDF(
-        filteredExpenses,
-        summary,
-        hospitalName,
-        selectedYear,
-        {
-          voteActivity: filterVoteActivity !== 'all' ? filterVoteActivity : undefined,
-          status: filterStatus !== 'all' ? filterStatus : undefined,
-          category: undefined,
-          department: filterDepartment !== 'all' ? filterDepartment : undefined,
-        },
-        user?.email || 'System User'
-      )
 
-      const url = window.URL.createObjectURL(blob)
-      window.open(url, '_blank')
-
-      // Clean up after a delay
-      setTimeout(() => window.URL.revokeObjectURL(url), 100)
-      showSuccess('Success', 'PDF report generated')
-    } catch (error) {
-      showError('Export Failed', 'Unable to generate PDF report')
-    } finally {
-      setIsExporting(false)
-    }
-  }
-
-  const handleExportCSV = () => {
-    if (!summary || filteredExpenses.length === 0) {
-      showError('No data to export', 'Please ensure there are expenses to export')
-      return
-    }
-
-    try {
-      const csvContent = exportCCToCSV(
-        filteredExpenses,
-        summary,
-        hospitalName,
-        selectedYear,
-        {
-          voteActivity: filterVoteActivity !== 'all' ? filterVoteActivity : undefined,
-          status: filterStatus !== 'all' ? filterStatus : undefined,
-          category: undefined,
-          department: filterDepartment !== 'all' ? filterDepartment : undefined,
-        },
-        user?.email || 'System User'
-      )
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `cc-allocation-report-FY${selectedYear}.csv`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      window.URL.revokeObjectURL(url)
-      showSuccess('Success', 'CSV report downloaded')
-    } catch (error) {
-      showError('Export Failed', 'Unable to generate CSV report')
-    }
-  }
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-MY', {
-      style: 'currency',
-      currency: 'MYR',
-    }).format(amount)
-  }
-
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-MY', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    })
-  }
-
+  // Get status badge
   const getStatusBadge = (status: string) => {
-    const map: Record<string, { color: 'success' | 'warning' | 'error' | 'info' | 'gray'; label: string }> = {
+    const map: Record<string, { color: 'success' | 'warning' | 'error' | 'info' | 'secondary'; label: string }> = {
       pending: { color: 'warning', label: 'Pending' },
-      approved: { color: 'info', label: 'Approved' },
-      completed: { color: 'success', label: 'Completed' },
-      cancelled: { color: 'error', label: 'Cancelled' },
+      approved: { color: 'info', label: 'Approve' },
+      completed: { color: 'success', label: 'Complete' },
+      cancelled: { color: 'error', label: 'Cancel' },
     }
-    const cfg = map[status] || { color: 'gray', label: status }
+    const cfg = map[status] || { color: 'secondary', label: status }
     return <Badge variant={cfg.color}>{cfg.label}</Badge>
   }
 
+  // Get PO type badge
   const getPoTypeBadge = (poType: string) => {
-    const map: Record<string, { color: 'success' | 'warning' | 'error' | 'info' | 'gray'; label: string }> = {
+    const map: Record<string, { color: 'success' | 'warning' | 'error' | 'info' | 'secondary'; label: string }> = {
       regular: { color: 'info', label: 'PO' },
       lpo: { color: 'success', label: 'LPO' },
       emergency: { color: 'error', label: 'Emergency' },
     }
-    const cfg = map[poType] || { color: 'gray', label: poType }
+    const cfg = map[poType] || { color: 'secondary', label: poType }
     return <Badge variant={cfg.color}>{cfg.label}</Badge>
   }
 
-  const columns = [
-    {
-      key: 'expense_date',
-      label: 'Date',
-      render: (_: any, e: CCExpenseWithRelations) => (
-        <span className="font-medium text-slate-900">{formatDate(e.expense_date)}</span>
-      ),
-    },
-    {
-      key: 'po_number',
-      label: 'PO Number',
-      render: (_: any, e: CCExpenseWithRelations) => (
-        <span className="font-mono text-sm text-slate-700">{e.po_number}</span>
-      ),
-    },
-    {
-      key: 'lpo_number',
-      label: 'LPO Number',
-      render: (_: any, e: CCExpenseWithRelations) => (
-        e.lpo_number ? (
-          <span className="font-mono text-sm text-slate-700">{e.lpo_number}</span>
-        ) : (
-          <span className="text-slate-400">—</span>
-        )
-      ),
-    },
-    {
-      key: 'po_type',
-      label: 'Type',
-      render: (_: any, e: CCExpenseWithRelations) => getPoTypeBadge(e.po_type),
-    },
-    {
-      key: 'amount',
-      label: 'Amount',
-      align: 'right' as const,
-      render: (_: any, e: CCExpenseWithRelations) => (
-        <span className="font-semibold text-slate-900">{formatCurrency(Number(e.amount))}</span>
-      ),
-    },
-    {
-      key: 'status',
-      label: 'Status',
-      render: (_: any, e: CCExpenseWithRelations) => getStatusBadge(e.status),
-    },
-  ]
-
-  const headerActions = (
-    <div className="flex items-center gap-2">
-      <Button
-        onClick={handleSync}
-        disabled={isSyncing}
-        variant="outline"
-        className="border-slate-300 hover:bg-slate-50 shadow-sm"
-      >
-        {isSyncing ? (
-          <><Spinner size="sm" className="mr-2" />Syncing...</>
-        ) : (
-          <><RefreshCw className="w-4 h-4 mr-2" />Sync POs</>
-        )}
-      </Button>
-      <Button onClick={handleExportPDF} disabled={isExporting} variant="outline" className="border-slate-300 hover:bg-slate-50">
-        <FileDown className="w-4 h-4 mr-2" />
-        PDF
-      </Button>
-      <Button onClick={handleExportCSV} variant="outline" className="border-slate-300 hover:bg-slate-50">
-        <Download className="w-4 h-4 mr-2" />
-        CSV
-      </Button>
-    </div>
-  )
-
-  const statusOptions: FilterOption[] = [
-    { label: 'Pending', value: 'pending' },
-    { label: 'Approved', value: 'approved' },
-    { label: 'Completed', value: 'completed' },
-  ]
-
   return (
-    <FinancialPageLayout
-      title="CC Allocation"
-      description="Track expenses from Purchase Orders (PO) and Local Purchase Orders (LPO) linked to warrants (vote code 080702)"
-      icon={Wallet}
-      breadcrumbs={[{ label: 'CC Allocation' }]}
-      actions={headerActions}
-      notice={{
-        title: `Fiscal Year ${selectedYear} Status`,
-        message: 'This dashboard shows allocation and expenses for the selected fiscal year. Ensure all POs are properly synced.',
-        type: 'info'
-      }}
-    >
-      <div className="space-y-6">
-        <FinancialFilterBar
-          onSearchChange={setSearchQuery}
-          searchValue={searchQuery}
-          searchPlaceholder="Search PO/LPO/Supplier..."
-          selectedYear={selectedYear}
-          onYearChange={setSelectedYear}
-          filters={[
-            {
-              key: 'voteActivity',
-              label: 'Activity',
-              value: filterVoteActivity,
-              options: WARRANT_VOTE_ACTIVITIES,
-              onChange: setFilterVoteActivity,
-            },
-            {
-              key: 'department',
-              label: 'Department',
-              value: filterDepartment,
-              options: WARRANT_DEPARTMENTS,
-              onChange: setFilterDepartment,
-            },
-            {
-              key: 'status',
-              label: 'Status',
-              value: filterStatus,
-              options: statusOptions,
-              onChange: setFilterStatus,
-            }
-          ]}
-          onReset={() => {
-            setFilterVoteActivity('all')
-            setFilterDepartment('all')
-            setFilterStatus('all')
-            setSearchQuery('')
-            setCurrentPage(1)
-          }}
-        />
+    <div className="min-h-screen bg-[#fcfdfe] relative font-sans overflow-x-hidden pb-16">
+      {/* Premium Ambient Radial Lights */}
+      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-br from-teal-500/[0.04] to-emerald-500/[0.02] rounded-full blur-[140px] pointer-events-none -z-10 animate-pulse-subtle" />
+      <div className="absolute top-1/4 left-0 w-[500px] h-[500px] bg-gradient-to-tr from-cyan-500/[0.02] to-sky-500/[0.03] rounded-full blur-[120px] pointer-events-none -z-10" />
 
+      <div className="w-full p-6 lg:p-8 space-y-8">
+        
+        {/* Breadcrumbs & Header Section */}
+        <motion.div 
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: 'easeOut' }}
+          className="space-y-4"
+        >
+          {/* Breadcrumb Navigation */}
+          <nav className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+            <span className="text-slate-400">Financial</span>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
+            <span className="text-slate-800 font-extrabold tracking-wide">CC Allocation</span>
+          </nav>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-20">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-gradient-to-tr from-slate-900 to-teal-950 border border-slate-800/80 rounded-2xl flex items-center justify-center shadow-lg shadow-slate-900/10 hover:rotate-2 transition-transform duration-300">
+                <Wallet className="h-6 w-6 text-white" />
+              </div>
+              <div className="space-y-0.5">
+                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900">
+                  CC Allocation (080702)
+                </h1>
+                <p className="text-slate-500 font-semibold text-[11px] flex items-center gap-1.5">
+                  <Sparkles className="w-3 h-3 text-teal-500 animate-pulse" />
+                  Track purchase orders (PO/LPO) distribution constraints and warrant status
+                </p>
+              </div>
+            </div>
+
+
+          </div>
+        </motion.div>
+
+        {/* Loading */}
+        {isLoading && (
+          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2rem] border border-slate-150 shadow-sm">
+            <Spinner size="lg" className="text-teal-650 mb-4" />
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Compiling CC sheets...</p>
+          </div>
+        )}
+
+        {/* Error */}
         {!isLoading && error && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 shadow-sm"
+            className="flex items-start gap-3 rounded-2xl border-2 border-rose-100 bg-gradient-to-r from-rose-50 to-red-50 p-4 text-sm text-rose-700 shadow-sm"
           >
             <AlertTriangle className="w-5 h-5 mt-0.5 flex-shrink-0" />
             <div>
-              <p className="font-semibold">Data Loading Error</p>
-              <p className="mt-0.5">{error}</p>
+              <p className="font-semibold uppercase text-xs tracking-wider">Synchronization Failure</p>
+              <p className="mt-0.5 text-rose-600 font-bold">{error}</p>
             </div>
-            <Button
-              onClick={() => window.location.reload()}
-              variant="outline"
-              size="sm"
-              className="ml-auto border-rose-300 text-rose-700 hover:bg-rose-100"
-            >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Retry
-            </Button>
           </motion.div>
         )}
 
-        {/* Dashboard Cards */}
+        {/* Financial Dashboard */}
         {!isLoading && !error && summary && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* Total Allocation */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-6 text-white shadow-lg group hover:shadow-xl transition-all duration-300">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl group-hover:bg-white/20 transition-colors" />
-                <div className="relative">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="p-3 bg-white/20 rounded-xl backdrop-blur-md shadow-inner">
-                      <Wallet className="w-6 h-6" />
-                    </div>
-                    <div className="text-emerald-100 bg-emerald-500/30 px-2 py-1 rounded-lg backdrop-blur-sm border border-emerald-400/30">
-                      <span className="text-xs font-bold uppercase tracking-wider">Total</span>
-                    </div>
-                  </div>
-                  <p className="text-emerald-100 text-sm font-medium mb-1 tracking-wide">Total Allocation</p>
-                  <p className="text-3xl font-bold tracking-tight">{formatCurrency(summary.total_allocation)}</p>
-                  <p className="text-emerald-100/80 text-xs mt-3 font-medium">
-                    In {summary.total_count} record{summary.total_count !== 1 ? 's' : ''}
-                  </p>
-                </div>
+          <div className="space-y-8">
+            {/* Information Alert */}
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-teal-50/30 border-l-4 border-teal-600 rounded-r-2xl p-4 flex items-start gap-3 shadow-sm"
+            >
+              <Info className="w-5 h-5 text-teal-605 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-xs font-black text-teal-950 uppercase tracking-wider">Fiscal Year {selectedYear} System Alerts</p>
+                <p className="text-[11px] font-semibold text-teal-800 mt-1 leading-relaxed">
+                  This registry aggregates contract allocation metrics and records real-time procurement deductions. Sync purchase orders regularly to maintain accounting accuracy.
+                </p>
+              </div>
+            </motion.div>
+
+            {/* Filtering Bar */}
+            <div className="bg-white/80 backdrop-blur-md p-4 rounded-[2rem] border border-slate-200/80 shadow-xl shadow-slate-200/10 flex flex-col gap-4">
+              
+              {/* Row 1: Search Bar */}
+              <div className="relative w-full">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search by PO/LPO number, supplier, items..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-11 pr-4 h-11 bg-slate-50 hover:bg-slate-100/50 border border-slate-150 rounded-2xl text-sm font-semibold focus:ring-2 focus:ring-slate-900/10 focus:bg-white transition-all outline-none"
+                />
               </div>
 
-              {/* Total Expenses */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-rose-500 to-pink-600 rounded-2xl p-6 text-white shadow-lg group hover:shadow-xl transition-all duration-300">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl group-hover:bg-white/20 transition-colors" />
-                <div className="relative">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="p-3 bg-white/20 rounded-xl backdrop-blur-md shadow-inner">
-                      <DollarSign className="w-6 h-6" />
-                    </div>
+              {/* Row 2: Filters & Actions */}
+              <div className="flex flex-wrap items-center justify-between gap-4 w-full">
+                <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                  
+                  <div className="flex items-center gap-2 bg-slate-50 border border-slate-150 rounded-2xl px-4 py-2.5 min-w-[130px]">
+                    <Calendar className="w-4 h-4 text-slate-400" />
+                    <select
+                      value={selectedYear}
+                      onChange={(e) => setSelectedYear(Number(e.target.value))}
+                      className="bg-transparent text-xs font-black text-slate-700 focus:outline-none cursor-pointer w-full outline-none"
+                    >
+                      {years.map((year) => (
+                        <option key={year} value={year}>
+                          FY {year}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                  <p className="text-rose-100 text-sm font-medium mb-1 tracking-wide">Total Expenses</p>
-                  <p className="text-3xl font-bold tracking-tight">{formatCurrency(summary.total_expenses)}</p>
-                  <p className="text-rose-200 text-xs mt-3 bg-rose-500/30 inline-block px-2 py-1 rounded-lg backdrop-blur-sm border border-rose-400/30">
-                    {summary.usage_percentage.toFixed(1)}% of allocation
-                  </p>
-                </div>
-              </div>
 
-              {/* Available Balance */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-6 text-white shadow-lg group hover:shadow-xl transition-all duration-300">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl group-hover:bg-white/20 transition-colors" />
-                <div className="relative">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="p-3 bg-white/20 rounded-xl backdrop-blur-md shadow-inner">
-                      <Wallet className="w-6 h-6" />
-                    </div>
+                  <div className="bg-slate-50 border border-slate-150 rounded-2xl px-4 py-2.5 flex items-center justify-between min-w-[150px]">
+                    <select
+                      value={filterVoteActivity}
+                      onChange={(e) => setFilterVoteActivity(e.target.value)}
+                      className="bg-transparent text-xs font-black text-slate-700 focus:outline-none cursor-pointer w-full outline-none"
+                    >
+                      <option value="all">All Activities</option>
+                      <option value="27401">27401 - Drug</option>
+                      <option value="27499">27499 - Non Drug</option>
+                      <option value="27404">27404 - Vaccine</option>
+                      <option value="27403">27403 - Pathologist</option>
+                      <option value="27402">27402 - Medical Cylinder</option>
+                      <option value="27501">27501 - Xray</option>
+                    </select>
                   </div>
-                  <p className="text-blue-100 text-sm font-medium mb-1 tracking-wide">Available Balance</p>
-                  <p className="text-3xl font-bold tracking-tight">{formatCurrency(summary.total_balance)}</p>
-                  <p className="text-blue-200 text-xs mt-3 bg-blue-500/30 inline-block px-2 py-1 rounded-lg backdrop-blur-sm border border-blue-400/30">
-                    {summary.total_allocation > 0
-                      ? ((summary.total_balance / summary.total_allocation) * 100).toFixed(1)
-                      : '0'}% remaining
-                  </p>
+
+                  <div className="bg-slate-50 border border-slate-150 rounded-2xl px-4 py-2.5 flex items-center justify-between min-w-[160px]">
+                    <select
+                      value={filterDepartment}
+                      onChange={(e) => setFilterDepartment(e.target.value)}
+                      className="bg-transparent text-xs font-black text-slate-700 focus:outline-none cursor-pointer w-full outline-none"
+                    >
+                      <option value="all">All Departments</option>
+                      {WARRANT_DEPARTMENTS.map((dept) => (
+                        <option key={dept.value} value={dept.value}>
+                          {dept.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-150 rounded-2xl px-4 py-2.5 flex items-center justify-between min-w-[160px]">
+                    <select
+                      value={filterCategory}
+                      onChange={(e) => setFilterCategory(e.target.value)}
+                      className="bg-transparent text-xs font-black text-slate-700 focus:outline-none cursor-pointer w-full outline-none"
+                    >
+                      <option value="all">All Categories</option>
+                      {WARRANT_CATEGORIES.map((cat) => (
+                        <option key={cat.value} value={cat.value}>
+                          {cat.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-150 rounded-2xl px-4 py-2.5 flex items-center justify-between min-w-[150px]">
+                    <select
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                      className="bg-transparent text-xs font-black text-slate-700 focus:outline-none cursor-pointer w-full outline-none"
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="pending">Pending</option>
+                      <option value="approved">Approved</option>
+                      <option value="cancelled">Cancelled</option>
+                      <option value="completed">Completed</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="h-10 w-10 flex items-center justify-center rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-450 hover:text-slate-800 transition-colors shadow-sm active:scale-95"
+                    title="Refresh Data"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             </div>
 
-            {/* Secondary Metrics */}
-            <FinancialStatsGrid
-              liabilities={summary.total_liabilities}
-              netExpenses={summary.net_expenses}
-              usageRate={summary.usage_percentage}
-              currencyFormatter={formatCurrency}
-            />
-          </div>
-        )}
+            {/* Elevated Dashboard KPI Metrics Section wrapped in a luxurious white background card */}
+            <div className="bg-white p-6 sm:p-8 rounded-[2.5rem] border border-slate-200 shadow-xl mb-10 relative z-10">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                               {/* Total Allocation */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.05 }}
+                  className="bg-teal-50/50 border-2 border-teal-100 p-6 rounded-[2.5rem] relative overflow-hidden group hover:bg-teal-50 hover:border-teal-200 hover:shadow-xl hover:shadow-teal-100/40 hover:-translate-y-1 transition-all duration-300 cursor-default"
+                >
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/10 rounded-full -mr-12 -mt-12 group-hover:scale-110 transition-transform duration-300" />
+                  <div className="flex flex-col gap-4 relative z-10">
+                    <div className="w-12 h-12 bg-teal-100 border border-teal-200 rounded-2xl flex items-center justify-center text-teal-605 shadow-sm group-hover:scale-110 transition-transform duration-300">
+                      <Wallet className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-teal-900/60 uppercase tracking-widest leading-none">
+                        {filterVoteActivity !== 'all' ? `Allocation (${filterVoteActivity})` : 'Total Allocation'}
+                      </p>
+                      <h3 className="text-2xl sm:text-3xl xl:text-4xl font-black text-teal-900 mt-2.5 tracking-tight tabular-nums truncate" title={formatCurrency(summary.total_allocation).replace('MYR', 'RM')}>
+                        {formatCurrency(summary.total_allocation).replace('MYR', 'RM')}
+                      </h3>
+                      <p className="text-[11px] font-bold text-teal-600 mt-2 flex items-center gap-1.5 pt-0.5">
+                        <span className="font-extrabold">{summary.total_count}</span>
+                        <span>Allocation records registered</span>
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
 
-        {/* Mobile Card View */}
-        <div className="md:hidden space-y-4">
-          {isLoading ? (
-            <div className="text-center py-10 text-slate-400">Loading expenses...</div>
-          ) : filteredExpenses.length === 0 ? (
-            <div className="text-center py-10 text-slate-400 border border-dashed border-slate-300 rounded-xl bg-slate-50">
-              No expenses found matching your filters
-            </div>
-          ) : (
-            paginatedExpenses.map((expense) => (
-              <div key={expense.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
-                <div className="flex justify-between items-start">
+                {/* Total Expenses */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.1 }}
+                  className="bg-rose-50/50 border-2 border-rose-100 p-6 rounded-[2.5rem] relative overflow-hidden group hover:bg-rose-50 hover:border-rose-200 hover:shadow-xl hover:shadow-rose-100/40 hover:-translate-y-1 transition-all duration-300 cursor-default"
+                >
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 rounded-full -mr-12 -mt-12 group-hover:scale-110 transition-transform duration-300" />
+                  <div className="flex flex-col gap-4 relative z-10">
+                    <div className="w-12 h-12 bg-rose-100 border border-rose-200 rounded-2xl flex items-center justify-center text-rose-600 shadow-sm group-hover:scale-110 transition-transform duration-300">
+                      <ShoppingCart className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-rose-900/60 uppercase tracking-widest leading-none">Total Expenses</p>
+                      <h3 className="text-2xl sm:text-3xl xl:text-4xl font-black text-rose-900 mt-2.5 tracking-tight tabular-nums truncate" title={formatCurrency(summary.total_expenses).replace('MYR', 'RM')}>
+                        {formatCurrency(summary.total_expenses).replace('MYR', 'RM')}
+                      </h3>
+                      <p className="text-[11px] font-bold text-rose-605 mt-2 flex items-center gap-1.5 pt-0.5">
+                        <span className="font-extrabold">{summary.usage_percentage.toFixed(1)}%</span>
+                        <span>utilization rate reached</span>
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* Balance */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.15 }}
+                  className={cn(
+                    "p-6 rounded-[2.5rem] relative overflow-hidden group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-default border-2",
+                    summary.total_balance < 0 
+                      ? "bg-rose-50/50 border-rose-100 hover:bg-rose-50 hover:border-rose-200 hover:shadow-rose-100/40" 
+                      : "bg-blue-50/50 border-blue-100 hover:bg-blue-50 hover:border-blue-200 hover:shadow-blue-100/40"
+                  )}
+                >
+                  <div className={cn(
+                    "absolute top-0 right-0 w-32 h-32 rounded-full -mr-12 -mt-12 group-hover:scale-110 transition-transform duration-300",
+                    summary.total_balance < 0 ? "bg-rose-500/10" : "bg-blue-500/10"
+                  )} />
+                  <div className="flex flex-col gap-4 relative z-10">
+                    <div className={cn(
+                      "w-12 h-12 border rounded-2xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform duration-300",
+                      summary.total_balance < 0 ? "bg-rose-100 border-rose-200 text-rose-600" : "bg-blue-100 border-blue-200 text-blue-600"
+                    )}>
+                      <PieChart className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className={cn(
+                        "text-xs font-bold uppercase tracking-widest leading-none",
+                        summary.total_balance < 0 ? "text-rose-900/60" : "text-blue-900/60"
+                      )}>
+                        {filterVoteActivity !== 'all' ? 'Activity Balance' : 'Consolidated Balance'}
+                      </p>
+                      <h3 className={cn(
+                        "text-2xl sm:text-3xl xl:text-4xl font-black mt-2.5 tracking-tight tabular-nums truncate",
+                        summary.total_balance < 0 ? "text-rose-900" : "text-blue-900"
+                      )} title={formatCurrency(summary.total_balance).replace('MYR', 'RM')}>
+                        {formatCurrency(summary.total_balance).replace('MYR', 'RM')}
+                      </h3>
+                      <p className={cn(
+                        "text-[11px] font-bold mt-2 flex items-center gap-1.5 pt-0.5",
+                        summary.total_balance < 0 ? "text-rose-600" : "text-blue-600"
+                      )}>
+                        <span className="font-extrabold">{(100 - summary.usage_percentage).toFixed(1)}%</span>
+                        <span>Remaining balance</span>
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+
+              {/* Sub-metrics Row */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8 pt-8 border-t border-slate-100">
+                <div className="bg-amber-50/50 border-2 border-amber-100 p-5 rounded-[2rem] flex items-center gap-4 group hover:bg-amber-50 hover:border-amber-200 hover:shadow-xl transition-all duration-300 cursor-default">
+                  <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center border border-amber-200 shadow-sm group-hover:scale-110 transition-transform duration-200">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
                   <div>
-                    <div className="font-bold text-slate-800 text-sm">
-                      {expense.po_number || 'N/A'}
+                    <p className="text-[9px] font-black text-amber-900/65 uppercase tracking-widest leading-none">Committed Liabilities</p>
+                    <h4 className="text-lg font-black text-amber-900 mt-1.5 tabular-nums">{formatCurrency(summary.total_liabilities).replace('MYR', 'RM')}</h4>
+                  </div>
+                </div>
+
+                <div className="bg-sky-50/50 border-2 border-sky-100 p-5 rounded-[2rem] flex items-center gap-4 group hover:bg-sky-50 hover:border-sky-200 hover:shadow-xl transition-all duration-300 cursor-default">
+                  <div className="w-10 h-10 bg-sky-100 text-sky-600 rounded-2xl flex items-center justify-center border border-sky-200 shadow-sm group-hover:scale-110 transition-transform duration-200">
+                    <BarChart2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black text-sky-900/65 uppercase tracking-widest leading-none">Net Expenses</p>
+                    <h4 className="text-lg font-black text-sky-900 mt-1.5 tabular-nums">{formatCurrency(summary.net_expenses).replace('MYR', 'RM')}</h4>
+                  </div>
+                </div>
+
+                <div className="bg-teal-50/50 border-2 border-teal-100 p-5 rounded-[2rem] flex items-center gap-4 group hover:bg-teal-50 hover:border-teal-200 hover:shadow-xl transition-all duration-300 cursor-default">
+                  <div className="w-10 h-10 bg-teal-100 text-teal-605 rounded-2xl flex items-center justify-center border border-teal-200 shadow-sm group-hover:scale-110 transition-transform duration-200">
+                    <PieChart className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[9px] font-black text-teal-900/65 uppercase tracking-widest leading-none">Usage rate</p>
+                      <span className="text-[10px] font-black text-teal-600 leading-none">{summary.usage_percentage.toFixed(1)}%</span>
                     </div>
-                    {expense.lpo_number && (
-                      <div className="text-[10px] text-slate-500 font-mono mt-0.5">
-                        LPO: {expense.lpo_number}
+                    <div className="mt-2 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-teal-500 rounded-full transition-all duration-500" style={{ width: `${Math.min(summary.usage_percentage, 100)}%` }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Main Records Table Registry Card Wrapper */}
+            <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/30 border border-slate-200/80 overflow-hidden relative z-10">
+              <div className="p-6 lg:p-8 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-indigo-950" />
+                    Deduction Logs
+                  </h3>
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-0.5">{filteredExpenses.length} entries registered</p>
+                </div>
+              </div>
+
+              {/* Desktop View - Table */}
+              <div className="hidden lg:block px-4 pb-4">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-gradient-to-r from-slate-50 to-indigo-50/10 border-b border-slate-200/80">
+                      <th className="w-1.5 p-0" />
+                      <th className="px-6 py-4 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Date</th>
+                      <th className="px-6 py-4 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">PO Number</th>
+                      <th className="px-6 py-4 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">LPO Number</th>
+                      <th className="px-6 py-4 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Type</th>
+                      <th className="px-6 py-4 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Amount</th>
+                      <th className="px-6 py-4 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Approved By</th>
+                      <th className="px-6 py-4 text-center text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Status</th>
+                      <th className="w-10 px-3 py-4" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {paginatedExpenses.length > 0 ? (
+                      paginatedExpenses.map((expense) => (
+                        <tr 
+                          key={expense.id} 
+                          onClick={() => expense.po_id && handlePOClick(expense.po_id)}
+                          className={cn(
+                            "hover:bg-slate-50/50 transition-colors duration-200 group relative h-16",
+                            expense.po_id ? "cursor-pointer" : "cursor-default"
+                          )}
+                        >
+                          {/* Slide-in Hover Accent Indicator */}
+                          <td className="w-1.5 p-0 relative">
+                            <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-indigo-650 scale-y-0 group-hover:scale-y-100 transition-transform duration-300 origin-center rounded-r" />
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="font-semibold text-xs text-slate-500 tabular-nums">{formatDate(expense.expense_date)}</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            {expense.po_id ? (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handlePOClick(expense.po_id);
+                                }}
+                                className="font-mono font-black text-xs text-indigo-650 hover:text-indigo-800 hover:underline transition-all tabular-nums"
+                              >
+                                {expense.po_number}
+                              </button>
+                            ) : (
+                              <div className="flex flex-col">
+                                <span className="text-xs font-mono font-black text-slate-400 tabular-nums">
+                                  {expense.po_number}
+                                </span>
+                                <span className="text-[8px] font-black text-rose-500 uppercase tracking-widest mt-0.5">
+                                  PO Not Found
+                                </span>
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 font-mono text-xs font-bold text-slate-700 tabular-nums">
+                            {expense.lpo_number || '—'}
+                          </td>
+                          <td className="px-6 py-4">
+                            {getPoTypeBadge(expense.po_type)}
+                          </td>
+                          <td className="px-6 py-4 font-black text-slate-900 tabular-nums">
+                            {formatCurrency(Number(expense.amount)).replace('MYR', 'RM')}
+                          </td>
+                          <td className="px-6 py-4 text-xs font-bold text-slate-600">
+                            {expense.purchase_order?.approver?.full_name || '—'}
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            {getStatusBadge(expense.status)}
+                          </td>
+                          <td className="w-10 px-3 py-4 text-right">
+                            {expense.po_id && (
+                              <ChevronRight className="w-4 h-4 text-slate-400 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200" />
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={9} className="py-16 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+                          No expenses matching parameters
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile View - Cards */}
+              <div className="lg:hidden space-y-4 py-4 px-4">
+                {paginatedExpenses.length > 0 ? (
+                  paginatedExpenses.map((expense) => (
+                    <div 
+                      key={expense.id} 
+                      className="bg-white border-2 border-slate-100 rounded-[2rem] p-5 shadow-sm active:bg-slate-50 transition-all duration-200 cursor-pointer"
+                      onClick={() => expense.po_id && handlePOClick(expense.po_id)}
+                    >
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex flex-col">
+                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                            {formatDate(expense.expense_date)}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-black text-xs text-indigo-650">{expense.po_number}</span>
+                            {getPoTypeBadge(expense.po_type)}
+                          </div>
+                        </div>
+                        {getStatusBadge(expense.status)}
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4 mb-4 pt-3 border-t border-slate-50">
+                        <div>
+                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">LPO Number</span>
+                          <span className="text-xs font-mono font-bold text-slate-800">{expense.lpo_number || '—'}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Amount</span>
+                          <span className="text-sm font-black text-slate-950 tabular-nums">{formatCurrency(Number(expense.amount)).replace('MYR', 'RM')}</span>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 pt-3 border-t border-slate-50 flex items-center justify-between">
+                        <div>
+                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Approved By</span>
+                          <span className="text-xs font-bold text-slate-700">
+                            {expense.purchase_order?.approver?.full_name || '—'}
+                          </span>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-slate-300" />
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-16 bg-slate-50/50 rounded-3xl border border-dashed border-slate-200">
+                    <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">No expenses logged</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Pagination Controls */}
+              {!isLoading && filteredExpenses.length > 0 && (
+                <div className="mt-8 pt-6 pb-6 px-8 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  {/* Count Summary */}
+                  <div className="text-xs font-semibold text-slate-400 flex items-center gap-1.5 uppercase tracking-wider">
+                    Showing <span className="text-slate-900 font-bold">{(currentPage - 1) * pageSize + 1}</span> to <span className="text-slate-900 font-bold">{Math.min(currentPage * pageSize, filteredExpenses.length)}</span> of <span className="text-slate-900 font-bold">{filteredExpenses.length}</span> entries
+                  </div>
+
+                  {/* Page Controls */}
+                  <div className="flex flex-wrap items-center gap-3">
+                    {/* Jump-to dropdown */}
+                    {totalPages > 1 && (
+                      <div className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/50">
+                        <span>Jump to</span>
+                        <select 
+                          value={currentPage}
+                          onChange={(e) => setCurrentPage(Number(e.target.value))}
+                          className="bg-white border border-slate-200/80 rounded-lg px-1.5 py-0.5 font-bold text-slate-700 outline-none focus:border-indigo-500 cursor-pointer"
+                        >
+                          {Array.from({ length: totalPages }).map((_, i) => (
+                            <option key={i + 1} value={i + 1}>{i + 1}</option>
+                          ))}
+                        </select>
                       </div>
                     )}
-                    <div className="text-[10px] text-slate-400 mt-1">
-                      {formatDate(expense.expense_date)}
+
+                    {/* Standard Pill Controls with Chevron/Chevron Double */}
+                    <div className="flex items-center gap-1 bg-slate-100/60 p-1 rounded-2xl border border-slate-200/20">
+                      <button
+                        onClick={() => setCurrentPage(1)}
+                        disabled={currentPage === 1}
+                        className="w-9 h-9 flex items-center justify-center rounded-xl transition-all disabled:opacity-20 disabled:cursor-not-allowed hover:bg-white hover:shadow-sm text-slate-600 active:scale-95"
+                      >
+                        <ChevronsLeft className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="w-9 h-9 flex items-center justify-center rounded-xl transition-all disabled:opacity-20 disabled:cursor-not-allowed hover:bg-white hover:shadow-sm text-slate-600 active:scale-95"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      
+                      {/* Dynamic numeric pages rendering */}
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={cn(
+                            "h-9 w-9 rounded-xl font-bold text-xs active:scale-95 transition-all border",
+                            currentPage === pageNum 
+                              ? 'bg-slate-900 text-white border-slate-900 shadow-md shadow-slate-900/10' 
+                              : 'border-slate-200/30 text-slate-500 bg-white hover:bg-slate-50'
+                          )}
+                        >
+                          {pageNum}
+                        </button>
+                      ))}
+                      
+                      <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage >= totalPages}
+                        className="w-9 h-9 flex items-center justify-center rounded-xl transition-all disabled:opacity-20 disabled:cursor-not-allowed hover:bg-white hover:shadow-sm text-slate-600 active:scale-95"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(totalPages)}
+                        disabled={currentPage >= totalPages}
+                        className="w-9 h-9 flex items-center justify-center rounded-xl transition-all disabled:opacity-20 disabled:cursor-not-allowed hover:bg-white hover:shadow-sm text-slate-600 active:scale-95"
+                      >
+                        <ChevronsRight className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
-                    {getStatusBadge(expense.status)}
-                  </div>
                 </div>
+              )}
+            </div>
 
-                <div className="flex items-center justify-between pt-2 border-t border-slate-50 mt-2">
-                  <div className="flex gap-2">
-                    {getPoTypeBadge(expense.po_type)}
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-0.5">Amount</p>
-                    <p className="text-lg font-bold text-emerald-600">{formatCurrency(Number(expense.amount))}</p>
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Expenses Table - Desktop */}
-        <div className="hidden md:block bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <Table
-            data={paginatedExpenses}
-            columns={columns}
-            isLoading={isLoading}
-            emptyMessage="No expenses found matching your filters"
-            onSort={(key) => console.log('Sort by', key)}
-          />
-        </div>
-
-        {/* Pagination - Shared */}
-        {filteredExpenses.length > 0 && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 md:border-none md:shadow-none md:bg-transparent md:p-0">
-            <Pagination
-              currentPage={currentPage}
-              totalPages={Math.ceil(filteredExpenses.length / pageSize)}
-              pageSize={pageSize}
-              total={filteredExpenses.length}
-              onPageChange={setCurrentPage}
-              onPageSizeChange={(size) => {
-                setPageSize(size)
-                setCurrentPage(1)
-              }}
-            />
           </div>
-        ) as React.ReactNode}
+        )}
       </div>
-    </FinancialPageLayout>
+
+      {/* PO Details Drawer */}
+      <AnimatePresence>
+        {isDrawerOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsDrawerOpen(false)}
+              className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-[60]"
+            />
+
+            {/* Drawer */}
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed right-0 top-0 h-full w-full max-w-xl bg-white shadow-2xl z-[70] flex flex-col font-sans"
+            >
+              {/* Header */}
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white sticky top-0 z-10">
+                <div className="flex items-center gap-4">
+                  <div className="w-11 h-11 bg-gradient-to-tr from-slate-900 to-teal-950 rounded-2xl flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-black text-slate-900 tracking-tight">Purchase Order Details</h2>
+                    <p className="text-[10px] font-black text-slate-400 font-mono uppercase tracking-widest">{selectedPO?.po_number}</p>
+                  </div>
+                </div>
+                
+                <button
+                  onClick={() => setIsDrawerOpen(false)}
+                  className="p-2 hover:bg-slate-50 rounded-xl transition-colors text-slate-400 hover:text-slate-800"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {isLoadingPO ? (
+                  <div className="h-full flex flex-col items-center justify-center space-y-4">
+                    <RefreshCw className="w-8 h-8 text-teal-650 animate-spin" />
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fetching PO contents...</p>
+                  </div>
+                ) : selectedPO ? (
+                  <>
+                    {/* Header Info */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-slate-50 border border-slate-150 p-4 rounded-2xl">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Department</p>
+                        <p className="text-xs font-bold text-slate-800 leading-tight">
+                          {WARRANT_DEPARTMENTS.find(d => d.value === normalize(selectedPO.department || ''))?.label || selectedPO.department || 'N/A'}
+                        </p>
+                      </div>
+                      <div className="bg-slate-50 border border-slate-150 p-4 rounded-2xl">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Category & Vote</p>
+                        <p className="text-xs font-bold text-slate-800 leading-tight">
+                          {WARRANT_CATEGORIES.find(c => c.value === selectedPO.category)?.label || selectedPO.category || 'N/A'}
+                          {selectedPO.vote_code && <span className="block text-[10px] text-slate-500 mt-1 font-semibold font-mono">{selectedPO.vote_code} - {selectedPO.vote_activity}</span>}
+                        </p>
+                      </div>
+                      <div className="bg-slate-50 border border-slate-150 p-4 rounded-2xl">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Supplier</p>
+                        <p className="text-xs font-bold text-slate-800 leading-tight">{selectedPO.supplier?.company_name || selectedPO.manual_supplier_name || 'N/A'}</p>
+                      </div>
+                      <div className="bg-slate-50 border border-slate-150 p-4 rounded-2xl">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Order Date</p>
+                        <p className="text-xs font-bold text-slate-800 leading-tight">{formatDate(selectedPO.order_date)}</p>
+                      </div>
+                      <div className="bg-slate-50 border border-slate-150 p-4 rounded-2xl">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Created By</p>
+                        <p className="text-xs font-bold text-slate-800 leading-tight leading-snug">{selectedPO.creator_name || selectedPO.creator?.full_name || selectedPO.signature_snapshot?.applicantName || 'Pegawai Bertanggungjawab'}</p>
+                        <p className="text-[9px] text-slate-400 mt-1 font-bold">{formatDateTime(selectedPO.created_at)}</p>
+                      </div>
+                      {(selectedPO.status === 'approved' || selectedPO.approved_at) && (
+                        <div className="bg-slate-50 border border-slate-150 p-4 rounded-2xl">
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Approved By</p>
+                          <p className="text-xs font-bold text-slate-800 leading-snug">
+                            {selectedPO.approver_name || selectedPO.approver?.full_name || selectedPO.signature_snapshot?.headName || 'System (Auto)'}
+                          </p>
+                          {selectedPO.approved_at && (
+                            <p className="text-[9px] text-slate-400 mt-1 font-bold">{formatDateTime(selectedPO.approved_at)}</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Cancellation Reason if applicable */}
+                    {selectedPO.status === 'cancelled' && selectedPO.notes && (
+                      <div className="bg-rose-50 border border-rose-100 p-5 rounded-2xl flex items-start gap-3">
+                        <AlertTriangle className="w-5 h-5 text-rose-600 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="text-[9px] font-black text-rose-650 uppercase tracking-widest mb-1">Cancellation Reason</p>
+                          <p className="text-xs font-bold text-rose-900 leading-relaxed">{selectedPO.notes}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Items Table */}
+                    <div className="space-y-3">
+                      <h3 className="text-xs font-black text-slate-450 uppercase tracking-widest">Purchase Items</h3>
+                      <div className="border border-slate-150 rounded-2xl overflow-hidden bg-slate-50/50">
+                        <table className="w-full text-left">
+                          <thead className="bg-slate-50 border-b border-slate-150 text-[9px] font-black text-slate-400 uppercase">
+                            <tr>
+                              <th className="py-3 px-4">Item Name</th>
+                              <th className="py-3 px-4 text-center">Qty</th>
+                              <th className="py-3 px-4 text-right">Unit Price</th>
+                              <th className="py-3 px-4 text-right">Total</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {selectedPO.items?.map((item: any, idx: number) => (
+                              <tr key={idx} className="text-xs hover:bg-slate-50 transition-colors">
+                                <td className="py-4 px-4 font-bold text-slate-800">{item.item_name}</td>
+                                <td className="py-4 px-4 text-center text-slate-500 font-bold">
+                                  {item.quantity_ordered || item.quantity} {item.packaging_description || item.uom}
+                                </td>
+                                <td className="py-4 px-4 text-right text-slate-500 font-semibold tabular-nums">{formatCurrency(Number(item.unit_price)).replace('MYR', '')}</td>
+                                <td className="py-4 px-4 text-right font-black text-indigo-650 tabular-nums">{formatCurrency(Number(item.total_price)).replace('MYR', '')}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* Summary */}
+                    <div className="border-t border-slate-100 pt-6 flex justify-between items-center">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Grand Total</span>
+                      <span className="text-xl font-black text-indigo-655 tabular-nums">{formatCurrency(Number(selectedPO.total_amount))}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-20 text-slate-400 flex flex-col items-center justify-center">
+                    <AlertTriangle className="w-12 h-12 mb-3 opacity-20" />
+                    <p className="font-bold text-sm uppercase text-slate-450 tracking-widest">Failed to load PO details</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
   )
 }
 

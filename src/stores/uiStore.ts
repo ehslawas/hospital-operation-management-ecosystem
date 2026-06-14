@@ -33,7 +33,7 @@ interface UIState {
 
 export const useUIStore = create<UIState>((set, get) => ({
   // Initial state
-  sidebarOpen: true,
+  sidebarOpen: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
   sidebarCollapsed: false,
   modals: {},
   globalLoading: false,

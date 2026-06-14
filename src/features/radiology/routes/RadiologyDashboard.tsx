@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import {
   getImagingOrders,
+  getDICOMStudies,
   getRadiologyReports,
   getRadiologyEquipment,
   getRadiologists,
@@ -12,7 +13,6 @@ import type { ImagingOrder, RadiologyReport } from '../types/Radiology';
 import { ImagingOrdersQueue } from '../components/ImagingOrdersQueue';
 import { EquipmentStatus } from '../components/EquipmentStatus';
 import { ReportsList } from '../components/ReportsList';
-import { PharmacyLogisticsWidget } from '@/features/pharmacy-logistics/components/PharmacyLogisticsWidget';
 
 export default function RadiologyDashboard() {
   const [activeTab, setActiveTab] = useState<'orders' | 'reports' | 'equipment'>(
@@ -20,6 +20,7 @@ export default function RadiologyDashboard() {
   );
 
   const orders = getImagingOrders();
+  const studies = getDICOMStudies();
   const reports = getRadiologyReports();
   const equipment = getRadiologyEquipment();
   const radiologists = getRadiologists();
@@ -191,10 +192,11 @@ export default function RadiologyDashboard() {
                     </div>
                     <div className="text-right">
                       <div
-                        className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${rad.availableForReporting
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-600'
-                          }`}
+                        className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${
+                          rad.availableForReporting
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-100 text-gray-600'
+                        }`}
                       >
                         {rad.availableForReporting ? '✓ Available' : 'Busy'}
                       </div>
@@ -207,11 +209,6 @@ export default function RadiologyDashboard() {
                 </div>
               ))}
           </div>
-        </div>
-
-        {/* Shared Logistics Widget (Permission-aware) */}
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-5">
-          <PharmacyLogisticsWidget />
         </div>
 
         {/* Modality Breakdown */}
@@ -257,10 +254,11 @@ export default function RadiologyDashboard() {
             <div className="flex">
               <button
                 onClick={() => setActiveTab('orders')}
-                className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors relative ${activeTab === 'orders'
-                  ? 'text-purple-600 border-b-2 border-purple-600'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
+                className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors relative ${
+                  activeTab === 'orders'
+                    ? 'text-purple-600 border-b-2 border-purple-600'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
               >
                 <div className="flex items-center justify-center gap-2">
                   <span>📋 Imaging Orders</span>
@@ -271,10 +269,11 @@ export default function RadiologyDashboard() {
               </button>
               <button
                 onClick={() => setActiveTab('reports')}
-                className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors relative ${activeTab === 'reports'
-                  ? 'text-purple-600 border-b-2 border-purple-600'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
+                className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors relative ${
+                  activeTab === 'reports'
+                    ? 'text-purple-600 border-b-2 border-purple-600'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
               >
                 <div className="flex items-center justify-center gap-2">
                   <span>📝 Reports</span>
@@ -285,10 +284,11 @@ export default function RadiologyDashboard() {
               </button>
               <button
                 onClick={() => setActiveTab('equipment')}
-                className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors relative ${activeTab === 'equipment'
-                  ? 'text-purple-600 border-b-2 border-purple-600'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
+                className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors relative ${
+                  activeTab === 'equipment'
+                    ? 'text-purple-600 border-b-2 border-purple-600'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
               >
                 <div className="flex items-center justify-center gap-2">
                   <span>🏥 Equipment</span>

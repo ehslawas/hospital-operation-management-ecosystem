@@ -1,2 +1,0 @@
-export { TransferRequestListPage } from './TransferRequestListPage'
-

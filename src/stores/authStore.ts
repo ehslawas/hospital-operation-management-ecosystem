@@ -1,19 +1,13 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import { User } from '@/types'
-import { SESSION_TIMEOUT_MINUTES } from '@/lib/constants'
-import type { UserWithRelations } from '@/types'
-
-const SESSION_DURATION = SESSION_TIMEOUT_MINUTES * 60 * 1000
+import type { User, UserWithRelations } from '@/types'
 
 interface AuthState {
   user: UserWithRelations | null
   isAuthenticated: boolean
   isLoading: boolean
   sessionExpiresAt: number | null
-  activeRoleCode: string | null
-  supabaseSessionReady: boolean // NEW: Tracks if Supabase session has been verified
-
+  
   // Actions
   setUser: (user: UserWithRelations | null) => void
   setLoading: (isLoading: boolean) => void
@@ -22,11 +16,10 @@ interface AuthState {
   updateUser: (updates: Partial<User>) => void
   checkSession: () => boolean
   extendSession: () => void
-  setActiveRoleCode: (roleCode: string | null) => void
-  setSupabaseSessionReady: (ready: boolean) => void // NEW
 }
 
-
+// Session duration in milliseconds (Phase 9: Security - 30 minute timeout)
+const SESSION_DURATION = 30 * 60 * 1000
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -35,8 +28,6 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: true,
       sessionExpiresAt: null,
-      activeRoleCode: null,
-      supabaseSessionReady: false, // NEW: Starts as false, set to true after session verified
 
       setUser: (user) => {
         set({
@@ -57,12 +48,7 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: true,
           isLoading: false,
           sessionExpiresAt: expiresAt,
-          supabaseSessionReady: true, // FIX: Set session ready on login to prevent menu loading hang after logout→re-login
         })
-
-        // Menu loading is now handled by Sidebar component to prevent race conditions
-        // and ensure consistent behavior across page reloads vs fresh logins
-        console.log('[AuthStore] Login successful, session established')
       },
 
       logout: () => {
@@ -71,13 +57,6 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: false,
           isLoading: false,
           sessionExpiresAt: null,
-          activeRoleCode: null,
-          supabaseSessionReady: false, // Reset on logout
-        })
-
-        // Clear menus on logout
-        import('@/stores/menuStore').then(({ useMenuStore }) => {
-          useMenuStore.getState().clearMenus()
         })
       },
 
@@ -93,12 +72,12 @@ export const useAuthStore = create<AuthState>()(
       checkSession: () => {
         const { sessionExpiresAt, isAuthenticated } = get()
         if (!isAuthenticated || !sessionExpiresAt) return false
-
+        
         if (Date.now() > sessionExpiresAt) {
           get().logout()
           return false
         }
-
+        
         return true
       },
 
@@ -110,42 +89,6 @@ export const useAuthStore = create<AuthState>()(
           })
         }
       },
-
-      setActiveRoleCode: (activeRoleCode) => {
-        set({ activeRoleCode })
-
-        // Trigger menu re-fetch with simulated context
-        const user = get().user
-        if (user) {
-          import('@/stores/menuStore').then(({ useMenuStore }) => {
-            // Infer department based on role for better simulation
-            let simulatedDept = undefined
-
-            if (activeRoleCode && [
-              'pharmacist',
-              'assistant_pharmacist'
-            ].includes(activeRoleCode)) {
-              simulatedDept = 'pharmacy_logistics'
-            }
-
-            // If switching back to Admin, we want to ensure we see Hospital Admin menus
-            if (activeRoleCode === 'hospital_admin' || activeRoleCode === 'system_admin' || !activeRoleCode) {
-              simulatedDept = 'hospital_admin'
-            }
-
-            useMenuStore.getState().fetchMenus(user.id, {
-              roleCode: activeRoleCode || undefined,
-              departmentCode: simulatedDept,
-              user: user
-            })
-          })
-        }
-      },
-
-      setSupabaseSessionReady: (ready) => {
-        set({ supabaseSessionReady: ready })
-        console.log('[AuthStore] Supabase session ready:', ready)
-      },
     }),
     {
       name: 'home-auth-storage',
@@ -154,8 +97,6 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         isAuthenticated: state.isAuthenticated,
         sessionExpiresAt: state.sessionExpiresAt,
-        activeRoleCode: state.activeRoleCode,
-        // supabaseSessionReady: state.supabaseSessionReady, // DO NOT PERSIST: Must define fresh on reload to prevent race conditions
       }),
     }
   )
@@ -165,18 +106,4 @@ export const useAuthStore = create<AuthState>()(
 export const useUser = () => useAuthStore((state) => state.user)
 export const useIsAuthenticated = () => useAuthStore((state) => state.isAuthenticated)
 export const useAuthLoading = () => useAuthStore((state) => state.isLoading)
-export const useIsSessionReady = () => useAuthStore((state) =>
-  state.isAuthenticated &&
-  state.supabaseSessionReady &&
-  !!state.user?.hospital_id &&
-  !state.isLoading
-)
 
-// NEW: Safe user hospital ID getter that never returns undefined
-// Use this in components to avoid "user?.hospital_id" checks everywhere
-export const useHospitalId = () => {
-  const user = useAuthStore((state) => state.user)
-  const isReady = useIsSessionReady()
-  // Return null if not ready, actual ID otherwise
-  return isReady ? user?.hospital_id : null
-}

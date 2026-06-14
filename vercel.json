@@ -2,15 +2,15 @@
   "projectSettings": {
     "name": "hospital-operation-management-ecosystem"
   },
-  "buildCommand": "vite build",
-  "devCommand": "npm run dev",
-  "installCommand": "npm install",
-  "framework": "vite",
-  "outputDirectory": "dist",
   "rewrites": [
     {
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "buildCommand": "vite build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "vite",
+  "outputDirectory": "dist"
 }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Printer, FileText, Truck, FileCheck, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Printer, FileText, Truck, FileCheck } from 'lucide-react';
 import type { OxygenReturnDocumentWithRelations, OxygenRequestDocumentWithRelations } from '@/types/pharmacy';
 
 interface SupplierReturnsSectionProps {
@@ -10,7 +10,6 @@ interface SupplierReturnsSectionProps {
   onPrintClick: (docId: string) => void;
   onPrintRequestClick?: (docId: string) => void;
   isViewOnly: boolean;
-  subTab: 'returns' | 'requests';
 }
 
 export const SupplierReturnsSection: React.FC<SupplierReturnsSectionProps> = ({
@@ -21,35 +20,34 @@ export const SupplierReturnsSection: React.FC<SupplierReturnsSectionProps> = ({
   onPrintClick,
   onPrintRequestClick = () => {},
   isViewOnly,
-  subTab,
 }) => {
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
-
-  // Reset page number when switching tabs
-  React.useEffect(() => {
-    setCurrentPage(1);
-  }, [subTab]);
-
-  // Compute pagination parameters
-  const currentCollection = subTab === 'returns' ? documents : requestDocuments;
-  const totalItems = currentCollection.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
-
-  // Paginated data slices
-  const paginatedDocuments = documents.slice(startIndex, startIndex + itemsPerPage);
-  const paginatedRequests = requestDocuments.slice(startIndex, startIndex + itemsPerPage);
-
-  const handlePageChange = (page: number) => {
-    if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
-    }
-  };
+  const [subTab, setSubTab] = useState<'returns' | 'requests'>('returns');
 
   return (
     <div className="space-y-6">
+      {/* Sub-Tabs selector */}
+      <div className="flex bg-slate-100/60 backdrop-blur-md p-1 rounded-2xl max-w-xs border border-slate-200">
+        <button
+          onClick={() => setSubTab('returns')}
+          className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+            subTab === 'returns'
+              ? 'bg-rose-500 text-white shadow-md'
+              : 'text-slate-600 hover:bg-slate-200/50'
+          }`}
+        >
+          Returns
+        </button>
+        <button
+          onClick={() => setSubTab('requests')}
+          className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+            subTab === 'requests'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'text-slate-600 hover:bg-slate-200/50'
+          }`}
+        >
+          Requests
+        </button>
+      </div>
 
       {/* Header and Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white/20 backdrop-blur-xl border border-white/30 rounded-3xl p-5 shadow-xl">
@@ -120,14 +118,14 @@ export const SupplierReturnsSection: React.FC<SupplierReturnsSectionProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200/40 text-slate-700 font-medium">
-                {paginatedDocuments.length === 0 ? (
+                {documents.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="py-12 text-center text-slate-400 font-bold">
                       No return documents found. Create one to get started.
                     </td>
                   </tr>
                 ) : (
-                  paginatedDocuments.map((doc) => {
+                  documents.map((doc) => {
                     const itemsCount = doc.items?.length || 0;
                     return (
                       <tr
@@ -185,14 +183,14 @@ export const SupplierReturnsSection: React.FC<SupplierReturnsSectionProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200/40 text-slate-700 font-medium">
-                {paginatedRequests.length === 0 ? (
+                {requestDocuments.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="py-12 text-center text-slate-400 font-bold">
                       No request documents found. Create one to get started.
                     </td>
                   </tr>
                 ) : (
-                  paginatedRequests.map((doc) => {
+                  requestDocuments.map((doc) => {
                     const totalQty = doc.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
                     return (
                       <tr
@@ -239,53 +237,6 @@ export const SupplierReturnsSection: React.FC<SupplierReturnsSectionProps> = ({
             </table>
           )}
         </div>
-
-        {/* Premium Pagination Footer */}
-        {totalItems > 0 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 border-t border-slate-200/50 bg-slate-50/10 backdrop-blur-md">
-            <div className="text-xs font-semibold text-slate-500">
-              Showing <span className="text-slate-800 font-bold">{totalItems === 0 ? 0 : startIndex + 1}</span> to{' '}
-              <span className="text-slate-800 font-bold">{endIndex}</span> of{' '}
-              <span className="text-slate-800 font-bold">{totalItems}</span> entries
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="p-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-all flex items-center justify-center"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-
-              <div className="flex items-center gap-1">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <button
-                    key={page}
-                    onClick={() => handlePageChange(page)}
-                    className={`min-w-[36px] h-9 px-2.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center border ${
-                      currentPage === page
-                        ? subTab === 'returns'
-                          ? 'bg-rose-500 text-white border-rose-500'
-                          : 'bg-blue-600 text-white border-blue-600'
-                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className="p-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-all flex items-center justify-center"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

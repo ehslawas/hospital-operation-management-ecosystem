@@ -3,7 +3,7 @@
  * Handles synchronization of contract data from Google Sheets
  */
 
-import { supabase } from '../supabase'
+import { supabase, isSupabaseConfigured } from '../supabase'
 import type { ApiResponse } from '@/types'
 
 export interface GoogleSheetsSyncConfig {
@@ -19,7 +19,6 @@ export interface GoogleSheetsSyncConfig {
   last_sync_at?: string
   last_sync_status?: 'success' | 'failed' | 'in_progress'
   last_sync_error?: string
-  detected_headers?: string[] // NEW: Store detected headers from Google Sheet
 }
 
 export interface ContractRow {
@@ -30,6 +29,10 @@ export interface ContractRow {
   start_date?: string
   end_date?: string
   value?: number
+  unit_price?: number
+  sst_rate?: string
+  document_url?: string
+  item_code?: string
   currency?: string
   status?: string
   [key: string]: any // For additional columns from Google Sheets
@@ -42,86 +45,6 @@ export interface SyncResult {
   rowsUpdated: number
   rowsDeleted: number
   errors: string[]
-  detectedHeaders?: string[] // NEW: Include detected headers in result
-}
-
-// =====================================================
-// ERROR HANDLING ENHANCEMENTS
-// =====================================================
-
-/**
- * Sync error codes for better error handling
- */
-export enum SyncErrorCode {
-  NETWORK_ERROR = 'NETWORK_ERROR',
-  SHEET_NOT_FOUND = 'SHEET_NOT_FOUND',
-  SHEET_NOT_ACCESSIBLE = 'SHEET_NOT_ACCESSIBLE',
-  INVALID_SHEET_FORMAT = 'INVALID_SHEET_FORMAT',
-  NO_HEADERS_FOUND = 'NO_HEADERS_FOUND',
-  NO_DATA_ROWS = 'NO_DATA_ROWS',
-  AUTHENTICATION_FAILED = 'AUTHENTICATION_FAILED',
-  RATE_LIMITED = 'RATE_LIMITED',
-  DATABASE_ERROR = 'DATABASE_ERROR',
-  PARSE_ERROR = 'PARSE_ERROR',
-  UNKNOWN_ERROR = 'UNKNOWN_ERROR',
-}
-
-/**
- * Structured sync error with details and suggestions
- */
-export interface SyncError {
-  code: SyncErrorCode
-  message: string
-  details?: string
-  suggestion?: string
-}
-
-/**
- * Response from sheet with dynamic headers
- */
-export interface SheetWithHeaders {
-  headers: string[]                        // Raw headers from Google Sheet
-  headerRowIndex: number                   // Row where headers were detected
-  data: ContractRow[]                      // Parsed data rows
-  rawData: any[][]                         // Raw data for debugging
-  columnMapping: Record<string, number>    // Header to column index mapping
-  totalRows: number                        // Total rows in sheet
-}
-
-/**
- * Create a structured sync error
- */
-export function createSyncError(
-  code: SyncErrorCode,
-  message: string,
-  details?: string,
-  suggestion?: string
-): SyncError {
-  return { code, message, details, suggestion }
-}
-
-/**
- * Get user-friendly error message with suggestion
- */
-export function getErrorSuggestion(code: SyncErrorCode): string {
-  switch (code) {
-    case SyncErrorCode.SHEET_NOT_ACCESSIBLE:
-      return 'Sila minta pemilik Google Sheet untuk berkongsi dokumen sebagai "Sesiapa yang mempunyai pautan" → "Pembaca".'
-    case SyncErrorCode.SHEET_NOT_FOUND:
-      return 'Sila pastikan ID atau URL Google Sheet adalah betul.'
-    case SyncErrorCode.NO_HEADERS_FOUND:
-      return 'Sila pastikan Google Sheet mempunyai baris header dengan nama lajur.'
-    case SyncErrorCode.NO_DATA_ROWS:
-      return 'Sila pastikan Google Sheet mempunyai data di bawah baris header.'
-    case SyncErrorCode.AUTHENTICATION_FAILED:
-      return 'Sila log keluar dan log masuk semula, kemudian cuba lagi.'
-    case SyncErrorCode.RATE_LIMITED:
-      return 'Terlalu banyak permintaan. Sila tunggu beberapa minit dan cuba lagi.'
-    case SyncErrorCode.NETWORK_ERROR:
-      return 'Sila semak sambungan internet anda dan cuba lagi.'
-    default:
-      return 'Sila hubungi pentadbir sistem jika masalah berterusan.'
-  }
 }
 
 /**
@@ -139,6 +62,9 @@ export function extractSheetId(input: string): string | null {
   }
 
   // Try to extract from URL - handle various URL formats
+  // Pattern 1: https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit...
+  // Pattern 2: /spreadsheets/d/{SHEET_ID}/
+  // Pattern 3: /d/{SHEET_ID}/
   const patterns = [
     /\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/i,
     /\/d\/([a-zA-Z0-9_-]+)/i,
@@ -158,17 +84,26 @@ export function extractSheetId(input: string): string | null {
 
 /**
  * Fetch data from Google Sheets via Supabase Edge Function (avoids CORS)
+ * The Edge Function acts as a proxy to fetch data from Google Sheets
  */
 export async function fetchGoogleSheetData(
   sheetIdOrUrl: string,
   sheetName: string = 'Sheet1',
   range?: string,
   apiKey?: string,
-  accessToken?: string
+  accessToken?: string // OAuth 2.0 access token for authenticated access
 ): Promise<ApiResponse<any[][]>> {
   try {
-    const sheetId = extractSheetId(sheetIdOrUrl)
+    if (!isSupabaseConfigured()) {
+      return {
+        data: null,
+        error: 'Supabase is not configured. Cannot fetch Google Sheets data.',
+      }
+    }
 
+    // Extract sheet ID from URL if needed
+    const sheetId = extractSheetId(sheetIdOrUrl)
+    
     if (!sheetId) {
       return {
         data: null,
@@ -176,8 +111,9 @@ export async function fetchGoogleSheetData(
       }
     }
 
+    // Ensure session is fresh before calling Edge Function
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-
+    
     if (sessionError || !session) {
       return {
         data: null,
@@ -185,9 +121,10 @@ export async function fetchGoogleSheetData(
       }
     }
 
+    // Refresh session if it's close to expiring (within 5 minutes)
     const expiresAt = session.expires_at ? session.expires_at * 1000 : 0
     const fiveMinutesFromNow = Date.now() + 5 * 60 * 1000
-
+    
     if (expiresAt < fiveMinutesFromNow) {
       const { error: refreshError } = await supabase.auth.refreshSession()
       if (refreshError) {
@@ -195,53 +132,76 @@ export async function fetchGoogleSheetData(
       }
     }
 
+    // Use Supabase client's functions.invoke() which handles auth automatically
+    // This ensures the JWT token is properly included and refreshed if needed
     const { data, error: invokeError } = await supabase.functions.invoke('sync-google-sheets', {
       body: {
         sheetId,
         sheetName,
         range,
         apiKey,
-        accessToken,
+        accessToken, // Include OAuth token if provided
       },
     })
 
     if (invokeError) {
       console.error('Edge Function invoke error:', invokeError)
+      
+      // Handle authentication errors
       if (invokeError.message?.includes('401') || invokeError.message?.includes('Unauthorized')) {
         return {
           data: null,
           error: 'Authentication failed. Please log out and log back in, then try again.',
         }
       }
+      
+      // Handle 403 Forbidden (sheet not accessible)
       if (invokeError.message?.includes('403') || invokeError.message?.includes('Forbidden')) {
         return {
           data: null,
           error: 'The Google Sheet is not publicly accessible. Please either:\n1. Make the sheet publicly viewable: Go to File → Share → "Anyone with the link" → Viewer, OR\n2. Provide a Google Sheets API key in the configuration.',
         }
       }
+      
       return {
         data: null,
         error: invokeError.message || 'Failed to invoke sync function',
       }
     }
 
-    if (!data) return { data: null, error: 'No data returned from sync function' }
+    if (!data) {
+      return {
+        data: null,
+        error: 'No data returned from sync function',
+      }
+    }
 
     if (data.error) {
+      // Check if it's a 403 error in the response
       if (data.error.includes('not publicly accessible') || data.error.includes('403')) {
         return {
           data: null,
           error: 'The Google Sheet is not publicly accessible. Please either:\n1. Make the sheet publicly viewable: Go to File → Share → "Anyone with the link" → Viewer, OR\n2. Provide a Google Sheets API key in the configuration.',
         }
       }
-      return { data: null, error: data.error }
+      
+      return {
+        data: null,
+        error: data.error,
+      }
     }
 
     if (!data.data || !Array.isArray(data.data)) {
-      return { data: null, error: 'Invalid response format from Google Sheets' }
+      return {
+        data: null,
+        error: 'Invalid response format from Google Sheets',
+      }
     }
 
-    return { data: data.data, error: null }
+    return {
+      data: data.data,
+      error: null,
+    }
   } catch (error) {
     console.error('Error fetching Google Sheet data:', error)
     return {
@@ -252,193 +212,272 @@ export async function fetchGoogleSheetData(
 }
 
 /**
- * Detect manual indices for contract columns from raw headers
- */
-export function detectManualIndices(rawHeaders: string[]): any {
-  const manualIndices: any = {}
-  const findKeywordIdx = (keywords: string[]) => {
-    const normalizedHeaders = rawHeaders.map(h =>
-      h.toLowerCase().trim().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim()
-    )
-    const normalizedKeywords = keywords.map(k =>
-      k.toLowerCase().trim().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim()
-    )
-    let idx = normalizedHeaders.findIndex(h => normalizedKeywords.some(k => h === k))
-    if (idx === -1) {
-      idx = normalizedHeaders.findIndex(h =>
-        normalizedKeywords.some(k => h.includes(k) || k.includes(h))
-      )
-    }
-    return idx
-  }
-  manualIndices.contractNumberIdx = findKeywordIdx(['no kontrak', 'no. kontrak', 'contract no', 'contract number', 'nombor kontrak'])
-  const itemHeaders = rawHeaders.map(h => h.toLowerCase().trim())
-  const itemIdx = itemHeaders.findIndex(h =>
-    h === 'item' || h === 'item name' || h === 'nama item' || h === 'ppt' || h === 'nama kontrak' || h === 'butiran' || h === 'perihal' || h === 'description'
-  )
-  manualIndices.contractNameIdx = itemIdx
-  const findSupplierIdx = () => {
-    const keywords = ['pembekal', 'supplier', 'vendor', 'nama syarikat', 'company name', 'supplier name']
-    const normalizedHeaders = rawHeaders.map(h => h.toLowerCase().trim())
-    return normalizedHeaders.findIndex(h => {
-      if (h.includes('item') || h.includes('contract') || h.includes('produk') || h.includes('product')) return false
-      return keywords.some(k => h.includes(k) || k.includes(h))
-    })
-  }
-  manualIndices.supplierNameIdx = findSupplierIdx()
-  manualIndices.startDateIdx = findKeywordIdx(['kontrak mula', 'tarikh mula', 'start date', 'mula'])
-  manualIndices.endDateIdx = findKeywordIdx(['kontrak tamat', 'tarikh tamat', 'end date', 'tamat'])
-  manualIndices.valueIdx = findKeywordIdx(['harga (rm)', 'harga', 'value', 'price', 'nilai', 'jumlah'])
-  manualIndices.tempohSerahanIdx = findKeywordIdx(['tempoh serahan', 'delivery period', 'delivery'])
-  manualIndices.sstIdx = findKeywordIdx(['sst', 'dokumen sst', 'sst document'])
-  manualIndices.unitIdx = findKeywordIdx(['unit', 'unit pengukuran', 'uom'])
-  return manualIndices
-}
-
-/**
  * Parse contract data from Google Sheets rows
+ * Assumes first row is headers
  */
 export function parseContractRows(
-  rows: any[][],
-  providedHeaderRowIndex: number = 0,
-  manualIndices?: {
-    contractNumberIdx?: number;
-    contractNameIdx?: number;
-    supplierNameIdx?: number;
-    contractTypeIdx?: number;
-    startDateIdx?: number;
-    endDateIdx?: number;
-    valueIdx?: number;
-    currencyIdx?: number;
-    statusIdx?: number;
-    tempohSerahanIdx?: number;
-    sstIdx?: number;
-    periodIdx?: number;
-  }
+  data: any,
+  providedHeaderRowIndex: number = 0
 ): ContractRow[] {
-  if (!rows || rows.length === 0) return []
+  const rows = data?.values || []
+  if (!rows || rows.length <= providedHeaderRowIndex) {
+    return []
+  }
+
+  // Find the actual header row by scoring the first 15 rows based on keyword matches
   let headerRowIndex = providedHeaderRowIndex
-  const headerKeywords = [
-    'contract', 'kontrak', 'item', 'barang', 'perkhidmatan', 'pembekal', 'no.', 'no kontrak', 'no. kontrak', 'sst', 'tempoh serahan',
-    'tarikh', 'date', 'mula', 'tamat', 'status', 'supplier', 'vendor', 'harga', 'price', 'nilai', 'serahan', 'delivery'
-  ]
-  if (providedHeaderRowIndex === 0) {
-    let bestScore = 0
-    let bestRowIndex = 0
+  if (headerRowIndex === 0) {
+    let maxMatches = -1
+    const keywords = ['item', 'kontrak', 'contract', 'pembekal', 'supplier', 'harga', 'price', 'mula', 'start', 'tamat', 'end', 'sst']
+    
     for (let i = 0; i < Math.min(rows.length, 15); i++) {
-      const row = rows[i].map((c: any) => String(c || '').toLowerCase().trim())
-      const nonEmptyCells = row.filter(c => c && c.length > 0)
-      if (nonEmptyCells.length < 3) continue
-      const keywordMatches = row.filter(cell => cell && headerKeywords.some(k => cell.includes(k)))
-      const matchRatio = keywordMatches.length / nonEmptyCells.length
-      const avgCellLength = nonEmptyCells.reduce((sum, c) => sum + c.length, 0) / nonEmptyCells.length
-      const lengthPenalty = avgCellLength > 50 ? 0.5 : 1
-      const score = keywordMatches.length * matchRatio * lengthPenalty
-      if (keywordMatches.length >= 3 && matchRatio >= 0.25 && score > bestScore) {
-        bestScore = score
-        bestRowIndex = i
+      const rowData = rows[i].map((cell: any) => String(cell || '').toLowerCase())
+      const matches = rowData.filter(cell => keywords.some(kw => cell.includes(kw))).length
+      if (matches > maxMatches) {
+        maxMatches = matches
+        headerRowIndex = i
+      }
+      // If we found a very good candidate, we can stop
+      if (matches >= 5) break
+    }
+  }
+
+  const headers = rows[headerRowIndex].map((h: any) => String(h || '').trim().toLowerCase())
+
+  // Find column indices - support both English and Malay headers
+  const contractNumberIdx = headers.findIndex(h => 
+    (h.includes('contract') && (h.includes('number') || h.includes('no') || h.includes('code'))) ||
+    (h.includes('no') && h.includes('kontrak')) ||
+    h === 'kkm contract no'
+  )
+  const contractNameIdx = headers.findIndex(h => 
+    (h.includes('contract') && h.includes('name')) || 
+    h.includes('item name') || 
+    h === 'item' ||
+    h === 'nama item' ||
+    h === 'nama' ||
+    h === 'title'
+  )
+  const supplierNameIdx = headers.findIndex(h => 
+    h.includes('supplier') || h.includes('vendor') || h.includes('pembekal')
+  )
+  const contractTypeIdx = headers.findIndex(h => 
+    h.includes('type') || h.includes('category') || h.includes('jenis') || h.includes('kategori')
+  )
+  const startDateIdx = headers.findIndex(h => 
+    h.includes('start') || h.includes('begin') || h.includes('effective') ||
+    (h.includes('kontrak') && h.includes('mula')) ||
+    h.includes('tarikh mula')
+  )
+  const endDateIdx = headers.findIndex(h => 
+    h.includes('end') || h.includes('expir') || h.includes('terminat') ||
+    (h.includes('kontrak') && h.includes('tamat')) ||
+    h.includes('tarikh tamat')
+  )
+  const valueIdx = headers.findIndex(h => 
+    (h.includes('value') || h.includes('amount') || h.includes('jumlah')) && !h.includes('unit')
+  )
+  const currencyIdx = headers.findIndex(h => h.includes('currency') || h.includes('mata wang'))
+  const statusIdx = headers.findIndex(h => h.includes('status'))
+  const sstIdx = headers.findIndex(h => h.includes('sst') || h.includes('tax') || h.includes('cukai'))
+  const unitPriceIdx = headers.findIndex(h => 
+    (h.includes('unit') && h.includes('price')) || 
+    h === 'price' || 
+    h === 'harga' || 
+    h.includes('harga (rm)') ||
+    h.includes('harga seunit')
+  )
+  const itemCodeIdx = headers.findIndex(h => 
+    (h.includes('item') && h.includes('code')) || 
+    h.includes('kod item') ||
+    h === 'kod'
+  )
+
+  const normalizedRows: any[][] = []
+  const numberToNameMap = new Map<string, string>()
+
+  // Pass 1: Normalization and Name Discovery
+  for (let i = headerRowIndex + 1; i < rows.length; i++) {
+    let row = [...rows[i]]
+    if (!row || row.length === 0) continue
+
+    // Normalize shifted rows (split regional names)
+    if (contractNumberIdx >= 0 && row[contractNumberIdx]) {
+      const val = String(row[contractNumberIdx]).trim().toLowerCase()
+      if (val.includes('sabah') || val.includes('sarawak') || val.includes('labuan')) {
+        row[contractNameIdx] = `${String(row[contractNameIdx] || '').trim()} ${String(row[contractNumberIdx]).trim()}`
+        for (let j = contractNumberIdx; j < row.length - 1; j++) {
+          row[j] = row[j + 1]
+        }
+        row[row.length - 1] = ''
       }
     }
-    if (bestScore > 0) headerRowIndex = bestRowIndex
+    
+    normalizedRows.push(row)
+
+    // Map contract numbers to names
+    const name = contractNameIdx >= 0 ? String(row[contractNameIdx] || '').trim() : ''
+    const num = contractNumberIdx >= 0 ? String(row[contractNumberIdx] || '').trim() : ''
+    const isNote = name.startsWith('(') || name.toLowerCase().includes('sabah') || name.toLowerCase().includes('sarawak')
+    
+    if (num && name && !isNote && !name.startsWith('KKM-')) {
+      numberToNameMap.set(num, name)
+    }
   }
-  const headers = rows[headerRowIndex]?.map((h: any) => String(h || '').trim().toLowerCase()) || []
-  if (headers.length === 0) return []
-  const findHeaderIndex = (keywords: string[]) => {
-    const normalize = (str: string) => str.toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim()
-    const normalizedHeaders = headers.map(h => normalize(h))
-    const normalizedKeywords = keywords.map(k => normalize(k))
-    let idx = normalizedHeaders.findIndex(h => normalizedKeywords.some(k => h === k))
-    if (idx >= 0) return idx
-    idx = normalizedHeaders.findIndex(h => h && normalizedKeywords.some(k => h.includes(k)))
-    if (idx >= 0) return idx
-    idx = normalizedHeaders.findIndex(h => h && h.length >= 3 && normalizedKeywords.some(k => k.includes(h)))
-    return idx
-  }
-  const contractNumberIdx = manualIndices?.contractNumberIdx ?? findHeaderIndex(['no kontrak', 'no. kontrak', 'nombor kontrak', 'contract no', 'contract number', 'kontrak no', 'contract_no', 'contractno', 'contract #', 'no. contract'])
-  let contractNameIdx = manualIndices?.contractNameIdx
-  if (contractNameIdx === undefined || contractNameIdx === -1) {
-    const itemHeaders = headers.map(h => h.toLowerCase().trim())
-    contractNameIdx = itemHeaders.findIndex(h => ['item', 'item name', 'nama item', 'nama kontrak', 'butiran', 'perihal', 'description', 'nama', 'barang', 'perkhidmatan', 'service', 'product', 'produk'].includes(h))
-  }
-  const supplierNameIdx = manualIndices?.supplierNameIdx ?? findHeaderIndex(['pembekal', 'supplier', 'vendor', 'nama syarikat', 'company', 'syarikat', 'nama pembekal', 'supplier name', 'vendor name', 'company name'])
-  const contractTypeIdx = manualIndices?.contractTypeIdx ?? findHeaderIndex(['type', 'category', 'jenis', 'kategori', 'contract type', 'jenis kontrak', 'kategori kontrak'])
-  const startDateIdx = manualIndices?.startDateIdx ?? findHeaderIndex(['kontrak mula', 'tarikh mula', 'start', 'begin', 'effective', 'start date', 'tarikh kontrak mula', 'mula', 'from', 'dari'])
-  const endDateIdx = manualIndices?.endDateIdx ?? findHeaderIndex(['kontrak tamat', 'tarikh tamat', 'end', 'expir', 'terminat', 'end date', 'tarikh kontrak tamat', 'tamat', 'to', 'hingga', 'until'])
-  const valueIdx = manualIndices?.valueIdx ?? findHeaderIndex(['harga (rm)', 'harga', 'value', 'amount', 'price', 'nilai', 'jumlah', 'pricing', 'cost', 'kos', 'total', 'contract value', 'nilai kontrak', 'harga kontrak', 'jumlah kontrak'])
-  const currencyIdx = manualIndices?.currencyIdx ?? findHeaderIndex(['currency', 'mata wang', 'curr', 'matawang'])
-  const statusIdx = manualIndices?.statusIdx ?? findHeaderIndex(['status', 'keadaan', 'state', 'condition'])
-  const tempohSerahanIdx = manualIndices?.tempohSerahanIdx ?? findHeaderIndex(['tempoh serahan', 'delivery period', 'serahan', 'delivery', 'masa serahan', 'delivery time'])
-  const sstIdx = manualIndices?.sstIdx ?? findHeaderIndex(['sst', 'dokumen sst', 'surat sst', 'sst document', 'sst cert', 'sst certificate', 'sijil sst'])
-  const periodIdx = manualIndices?.periodIdx ?? findHeaderIndex(['jangkaan kontrak', 'contract period', 'tempoh kontrak', 'duration', 'masa kontrak'])
+
   const contracts: ContractRow[] = []
-  for (let i = headerRowIndex + 1; i < rows.length; i++) {
-    const row = rows[i]
-    if (!row || row.length === 0) continue
+  let lastValidName = ''
+
+  // Pass 2: Final Mapping
+  for (let i = 0; i < normalizedRows.length; i++) {
+    const row = normalizedRows[i]
     const contract: ContractRow = {
-      contract_name: contractNameIdx >= 0 && row[contractNameIdx] ? String(row[contractNameIdx]).trim() : ``,
+      contract_name: '',
+      status: 'active',
+      metadata: { raw_row: row }
     }
-    if (!contract.contract_name || contract.contract_name.length < 2) {
-      contract.contract_name = (contractNumberIdx >= 0 && row[contractNumberIdx]) ? String(row[contractNumberIdx]).trim() : `Contract ${i + 1}`
+
+    if (contractNameIdx >= 0 && row[contractNameIdx]) {
+      contract.contract_name = String(row[contractNameIdx]).trim().replace(/^[,"\s]+/, '').trim()
     }
-    if (contractNumberIdx >= 0 && row[contractNumberIdx]) contract.contract_number = String(row[contractNumberIdx]).trim()
-    if (supplierNameIdx >= 0 && row[supplierNameIdx]) contract.supplier_name = String(row[supplierNameIdx]).trim()
-    if (startDateIdx === -1 && endDateIdx === -1 && periodIdx >= 0 && row[periodIdx]) {
-      try {
-        const parts = String(row[periodIdx]).split(/ - | to | hingga /i)
-        if (parts.length === 2) { contract.start_date = parseDate(parts[0].trim()); contract.end_date = parseDate(parts[1].trim()) }
-      } catch (e) { }
+
+    if (contractNumberIdx >= 0 && row[contractNumberIdx]) {
+      contract.contract_number = String(row[contractNumberIdx]).trim()
     }
-    if (contractTypeIdx >= 0 && row[contractTypeIdx]) contract.contract_type = String(row[contractTypeIdx]).trim()
-    if (startDateIdx >= 0 && row[startDateIdx]) contract.start_date = parseDate(String(row[startDateIdx]))
-    if (endDateIdx >= 0 && row[endDateIdx]) contract.end_date = parseDate(String(row[endDateIdx]))
+    
+    // Fix KKM number accidentally put in name column
+    if (contract.contract_name.startsWith('KKM-') && !contract.contract_number) {
+      contract.contract_number = contract.contract_name
+      contract.contract_name = '' 
+    }
+
+    const isRegionalNote = contract.contract_name.startsWith('(') || 
+                          contract.contract_name.toLowerCase().includes('sabah') || 
+                          contract.contract_name.toLowerCase().includes('sarawak')
+
+    // Inheritance logic
+    if (!contract.contract_name && contract.contract_number && numberToNameMap.has(contract.contract_number)) {
+      contract.contract_name = numberToNameMap.get(contract.contract_number)!
+    }
+
+    if (isRegionalNote) {
+      const baseName = (contract.contract_number && numberToNameMap.get(contract.contract_number)) || lastValidName
+      if (baseName && !contract.contract_name.includes(baseName)) {
+        contract.contract_name = `${baseName} ${contract.contract_name}`
+      }
+    }
+
+    if (contract.contract_name && !isRegionalNote && !contract.contract_name.startsWith('KKM-')) {
+      lastValidName = contract.contract_name
+    }
+
+    // Map known columns
+    if (supplierNameIdx >= 0 && row[supplierNameIdx]) {
+      contract.supplier_name = String(row[supplierNameIdx]).trim()
+    }
+    if (contractTypeIdx >= 0 && row[contractTypeIdx]) {
+      contract.contract_type = String(row[contractTypeIdx]).trim()
+    }
+    if (startDateIdx >= 0 && row[startDateIdx]) {
+      contract.start_date = parseDate(String(row[startDateIdx]))
+    }
+    if (endDateIdx >= 0 && row[endDateIdx]) {
+      contract.end_date = parseDate(String(row[endDateIdx]))
+    }
     if (valueIdx >= 0 && row[valueIdx]) {
       const valueStr = String(row[valueIdx]).replace(/[^\d.-]/g, '')
       contract.value = parseFloat(valueStr) || undefined
     }
-    if (currencyIdx >= 0 && row[currencyIdx]) contract.currency = String(row[currencyIdx]).trim().toUpperCase() || 'MYR'
-    if (statusIdx >= 0 && row[statusIdx]) {
-      const validStatus = normalizeStatus(String(row[statusIdx]).trim())
-      if (validStatus) contract.status = validStatus
+    if (currencyIdx >= 0 && row[currencyIdx]) {
+      contract.currency = String(row[currencyIdx]).trim().toUpperCase() || 'MYR'
     }
-    if (tempohSerahanIdx >= 0 && row[tempohSerahanIdx]) contract.tempoh_serahan = String(row[tempohSerahanIdx]).trim()
-    if (sstIdx >= 0 && row[sstIdx]) contract.sst = String(row[sstIdx]).trim()
-    const metadata: Record<string, any> = {}
-    if (contract.tempoh_serahan) metadata['tempoh serahan'] = contract.tempoh_serahan
-    if (contract.sst) metadata['sst'] = contract.sst
+    if (statusIdx >= 0 && row[statusIdx]) {
+      contract.status = String(row[statusIdx]).trim().toLowerCase()
+    }
+    if (sstIdx >= 0 && row[sstIdx]) {
+      const sstValue = String(row[sstIdx]).trim()
+      if (
+        sstValue.startsWith('http') || 
+        sstValue.includes('drive.google.com') || 
+        sstValue.toLowerCase().endsWith('.pdf') ||
+        (sstValue.toLowerCase().includes('sst') && sstValue.toLowerCase().includes('.pdf'))
+      ) {
+        contract.document_url = sstValue
+      } else {
+        const rateMatch = sstValue.match(/(\d+(\.\d+)?)/)
+        contract.sst_rate = rateMatch ? rateMatch[1] : sstValue
+      }
+    }
+    if (unitPriceIdx >= 0 && row[unitPriceIdx]) {
+      const priceStr = String(row[unitPriceIdx]).replace(/[^\d.-]/g, '')
+      contract.unit_price = parseFloat(priceStr) || undefined
+    }
+    if (itemCodeIdx >= 0 && row[itemCodeIdx]) {
+      contract.item_code = String(row[itemCodeIdx]).trim()
+    }
+
+    // Store all other columns in metadata
+    const extraMetadata: Record<string, any> = {}
     headers.forEach((header, idx) => {
-      if (row[idx] !== undefined && row[idx] !== null && row[idx] !== '' && ![contractNumberIdx, contractNameIdx, supplierNameIdx, contractTypeIdx, startDateIdx, endDateIdx, valueIdx, currencyIdx, statusIdx, tempohSerahanIdx, sstIdx].includes(idx)) {
-        metadata[header] = row[idx]
+      if (row[idx] !== undefined && row[idx] !== null && row[idx] !== '') {
+        if (
+          idx !== contractNumberIdx &&
+          idx !== contractNameIdx &&
+          idx !== supplierNameIdx &&
+          idx !== contractTypeIdx &&
+          idx !== startDateIdx &&
+          idx !== endDateIdx &&
+          idx !== valueIdx &&
+          idx !== currencyIdx &&
+          idx !== statusIdx &&
+          idx !== sstIdx &&
+          idx !== unitPriceIdx &&
+          idx !== itemCodeIdx
+        ) {
+          extraMetadata[header] = row[idx]
+        }
       }
     })
-    contract.metadata = Object.keys(metadata).length > 0 ? metadata : undefined
+    contract.metadata = { ...contract.metadata, ...extraMetadata }
+
+    if (contract.contract_name === '' && !contract.contract_number) continue
+    
+    // Skip rows that have no contract number AND no price - these are usually just headers or placeholders
+    if (!contract.contract_number && !contract.unit_price) continue
+
     contracts.push(contract)
   }
+
   return contracts
 }
 
+/**
+ * Parse date string from various formats
+ */
 function parseDate(dateStr: string): string | undefined {
   if (!dateStr) return undefined
+  
   try {
     const date = new Date(dateStr)
-    if (!isNaN(date.getTime())) return date.toISOString().split('T')[0]
+    if (!isNaN(date.getTime())) {
+      return date.toISOString().split('T')[0]
+    }
+    
     const parts = dateStr.split(/[\/\-]/)
     if (parts.length === 3) {
-      const parsed = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10))
-      if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0]
+      const day = parseInt(parts[0], 10)
+      const month = parseInt(parts[1], 10) - 1
+      const year = parseInt(parts[2], 10)
+      const parsed = new Date(year, month, day)
+      if (!isNaN(parsed.getTime())) {
+        return parsed.toISOString().split('T')[0]
+      }
     }
-  } catch (e) { }
+  } catch (e) {
+    console.warn('Failed to parse date:', dateStr)
+  }
+  
   return undefined
-}
-
-function normalizeStatus(value: string): 'active' | 'expired' | 'terminated' | 'pending' | null {
-  if (!value) return null
-  const normalized = value.toLowerCase().trim()
-  if (['active', 'expired', 'terminated', 'pending'].includes(normalized)) return normalized as any
-  if (/aktif|berkuatkuasa|dalam/i.test(normalized)) return 'active'
-  if (/tamat|luput|ended/i.test(normalized)) return 'expired'
-  if (/batal|ditamatkan|cancelled/i.test(normalized)) return 'terminated'
-  if (/menunggu|pending|dalam proses/i.test(normalized)) return 'pending'
-  return null
 }
 
 /**
@@ -446,153 +485,427 @@ function normalizeStatus(value: string): 'active' | 'expired' | 'terminated' | '
  */
 export async function syncContractsFromGoogleSheets(
   hospitalId: string,
-  config: GoogleSheetsSyncConfig,
-  manualIndices?: any
+  config: GoogleSheetsSyncConfig
 ): Promise<ApiResponse<SyncResult>> {
   try {
-    if (config.id) {
-      await supabase.from('google_sheets_sync_config').update({ last_sync_status: 'in_progress', last_sync_at: new Date().toISOString() }).eq('id', config.id)
+    if (!isSupabaseConfigured()) {
+      return {
+        data: null,
+        error: 'Supabase is not configured',
+      }
     }
+
+    // Update sync status to in_progress
+    if (config.id) {
+      await supabase
+        .from('google_sheets_sync_config')
+        .update({
+          last_sync_status: 'in_progress',
+          last_sync_at: new Date().toISOString(),
+        })
+        .eq('id', config.id)
+    }
+
+    // Extract sheet ID from URL if needed
     const extractedSheetId = extractSheetId(config.sheet_id)
     if (!extractedSheetId) {
-      const errorMsg = 'Invalid Google Sheet ID or URL.'
-      if (config.id) await supabase.from('google_sheets_sync_config').update({ last_sync_status: 'failed', last_sync_error: errorMsg }).eq('id', config.id)
-      return { data: null, error: errorMsg }
+      const errorMsg = 'Invalid Google Sheet ID or URL. Please provide either the Sheet ID or the full Google Sheets URL.'
+      
+      if (config.id) {
+        await supabase
+          .from('google_sheets_sync_config')
+          .update({
+            last_sync_status: 'failed',
+            last_sync_error: errorMsg,
+          })
+          .eq('id', config.id)
+      }
+
+      return {
+        data: null,
+        error: errorMsg,
+      }
     }
-    const fetchResult = await fetchGoogleSheetData(extractedSheetId, config.sheet_name || 'Sheet1', config.range, config.api_key)
+
+    // Fetch data from Google Sheets
+    const fetchResult = await fetchGoogleSheetData(
+      extractedSheetId,
+      config.sheet_name || 'Sheet1',
+      config.range,
+      config.api_key
+    )
+
     if (fetchResult.error || !fetchResult.data) {
-      const errorMsg = fetchResult.error || 'Failed to fetch data'
-      if (config.id) await supabase.from('google_sheets_sync_config').update({ last_sync_status: 'failed', last_sync_error: errorMsg }).eq('id', config.id)
-      return { data: null, error: errorMsg }
+      const errorMsg = fetchResult.error || 'Failed to fetch data from Google Sheets'
+      
+      if (config.id) {
+        await supabase
+          .from('google_sheets_sync_config')
+          .update({
+            last_sync_status: 'failed',
+            last_sync_error: errorMsg,
+          })
+          .eq('id', config.id)
+      }
+
+      return {
+        data: null,
+        error: errorMsg,
+      }
     }
-    const result: SyncResult = { success: true, rowsProcessed: 0, rowsCreated: 0, rowsUpdated: 0, rowsDeleted: 0, errors: [] }
-    const contracts = parseContractRows(fetchResult.data, 0, manualIndices)
+
+    // Parse contract rows
+    const contracts = parseContractRows(fetchResult.data)
+
     if (contracts.length === 0) {
-      const errorMsg = 'No contract data found'
-      if (config.id) await supabase.from('google_sheets_sync_config').update({ last_sync_status: 'failed', last_sync_error: errorMsg }).eq('id', config.id)
-      return { data: null, error: errorMsg }
+      const errorMsg = 'No contract data found in Google Sheet'
+      
+      if (config.id) {
+        await supabase
+          .from('google_sheets_sync_config')
+          .update({
+            last_sync_status: 'failed',
+            last_sync_error: errorMsg,
+          })
+          .eq('id', config.id)
+      }
+
+      return {
+        data: null,
+        error: errorMsg,
+      }
     }
-    result.rowsProcessed = contracts.length
-    const { data: existingContracts } = await supabase.from('contracts').select('id, contract_number, sync_hash').eq('hospital_id', hospitalId)
-    const existingMap = new Map((existingContracts || []).map(c => [c.contract_number || '', c]))
+
+    // Sync to database
+    const result: SyncResult = {
+      success: true,
+      rowsProcessed: contracts.length,
+      rowsCreated: 0,
+      rowsUpdated: 0,
+      rowsDeleted: 0,
+      errors: [],
+    }
+
+    // Get existing contracts for this hospital
+    const { data: existingContracts } = await supabase
+      .from('contracts_view')
+      .select('id, contract_number, contract_name, sync_hash')
+      .eq('hospital_id', hospitalId)
+
+    const contractKeyMap = new Map<string, any>()
+    const numberMap = new Map<string, any>()
+    const nameMap = new Map<string, any>()
+
+    ;(existingContracts || []).forEach(c => {
+      if (c.contract_number && c.contract_name) {
+        const key = `${c.contract_number.toUpperCase().trim()}_${c.contract_name.toLowerCase().trim()}`
+        contractKeyMap.set(key, c)
+      }
+      if (c.contract_number) {
+        numberMap.set(c.contract_number, c)
+      }
+      if (c.contract_name) {
+        nameMap.set(c.contract_name.toLowerCase().trim(), c)
+      }
+    })
+
+    // Process each contract
     for (let i = 0; i < contracts.length; i++) {
       const contract = contracts[i]
       try {
-        const hashData = JSON.stringify({ contract_number: contract.contract_number, contract_name: contract.contract_name, supplier_name: contract.supplier_name, start_date: contract.start_date, end_date: contract.end_date, value: contract.value })
+        // Create sync hash
+        const hashData = JSON.stringify({
+          n: contract.contract_name,
+          num: contract.contract_number,
+          s: contract.supplier_name,
+          p: contract.unit_price,
+          sd: contract.start_date,
+          ed: contract.end_date,
+          u: contract.currency,
+          v: 9 // Sync hash version
+        })
+        // Calculate hash of the data
         const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(hashData))
-        const syncHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('')
-        if (!contract.contract_name) continue
-        const finalStatus = contract.status || 'active'
+        const hashArray = Array.from(new Uint8Array(hashBuffer))
+        const syncHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+
+        // Validate required fields
+        if (!contract.contract_name || contract.contract_name.trim() === '') {
+          result.errors.push(`Row ${i + 2}: Contract name is required`)
+          continue
+        }
+
+        // Validate and normalize status - must be one of: 'active', 'expired', 'terminated', 'pending'
+        const validStatuses = ['active', 'expired', 'terminated', 'pending'] as const
+        let normalizedStatus: 'active' | 'expired' | 'terminated' | 'pending' = 'active' // Default to active
+        
+        if (contract.status) {
+          const statusStr = String(contract.status).toLowerCase().trim()
+          if (validStatuses.includes(statusStr as any)) {
+            normalizedStatus = statusStr as typeof normalizedStatus
+          } else {
+            // Invalid status value - default to active and log warning
+            console.warn(`Row ${i + 2}: Invalid status "${contract.status}", defaulting to "active"`)
+          }
+        }
+
+        // Ensure status is always a valid value (double-check)
+        if (!validStatuses.includes(normalizedStatus)) {
+          normalizedStatus = 'active'
+        }
+
+        // Final validation - ensure status is exactly one of the valid values
+        const finalStatus = validStatuses.includes(normalizedStatus) ? normalizedStatus : 'active'
+
         const contractData: any = {
-          hospital_id: hospitalId, contract_number: contract.contract_number || null, contract_name: contract.contract_name.trim(),
-          supplier_name: contract.supplier_name ? contract.supplier_name.trim() : null, contract_type: contract.contract_type ? contract.contract_type.trim() : null,
-          start_date: contract.start_date || null, end_date: contract.end_date || null, total_value: contract.value || null,
-          currency: (contract.currency || 'MYR').trim().toUpperCase(), status: finalStatus,
-          metadata: { ...contract.metadata, raw_value: contract.value, tempoh_serahan: contract.tempoh_serahan, sst: contract.sst },
-          google_sheet_row_index: i + 2, last_synced_at: new Date().toISOString(), sync_hash: syncHash
+          hospital_id: hospitalId,
+          contract_number: contract.contract_number || null,
+          contract_name: contract.contract_name.trim(),
+          supplier_name: contract.supplier_name ? contract.supplier_name.trim() : null,
+          contract_type: contract.contract_type ? contract.contract_type.trim() : null,
+          start_date: contract.start_date || null,
+          end_date: contract.end_date || null,
+          value: contract.value || null,
+          unit_price: contract.unit_price || null,
+          sst_rate: contract.sst_rate || null,
+          item_code: contract.item_code || null,
+          currency: (contract.currency || 'MYR').trim().toUpperCase(),
+          status: finalStatus, // Always guaranteed to be exactly 'active', 'expired', 'terminated', or 'pending'
+          metadata: contract.metadata || null,
+          google_sheet_row_index: i + 2, // +2 because row 1 is header, row 2 is first data
+          last_synced_at: new Date().toISOString(),
+          sync_hash: syncHash,
         }
+
+        // Try to find supplier by name
         if (contract.supplier_name) {
-          const { data: supplier } = await supabase.from('suppliers').select('id').ilike('company_name', contract.supplier_name).limit(1).single()
-          if (supplier) contractData.supplier_id = supplier.id
+          const { data: supplier } = await supabase
+            .from('suppliers')
+            .select('id')
+            .ilike('company_name', contract.supplier_name)
+            .limit(1)
+            .maybeSingle()
+
+          if (supplier) {
+            contractData.supplier_id = supplier.id
+          }
         }
-        const existing = contract.contract_number ? existingMap.get(contract.contract_number) : null
+
+        let existing = null
+        if (contract.contract_number && contract.contract_name) {
+          const key = `${contract.contract_number.toUpperCase().trim()}_${contract.contract_name.toLowerCase().trim()}`
+          existing = contractKeyMap.get(key)
+        }
+        
+        if (!existing && contract.contract_number) {
+          existing = numberMap.get(contract.contract_number)
+        }
+        
+        // Fallback to name-based matching if no number match or no number provided
+        if (!existing && contract.contract_name) {
+          existing = nameMap.get(contract.contract_name.toLowerCase().trim())
+        }
+
         if (existing) {
+          // Check if data has changed
           if (existing.sync_hash !== syncHash) {
-            const { error: updateError } = await supabase.from('contracts').update({ ...contractData, updated_at: new Date().toISOString() }).eq('id', existing.id)
-            if (updateError) result.errors.push(`Row ${i + 2}: ${updateError.message}`)
-            else result.rowsUpdated++
+            // Update existing contract - ensure status is valid
+            const updateData = {
+              ...contractData,
+              status: finalStatus, // Explicitly set valid status (same as insert)
+              updated_at: new Date().toISOString(),
+            }
+            
+            const { error: updateError } = await supabase
+              .from('contracts')
+              .update(updateData)
+              .eq('id', existing.id)
+
+            if (updateError) {
+              const errorDetails = updateError.details || updateError.hint || ''
+              const errorMsg = `Failed to update contract "${contract.contract_number}": ${updateError.message}${errorDetails ? ` (${errorDetails})` : ''}`
+              console.error('Update error:', updateError, 'Contract data:', contractData)
+              result.errors.push(errorMsg)
+            } else {
+              result.rowsUpdated++
+            }
           }
         } else {
-          const { error: insertError } = await supabase.from('contracts').upsert(contractData, { onConflict: 'hospital_id,contract_number', ignoreDuplicates: false })
-          if (insertError) result.errors.push(`Row ${i + 2}: ${insertError.message}`)
-          else result.rowsCreated++
+          // Create new contract
+          // Final safety check - ensure status is valid before insert
+          if (!validStatuses.includes(contractData.status as any)) {
+            console.error(`Row ${i + 2}: Status validation failed! Status value: "${contractData.status}", type: ${typeof contractData.status}`)
+            contractData.status = 'active' // Force to valid value
+          }
+
+          const { error: insertError } = await supabase
+            .from('contracts')
+            .insert(contractData)
+
+          if (insertError) {
+            const errorDetails = insertError.details || insertError.hint || ''
+            const errorMsg = `Failed to create contract "${contract.contract_number || contract.contract_name}": ${insertError.message}${errorDetails ? ` (${errorDetails})` : ''}`
+            console.error('Insert error:', insertError, 'Contract data:', JSON.stringify(contractData, null, 2))
+            result.errors.push(errorMsg)
+          } else {
+            result.rowsCreated++
+          }
         }
-      } catch (error) { result.errors.push(`Row ${i + 2}: ${error instanceof Error ? error.message : 'Unknown error'}`) }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+        result.errors.push(`Row ${i + 2}: ${errorMsg}`)
+      }
     }
-    const syncedContractNumbers = new Set(contracts.map(c => c.contract_number).filter((n): n is string => !!n))
-    const contractsToMark = (existingContracts || []).filter(c => c.contract_number && !syncedContractNumbers.has(c.contract_number))
+
+    // Mark contracts that are no longer in the sheet as deleted/expired
+    const syncedContractNumbers = new Set(
+      contracts
+        .map(c => c.contract_number)
+        .filter((n): n is string => !!n)
+    )
+
+    const contractsToMark = (existingContracts || []).filter(
+      c => c.contract_number && !syncedContractNumbers.has(c.contract_number)
+    )
+
     if (contractsToMark.length > 0) {
-      const { error: updateError } = await supabase.from('contracts').update({ status: 'expired', updated_at: new Date().toISOString() }).in('id', contractsToMark.map(c => c.id))
-      if (!updateError) result.rowsDeleted = contractsToMark.length
+      const { error: updateError } = await supabase
+        .from('contracts')
+        .update({
+          status: 'expired',
+          updated_at: new Date().toISOString(),
+        })
+        .in(
+          'id',
+          contractsToMark.map(c => c.id)
+        )
+
+      if (!updateError) {
+        result.rowsDeleted = contractsToMark.length
+      }
     }
+
+    // Update sync config with success status
     if (config.id) {
-      await supabase.from('google_sheets_sync_config').update({ last_sync_status: result.errors.length === 0 ? 'success' : 'failed', last_sync_error: result.errors.length > 0 ? result.errors.join('; ') : null, last_sync_at: new Date().toISOString() }).eq('id', config.id)
+      await supabase
+        .from('google_sheets_sync_config')
+        .update({
+          last_sync_status: result.errors.length === 0 ? 'success' : 'failed',
+          last_sync_error: result.errors.length > 0 ? result.errors.join('; ') : null,
+          last_sync_at: new Date().toISOString(),
+        })
+        .eq('id', config.id)
     }
-    return { data: result, error: result.errors.length > 0 ? result.errors.join('; ') : null }
+
+    return {
+      data: result,
+      error: result.errors.length > 0 ? result.errors.join('; ') : null,
+    }
   } catch (error) {
-    if (config.id) await supabase.from('google_sheets_sync_config').update({ last_sync_status: 'failed', last_sync_error: error instanceof Error ? error.message : 'Unknown' }).eq('id', config.id)
-    return { data: null, error: error instanceof Error ? error.message : 'Failed to sync' }
+    console.error('Error syncing contracts from Google Sheets:', error)
+    
+    if (config.id) {
+      await supabase
+        .from('google_sheets_sync_config')
+        .update({
+          last_sync_status: 'failed',
+          last_sync_error: error instanceof Error ? error.message : 'Unknown error',
+        })
+        .eq('id', config.id)
+    }
+
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to sync contracts',
+    }
   }
 }
 
-export async function getSyncConfig(hospitalId: string): Promise<ApiResponse<GoogleSheetsSyncConfig>> {
+/**
+ * Get or create sync configuration
+ */
+export async function getSyncConfig(
+  hospitalId: string
+): Promise<ApiResponse<GoogleSheetsSyncConfig>> {
   try {
-    const { data, error } = await supabase.from('google_sheets_sync_config').select('*').eq('hospital_id', hospitalId).eq('sync_type', 'contracts').single()
-    if (error && (error as any).code !== 'PGRST116') throw error
-    return { data: data || null, error: null }
-  } catch (error) { return { data: null, error: error instanceof Error ? error.message : 'Failed' } }
+    if (!isSupabaseConfigured()) {
+      return {
+        data: null,
+        error: 'Supabase is not configured',
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('google_sheets_sync_config')
+      .select('*')
+      .eq('hospital_id', hospitalId)
+      .eq('sync_type', 'contracts')
+      .maybeSingle()
+
+    if (error && (error as any).code !== 'PGRST116') {
+      throw error
+    }
+
+    return {
+      data: data || null,
+      error: null,
+    }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to get sync config',
+    }
+  }
 }
 
-export async function saveSyncConfig(config: GoogleSheetsSyncConfig): Promise<ApiResponse<GoogleSheetsSyncConfig>> {
+/**
+ * Save sync configuration
+ */
+export async function saveSyncConfig(
+  config: GoogleSheetsSyncConfig
+): Promise<ApiResponse<GoogleSheetsSyncConfig>> {
   try {
+    if (!isSupabaseConfigured()) {
+      return {
+        data: null,
+        error: 'Supabase is not configured',
+      }
+    }
+
     if (config.id) {
-      const { data, error } = await supabase.from('google_sheets_sync_config').update({ ...config, updated_at: new Date().toISOString() }).eq('id', config.id).select().single()
+      // Update existing
+      const { data, error } = await supabase
+        .from('google_sheets_sync_config')
+        .update({
+          ...config,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', config.id)
+        .select()
+        .maybeSingle()
+
       if (error) throw error
       return { data, error: null }
     } else {
-      const { data, error } = await supabase.from('google_sheets_sync_config').insert({ ...config, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }).select().single()
+      // Create new
+      const { data, error } = await supabase
+        .from('google_sheets_sync_config')
+        .insert({
+          ...config,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .maybeSingle()
+
       if (error) throw error
       return { data, error: null }
     }
-  } catch (error) { return { data: null, error: error instanceof Error ? error.message : 'Failed' } }
-}
-
-export async function previewSheetHeaders(sheetIdOrUrl: string, sheetName: string = 'Sheet1', range?: string, apiKey?: string): Promise<ApiResponse<{ headers: string[], headerRowIndex: number, sampleRows: any[][], totalRows: number }>> {
-  try {
-    const fetchResult = await fetchGoogleSheetData(sheetIdOrUrl, sheetName, range, apiKey)
-    if (fetchResult.error || !fetchResult.data) return { data: null, error: fetchResult.error || 'Failed' }
-    const rows = fetchResult.data
-    if (!rows || rows.length === 0) return { data: null, error: 'No data' }
-    let headerRowIndex = 0; let bestScore = 0
-    const headerKeywords = ['contract', 'kontrak', 'item', 'pembekal', 'status', 'harga']
-    for (let i = 0; i < Math.min(rows.length, 15); i++) {
-      const r = rows[i].map((c: any) => String(c || '').toLowerCase().trim())
-      const matches = r.filter(cell => cell && headerKeywords.some(k => cell.includes(k)))
-      const score = matches.length
-      if (score > bestScore) { bestScore = score; headerRowIndex = i }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to save sync config',
     }
-    return { data: { headers: rows[headerRowIndex]?.map((h: any) => String(h || '').trim()) || [], headerRowIndex, sampleRows: rows.slice(headerRowIndex + 1, headerRowIndex + 6), totalRows: rows.length }, error: null }
-  } catch (error) { return { data: null, error: error instanceof Error ? error.message : 'Failed' } }
-}
-
-export async function fetchSheetWithDynamicHeaders(sheetIdOrUrl: string, sheetName: string = 'Sheet1', range?: string, apiKey?: string): Promise<ApiResponse<SheetWithHeaders>> {
-  try {
-    const fetchResult = await fetchGoogleSheetData(sheetIdOrUrl, sheetName, range, apiKey)
-    if (fetchResult.error || !fetchResult.data) return { data: null, error: fetchResult.error || 'Failed' }
-    const rows = fetchResult.data
-    if (!rows || rows.length === 0) return { data: null, error: 'No data' }
-    let headerRowIndex = 0; let bestScore = 0
-    const headerKeywords = ['contract', 'kontrak', 'item', 'pembekal', 'status', 'harga']
-    for (let i = 0; i < Math.min(rows.length, 15); i++) {
-      const r = rows[i].map((c: any) => String(c || '').toLowerCase().trim())
-      const matches = r.filter(cell => cell && headerKeywords.some(k => cell.includes(k)))
-      if (matches.length > bestScore) { bestScore = matches.length; headerRowIndex = i }
-    }
-    const rawHeaders = rows[headerRowIndex]?.map((h: any) => String(h || '').trim()) || []
-    const columnMapping: Record<string, number> = {}
-    rawHeaders.forEach((h, idx) => { if (h) columnMapping[h.toLowerCase()] = idx })
-    const contracts = parseContractRows(rows, headerRowIndex, detectManualIndices(rawHeaders))
-    return { data: { headers: rawHeaders.filter(h => h), headerRowIndex, data: contracts, rawData: rows, columnMapping, totalRows: rows.length }, error: null }
-  } catch (error) { return { data: null, error: error instanceof Error ? error.message : 'Failed' } }
-}
-
-export async function syncContractsWithDynamicHeaders(hospitalId: string, config: GoogleSheetsSyncConfig): Promise<ApiResponse<SyncResult & { detectedHeaders: string[] }>> {
-  const sheetResult = await fetchSheetWithDynamicHeaders(config.sheet_id, config.sheet_name, config.range, config.api_key)
-  if (sheetResult.error || !sheetResult.data) {
-    if (config.id) await supabase.from('google_sheets_sync_config').update({ last_sync_status: 'failed', last_sync_error: sheetResult.error, last_sync_at: new Date().toISOString() }).eq('id', config.id)
-    return { data: null, error: sheetResult.error || 'Failed' }
   }
-  const syncRes = await syncContractsFromGoogleSheets(hospitalId, config, detectManualIndices(sheetResult.data.headers))
-  if (syncRes.data) return { data: { ...syncRes.data, detectedHeaders: sheetResult.data.headers }, error: null }
-  return { data: null, error: syncRes.error }
 }
+

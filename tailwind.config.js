@@ -3,18 +3,15 @@ export default {
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
-    "!./src/app/**", // Exclude legacy Next.js app directory
   ],
   theme: {
     screens: {
-      'xs': '320px',   // Small mobile
-      'sm': '640px',   // Large mobile
-      'md': '768px',   // Tablet
-      'lg': '1024px',  // Laptop
-      'xl': '1280px',  // Desktop
-      '2xl': '1536px', // Large desktop
-      '3xl': '1920px', // Full HD
-      '4k': '2560px',  // 4K displays
+      'xs': '480px',
+      'sm': '640px',
+      'md': '768px',
+      'lg': '1024px',
+      'xl': '1280px',
+      '2xl': '1536px',
     },
     extend: {
       colors: {

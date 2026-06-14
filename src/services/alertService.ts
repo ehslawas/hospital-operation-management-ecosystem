@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { supabase, isSupabaseConfigured } from './supabase'
 import type {
   SystemAlert,
   AlertType,
@@ -21,37 +21,48 @@ export async function getSystemAlerts(
   }
 ): Promise<PaginatedResponse<SystemAlert>> {
   try {
-    let query = supabase
-      .from('system_alerts')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false })
+    if (isSupabaseConfigured()) {
+      let query = supabase
+        .from('system_alerts')
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false })
 
-    if (filters?.alert_type) {
-      query = query.eq('alert_type', filters.alert_type)
-    }
-    if (filters?.category) {
-      query = query.eq('category', filters.category)
-    }
-    if (filters?.is_resolved !== undefined) {
-      query = query.eq('is_resolved', filters.is_resolved)
-    }
-    if (filters?.is_read !== undefined) {
-      query = query.eq('is_read', filters.is_read)
-    }
+      if (filters?.alert_type) {
+        query = query.eq('alert_type', filters.alert_type)
+      }
+      if (filters?.category) {
+        query = query.eq('category', filters.category)
+      }
+      if (filters?.is_resolved !== undefined) {
+        query = query.eq('is_resolved', filters.is_resolved)
+      }
+      if (filters?.is_read !== undefined) {
+        query = query.eq('is_read', filters.is_read)
+      }
 
-    const from = (page - 1) * pageSize
-    const to = from + pageSize - 1
+      const from = (page - 1) * pageSize
+      const to = from + pageSize - 1
 
-    const { data, error, count } = await query.range(from, to)
+      const { data, error, count } = await query.range(from, to)
 
-    if (error) throw error
+      if (error) throw error
 
-    return {
-      data: (data || []) as SystemAlert[],
-      total: count || 0,
-      page,
-      pageSize,
-      totalPages: Math.ceil((count || 0) / pageSize),
+      return {
+        data: (data || []) as SystemAlert[],
+        total: count || 0,
+        page,
+        pageSize,
+        totalPages: Math.ceil((count || 0) / pageSize),
+      }
+    } else {
+      // Supabase is required for Alert Center
+      return {
+        data: [],
+        total: 0,
+        page,
+        pageSize,
+        totalPages: 0,
+      }
     }
   } catch (error) {
     console.error('Error fetching alerts:', error)
@@ -70,14 +81,19 @@ export async function getSystemAlerts(
  */
 export async function getUnreadAlertCount(): Promise<number> {
   try {
-    const { count, error } = await supabase
-      .from('system_alerts')
-      .select('*', { count: 'exact', head: true })
-      .eq('is_read', false)
-      .eq('is_resolved', false)
+    if (isSupabaseConfigured()) {
+      const { count, error } = await supabase
+        .from('system_alerts')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_read', false)
+        .eq('is_resolved', false)
 
-    if (error) throw error
-    return count || 0
+      if (error) throw error
+      return count || 0
+    } else {
+      // Supabase is required
+      return 0
+    }
   } catch (error) {
     console.error('Error fetching unread alert count:', error)
     return 0
@@ -89,16 +105,24 @@ export async function getUnreadAlertCount(): Promise<number> {
  */
 export async function markAlertAsRead(alertId: string): Promise<ApiResponse<boolean>> {
   try {
-    const { error } = await supabase
-      .from('system_alerts')
-      .update({ is_read: true, updated_at: new Date().toISOString() })
-      .eq('id', alertId)
+    if (isSupabaseConfigured()) {
+      const { error } = await supabase
+        .from('system_alerts')
+        .update({ is_read: true, updated_at: new Date().toISOString() })
+        .eq('id', alertId)
 
-    if (error) throw error
+      if (error) throw error
 
-    return {
-      data: true,
-      error: null,
+      return {
+        data: true,
+        error: null,
+      }
+    } else {
+      // Supabase is required
+      return {
+        data: null,
+        error: 'Supabase is not configured. Alert management requires database connection.',
+      }
     }
   } catch (error) {
     console.error('Error marking alert as read:', error)
@@ -117,21 +141,29 @@ export async function resolveAlert(
   resolvedBy: string
 ): Promise<ApiResponse<boolean>> {
   try {
-    const { error } = await supabase
-      .from('system_alerts')
-      .update({
-        is_resolved: true,
-        resolved_at: new Date().toISOString(),
-        resolved_by: resolvedBy,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', alertId)
+    if (isSupabaseConfigured()) {
+      const { error } = await supabase
+        .from('system_alerts')
+        .update({
+          is_resolved: true,
+          resolved_at: new Date().toISOString(),
+          resolved_by: resolvedBy,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', alertId)
 
-    if (error) throw error
+      if (error) throw error
 
-    return {
-      data: true,
-      error: null,
+      return {
+        data: true,
+        error: null,
+      }
+    } else {
+      // Supabase is required
+      return {
+        data: null,
+        error: 'Supabase is not configured. Alert management requires database connection.',
+      }
     }
   } catch (error) {
     console.error('Error resolving alert:', error)
@@ -153,25 +185,33 @@ export async function createAlert(
   metadata?: Record<string, unknown>
 ): Promise<ApiResponse<SystemAlert>> {
   try {
-    const { data, error } = await supabase
-      .from('system_alerts')
-      .insert({
-        alert_type: alertType,
-        category,
-        title,
-        message,
-        metadata,
-        is_read: false,
-        is_resolved: false,
-      })
-      .select()
-      .single()
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('system_alerts')
+        .insert({
+          alert_type: alertType,
+          category,
+          title,
+          message,
+          metadata,
+          is_read: false,
+          is_resolved: false,
+        })
+        .select()
+        .single()
 
-    if (error) throw error
+      if (error) throw error
 
-    return {
-      data: data as SystemAlert,
-      error: null,
+      return {
+        data: data as SystemAlert,
+        error: null,
+      }
+    } else {
+      // Supabase is required
+      return {
+        data: null,
+        error: 'Supabase is not configured. Alert creation requires database connection.',
+      }
     }
   } catch (error) {
     console.error('Error creating alert:', error)

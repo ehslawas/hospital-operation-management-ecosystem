@@ -1,3 +1,3 @@
-export { default as HospitalListPage } from './HospitalListPage'
-export { default as HospitalDetailPage } from './HospitalDetailPage'
+export { HospitalListPage } from './HospitalListPage'
+export { HospitalDetailPage } from './HospitalDetailPage'
 

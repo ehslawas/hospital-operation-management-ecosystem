@@ -25,11 +25,6 @@ export async function encryptPassword(password: string): Promise<string> {
     ['deriveBits', 'deriveKey']
   )
 
-  // Warn if in production with default key
-  if (import.meta.env.PROD && !import.meta.env.VITE_ENCRYPTION_KEY) {
-    console.warn('SECURITY WARNING: Using hardcoded encryption key in production. Please configure VITE_ENCRYPTION_KEY.')
-  }
-
   const key = await crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
@@ -72,7 +67,7 @@ export async function encryptPassword(password: string): Promise<string> {
 export async function decryptPassword(encrypted: string): Promise<string> {
   try {
     const [ivBase64, encryptedBase64] = encrypted.split(':')
-
+    
     // Decode
     const iv = Uint8Array.from(atob(ivBase64), c => c.charCodeAt(0))
     const encryptedData = Uint8Array.from(atob(encryptedBase64), c => c.charCodeAt(0))

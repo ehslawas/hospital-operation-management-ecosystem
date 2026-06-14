@@ -1,33 +1,23 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { AlertTriangle, Pill, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react'
-import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
-import { Table, TableBody, TableCell, TableHeader, TableRow, Spinner, Input, Badge, Select } from '@/components/ui'
-import { getDrugCatalog as getDrugs } from '@/services/pharmacy/drugCatalogService'
-import { getDrugCategories } from '@/services/pharmacy/inventoryService'
-import type { DrugWithRelations, DrugCategory } from '@/types/pharmacy'
-import type { DrugCatalogFilter } from '@/services/pharmacy/drugCatalogService'
-import { DrugDetailsModal } from './components/DrugDetailsModal'
+import { useAuthStore } from '@/stores/authStore'
+import { Table, Spinner, Input, Badge, Select } from '@/components/ui'
+import { getDrugs, getDrugCategories } from '@/services/pharmacy/inventoryService'
+import type { DrugWithRelations, DrugCategory, InventoryFilter } from '@/types/pharmacy'
 
 export const DrugInventoryPage: React.FC = () => {
   const { user } = useAuthStore()
   const hospitalId = user?.hospital_id
-  const isSessionReady = useIsSessionReady()
 
   const [drugs, setDrugs] = useState<DrugWithRelations[]>([])
   const [categories, setCategories] = useState<DrugCategory[]>([])
-  const [therapeuticClasses, setTherapeuticClasses] = useState<DrugCategory[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Filters
   const [search, setSearch] = useState('')
   const [categoryId, setCategoryId] = useState('')
-  const [therapeuticClassId, setTherapeuticClassId] = useState('')
   const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('all')
-
-  // Details Modal
-  const [selectedDrug, setSelectedDrug] = useState<DrugWithRelations | null>(null)
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false)
 
   // Pagination
   const [page, setPage] = useState(1)
@@ -40,17 +30,7 @@ export const DrugInventoryPage: React.FC = () => {
     const loadCategories = async () => {
       const res = await getDrugCategories()
       if (res.data) {
-        // Split categories into FUKKM (standard) and Therapeutic Classes
-        // Classification Logic:
-        // FUKKM Categories: Short codes (e.g., A, B, C, A*) - Length usually <= 3
-        // Therapeutic Classes: Descriptive codes (e.g., ANTIBIOTICS) - Length > 3
-
-        const allCats = res.data
-        const therapeutic = allCats.filter(c => (c.category_code?.length || 0) > 3)
-        const fukkm = allCats.filter(c => (c.category_code?.length || 0) <= 3)
-
-        setCategories(fukkm)
-        setTherapeuticClasses(therapeutic)
+        setCategories(res.data)
       }
     }
     void loadCategories()
@@ -58,19 +38,18 @@ export const DrugInventoryPage: React.FC = () => {
 
   // Load drugs with filters
   const loadDrugs = useCallback(async () => {
-    if (!isSessionReady || !hospitalId) return
+    if (!hospitalId) return
 
     setIsLoading(true)
     setError(null)
 
-    const filter: DrugCatalogFilter = {
+    const filter: InventoryFilter = {
       search: search || undefined,
       category_id: categoryId || undefined,
-      therapeutic_class_id: therapeuticClassId || undefined,
-      status: status === 'all' ? undefined : (status as 'active' | 'inactive'),
+      status: status === 'all' ? undefined : status,
     }
 
-    const res = await getDrugs(hospitalId, filter as unknown as DrugCatalogFilter, page, pageSize)
+    const res = await getDrugs(hospitalId, filter, page, pageSize)
 
     if (res.error) {
       setError(res.error)
@@ -82,7 +61,7 @@ export const DrugInventoryPage: React.FC = () => {
     }
 
     setIsLoading(false)
-  }, [isSessionReady, hospitalId, search, categoryId, therapeuticClassId, status, page])
+  }, [hospitalId, search, categoryId, status, page])
 
   useEffect(() => {
     void loadDrugs()
@@ -91,18 +70,18 @@ export const DrugInventoryPage: React.FC = () => {
   // Reset page when filters change
   useEffect(() => {
     setPage(1)
-  }, [search, categoryId, therapeuticClassId, status])
+  }, [search, categoryId, status])
 
   const renderStatusBadge = (itemStatus: 'active' | 'inactive') => {
     return itemStatus === 'active' ? (
       <Badge variant="success">Active</Badge>
     ) : (
-      <Badge variant="gray">Inactive</Badge>
+      <Badge variant="secondary">Inactive</Badge>
     )
   }
 
   const renderStockBadge = (stockStatus?: string) => {
-    if (!stockStatus) return <Badge variant="gray">—</Badge>
+    if (!stockStatus) return <Badge variant="secondary">—</Badge>
     const map: Record<string, { color: 'success' | 'warning' | 'error' | 'secondary'; label: string }> = {
       in_stock: { color: 'success', label: 'In Stock' },
       low_stock: { color: 'warning', label: 'Low' },
@@ -110,13 +89,7 @@ export const DrugInventoryPage: React.FC = () => {
       out_of_stock: { color: 'secondary', label: 'Out' },
     }
     const cfg = map[stockStatus] || { color: 'secondary', label: stockStatus }
-    return <Badge variant={cfg.color as any}>{cfg.label}</Badge>
-  }
-
-  const handleDrugClick = (drug: DrugWithRelations) => {
-    console.log('Drug clicked:', drug.drug_name, drug.id)
-    setSelectedDrug(drug)
-    setIsDetailsModalOpen(true)
+    return <Badge variant={cfg.color}>{cfg.label}</Badge>
   }
 
   return (
@@ -148,22 +121,10 @@ export const DrugInventoryPage: React.FC = () => {
         </div>
 
         <div className="w-full md:w-48">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Category (FUKKM)</label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Category</label>
           <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
             <option value="">All Categories</option>
             {categories.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {cat.category_name}
-              </option>
-            ))}
-          </Select>
-        </div>
-
-        <div className="w-full md:w-48">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Therapeutic Class</label>
-          <Select value={therapeuticClassId} onChange={(e) => setTherapeuticClassId(e.target.value)}>
-            <option value="">All Classes</option>
-            {therapeuticClasses.map((cat) => (
               <option key={cat.id} value={cat.id}>
                 {cat.category_name}
               </option>
@@ -209,73 +170,64 @@ export const DrugInventoryPage: React.FC = () => {
         <>
           <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableCell as="th">Code</TableCell>
-                  <TableCell as="th">Drug Name</TableCell>
-                  <TableCell as="th">Generic</TableCell>
-                  <TableCell as="th">Form</TableCell>
-                  <TableCell as="th">Strength</TableCell>
-                  <TableCell as="th">Category (FUKKM)</TableCell>
-                  <TableCell as="th">Therapeutic Class</TableCell>
-                  <TableCell as="th" className="text-center">Controlled</TableCell>
-                  <TableCell as="th" className="text-center">Stock</TableCell>
-                  <TableCell as="th" className="text-center">Status</TableCell>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+              <Table.Head>
+                <Table.Row>
+                  <Table.Cell as="th">Code</Table.Cell>
+                  <Table.Cell as="th">Drug Name</Table.Cell>
+                  <Table.Cell as="th">Generic</Table.Cell>
+                  <Table.Cell as="th">Form</Table.Cell>
+                  <Table.Cell as="th">Strength</Table.Cell>
+                  <Table.Cell as="th">Category</Table.Cell>
+                  <Table.Cell as="th" className="text-center">Controlled</Table.Cell>
+                  <Table.Cell as="th" className="text-center">Stock</Table.Cell>
+                  <Table.Cell as="th" className="text-center">Status</Table.Cell>
+                </Table.Row>
+              </Table.Head>
+              <Table.Body>
                 {drugs.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={9} className="text-center text-sm text-gray-500 py-8">
+                  <Table.Row>
+                    <Table.Cell colSpan={9} className="text-center text-sm text-gray-500 py-8">
                       No drugs found matching your filters.
-                    </TableCell>
-                  </TableRow>
+                    </Table.Cell>
+                  </Table.Row>
                 )}
 
                 {drugs.map((drug) => (
-                  <TableRow key={drug.id}>
-                    <TableCell className="font-mono text-xs text-gray-700">
+                  <Table.Row key={drug.id}>
+                    <Table.Cell className="font-mono text-xs text-gray-700">
                       {drug.drug_code}
-                    </TableCell>
-                    <TableCell className="text-sm font-medium text-gray-900">
-                      <button
-                        onClick={() => handleDrugClick(drug)}
-                        className="text-teal-600 hover:text-teal-800 hover:underline text-left transition-colors duration-150"
-                      >
-                        {drug.drug_name}
-                      </button>
-                    </TableCell>
-                    <TableCell className="text-sm text-gray-600">
+                    </Table.Cell>
+                    <Table.Cell className="text-sm font-medium text-gray-900">
+                      {drug.drug_name}
+                    </Table.Cell>
+                    <Table.Cell className="text-sm text-gray-600">
                       {drug.generic_name || '—'}
-                    </TableCell>
-                    <TableCell className="text-xs uppercase text-gray-500">
+                    </Table.Cell>
+                    <Table.Cell className="text-xs uppercase text-gray-500">
                       {drug.dosage_form}
-                    </TableCell>
-                    <TableCell className="text-sm text-gray-600">
+                    </Table.Cell>
+                    <Table.Cell className="text-sm text-gray-600">
                       {drug.strength || '—'}
-                    </TableCell>
-                    <TableCell className="text-xs text-gray-500">
+                    </Table.Cell>
+                    <Table.Cell className="text-xs text-gray-500">
                       {drug.category?.category_name || '—'}
-                    </TableCell>
-                    <TableCell className="text-xs text-gray-500">
-                      {drug.therapeutic_class?.category_name || '—'}
-                    </TableCell>
-                    <TableCell className="text-center">
+                    </Table.Cell>
+                    <Table.Cell className="text-center">
                       {drug.is_controlled ? (
                         <Badge variant="error">Yes</Badge>
                       ) : (
                         <span className="text-gray-400 text-xs">No</span>
                       )}
-                    </TableCell>
-                    <TableCell className="text-center">
+                    </Table.Cell>
+                    <Table.Cell className="text-center">
                       {renderStockBadge(drug.stock_status)}
-                    </TableCell>
-                    <TableCell className="text-center">
+                    </Table.Cell>
+                    <Table.Cell className="text-center">
                       {renderStatusBadge(drug.status)}
-                    </TableCell>
-                  </TableRow>
+                    </Table.Cell>
+                  </Table.Row>
                 ))}
-              </TableBody>
+              </Table.Body>
             </Table>
           </div>
 
@@ -305,13 +257,6 @@ export const DrugInventoryPage: React.FC = () => {
           )}
         </>
       )}
-
-      {/* Item Details Modal */}
-      <DrugDetailsModal
-        isOpen={isDetailsModalOpen}
-        onClose={() => setIsDetailsModalOpen(false)}
-        drug={selectedDrug}
-      />
     </div>
   )
 }

@@ -8,12 +8,12 @@ type KpiCardProps = {
 
 export function KpiCard({ label, value, emphasisClassName }: KpiCardProps) {
   return (
-    <Card className="h-full flex flex-col min-h-[90px] xs:min-h-[100px] sm:min-h-[110px] md:min-h-[120px]">
-      <CardHeader className="flex-shrink-0 pb-1.5 xs:pb-2">
-        <CardTitle className="text-center text-[10px] xs:text-xs font-medium leading-tight truncate px-1">{label}</CardTitle>
+    <Card className="h-full flex flex-col min-h-[120px]">
+      <CardHeader className="flex-shrink-0 pb-2">
+        <CardTitle className="text-center text-xs font-medium leading-tight">{label}</CardTitle>
       </CardHeader>
       <CardContent className="flex-1 flex items-center justify-center pt-0">
-        <div className={`text-xl xs:text-2xl sm:text-2xl md:text-3xl font-bold tracking-tight leading-none ${emphasisClassName ?? 'text-slate-800'}`}>{value}</div>
+        <div className={`text-3xl font-bold tracking-tight leading-none ${emphasisClassName ?? 'text-slate-800'}`}>{value}</div>
       </CardContent>
     </Card>
   );

@@ -1,6 +1,4 @@
-import { supabase } from './supabase'
-import { OrderTrackingWithRelations } from '@/types/pharmacy/procurementNew'
-import { format } from 'date-fns'
+import { supabase, isSupabaseConfigured } from './supabase'
 
 /**
  * Send welcome email to new user with temporary password
@@ -13,6 +11,12 @@ export async function sendWelcomeEmail(
   temporaryPassword: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    if (!isSupabaseConfigured()) {
+      // In mock mode, just log
+      console.log(`[MOCK] Welcome email would be sent to ${email} for employee ${employeeId}`)
+      return { success: true }
+    }
+
     if (!email) {
       return {
         success: false,
@@ -24,7 +28,8 @@ export async function sendWelcomeEmail(
     // Note: This requires a custom email template or we use the Invite user function
     // For now, we'll use the invite function which sends an email with a password reset link
     // In production, you should configure a custom email template in Supabase that includes the password
-
+    
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
     const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
 
     if (!serviceRoleKey || serviceRoleKey === 'placeholder-service-key') {
@@ -32,6 +37,11 @@ export async function sendWelcomeEmail(
       const resetLink = `${window.location.origin}/reset-password`
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: resetLink,
+        data: {
+          employee_id: employeeId,
+          full_name: fullName,
+          email_type: 'welcome',
+        },
       })
 
       if (error) {
@@ -49,10 +59,16 @@ export async function sendWelcomeEmail(
     // Note: Supabase doesn't have a direct API to send custom emails with passwords
     // The best approach is to use a custom email template or send via Resend directly
     // For now, we'll send a password reset link and log that the password should be shared separately
-
+    
     const resetLink = `${window.location.origin}/reset-password`
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: resetLink,
+      data: {
+        employee_id: employeeId,
+        full_name: fullName,
+        email_type: 'welcome',
+        temporary_password: temporaryPassword, // This won't be in the email, but logged for admin
+      },
     })
 
     if (error) {
@@ -87,6 +103,11 @@ export async function sendPasswordResetEmail(
   email: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    if (!isSupabaseConfigured()) {
+      console.log(`[MOCK] Password reset email would be sent to ${email}`)
+      return { success: true }
+    }
+
     if (!email) {
       return {
         success: false,
@@ -95,7 +116,7 @@ export async function sendPasswordResetEmail(
     }
 
     const resetLink = `${window.location.origin}/reset-password`
-
+    
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: resetLink,
     })
@@ -110,55 +131,11 @@ export async function sendPasswordResetEmail(
 
     return { success: true }
   } catch (error) {
-    console.error('Error sending password reset email:', error)
+    console.error('Error in sendPasswordResetEmail:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error sending email',
     }
   }
-}
-
-/**
- * Generate Overdue Reminder Email
- */
-export function generateOverdueReminderEmail(trackingItem: OrderTrackingWithRelations) {
-  const lpoNumber = trackingItem.lpo?.lpo_number || 'N/A'
-  const supplierName = trackingItem.lpo?.purchase_order?.supplier?.company_name || 'Supplier'
-  const itemName = trackingItem.item_code // Or fetch name if available
-  const daysOverdue = trackingItem.days_overdue
-
-  const subject = `URGENT: Overdue Delivery Reminder - LPO ${lpoNumber}`
-
-  const body = `Dear ${supplierName},
-
-This is an automated reminder regarding the following overdue delivery:
-
-LPO Number: ${lpoNumber}
-Item Code: ${itemName}
-Expected Delivery Date: ${format(new Date(trackingItem.expected_delivery_date), 'dd/MM/yyyy')}
-Days Overdue: ${daysOverdue} days
-
-Please expedite this delivery immediately to avoid potential penalties.
-
-Regards,
-Pharmacy Department`
-
-  return { subject, body, to: '' } // 'to' would come from supplier email if we had it
-}
-
-/**
- * Open Gmail Composer with mailto link
- */
-export function openGmailComposer(emailData: { to: string, subject: string, body: string }) {
-  const params = new URLSearchParams({
-    view: 'cm',
-    fs: '1',
-    to: emailData.to,
-    su: emailData.subject,
-    body: emailData.body
-  })
-
-  // Open standard Gmail compose window
-  window.open(`https://mail.google.com/mail/?${params.toString()}`, '_blank')
 }
 

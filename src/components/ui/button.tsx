@@ -18,6 +18,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   variant?: ButtonVariant;
   size?: ButtonSize;
   loading?: boolean;
+  isLoading?: boolean;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
   asChild?: boolean;
@@ -88,6 +89,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     variant = "default", 
     size = "md",
     loading = false,
+    isLoading = false,
     leftIcon,
     rightIcon,
     children,
@@ -95,6 +97,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     asChild = false,
     ...props 
   }, ref) => {
+    const isAnyLoading = loading || isLoading;
     const spinnerSize = size === "xs" ? "xs" : size === "sm" ? "sm" : size === "lg" || size === "xl" ? "lg" : "md";
     
     const buttonClasses = `inline-flex items-center justify-center rounded-xl font-semibold transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:transform-none ${variantClasses[variant]} ${sizeClasses[size]} ${className}`;
@@ -110,14 +113,14 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <button
         ref={ref}
-        disabled={disabled || loading}
+        disabled={disabled || isAnyLoading}
         className={buttonClasses}
         {...props}
       >
-        {loading && <Spinner size={spinnerSize} />}
-        {!loading && leftIcon && <span className="inline-flex">{leftIcon}</span>}
+        {isAnyLoading && <Spinner size={spinnerSize} />}
+        {!isAnyLoading && leftIcon && <span className="inline-flex">{leftIcon}</span>}
         {children}
-        {!loading && rightIcon && <span className="inline-flex">{rightIcon}</span>}
+        {!isAnyLoading && rightIcon && <span className="inline-flex">{rightIcon}</span>}
       </button>
     );
   }
@@ -126,7 +129,6 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 Button.displayName = "Button";
 
 export default Button;
-
 
 
 

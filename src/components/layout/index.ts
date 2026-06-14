@@ -1,5 +1,4 @@
 export { MainLayout } from './MainLayout'
-export { Sidebar } from './Sidebar'
 export { Header } from './Header'
-
-
+export { Sidebar } from './Sidebar'
+export { HubLayout } from './HubLayout'

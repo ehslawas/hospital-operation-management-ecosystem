@@ -3,16 +3,19 @@
  * Handles financial management including APPL, CC/DP, and forecasting
  */
 
-import { supabase } from '../supabase'
-import type { ApiResponse } from '@/types'
+import { supabase, isSupabaseConfigured } from '../supabase'
+import type { ApiResponse, PaginatedResponse } from '@/types'
 import type {
   Budget,
+  BudgetWithRelations,
   BudgetTransaction,
   APPL,
+  APPLWithRelations,
   BudgetSummary,
   BudgetType,
   BudgetCategory,
 } from '@/types/pharmacy'
+import { mockBudgets } from './mockData'
 
 /**
  * Get all budgets for a hospital
@@ -23,26 +26,40 @@ export async function getBudgets(
   budgetType?: BudgetType
 ): Promise<ApiResponse<Budget[]>> {
   try {
-    let query = supabase
-      .from('pharmacy_budgets')
-      .select('*')
-      .eq('hospital_id', hospitalId)
+    if (isSupabaseConfigured()) {
+      let query = supabase
+        .from('pharmacy_budgets')
+        .select('*')
+        .eq('hospital_id', hospitalId)
+
+      if (fiscalYear) {
+        query = query.eq('fiscal_year', fiscalYear)
+      }
+
+      if (budgetType) {
+        query = query.eq('budget_type', budgetType)
+      }
+
+      const { data, error } = await query
+        .order('fiscal_year', { ascending: false })
+        .order('budget_type', { ascending: true })
+
+      if (error) throw error
+
+      return { data: (data || []) as Budget[], error: null }
+    }
+
+    let budgets = [...mockBudgets]
 
     if (fiscalYear) {
-      query = query.eq('fiscal_year', fiscalYear)
+      budgets = budgets.filter(b => b.fiscal_year === fiscalYear)
     }
 
     if (budgetType) {
-      query = query.eq('budget_type', budgetType)
+      budgets = budgets.filter(b => b.budget_type === budgetType)
     }
 
-    const { data, error } = await query
-      .order('fiscal_year', { ascending: false })
-      .order('budget_type', { ascending: true })
-
-    if (error) throw error
-
-    return { data: (data || []) as Budget[], error: null }
+    return { data: budgets, error: null }
   } catch (error) {
     console.error('Error fetching budgets:', error)
     return {
@@ -60,14 +77,20 @@ export async function getBudgetSummary(
   fiscalYear: number
 ): Promise<ApiResponse<BudgetSummary>> {
   try {
-    const { data, error } = await supabase
-      .from('pharmacy_budgets')
-      .select('*')
-      .eq('hospital_id', hospitalId)
-      .eq('fiscal_year', fiscalYear)
+    let budgets: Budget[]
 
-    if (error) throw error
-    const budgets = (data || []) as Budget[]
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('pharmacy_budgets')
+        .select('*')
+        .eq('hospital_id', hospitalId)
+        .eq('fiscal_year', fiscalYear)
+
+      if (error) throw error
+      budgets = (data || []) as Budget[]
+    } else {
+      budgets = mockBudgets.filter(b => b.fiscal_year === fiscalYear)
+    }
 
     const totalAllocated = budgets.reduce((sum, b) => sum + b.allocated_amount, 0)
     const totalUtilized = budgets.reduce((sum, b) => sum + b.utilized_amount, 0)
@@ -141,26 +164,47 @@ export async function createBudgetAllocation(
   }
 ): Promise<ApiResponse<Budget>> {
   try {
-    const { data: inserted, error } = await supabase
-      .from('pharmacy_budgets')
-      .insert({
-        hospital_id: hospitalId,
-        fiscal_year: data.fiscal_year,
-        budget_type: data.budget_type,
-        category: data.category,
-        allocated_amount: data.allocated_amount,
-        utilized_amount: 0,
-        committed_amount: 0,
-        available_amount: data.allocated_amount,
-        created_by: userId,
-        status: 'active',
-      })
-      .select('*')
-      .single()
+    if (isSupabaseConfigured()) {
+      const { data: inserted, error } = await supabase
+        .from('pharmacy_budgets')
+        .insert({
+          hospital_id: hospitalId,
+          fiscal_year: data.fiscal_year,
+          budget_type: data.budget_type,
+          category: data.category,
+          allocated_amount: data.allocated_amount,
+          utilized_amount: 0,
+          committed_amount: 0,
+          available_amount: data.allocated_amount,
+          created_by: userId,
+          status: 'active',
+        })
+        .select('*')
+        .single()
 
-    if (error) throw error
+      if (error) throw error
 
-    return { data: inserted as Budget, error: null }
+      return { data: inserted as Budget, error: null }
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 500))
+
+    const newBudget: Budget = {
+      id: `bud-${Date.now()}`,
+      hospital_id: hospitalId,
+      fiscal_year: data.fiscal_year,
+      budget_type: data.budget_type,
+      category: data.category,
+      allocated_amount: data.allocated_amount,
+      utilized_amount: 0,
+      committed_amount: 0,
+      available_amount: data.allocated_amount,
+      created_by: userId,
+      status: 'active',
+      created_at: new Date().toISOString(),
+    }
+
+    return { data: newBudget, error: null }
   } catch (error) {
     console.error('Error creating budget allocation:', error)
     return {
@@ -185,23 +229,41 @@ export async function recordBudgetTransaction(
   }
 ): Promise<ApiResponse<BudgetTransaction>> {
   try {
-    const { data: inserted, error } = await supabase
-      .from('pharmacy_budget_transactions')
-      .insert({
-        budget_id: budgetId,
-        transaction_type: data.transaction_type,
-        amount: data.amount,
-        reference_type: data.reference_type,
-        reference_id: data.reference_id,
-        description: data.description,
-        performed_by: userId,
-      })
-      .select('*')
-      .single()
+    if (isSupabaseConfigured()) {
+      const { data: inserted, error } = await supabase
+        .from('pharmacy_budget_transactions')
+        .insert({
+          budget_id: budgetId,
+          transaction_type: data.transaction_type,
+          amount: data.amount,
+          reference_type: data.reference_type,
+          reference_id: data.reference_id,
+          description: data.description,
+          performed_by: userId,
+        })
+        .select('*')
+        .single()
 
-    if (error) throw error
+      if (error) throw error
 
-    return { data: inserted as BudgetTransaction, error: null }
+      return { data: inserted as BudgetTransaction, error: null }
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 500))
+
+    const transaction: BudgetTransaction = {
+      id: `bt-${Date.now()}`,
+      budget_id: budgetId,
+      transaction_type: data.transaction_type,
+      amount: data.amount,
+      reference_type: data.reference_type,
+      reference_id: data.reference_id,
+      description: data.description,
+      performed_by: userId,
+      created_at: new Date().toISOString(),
+    }
+
+    return { data: transaction, error: null }
   } catch (error) {
     console.error('Error recording budget transaction:', error)
     return {
@@ -224,26 +286,31 @@ export async function getAPPLApplications(
   status?: string
 ): Promise<ApiResponse<APPL[]>> {
   try {
-    let query = supabase
-      .from('pharmacy_appl')
-      .select('*')
-      .eq('hospital_id', hospitalId)
+    if (isSupabaseConfigured()) {
+      let query = supabase
+        .from('pharmacy_appl')
+        .select('*')
+        .eq('hospital_id', hospitalId)
 
-    if (fiscalYear) {
-      query = query.eq('fiscal_year', fiscalYear)
+      if (fiscalYear) {
+        query = query.eq('fiscal_year', fiscalYear)
+      }
+
+      if (status) {
+        query = query.eq('status', status)
+      }
+
+      const { data, error } = await query
+        .order('fiscal_year', { ascending: false })
+        .order('appl_number', { ascending: true })
+
+      if (error) throw error
+
+      return { data: (data || []) as APPL[], error: null }
     }
 
-    if (status) {
-      query = query.eq('status', status)
-    }
-
-    const { data, error } = await query
-      .order('fiscal_year', { ascending: false })
-      .order('appl_number', { ascending: true })
-
-    if (error) throw error
-
-    return { data: (data || []) as APPL[], error: null }
+    // Fallback: no APPL rows when Supabase is not configured
+    return { data: [], error: null }
   } catch (error) {
     console.error('Error fetching APPL applications:', error)
     return {
@@ -258,7 +325,7 @@ export async function getAPPLApplications(
  */
 export async function createAPPLApplication(
   hospitalId: string,
-  _userId: string,
+  userId: string,
   data: {
     fiscal_year: number
     amount_requested: number
@@ -267,27 +334,45 @@ export async function createAPPLApplication(
   }
 ): Promise<ApiResponse<APPL>> {
   try {
-    const now = new Date()
-    const applNumber = `APPL-${data.fiscal_year}-${String(Date.now()).slice(-3)}`
+    if (isSupabaseConfigured()) {
+      const now = new Date()
+      const applNumber = `APPL-${data.fiscal_year}-${String(Date.now()).slice(-3)}`
 
-    const { data: inserted, error } = await supabase
-      .from('pharmacy_appl')
-      .insert({
-        hospital_id: hospitalId,
-        appl_number: applNumber,
-        fiscal_year: data.fiscal_year,
-        amount_requested: data.amount_requested,
-        purpose: data.purpose,
-        justification: data.justification,
-        status: 'draft',
-        created_at: now.toISOString(),
-      })
-      .select('*')
-      .single()
+      const { data: inserted, error } = await supabase
+        .from('pharmacy_appl')
+        .insert({
+          hospital_id: hospitalId,
+          appl_number: applNumber,
+          fiscal_year: data.fiscal_year,
+          amount_requested: data.amount_requested,
+          purpose: data.purpose,
+          justification: data.justification,
+          status: 'draft',
+          created_at: now.toISOString(),
+        })
+        .select('*')
+        .single()
 
-    if (error) throw error
+      if (error) throw error
 
-    return { data: inserted as APPL, error: null }
+      return { data: inserted as APPL, error: null }
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 500))
+
+    const newAPPL: APPL = {
+      id: `appl-${Date.now()}`,
+      hospital_id: hospitalId,
+      appl_number: `APPL-${data.fiscal_year}-${String(Date.now()).slice(-3)}`,
+      fiscal_year: data.fiscal_year,
+      amount_requested: data.amount_requested,
+      purpose: data.purpose,
+      justification: data.justification,
+      status: 'draft',
+      created_at: new Date().toISOString(),
+    }
+
+    return { data: newAPPL, error: null }
   } catch (error) {
     console.error('Error creating APPL application:', error)
     return {
@@ -302,25 +387,45 @@ export async function createAPPLApplication(
  */
 export async function submitAPPLApplication(
   applId: string,
-  _userId: string
+  userId: string
 ): Promise<ApiResponse<APPL>> {
   try {
-    const now = new Date().toISOString()
+    if (isSupabaseConfigured()) {
+      const now = new Date().toISOString()
 
-    const { data, error } = await supabase
-      .from('pharmacy_appl')
-      .update({
+      const { data, error } = await supabase
+        .from('pharmacy_appl')
+        .update({
+          status: 'submitted',
+          submitted_by: userId,
+          submitted_at: now,
+        })
+        .eq('id', applId)
+        .select('*')
+        .single()
+
+      if (error) throw error
+
+      return { data: data as APPL, error: null }
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 500))
+
+    return {
+      data: {
+        id: applId,
+        hospital_id: 'mock-hospital',
+        appl_number: 'APPL-MOCK',
+        fiscal_year: new Date().getFullYear(),
+        amount_requested: 0,
+        purpose: 'Mock',
         status: 'submitted',
-        submitted_by: _userId,
-        submitted_at: now,
-      })
-      .eq('id', applId)
-      .select('*')
-      .single()
-
-    if (error) throw error
-
-    return { data: data as APPL, error: null }
+        submitted_by: userId,
+        submitted_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+      } as APPL,
+      error: null,
+    }
   } catch (error) {
     console.error('Error submitting APPL application:', error)
     return {
@@ -334,8 +439,8 @@ export async function submitAPPLApplication(
  * Get budget forecast
  */
 export async function getBudgetForecast(
-  _hospitalId: string,
-  _fiscalYear: number
+  hospitalId: string,
+  fiscalYear: number
 ): Promise<ApiResponse<{
   monthly_forecast: { month: string; projected: number; actual: number }[]
   quarterly_forecast: { quarter: string; projected: number; actual: number }[]

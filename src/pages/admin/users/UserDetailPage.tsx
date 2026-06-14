@@ -17,15 +17,11 @@ import {
   CheckCircle,
   XCircle,
   AlertTriangle,
-  Trash2,
-  RotateCcw
 } from 'lucide-react'
-import { Button, Badge, Avatar, LoadingOverlay, ConfirmationDialog } from '@/components/ui'
-import { AdminPageLayout } from '@/components/admin'
+import { Button, Badge, Avatar, LoadingOverlay, Modal } from '@/components/ui'
 import { getUserById, deleteUser, updateUser } from '@/services/userService'
-import { useToastStore } from '@/stores/toastStore'
-import { useAuthStore } from '@/stores/authStore'
-import { ROUTES, USER_STATUS, SYSTEM_ROLES } from '@/lib/constants'
+import { useToast } from '@/stores/toastStore'
+import { ROUTES, USER_STATUS } from '@/lib/constants'
 import { formatDate, cn } from '@/lib/utils'
 import { UserForm } from '@/components/forms'
 import type { UserWithRelations } from '@/types'
@@ -33,29 +29,11 @@ import type { UserWithRelations } from '@/types'
 export const UserDetailPage: React.FC = () => {
   const { userId } = useParams<{ userId: string }>()
   const navigate = useNavigate()
-  const { error: showError, success: showSuccess } = useToastStore()
-  const { user: currentUser } = useAuthStore()
-
+  const toast = useToast()
   const [user, setUser] = useState<UserWithRelations | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isEditMode, setIsEditMode] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
-
-  // Confirmation State
-  const [confirmConfig, setConfirmConfig] = useState<{
-    isOpen: boolean
-    title: string
-    message: string
-    onConfirm: () => Promise<void>
-    variant: 'danger' | 'warning' | 'info' | 'success'
-    confirmText?: string
-  }>({
-    isOpen: false,
-    title: '',
-    message: '',
-    onConfirm: async () => { },
-    variant: 'danger'
-  })
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
 
   useEffect(() => {
     if (userId && userId !== 'new') {
@@ -72,18 +50,9 @@ export const UserDetailPage: React.FC = () => {
     setIsLoading(true)
     try {
       const userData = await getUserById(userId)
-
-      // CRITICAL: Protect System Admin Identity
-      const isHospitalAdmin = currentUser?.role?.role_code === SYSTEM_ROLES.HOSPITAL_ADMIN
-      if (userData?.role?.role_code === SYSTEM_ROLES.SYSTEM_ADMIN && isHospitalAdmin) {
-        showError('Permission Denied', 'You do not have permission to view this user.')
-        navigate(ROUTES.ADMIN_USERS)
-        return
-      }
-
       setUser(userData)
     } catch (error) {
-      showError('Error', 'Failed to load user details')
+      toast.error('Error', 'Failed to load user details')
       navigate(ROUTES.ADMIN_USERS)
     } finally {
       setIsLoading(false)
@@ -92,39 +61,90 @@ export const UserDetailPage: React.FC = () => {
 
   const handleDelete = async () => {
     if (!user) return
-    setIsDeleting(true)
+
     try {
       await deleteUser(user.id)
-      showSuccess('Success', 'User deleted successfully')
+      toast.success('Success', 'User deleted successfully')
       navigate(ROUTES.ADMIN_USERS)
     } catch (error) {
-      showError('Error', 'Failed to delete user')
+      toast.error('Error', 'Failed to delete user')
     } finally {
-      setIsDeleting(false)
-      setConfirmConfig(prev => ({ ...prev, isOpen: false }))
+      setShowDeleteModal(false)
     }
-  }
-
-  const confirmDelete = () => {
-    setConfirmConfig({
-      isOpen: true,
-      title: 'Delete User',
-      message: `Are you sure you want to delete ${user?.full_name}? This action cannot be undone.`,
-      variant: 'danger',
-      confirmText: 'Delete User',
-      onConfirm: handleDelete
-    })
   }
 
   const handleStatusChange = async (newStatus: string) => {
     if (!user) return
+
     try {
       const updatedUser = await updateUser(user.id, { status: newStatus as UserWithRelations['status'] })
-      setUser(prev => prev ? { ...prev, status: updatedUser.status } : null) // Optimistic update or set from response
-      showSuccess('Success', `User status updated to ${newStatus}`)
+      setUser(updatedUser)
+      toast.success('Success', `User status updated to ${newStatus}`)
     } catch (error) {
-      showError('Error', 'Failed to update user status')
+      toast.error('Error', 'Failed to update user status')
     }
+  }
+
+  if (isLoading) {
+    return <LoadingOverlay fullScreen message="Loading user details..." />
+  }
+
+  if (isEditMode || userId === 'new') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                if (userId === 'new') {
+                  navigate(ROUTES.ADMIN_USERS)
+                } else {
+                  setIsEditMode(false)
+                  fetchUser()
+                }
+              }}
+              leftIcon={<ArrowLeft className="w-5 h-5" />}
+            >
+              Back
+            </Button>
+            <h1 className="text-2xl font-bold text-slate-900">
+              {userId === 'new' ? 'Create New User' : 'Edit User'}
+            </h1>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <UserForm
+            user={user || undefined}
+            onSuccess={() => {
+              if (userId === 'new') {
+                navigate(ROUTES.ADMIN_USERS)
+              } else {
+                setIsEditMode(false)
+                fetchUser()
+              }
+            }}
+            onCancel={() => {
+              if (userId === 'new') {
+                navigate(ROUTES.ADMIN_USERS)
+              } else {
+                setIsEditMode(false)
+                fetchUser()
+              }
+            }}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-slate-600">User not found</p>
+      </div>
+    )
   }
 
   const statusColors = {
@@ -134,130 +154,83 @@ export const UserDetailPage: React.FC = () => {
     pending: 'warning',
   } as const
 
-  if (isLoading) {
-    return <LoadingOverlay fullScreen message="Loading user details..." />
-  }
-
-  if ((!user && userId !== 'new') || (!isEditMode && !user)) {
-    return (
-      <AdminPageLayout
-        title="User Not Found"
-        description="The requested user could not be found."
-        icon={User}
-        breadcrumbs={[{ label: 'Users', href: ROUTES.ADMIN_USERS }, { label: 'Not Found' }]}
-      >
-        <div className="flex flex-col items-center justify-center py-12">
-          <User className="w-16 h-16 text-slate-300 mb-4" />
-          <h2 className="text-xl font-semibold text-slate-900">User Not Found</h2>
-          <p className="text-slate-500 mt-2 mb-6">The user you are looking for does not exist or has been deleted.</p>
-          <Button onClick={() => navigate(ROUTES.ADMIN_USERS)} leftIcon={<ArrowLeft className="w-4 h-4" />}>
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            onClick={() => navigate(ROUTES.ADMIN_USERS)}
+            leftIcon={<ArrowLeft className="w-5 h-5" />}
+          >
             Back to Users
           </Button>
+          <h1 className="text-2xl font-bold text-slate-900">User Details</h1>
         </div>
-      </AdminPageLayout>
-    )
-  }
-
-  // EDIT MODE
-  if (isEditMode) {
-    return (
-      <AdminPageLayout
-        title={userId === 'new' ? 'Create New User' : 'Edit User'}
-        description={userId === 'new' ? 'Add a new user to the system' : `Editing profile for ${user?.full_name}`}
-        icon={userId === 'new' ? User : Edit}
-        breadcrumbs={[
-          { label: 'Users', href: ROUTES.ADMIN_USERS },
-          { label: userId === 'new' ? 'New User' : user?.full_name || 'Edit User' }
-        ]}
-      >
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 md:p-8">
-            <UserForm
-              key={user?.updated_at ? new Date(user.updated_at).getTime() : 'new'}
-              user={user || undefined}
-              onSuccess={() => {
-                if (userId === 'new') {
-                  navigate(ROUTES.ADMIN_USERS)
-                } else {
-                  setIsEditMode(false)
-                  fetchUser()
-                }
-              }}
-              onCancel={() => {
-                if (userId === 'new') {
-                  navigate(ROUTES.ADMIN_USERS)
-                } else {
-                  setIsEditMode(false)
-                }
-              }}
-            />
-          </div>
-        </div>
-      </AdminPageLayout>
-    )
-  }
-
-  // VIEW MODE
-  return (
-    <AdminPageLayout
-      title="User Details"
-      description={`View details for ${user?.full_name}`}
-      icon={User}
-      breadcrumbs={[{ label: 'Users', href: ROUTES.ADMIN_USERS }, { label: user?.full_name || 'Details' }]}
-      actions={
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
             onClick={() => setIsEditMode(true)}
-            leftIcon={<Edit className="w-4 h-4" />}
+            leftIcon={<Edit className="w-5 h-5" />}
           >
             Edit User
           </Button>
           <Button
-            variant="destructive"
-            onClick={confirmDelete}
-            leftIcon={<Trash2 className="w-4 h-4" />}
+            variant="danger"
+            onClick={() => setShowDeleteModal(true)}
           >
             Delete User
           </Button>
         </div>
-      }
-    >
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Info Card */}
         <div className="lg:col-span-2 space-y-6">
           {/* Profile Card */}
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 relative overflow-hidden"
+            className="bg-white rounded-xl border border-slate-200 shadow-sm p-6"
           >
-            {/* Decorative Background */}
-            <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-indigo-500 to-purple-600 opacity-10" />
-
-            <div className="relative flex items-start gap-6 pt-4">
+            <div className="flex items-start gap-6">
               <Avatar
-                src={user?.profile_photo_url}
-                name={user?.full_name}
+                src={user.profile_photo_url}
+                alt={user.full_name}
+                fallback={user.full_name.charAt(0)}
                 size="xl"
-                className="ring-4 ring-white shadow-lg"
               />
-              <div className="flex-1 min-w-0 pt-2">
-                <div className="flex items-center gap-3 mb-1">
-                  <h2 className="text-2xl font-bold text-slate-900 truncate">{user?.full_name}</h2>
-                  <Badge variant={statusColors[user?.status || 'inactive']}>
-                    {user?.status ? user.status.charAt(0).toUpperCase() + user.status.slice(1) : 'Unknown'}
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <h2 className="text-2xl font-bold text-slate-900">{user.full_name}</h2>
+                  <Badge variant={statusColors[user.status]}>
+                    {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
                   </Badge>
                 </div>
-                <p className="text-slate-500 font-medium mb-4 flex items-center gap-2">
-                  <Mail className="w-4 h-4" /> {user?.email}
-                </p>
+                <p className="text-slate-600 mb-4">{user.email}</p>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-8 mt-6 pt-6 border-t border-slate-100">
-                  <InfoItem icon={Hash} label="Employee ID" value={user?.employee_id} mono />
-                  <InfoItem icon={Shield} label="Role" value={user?.role?.role_name} />
-                  <InfoItem icon={Building2} label="Hospital" value={user?.hospital?.hospital_name} />
-                  <InfoItem icon={Briefcase} label="Department" value={user?.department?.department_name} highlight />
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Hash className="w-4 h-4 text-slate-400" />
+                    <span className="text-slate-600">Employee ID:</span>
+                    <span className="font-mono font-semibold text-slate-900">{user.employee_id}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Shield className="w-4 h-4 text-slate-400" />
+                    <span className="text-slate-600">Role:</span>
+                    <span className="font-semibold text-slate-900">{user.role?.role_name || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Building2 className="w-4 h-4 text-slate-400" />
+                    <span className="text-slate-600">Hospital:</span>
+                    <span className="font-semibold text-slate-900">{user.hospital?.hospital_name || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Briefcase className="w-4 h-4 text-slate-400" />
+                    <span className="text-slate-600">Department:</span>
+                    <span className="font-semibold text-slate-900">{user.department?.department_name || 'N/A'}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -265,35 +238,35 @@ export const UserDetailPage: React.FC = () => {
 
           {/* Personal Information */}
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
             className="bg-white rounded-xl border border-slate-200 shadow-sm p-6"
           >
-            <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2 border-b border-slate-100 pb-3">
-              <User className="w-5 h-5 text-indigo-600" />
+            <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+              <User className="w-5 h-5" />
               Personal Information
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <InfoItem icon={Hash} label="IC Number" value={user?.ic_number} mono />
-              <InfoItem icon={Phone} label="Phone" value={user?.phone_number} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <InfoItem icon={Hash} label="IC Number" value={user.ic_number} />
+              <InfoItem icon={Phone} label="Phone" value={user.phone_number || 'N/A'} />
               <InfoItem
                 icon={Calendar}
                 label="Date of Birth"
-                value={user?.date_of_birth ? formatDate(user.date_of_birth) : undefined}
+                value={user.date_of_birth ? formatDate(user.date_of_birth) : 'N/A'}
               />
               <InfoItem
                 icon={User}
                 label="Gender"
-                value={user?.gender ? user.gender.charAt(0).toUpperCase() + user.gender.slice(1) : undefined}
+                value={user.gender ? user.gender.charAt(0).toUpperCase() + user.gender.slice(1) : 'N/A'}
               />
               <InfoItem
                 icon={MapPin}
                 label="Address"
-                value={user?.address}
+                value={user.address || 'N/A'}
                 fullWidth
               />
-              <InfoItem icon={Briefcase} label="Position (Jawatan)" value={user?.jawatan} fullWidth />
+              <InfoItem icon={Briefcase} label="Position" value={user.jawatan} />
             </div>
           </motion.div>
         </div>
@@ -302,27 +275,25 @@ export const UserDetailPage: React.FC = () => {
         <div className="space-y-6">
           {/* Status Card */}
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
             className="bg-white rounded-xl border border-slate-200 shadow-sm p-6"
           >
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4">Status & Access</h3>
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">Status Management</h3>
             <div className="space-y-2">
-              {Object.entries(USER_STATUS).map(([, value]) => (
+              {Object.entries(USER_STATUS).map(([key, value]) => (
                 <button
                   key={value}
                   onClick={() => handleStatusChange(value)}
-                  disabled={user?.status === value}
                   className={cn(
-                    'w-full text-left px-4 py-3 rounded-lg border transition-all flex items-center justify-between group',
-                    user?.status === value
-                      ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-semibold shadow-sm'
-                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300'
+                    'w-full text-left px-4 py-2 rounded-lg border transition-colors',
+                    user.status === value
+                      ? 'bg-teal-50 border-teal-300 text-teal-900 font-semibold'
+                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                   )}
                 >
-                  <span className="capitalize">{value}</span>
-                  {user?.status === value && <CheckCircle className="w-4 h-4 text-indigo-600" />}
+                  {value.charAt(0).toUpperCase() + value.slice(1)}
                 </button>
               ))}
             </div>
@@ -330,49 +301,47 @@ export const UserDetailPage: React.FC = () => {
 
           {/* Account Information */}
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
             className="bg-white rounded-xl border border-slate-200 shadow-sm p-6"
           >
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4">Account Activity</h3>
-            <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">Account Information</h3>
+            <div className="space-y-3">
               <InfoItem
                 icon={Clock}
-                label="Created At"
-                value={user?.created_at ? formatDate(user.created_at) : undefined}
+                label="Created"
+                value={formatDate(user.created_at)}
                 small
               />
               <InfoItem
-                icon={RotateCcw}
+                icon={Clock}
                 label="Last Updated"
-                value={user?.updated_at ? formatDate(user.updated_at) : undefined}
+                value={user.updated_at ? formatDate(user.updated_at) : 'Never'}
                 small
               />
               <InfoItem
-                icon={User}
+                icon={Clock}
                 label="Last Login"
-                value={user?.last_login ? formatDate(user.last_login) : 'Never'}
+                value={user.last_login ? formatDate(user.last_login) : 'Never'}
                 small
               />
-
-              {(user?.failed_login_attempts || 0) > 0 && (
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg mt-2">
+              {user.failed_login_attempts > 0 && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                   <div className="flex items-center gap-2 text-amber-800">
                     <AlertTriangle className="w-4 h-4" />
-                    <span className="text-xs font-semibold">
-                      {user?.failed_login_attempts} failed login attempt(s)
+                    <span className="text-sm font-medium">
+                      {user.failed_login_attempts} failed login attempt(s)
                     </span>
                   </div>
                 </div>
               )}
-
-              {user?.account_locked_until && (
-                <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg">
-                  <div className="flex items-center gap-2 text-rose-800">
+              {user.account_locked_until && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-red-800">
                     <XCircle className="w-4 h-4" />
-                    <span className="text-xs font-semibold">
-                      Locked until {formatDate(user.account_locked_until)}
+                    <span className="text-sm font-medium">
+                      Account locked until {formatDate(user.account_locked_until)}
                     </span>
                   </div>
                 </div>
@@ -382,49 +351,49 @@ export const UserDetailPage: React.FC = () => {
         </div>
       </div>
 
-      <ConfirmationDialog
-        isOpen={confirmConfig.isOpen}
-        onClose={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
-        onConfirm={confirmConfig.onConfirm}
-        title={confirmConfig.title}
-        message={confirmConfig.message}
-        variant={confirmConfig.variant}
-        confirmText={confirmConfig.confirmText}
-        isLoading={isDeleting}
-      />
-    </AdminPageLayout>
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title="Delete User"
+      >
+        <div className="space-y-4">
+          <p className="text-slate-700">
+            Are you sure you want to delete <strong>{user.full_name}</strong>? This action cannot be undone.
+          </p>
+          <div className="flex items-center justify-end gap-3">
+            <Button variant="outline" onClick={() => setShowDeleteModal(false)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleDelete}>
+              Delete User
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    </div>
   )
 }
 
 interface InfoItemProps {
   icon: React.ElementType
   label: string
-  value?: string | null
+  value: string
   fullWidth?: boolean
   small?: boolean
-  mono?: boolean
-  highlight?: boolean
 }
 
-const InfoItem: React.FC<InfoItemProps> = ({ icon: Icon, label, value, fullWidth, small, mono, highlight }) => (
+const InfoItem: React.FC<InfoItemProps> = ({ icon: Icon, label, value, fullWidth, small }) => (
   <div className={cn('flex items-start gap-3', fullWidth && 'md:col-span-2')}>
-    <div className={cn(
-      "flex-shrink-0 rounded-lg flex items-center justify-center",
-      highlight ? "text-indigo-600 bg-indigo-50 p-1.5" : "text-slate-400 mt-0.5"
-    )}>
-      <Icon className={cn(small ? 'w-4 h-4' : 'w-5 h-5')} />
-    </div>
+    <Icon className={cn('text-slate-400 flex-shrink-0 mt-0.5', small ? 'w-4 h-4' : 'w-5 h-5')} />
     <div className="flex-1 min-w-0">
-      <p className={cn('text-slate-500 font-medium', small ? 'text-xs' : 'text-xs uppercase tracking-wide mb-0.5')}>{label}</p>
-      <p className={cn(
-        'text-slate-900 truncate',
-        small ? 'text-sm' : 'text-base font-medium',
-        mono && 'font-mono'
-      )}>
-        {value || 'N/A'}
+      <p className={cn('text-slate-500', small ? 'text-xs' : 'text-sm')}>{label}</p>
+      <p className={cn('font-semibold text-slate-900 mt-0.5', small ? 'text-sm' : 'text-base')}>
+        {value}
       </p>
     </div>
   </div>
 )
 
 export default UserDetailPage
+

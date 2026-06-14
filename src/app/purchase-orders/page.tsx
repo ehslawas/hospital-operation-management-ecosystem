@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { IconArrowLeft, IconPlus, IconSearch, IconFilter, IconEye, IconEdit, IconTrash, IconCheck, IconX, IconClock, IconTruck, IconMoney, IconCreditCard, IconReceipt } from '@/components/ui/Icons';
+import { IconArrowLeft, IconPlus, IconSearch, IconFilter, IconEye, IconEdit, IconTrash, IconCheck, IconX, IconClock, IconTruck, IconMoney, IconCreditCard, IconReceipt, IconShoppingCart, IconFileSearch, IconFilePen } from '@/components/ui/Icons';
 
 interface PurchaseOrder {
   id: string;
@@ -64,6 +64,7 @@ export default function PurchaseOrdersPage() {
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+  const [activeTab, setActiveTab] = useState<'PO' | 'SQ'>('PO');
 
   // Mock item catalog data
   const itemCatalog = [
@@ -674,364 +675,359 @@ export default function PurchaseOrdersPage() {
   if (!isClient) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/30 relative overflow-hidden">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 opacity-30">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `radial-gradient(circle at 1px 1px, rgb(241 245 249) 1px, transparent 0)`,
-          backgroundSize: '20px 20px'
-        }}></div>
+    <div className="min-h-screen bg-[#f8fafc] relative overflow-hidden font-sans">
+      {/* Premium Background Elements */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-500/5 blur-[120px] animate-pulse"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-500/5 blur-[120px] animate-pulse" style={{ animationDelay: '2s' }}></div>
       </div>
-      <div className="relative p-4 space-y-4">
-        {/* Header */}
-        <div className="relative overflow-hidden group">
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/8 via-indigo-600/8 to-purple-600/8 rounded-3xl group-hover:from-blue-600/12 group-hover:via-indigo-600/12 group-hover:to-purple-600/12 transition-all duration-500"></div>
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-transparent to-purple-500/5 rounded-3xl"></div>
-          <div className="relative bg-white/90 backdrop-blur-md rounded-2xl p-4 border border-white/70 shadow-xl group-hover:shadow-2xl transition-all duration-500">
-      <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Link
-                  href="/procurement"
-                  className="p-3 text-slate-600 hover:text-slate-800 hover:bg-slate-100/80 rounded-xl transition-all duration-300 hover:scale-110 hover:shadow-lg group/back"
-                >
-                  <IconArrowLeft className="h-6 w-6 group-hover/back:-translate-x-1 transition-transform duration-300" />
-                </Link>
-                <div>
-                  <h1 className="text-3xl font-extrabold bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 bg-clip-text text-transparent leading-tight">
-                    Purchase Orders
-                  </h1>
-                  <p className="text-slate-600 text-sm mt-1 font-medium">Manage and track purchase orders for pharmaceutical and medical supplies</p>
-                  <div className="flex items-center gap-4 mt-4">
-                    <div className="flex items-center gap-2 text-sm text-slate-500">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      <span>Live Dashboard</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-slate-500">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <span>Real-time Updates</span>
-                    </div>
-                  </div>
-                </div>
+
+      <div className="relative max-w-[1600px] mx-auto p-6 space-y-8">
+        {/* Breadcrumbs & Header */}
+        <div className="space-y-6">
+          <nav className="flex items-center gap-2 text-xs font-bold tracking-widest text-slate-400 uppercase">
+            <Link href="/financial" className="hover:text-blue-600 transition-colors">Financial</Link>
+            <span>/</span>
+            <Link href="/procurement" className="hover:text-blue-600 transition-colors">Procurement</Link>
+            <span>/</span>
+            <span className="text-slate-900">Purchase Orders</span>
+          </nav>
+
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="flex items-center gap-5">
+              <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-200 ring-4 ring-blue-50">
+                <IconShoppingCart className="h-8 w-8 text-white" />
               </div>
-              <div className="hidden lg:flex items-center gap-3">
-                <div className="text-right">
-                  <div className="text-xl font-extrabold text-slate-800">{purchaseOrders.length}</div>
-                  <div className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Total Orders</div>
+              <div>
+                <h1 className="text-4xl font-black text-slate-900 tracking-tight">
+                  Purchase Orders
+                </h1>
+                <p className="text-slate-500 font-medium mt-1">
+                  Manage purchase orders for drugs and non-drug items with real-time tracking.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button className="px-5 py-2.5 bg-white/80 backdrop-blur-md border border-slate-200 rounded-xl text-slate-600 font-bold text-sm shadow-sm hover:bg-white hover:border-blue-400 hover:text-blue-600 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 flex items-center gap-2 group">
+                <IconFileSearch className="h-4 w-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                Create SQ
+              </button>
+              <button className="px-5 py-2.5 bg-white/80 backdrop-blur-md border border-slate-200 rounded-xl text-slate-600 font-bold text-sm shadow-sm hover:bg-white hover:border-blue-400 hover:text-blue-600 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 flex items-center gap-2 group">
+                <IconFilePen className="h-4 w-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                Manual PO
+              </button>
+              <button 
+                onClick={department === 'Office Admin' ? undefined : () => setShowCreateModal(true)}
+                className="px-6 py-2.5 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl text-white font-black text-sm shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-0.5 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 flex items-center gap-2 relative overflow-hidden group"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none"></div>
+                <IconPlus className="h-5 w-5" />
+                New PO
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* KPI Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Total POs */}
+          <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm relative overflow-hidden group hover:shadow-xl hover:border-blue-100 transition-all duration-500">
+            <div className="absolute top-0 right-0 p-4">
+              <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-black uppercase tracking-wider rounded-full">Yearly</span>
+            </div>
+            <div className="space-y-4">
+              <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                <IconReceipt className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <div className="text-3xl font-black text-slate-900">{purchaseOrders.length}</div>
+                <div className="text-sm font-bold text-slate-400 mt-1 uppercase tracking-wider">Total Purchase Orders</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Total Value */}
+          <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm relative overflow-hidden group hover:shadow-xl hover:border-emerald-100 transition-all duration-500">
+            <div className="absolute top-0 right-0 p-4">
+              <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-wider rounded-full">Accumulated</span>
+            </div>
+            <div className="space-y-4">
+              <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                <IconMoney className="h-6 w-6 text-emerald-600" />
+              </div>
+              <div>
+                <div className="text-3xl font-black text-slate-900">
+                  RM {(purchaseOrders.reduce((acc, po) => acc + po.totalAmount, 0) / 1000000).toFixed(2)}M
                 </div>
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl group-hover:scale-105 transition-all duration-300">
-                  <IconReceipt className="h-6 w-6 text-white" />
+                <div className="text-sm font-bold text-slate-400 mt-1 uppercase tracking-wider">Total Order Value</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Pending */}
+          <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm relative overflow-hidden group hover:shadow-xl hover:border-orange-100 transition-all duration-500">
+            <div className="absolute top-0 right-0 p-4">
+              <span className="px-3 py-1 bg-orange-50 text-orange-600 text-[10px] font-black uppercase tracking-wider rounded-full flex items-center gap-1">
+                <div className="w-1 h-1 bg-orange-600 rounded-full animate-pulse"></div>
+                Action required
+              </span>
+            </div>
+            <div className="space-y-4">
+              <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                <IconClock className="h-6 w-6 text-orange-600" />
+              </div>
+              <div>
+                <div className="text-3xl font-black text-slate-900">
+                  {purchaseOrders.filter(po => po.status === 'ACTIVE').length}
                 </div>
+                <div className="text-sm font-bold text-slate-400 mt-1 uppercase tracking-wider">Pending Approvals</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Completed */}
+          <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm relative overflow-hidden group hover:shadow-xl hover:border-purple-100 transition-all duration-500">
+            <div className="absolute top-0 right-0 p-4">
+              <span className="px-3 py-1 bg-purple-50 text-purple-600 text-[10px] font-black uppercase tracking-wider rounded-full">Fully received</span>
+            </div>
+            <div className="space-y-4">
+              <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                <IconCheck className="h-6 w-6 text-purple-600" />
+              </div>
+              <div>
+                <div className="text-3xl font-black text-slate-900">
+                  {purchaseOrders.filter(po => po.status === 'COMPLETED').length}
+                </div>
+                <div className="text-sm font-bold text-slate-400 mt-1 uppercase tracking-wider">Completed Orders</div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Summary Stats (moved to top) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="group bg-gradient-to-br from-blue-50/90 to-blue-100/90 backdrop-blur-sm rounded-2xl p-4 border border-blue-200/60 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-2xl font-extrabold text-blue-800 group-hover:text-blue-900 transition-colors duration-300">{purchaseOrders.length}</div>
-                <div className="text-xs font-bold text-blue-600 uppercase tracking-wider mt-1">Total Order</div>
-                <div className="text-[10px] text-blue-500 font-semibold mt-1">All time</div>
-              </div>
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-md group-hover:shadow-lg group-hover:scale-105 transition-all duration-200">
-                <IconReceipt className="h-5 w-5 text-white" />
-              </div>
+        {/* Main Content Card */}
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-2xl shadow-slate-200/50 overflow-hidden">
+          {/* Tabs */}
+          <div className="flex border-b border-slate-100 px-8 pt-6">
+            <div className="flex gap-8">
+              <button 
+                onClick={() => setActiveTab('PO')}
+                className={`pb-4 text-sm font-black uppercase tracking-widest transition-all relative ${activeTab === 'PO' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                Purchase Orders
+                {activeTab === 'PO' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-600 rounded-t-full"></div>}
+              </button>
+              <button 
+                onClick={() => setActiveTab('SQ')}
+                className={`pb-4 text-sm font-black uppercase tracking-widest transition-all relative ${activeTab === 'SQ' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                Stock Quotations
+                {activeTab === 'SQ' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-600 rounded-t-full"></div>}
+              </button>
             </div>
           </div>
-          
-          <div className="group bg-gradient-to-br from-emerald-50/90 to-emerald-100/90 backdrop-blur-sm rounded-2xl p-4 border border-emerald-200/60 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-2xl font-extrabold text-emerald-800 group-hover:text-emerald-900 transition-colors duration-300">
-                  {purchaseOrders.filter(po => po.status === 'COMPLETED').length}
-                </div>
-                <div className="text-xs font-bold text-emerald-600 uppercase tracking-wider mt-1">Completed Order</div>
-                <div className="text-[10px] text-emerald-500 font-semibold mt-1">Fully received</div>
-              </div>
-              <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-md group-hover:shadow-lg group-hover:scale-105 transition-all duration-200">
-                <IconCheck className="h-5 w-5 text-white" />
-              </div>
-            </div>
-          </div>
-          
-          <div className="group bg-gradient-to-br from-amber-50/90 to-amber-100/90 backdrop-blur-sm rounded-2xl p-4 border border-amber-200/60 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-2xl font-extrabold text-amber-800 group-hover:text-amber-900 transition-colors duration-300">
-                  {purchaseOrders.filter(po => po.status === 'ACTIVE').length}
-                </div>
-                <div className="text-xs font-bold text-amber-600 uppercase tracking-wider mt-1">Active Order</div>
-                <div className="text-[10px] text-amber-500 font-semibold mt-1">In progress</div>
-              </div>
-              <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center shadow-md group-hover:shadow-lg group-hover:scale-105 transition-all duration-200">
-                <IconClock className="h-5 w-5 text-white" />
-              </div>
-            </div>
-          </div>
-          
-          <div className="group bg-gradient-to-br from-red-50/90 to-red-100/90 backdrop-blur-sm rounded-2xl p-4 border border-red-200/60 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-2xl font-extrabold text-red-800 group-hover:text-red-900 transition-colors duration-300">
-                  {purchaseOrders.filter(po => po.status === 'CANCELLED').length}
-                </div>
-                <div className="text-xs font-bold text-red-600 uppercase tracking-wider mt-1">Cancelled Order</div>
-                <div className="text-[10px] text-red-500 font-semibold mt-1">Cancelled</div>
-              </div>
-              <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-red-600 rounded-xl flex items-center justify-center shadow-md group-hover:shadow-lg group-hover:scale-105 transition-all duration-200">
-                <IconX className="h-5 w-5 text-white" />
-              </div>
-            </div>
-          </div>
-      </div>
 
-        {/* Search and Filter Controls */}
-        <div className="bg-white/90 backdrop-blur-md rounded-2xl p-4 border border-white/70 shadow-xl">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold text-slate-800">Filters & Search</h2>
-            <div className="flex items-center gap-2 text-sm text-slate-500">
-              <IconFilter className="h-4 w-4" />
-              <span>Advanced Filtering</span>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
-            <div className="md:col-span-2">
-              <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider">Search Orders</label>
-              <div className="relative group">
-                <IconSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-blue-500 transition-colors duration-200" />
+          {/* Filters Bar */}
+          <div className="p-8">
+            <div className="bg-slate-50/50 rounded-[2rem] p-4 flex flex-wrap items-center gap-4 border border-slate-100">
+              {/* Search */}
+              <div className="flex-1 min-w-[300px] relative">
+                <IconSearch className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <input
                   type="text"
                   placeholder="Search by PO number, supplier, or creator..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-slate-50/80 transition-all duration-300 text-slate-800 placeholder-slate-400 text-sm"
+                  className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 transition-all text-sm font-medium"
                 />
               </div>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider">Status</label>
-              <select
+
+              {/* Selects */}
+              <select 
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-slate-50/80 transition-all duration-300 text-slate-800 text-sm"
+                className="px-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 focus:ring-4 focus:ring-blue-500/5 outline-none cursor-pointer min-w-[140px]"
               >
-                <option value="all">All Status</option>
+                <option value="all">Status</option>
                 <option value="COMPLETED">Completed</option>
                 <option value="ACTIVE">Active</option>
                 <option value="CANCELLED">Cancelled</option>
               </select>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider">Department</label>
-              <select
+
+              <select 
+                value={voteCodeFilter}
+                onChange={(e) => setVoteCodeFilter(e.target.value)}
+                className="px-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 focus:ring-4 focus:ring-blue-500/5 outline-none cursor-pointer min-w-[140px]"
+              >
+                <option value="all">Vote Codes</option>
+                <option value="990102">990102</option>
+                <option value="080702">080702</option>
+              </select>
+
+              <select 
+                value={voteActivityFilter}
+                onChange={(e) => setVoteActivityFilter(e.target.value)}
+                className="px-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 focus:ring-4 focus:ring-blue-500/5 outline-none cursor-pointer min-w-[140px]"
+              >
+                <option value="all">Vote Activities</option>
+                <option value="27401">27401</option>
+                <option value="27499">27499</option>
+                <option value="27404">27404</option>
+              </select>
+
+              <select 
                 value={departmentFilter}
                 onChange={(e) => setDepartmentFilter(e.target.value)}
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-slate-50/80 transition-all duration-300 text-slate-800 text-sm"
+                className="px-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 focus:ring-4 focus:ring-blue-500/5 outline-none cursor-pointer min-w-[140px]"
               >
-                <option value="all">All Departments</option>
+                <option value="all">Departments</option>
                 <option value="Pharmacy">Pharmacy</option>
                 <option value="Emergency">Emergency</option>
                 <option value="Laboratory">Laboratory</option>
               </select>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider">Vote Code</label>
-              <select
-                value={voteCodeFilter}
-                onChange={(e) => setVoteCodeFilter(e.target.value)}
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-slate-50/80 transition-all duration-300 text-slate-800 text-sm"
-              >
-                <option value="all">All Vote Codes</option>
-                <option value="990102">990102</option>
-                <option value="080702">080702</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider">Vote Activity</label>
-              <select
-                value={voteActivityFilter}
-                onChange={(e) => setVoteActivityFilter(e.target.value)}
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-slate-50/80 transition-all duration-300 text-slate-800 text-sm"
-              >
-                <option value="all">All Activities</option>
-                <option value="27401">27401</option>
-                <option value="27499">27499</option>
-                <option value="27404">27404</option>
-        </select>
-            </div>
-          </div>
-          <div className="mt-8 flex justify-between items-center">
-            <div className="text-sm text-slate-500">
-              Showing <span className="font-semibold text-slate-700">{filteredOrders.length}</span> of <span className="font-semibold text-slate-700">{purchaseOrders.length}</span> orders
-            </div>
-            <button
-              onClick={department === 'Office Admin' ? undefined : () => setShowCreateModal(true)}
-              className={`px-10 py-4 rounded-2xl font-bold flex items-center gap-3 transition-all duration-300 ${
-                department === 'Office Admin'
-                  ? 'bg-slate-300 text-slate-600 cursor-not-allowed shadow'
-                  : 'bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 shadow-2xl hover:shadow-3xl transform hover:scale-105 hover:-translate-y-1'
-              }`}
-              title={department === 'Office Admin' ? 'View-only for Office Admin' : 'Create New PO'}
-              aria-disabled={department === 'Office Admin'}
-            >
-              <IconPlus className="h-5 w-5" />
-              Create New PO
-            </button>
-          </div>
-        </div>
 
-        {/* Purchase Orders Table */}
-        <div className="bg-white/90 backdrop-blur-md rounded-2xl border border-white/70 shadow-xl overflow-hidden">
-          <div className="px-4 py-3 bg-gradient-to-r from-slate-50/80 to-slate-100/80 border-b border-slate-200/60">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-slate-800">Purchase Orders</h3>
-              <div className="flex items-center gap-4">
-                <div className="text-sm text-slate-500">
-                  <span className="font-semibold text-slate-700">{filteredOrders.length}</span> orders found
-                </div>
-                <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-              </div>
+              <button 
+                onClick={() => {
+                  setSearchTerm('');
+                  setStatusFilter('all');
+                  setVoteCodeFilter('all');
+                  setVoteActivityFilter('all');
+                  setDepartmentFilter('all');
+                }}
+                className="px-6 py-3 text-sm font-black text-slate-400 hover:text-blue-600 transition-colors uppercase tracking-widest"
+              >
+                Clear
+              </button>
             </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gradient-to-r from-slate-100/80 to-slate-50/80">
-                <tr>
-                  <th className="px-4 py-3 text-center text-[10px] font-extrabold uppercase tracking-widest text-slate-600">Date</th>
-                  <th className="px-4 py-3 text-center text-[10px] font-extrabold uppercase tracking-widest text-slate-600">PO</th>
-                  <th className="px-4 py-3 text-center text-[10px] font-extrabold uppercase tracking-widest text-slate-600">Department</th>
-                  <th className="px-4 py-3 text-center text-[10px] font-extrabold uppercase tracking-widest text-slate-600">Vote Code</th>
-                  <th className="px-4 py-3 text-center text-[10px] font-extrabold uppercase tracking-widest text-slate-600">Vote Activity</th>
-                  <th className="px-4 py-3 text-center text-[10px] font-extrabold uppercase tracking-widest text-slate-600">Total (RM)</th>
-                  <th className="px-4 py-3 text-center text-[10px] font-extrabold uppercase tracking-widest text-slate-600">Status</th>
-            </tr>
-          </thead>
-              <tbody className="divide-y divide-slate-200/60">
-                {paginatedOrders.map((order) => (
-                  <tr key={order.id} className="hover:bg-slate-50/60 transition-all duration-200 group">
-                    <td className="px-4 py-3 text-center">
-                      <div className="text-sm font-bold text-slate-900 group-hover:text-slate-700 transition-colors duration-200">{order.createdDate}</div>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => handleViewPODetails(order)}
-                        className="text-sm font-bold text-blue-600 hover:text-blue-800 hover:underline transition-colors duration-200"
-                      >
-                        {order.poNumber}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <div className="text-sm font-bold text-slate-900 group-hover:text-slate-700 transition-colors duration-200">{order.department}</div>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <div className="flex justify-center">
-                        <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold border bg-slate-100 text-slate-700 border-slate-200">
-                          {order.paymentType === 'APPL' ? '990102' : '080702'}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <div className="flex justify-center">
-                        {order.paymentType === 'APPL' ? (
-                          <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold border bg-indigo-50 text-indigo-700 border-indigo-200">
-                            {(() => {
-                              const activityCodes = getOrderActivityCodes(order.items);
-                              if (activityCodes.length > 0) {
-                                return activityCodes[0];
-                              }
-                              // Fallback: determine activity code based on first item category
-                              if (order.items.length > 0 && order.items[0].category) {
-                                return getActivityCodeForItem(order.items[0].category);
-                              }
-                              return '27499'; // Default fallback
-                            })()}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-slate-400">-</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <div className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors duration-200">
-                        {order.totalAmount.toLocaleString('en-MY', { minimumFractionDigits: 2 })}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold shadow-sm group-hover:shadow-md transition-all duration-200 ${getStatusColor(order.status)}`}>
-                        {getStatusIcon(order.status)}
-                        {order.status}
-                      </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-          </div>
-        </div>
 
-        {/* Pagination Controls */}
-        {totalPages > 1 && (
-          <div className="bg-white/90 backdrop-blur-md rounded-2xl p-4 border border-white/70 shadow-xl">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-slate-500">
-                Showing <span className="font-semibold text-slate-700">{startIndex + 1}</span> to{' '}
-                <span className="font-semibold text-slate-700">{Math.min(endIndex, filteredOrders.length)}</span> of{' '}
-                <span className="font-semibold text-slate-700">{filteredOrders.length}</span> orders
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-2 text-sm font-medium text-slate-500 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-                >
-                  Previous
-                </button>
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    const pageNum = i + 1;
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
-                          currentPage === pageNum
-                            ? 'bg-blue-600 text-white'
-                            : 'text-slate-500 bg-white border border-slate-200 hover:bg-slate-50'
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
-                  {totalPages > 5 && (
-                    <>
-                      <span className="text-slate-400">...</span>
-                      <button
-                        onClick={() => setCurrentPage(totalPages)}
-                        className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
-                          currentPage === totalPages
-                            ? 'bg-blue-600 text-white'
-                            : 'text-slate-500 bg-white border border-slate-200 hover:bg-slate-50'
-                        }`}
-                      >
-                        {totalPages}
-                      </button>
-                    </>
+            {/* Table Area */}
+            <div className="mt-8">
+              {activeTab === 'PO' ? (
+                <>
+                  <div className="overflow-x-auto rounded-[2rem] border border-slate-100">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50/50">
+                          <th className="px-6 py-5 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Date</th>
+                          <th className="px-6 py-5 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">PO Number</th>
+                          <th className="px-6 py-5 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Department</th>
+                          <th className="px-6 py-5 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Vote Code</th>
+                          <th className="px-6 py-5 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Activity</th>
+                          <th className="px-6 py-5 text-right text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Total (RM)</th>
+                          <th className="px-6 py-5 text-center text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {paginatedOrders.map((order) => (
+                          <tr key={order.id} className="hover:bg-blue-50/30 transition-colors group">
+                            <td className="px-6 py-5">
+                              <div className="text-sm font-bold text-slate-600">{order.createdDate}</div>
+                            </td>
+                            <td className="px-6 py-5">
+                              <button
+                                onClick={() => handleViewPODetails(order)}
+                                className="text-sm font-black text-blue-600 hover:text-blue-800 transition-colors"
+                              >
+                                {order.poNumber}
+                              </button>
+                            </td>
+                            <td className="px-6 py-5">
+                              <div className="text-sm font-bold text-slate-900">{order.department}</div>
+                            </td>
+                            <td className="px-6 py-5">
+                              <span className="px-3 py-1 bg-slate-100 rounded-lg text-[10px] font-black text-slate-600">
+                                {order.paymentType === 'APPL' ? '990102' : '080702'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-5">
+                              {order.paymentType === 'APPL' ? (
+                                <span className="px-3 py-1 bg-indigo-50 rounded-lg text-[10px] font-black text-indigo-600">
+                                  {(() => {
+                                    const activityCodes = getOrderActivityCodes(order.items);
+                                    return activityCodes.length > 0 ? activityCodes[0] : '27499';
+                                  })()}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-slate-300">-</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-5 text-right">
+                              <div className="text-sm font-black text-slate-900">
+                                {order.totalAmount.toLocaleString('en-MY', { minimumFractionDigits: 2 })}
+                              </div>
+                            </td>
+                            <td className="px-6 py-5">
+                              <div className="flex justify-center">
+                                <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm ${getStatusColor(order.status)}`}>
+                                  {getStatusIcon(order.status)}
+                                  {order.status}
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="mt-8 flex items-center justify-between">
+                      <div className="text-sm font-bold text-slate-400">
+                        Showing <span className="text-slate-900">{startIndex + 1}</span> to <span className="text-slate-900">{Math.min(endIndex, filteredOrders.length)}</span> of <span className="text-slate-900">{filteredOrders.length}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                          disabled={currentPage === 1}
+                          className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-blue-600 hover:border-blue-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                        >
+                          <IconArrowLeft className="h-4 w-4" />
+                        </button>
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                            const pageNum = i + 1;
+                            return (
+                              <button
+                                key={pageNum}
+                                onClick={() => setCurrentPage(pageNum)}
+                                className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-black transition-all ${
+                                  currentPage === pageNum
+                                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-200'
+                                    : 'bg-white border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-200'
+                                }`}
+                              >
+                                {pageNum}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                          disabled={currentPage === totalPages}
+                          className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-blue-600 hover:border-blue-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                        >
+                          <IconArrowLeft className="h-4 w-4 rotate-180" />
+                        </button>
+                      </div>
+                    </div>
                   )}
+                </>
+              ) : (
+                <div className="py-20 flex flex-col items-center justify-center text-center">
+                  <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                    <IconFileSearch className="h-10 w-10 text-slate-300" />
+                  </div>
+                  <h3 className="text-xl font-black text-slate-900">Stock Quotations</h3>
+                  <p className="text-slate-500 font-medium max-w-sm mx-auto mt-2">
+                    This module is currently being integrated. Please check back later for updates on stock quotation management.
+                  </p>
                 </div>
-                <button
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-2 text-sm font-medium text-slate-500 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-                >
-                  Next
-                </button>
-              </div>
+              )}
             </div>
           </div>
-        )}
+        </div>
+      </div>
 
         {/* Create PO Modal */}
         {showCreateModal && department !== 'Office Admin' && (
@@ -1594,9 +1590,7 @@ export default function PurchaseOrdersPage() {
             </div>
           </div>
         )}
-
       </div>
-    </div>
   );
 }
 

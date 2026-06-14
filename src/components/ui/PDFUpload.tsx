@@ -2,7 +2,8 @@ import React, { useCallback, useState, useRef, useEffect } from 'react'
 import { PDFDocument } from 'pdf-lib'
 import { cn, formatFileSize } from '@/lib/utils'
 import { Upload, X, FileText, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
-import { Button } from './Button'
+import { Button } from './button'
+import { PDFViewer } from '../shared/PDFViewer'
 
 export interface PDFUploadProps {
   label?: string
@@ -34,7 +35,6 @@ export const PDFUpload: React.FC<PDFUploadProps> = ({
   const [processedFile, setProcessedFile] = useState<File | null>(null)
   const [pageCount, setPageCount] = useState<number | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const iframeRef = useRef<HTMLIFrameElement>(null)
 
   const error = externalError || internalError
 
@@ -218,17 +218,12 @@ export const PDFUpload: React.FC<PDFUploadProps> = ({
       ) : previewUrl || displayFile ? (
         <div className="space-y-3">
           {/* Preview */}
-          <div className="relative group border-2 border-gray-200 rounded-xl overflow-hidden bg-gray-50">
-            <iframe
-              ref={iframeRef}
-              src={previewUrl || undefined}
-              className="w-full h-96"
-              title="PDF Preview"
-            />
+          <div className="relative group border-2 border-gray-200 rounded-xl overflow-hidden bg-gray-50 h-[28rem] flex flex-col">
+            {previewUrl && <PDFViewer url={previewUrl} />}
             <button
               type="button"
               onClick={handleRemove}
-              className="absolute top-2 right-2 w-8 h-8 bg-error-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-error-600 transition-colors opacity-0 group-hover:opacity-100"
+              className="absolute top-2 right-2 w-8 h-8 bg-error-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-error-600 transition-colors opacity-0 group-hover:opacity-100 z-20"
             >
               <X className="w-4 h-4" />
             </button>

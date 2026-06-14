@@ -15,10 +15,14 @@ import { useAuthStore } from '@/stores/authStore'
 import { Loader2, TrendingUp } from 'lucide-react'
 
 
-export const OxygenAnalytics = () => {
+export interface OxygenAnalyticsProps {
+    year: number
+    onYearChange: (year: number) => void
+}
+
+export const OxygenAnalytics = ({ year, onYearChange }: OxygenAnalyticsProps) => {
     const { user } = useAuthStore()
     const hospitalId = user?.hospital_id
-    const [year, setYear] = useState<number>(new Date().getFullYear())
     const [loading, setLoading] = useState(false)
     const [data, setData] = useState<any>(null)
 
@@ -75,7 +79,7 @@ export const OxygenAnalytics = () => {
                     <p className="text-sm text-gray-500 mt-1">Monthly trends and quarterly breakdown of oxygen consumption</p>
                 </div>
                 <div className="w-[140px]">
-                    <Select value={year.toString()} onValueChange={(v) => setYear(Number(v))}>
+                    <Select value={year.toString()} onValueChange={(v) => onYearChange(Number(v))}>
                         <SelectTrigger className="bg-white border-gray-200">
                             <SelectValue placeholder="Year" />
                         </SelectTrigger>

@@ -7,8 +7,8 @@
  * IMPORTANT: Only use this if System Admin cannot log in!
  */
 
-import { supabase } from './supabase'
-import { checkAuthUserExists, updateAuthUserPassword, createAuthUser } from './authUserService'
+import { supabase, isSupabaseConfigured } from './supabase'
+import { checkAuthUserExists, fixMissingAuthAccount, updateAuthUserPassword, createAuthUser } from './authUserService'
 import { SYSTEM_ROLES } from '@/lib/constants'
 
 export interface SystemAdminDiagnostic {
@@ -31,6 +31,10 @@ export async function getSystemAdmin(): Promise<{
   error?: string
 }> {
   try {
+    if (!isSupabaseConfigured()) {
+      return { success: false, error: 'Supabase not configured' }
+    }
+
     // Get system_admin role ID
     const { data: role, error: roleError } = await supabase
       .from('roles')
@@ -77,6 +81,10 @@ export async function diagnoseSystemAdmin(): Promise<{
   error?: string
 }> {
   try {
+    if (!isSupabaseConfigured()) {
+      return { success: false, error: 'Supabase not configured' }
+    }
+
     // Get System Admin
     const adminResult = await getSystemAdmin()
     if (!adminResult.success || !adminResult.user) {
@@ -152,6 +160,10 @@ export async function fixSystemAdminAccount(
   newPassword: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    if (!isSupabaseConfigured()) {
+      return { success: false, error: 'Supabase not configured' }
+    }
+
     if (!newPassword || newPassword.length < 8) {
       return { success: false, error: 'Password must be at least 8 characters long' }
     }

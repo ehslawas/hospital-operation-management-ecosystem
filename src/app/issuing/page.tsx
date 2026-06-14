@@ -202,7 +202,7 @@ export default function IssuingPage() {
           </div>
           <div className="relative px-6 py-6 md:px-8 md:py-7 flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-cyan-500/10 text-cyan-700 border border-cyan-200">Pharmacy Logistics</div>
+              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-cyan-500/10 text-cyan-700 border border-cyan-200">MyWarrant</div>
               <h1 className="mt-2 text-2xl md:text-3xl font-bold bg-gradient-to-r from-slate-900 via-cyan-900 to-indigo-900 bg-clip-text text-transparent truncate">Issuing</h1>
               <p className="mt-1 text-sm text-slate-600 truncate">Manage department requests, approvals, and item issuance</p>
             </div>

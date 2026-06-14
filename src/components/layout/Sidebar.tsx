@@ -24,6 +24,7 @@ import {
   ScrollText,
   AlertTriangle,
   AirVent,
+  PieChart,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
@@ -38,10 +39,15 @@ interface NavItem {
   icon: React.ElementType
   roles?: string[]
   children?: NavItem[]
+  module?: 'admin' | 'pharmacy' | 'oxygen'
 }
 
 // Helper to check if user has access to nav item
 const hasAccess = (item: NavItem, userRole?: string): boolean => {
+  // Temporary bypass per user request: allow all authenticated users to see all menu items
+  return true;
+
+  /* Original implementation:
   // If no roles specified, everyone can access
   if (!item.roles || item.roles.length === 0) return true
   
@@ -50,6 +56,25 @@ const hasAccess = (item: NavItem, userRole?: string): boolean => {
   
   // Check if user role matches
   return item.roles.includes(userRole)
+  */
+}
+
+// Helper to determine the current active module
+const getActiveModule = (pathname: string, userRole?: string): 'admin' | 'pharmacy' | 'oxygen' => {
+  if (pathname.startsWith('/pharmacy/oxygen')) return 'oxygen'
+  if (pathname.startsWith('/pharmacy')) return 'pharmacy'
+  if (pathname.startsWith('/admin')) return 'admin'
+  
+  // Fallback based on user role
+  if (userRole && [
+    SYSTEM_ROLES.SYSTEM_ADMIN,
+    SYSTEM_ROLES.HOSPITAL_ADMIN,
+    SYSTEM_ROLES.HOSPITAL_ADMINISTRATOR
+  ].includes(userRole as any)) {
+    return 'admin'
+  }
+  
+  return 'pharmacy'
 }
 
 // Filter navigation based on user role
@@ -72,27 +97,39 @@ const filterNavigation = (items: NavItem[], userRole?: string): NavItem[] => {
     })
 }
 
+const PHARMACY_ROLES = [
+  SYSTEM_ROLES.PHARMACY_DIRECTOR,
+  SYSTEM_ROLES.PHARMACY_MANAGER,
+  SYSTEM_ROLES.PHARMACIST,
+  SYSTEM_ROLES.PHARMACY_ASSISTANT,
+  SYSTEM_ROLES.ASSISTANT_PHARMACIST,
+  SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+  SYSTEM_ROLES.PHARMACY_STAFF,
+]
+
 const navigation: NavItem[] = [
   {
     label: 'Dashboard',
     href: ROUTES.DASHBOARD,
     icon: LayoutDashboard,
-    roles: [SYSTEM_ROLES.SYSTEM_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMIN],
+    roles: [SYSTEM_ROLES.SYSTEM_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMINISTRATOR],
+    module: 'admin',
   },
   {
     label: 'Administration',
     href: ROUTES.ADMIN,
     icon: Shield,
-    roles: [SYSTEM_ROLES.SYSTEM_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMIN],
+    roles: [SYSTEM_ROLES.SYSTEM_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMINISTRATOR],
+    module: 'admin',
     children: [
-      { label: 'Users', href: ROUTES.ADMIN_USERS, icon: Users, roles: [SYSTEM_ROLES.HOSPITAL_ADMIN] },
-      { label: 'Access Requests', href: ROUTES.ADMIN_ACCESS_REQUESTS, icon: FileText, roles: [SYSTEM_ROLES.HOSPITAL_ADMIN] },
-      { label: 'Memo Approval', href: ROUTES.ADMIN_MEMOS, icon: Megaphone, roles: [SYSTEM_ROLES.HOSPITAL_ADMIN] },
-      { label: 'Sensitive Data Requests', href: ROUTES.ADMIN_SENSITIVE_DATA_REQUESTS, icon: Lock, roles: [SYSTEM_ROLES.HOSPITAL_ADMIN] },
+      { label: 'Users', href: ROUTES.ADMIN_USERS, icon: Users, roles: [SYSTEM_ROLES.HOSPITAL_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMINISTRATOR] },
+      { label: 'Access Requests', href: ROUTES.ADMIN_ACCESS_REQUESTS, icon: FileText, roles: [SYSTEM_ROLES.HOSPITAL_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMINISTRATOR] },
+      { label: 'Memo Approval', href: ROUTES.ADMIN_MEMOS, icon: Megaphone, roles: [SYSTEM_ROLES.HOSPITAL_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMINISTRATOR] },
+      { label: 'Sensitive Data Requests', href: ROUTES.ADMIN_SENSITIVE_DATA_REQUESTS, icon: Lock, roles: [SYSTEM_ROLES.HOSPITAL_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMINISTRATOR] },
       { label: 'Hospitals', href: ROUTES.ADMIN_HOSPITALS, icon: Building2, roles: [SYSTEM_ROLES.SYSTEM_ADMIN] },
       { label: 'Clinics', href: ROUTES.ADMIN_CLINICS, icon: Building2, roles: [SYSTEM_ROLES.SYSTEM_ADMIN] },
-      { label: 'Departments', href: ROUTES.ADMIN_DEPARTMENTS, icon: Building2, roles: [SYSTEM_ROLES.HOSPITAL_ADMIN] },
-      { label: 'Roles & Permissions', href: ROUTES.ADMIN_ROLES, icon: Shield, roles: [SYSTEM_ROLES.HOSPITAL_ADMIN] },
+      { label: 'Departments', href: ROUTES.ADMIN_DEPARTMENTS, icon: Building2, roles: [SYSTEM_ROLES.HOSPITAL_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMINISTRATOR] },
+      { label: 'Roles & Permissions', href: ROUTES.ADMIN_ROLES, icon: Shield, roles: [SYSTEM_ROLES.HOSPITAL_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMINISTRATOR] },
       { label: 'Settings', href: ROUTES.ADMIN_SETTINGS, icon: Settings },
     ],
   },
@@ -100,11 +137,12 @@ const navigation: NavItem[] = [
     label: 'Monitoring',
     href: '/admin/monitoring',
     icon: Activity,
-    roles: [SYSTEM_ROLES.SYSTEM_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMIN],
+    roles: [SYSTEM_ROLES.SYSTEM_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMINISTRATOR],
+    module: 'admin',
     children: [
-      { label: 'System Health', href: ROUTES.ADMIN_HOSPITAL_HEALTH, icon: Activity, roles: [SYSTEM_ROLES.HOSPITAL_ADMIN] },
-      { label: 'System Logs', href: ROUTES.ADMIN_HOSPITAL_LOGS, icon: ScrollText, roles: [SYSTEM_ROLES.HOSPITAL_ADMIN] },
-      { label: 'Backup Status', href: ROUTES.ADMIN_HOSPITAL_BACKUPS, icon: Database, roles: [SYSTEM_ROLES.HOSPITAL_ADMIN] },
+      { label: 'System Health', href: ROUTES.ADMIN_HOSPITAL_HEALTH, icon: Activity, roles: [SYSTEM_ROLES.HOSPITAL_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMINISTRATOR] },
+      { label: 'System Logs', href: ROUTES.ADMIN_HOSPITAL_LOGS, icon: ScrollText, roles: [SYSTEM_ROLES.HOSPITAL_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMINISTRATOR] },
+      { label: 'Backup Status', href: ROUTES.ADMIN_HOSPITAL_BACKUPS, icon: Database, roles: [SYSTEM_ROLES.HOSPITAL_ADMIN, SYSTEM_ROLES.HOSPITAL_ADMINISTRATOR] },
       { label: 'System Health', href: ROUTES.ADMIN_MONITORING, icon: Activity, roles: [SYSTEM_ROLES.SYSTEM_ADMIN] },
       { label: 'System Logs', href: ROUTES.ADMIN_SYSTEM_LOGS, icon: ScrollText, roles: [SYSTEM_ROLES.SYSTEM_ADMIN] },
       { label: 'Backups', href: ROUTES.ADMIN_BACKUPS, icon: Database, roles: [SYSTEM_ROLES.SYSTEM_ADMIN] },
@@ -113,128 +151,116 @@ const navigation: NavItem[] = [
     ],
   },
   {
-    label: 'Pharmacy Logistics',
-    href: ROUTES.PHARMACY,
-    icon: Package,
-    roles: [
-      SYSTEM_ROLES.PHARMACY_DIRECTOR,
-      SYSTEM_ROLES.PHARMACY_MANAGER,
-      SYSTEM_ROLES.PHARMACIST,
-      SYSTEM_ROLES.PHARMACY_ASSISTANT,
-      SYSTEM_ROLES.PHARMACY_STOREKEEPER,
-      SYSTEM_ROLES.PHARMACY_STAFF,
-    ],
+    label: 'Dashboard',
+    href: ROUTES.MYWARRANT_DASHBOARD,
+    icon: LayoutDashboard,
+    roles: PHARMACY_ROLES,
+    module: 'pharmacy',
+  },
+  {
+    label: 'Financial',
+    href: ROUTES.PHARMACY_FINANCIAL,
+    icon: BarChart3,
+    roles: PHARMACY_ROLES,
+    module: 'pharmacy',
     children: [
-      { label: 'Dashboard', href: ROUTES.PHARMACY_DASHBOARD, icon: BarChart3 },
-      {
-        label: 'Financial',
-        href: ROUTES.PHARMACY_FINANCIAL,
-        icon: BarChart3,
-        children: [
-          { label: 'Warrant', href: ROUTES.PHARMACY_WARRANT, icon: FileText },
-          { label: 'APPL Allocation', href: ROUTES.PHARMACY_APPL_ALLOCATION, icon: FileText },
-          { label: 'CC Allocation', href: ROUTES.PHARMACY_CC_ALLOCATION, icon: FileText },
-          { label: 'LP Allocation', href: ROUTES.PHARMACY_LP_ALLOCATION, icon: FileText },
-        ],
-      },
-      {
-        label: 'Procurement',
-        href: ROUTES.PHARMACY_PROCUREMENT,
-        icon: ShoppingCart,
-        children: [
-          { label: 'Purchase Orders', href: ROUTES.PHARMACY_PO, icon: ShoppingCart },
-          { label: 'Receiving', href: ROUTES.PHARMACY_RECEIVING, icon: FileText },
-          { label: 'LPO', href: ROUTES.PHARMACY_LPO, icon: FileText },
-          { label: 'Delivery Tracking', href: ROUTES.PHARMACY_DELIVERY, icon: Truck },
-          { label: 'Payments', href: ROUTES.PHARMACY_PAYMENT, icon: FileText },
-          { label: 'Order Tracking', href: ROUTES.PHARMACY_ORDER_TRACKING, icon: ClipboardList },
-          { label: 'Penalties', href: ROUTES.PHARMACY_PENALTY, icon: AlertTriangle },
-          { label: 'Letters of Undertaking', href: ROUTES.PHARMACY_LOU, icon: FileText },
-        ],
-      },
-      {
-        label: 'Inventory',
-        href: ROUTES.PHARMACY_INVENTORY,
-        icon: Package,
-        children: [
-          { label: 'Drug (Buffer Levels)', href: ROUTES.PHARMACY_DRUGS, icon: Package },
-          { label: 'Non-Drug (Buffer Levels)', href: ROUTES.PHARMACY_NON_DRUGS, icon: Package },
-          { label: 'Item Movement', href: ROUTES.PHARMACY_ITEM_MOVEMENT, icon: ClipboardList },
-          { label: 'Slow Moving Items', href: ROUTES.PHARMACY_SLOW_MOVING, icon: BarChart3 },
-          { label: 'Near Expiry Items', href: ROUTES.PHARMACY_NEAR_EXPIRY, icon: AlertTriangle },
-          { label: 'Bad / Defective Stock', href: ROUTES.PHARMACY_BAD_STOCK, icon: FileText },
-        ],
-      },
-      {
-        label: 'Distribution',
-        href: ROUTES.PHARMACY_DISTRIBUTION,
-        icon: Truck,
-        children: [
-          { label: 'Transfer Requests', href: ROUTES.PHARMACY_TRANSFER_REQUEST, icon: ClipboardList },
-          { label: 'Inter-Facility', href: ROUTES.PHARMACY_INTER_FACILITY, icon: Truck },
-          { label: 'Intra-Facility', href: ROUTES.PHARMACY_INTRA_FACILITY, icon: Truck },
-        ],
-      },
-      {
-        label: 'Medical Oxygen',
-        href: ROUTES.PHARMACY_OXYGEN,
-        icon: Activity,
-        children: [
-          { label: 'Oxygen Dashboard', href: ROUTES.PHARMACY_OXYGEN, icon: Activity },
-          { label: 'Cylinder Inventory', href: ROUTES.PHARMACY_OXYGEN_CYLINDERS, icon: AirVent },
-          { label: 'Consumption', href: ROUTES.PHARMACY_OXYGEN_CONSUMPTION, icon: BarChart3 },
-        ],
-      },
-      {
-        label: 'Catalogs',
-        href: ROUTES.PHARMACY_CATALOG,
-        icon: ClipboardList,
-        children: [
-          { label: 'Drug Catalog', href: ROUTES.PHARMACY_DRUG_CATALOG, icon: Package },
-          { label: 'Non-Drug Catalog', href: ROUTES.PHARMACY_NON_DRUG_CATALOG, icon: Package },
-          { label: 'Supplier Catalog', href: ROUTES.PHARMACY_SUPPLIER_CATALOG, icon: Truck },
-          { label: 'Contract Catalog', href: ROUTES.PHARMACY_CONTRACT_CATALOG, icon: FileText },
-          { label: 'Hospital Facilities', href: ROUTES.PHARMACY_HOSPITAL_FACILITY, icon: Building2 },
-          { label: 'Clinic Facilities', href: ROUTES.PHARMACY_CLINIC_FACILITY, icon: Building2 },
-        ],
-      },
-      {
-        label: 'Maintenance',
-        href: ROUTES.PHARMACY_MAINTENANCE,
-        icon: Settings,
-        children: [
-          { label: 'Unit Catalog', href: ROUTES.PHARMACY_UNIT_CATALOG, icon: ClipboardList },
-          { label: 'Stock Locations', href: ROUTES.PHARMACY_STOCK_LOCATION, icon: Package },
-          { label: 'Stock Verification', href: ROUTES.PHARMACY_STOCK_VERIFICATION, icon: ClipboardList },
-        ],
-      },
-      {
-        label: 'Reports & Logs',
-        href: ROUTES.PHARMACY_REPORTS,
-        icon: BarChart3,
-        children: [
-          { label: 'Inventory Reports', href: ROUTES.PHARMACY_REPORTS_INVENTORY, icon: BarChart3 },
-          { label: 'Procurement Reports', href: ROUTES.PHARMACY_REPORTS_PROCUREMENT, icon: BarChart3 },
-          { label: 'Financial Reports', href: ROUTES.PHARMACY_REPORTS_FINANCIAL, icon: BarChart3 },
-          { label: 'Distribution Reports', href: ROUTES.PHARMACY_REPORTS_DISTRIBUTION, icon: BarChart3 },
-          { label: 'Logs', href: ROUTES.PHARMACY_LOGS, icon: ClipboardList },
-        ],
-      },
+      { label: 'Warrant', href: ROUTES.PHARMACY_WARRANT, icon: FileText },
+      { label: 'APPL Allocation', href: ROUTES.PHARMACY_APPL_ALLOCATION, icon: FileText },
+      { label: 'CC Allocation', href: ROUTES.PHARMACY_CC_ALLOCATION, icon: FileText },
+      { label: 'LP Allocation', href: ROUTES.PHARMACY_LP_ALLOCATION, icon: FileText },
     ],
+  },
+  {
+    label: 'Procurement',
+    href: ROUTES.PHARMACY_PROCUREMENT,
+    icon: ShoppingCart,
+    roles: PHARMACY_ROLES,
+    module: 'pharmacy',
+    children: [
+      { label: 'Purchase Orders', href: ROUTES.PHARMACY_PO, icon: ShoppingCart },
+      { label: 'LPO', href: ROUTES.PHARMACY_LPO, icon: FileText },
+      { label: 'Order Tracking', href: ROUTES.PHARMACY_ORDER_TRACKING, icon: ClipboardList },
+      { label: 'Received Item', href: ROUTES.PHARMACY_RECEIVING, icon: FileText },
+      { label: 'Payment', href: ROUTES.PHARMACY_PAYMENT, icon: FileText },
+      { label: 'Credit Notes', href: ROUTES.PHARMACY_CREDIT_NOTE, icon: FileText },
+      { label: 'Penalty', href: ROUTES.PHARMACY_PENALTY, icon: AlertTriangle },
+      { label: 'LOU', href: ROUTES.PHARMACY_LOU, icon: FileText },
+      { label: 'Supplier Performance', href: ROUTES.PHARMACY_SUPPLIER_PERFORMANCE, icon: BarChart3 },
+    ],
+  },
+  {
+    label: 'Medical Oxygen',
+    href: ROUTES.PHARMACY_OXYGEN,
+    icon: AirVent,
+    roles: PHARMACY_ROLES,
+    module: 'oxygen',
+    children: [
+      { label: 'Oxygen Dashboard', href: ROUTES.PHARMACY_OXYGEN, icon: Activity },
+      { label: 'Cylinder Inventory', href: ROUTES.PHARMACY_OXYGEN_CYLINDERS, icon: Database },
+      { label: 'Cylinder Request', href: ROUTES.PHARMACY_OXYGEN_CONSUMPTION, icon: ShoppingCart },
+      { label: 'QR Generator', href: '/pharmacy/oxygen/qr', icon: ClipboardList },
+      { label: 'Stock Reconciliation', href: '/pharmacy/oxygen/reconciliation', icon: FileText },
+    ],
+  },
+  {
+    label: 'Catalog',
+    href: ROUTES.PHARMACY_CATALOG,
+    icon: ClipboardList,
+    roles: PHARMACY_ROLES,
+    module: 'pharmacy',
+    children: [
+      { label: 'Facility Catalog', href: ROUTES.PHARMACY_FACILITY_CATALOG, icon: Building2 },
+      // { label: 'Drug Catalog', href: ROUTES.PHARMACY_DRUG_CATALOG, icon: Package },
+      // { label: 'Non-Drug Catalog', href: ROUTES.PHARMACY_NON_DRUG_CATALOG, icon: Package },
+      { label: 'Supplier Catalog', href: ROUTES.PHARMACY_SUPPLIER_CATALOG, icon: Truck },
+      { label: 'Contract Catalog', href: ROUTES.PHARMACY_CONTRACT_CATALOG, icon: FileText },
+      { label: 'Hospital Facilities', href: ROUTES.PHARMACY_HOSPITAL_FACILITY, icon: Building2 },
+      { label: 'Clinic Facilities', href: ROUTES.PHARMACY_CLINIC_FACILITY, icon: Building2 },
+    ],
+  },
+  {
+    label: 'Reports',
+    href: ROUTES.PHARMACY_REPORTS,
+    icon: PieChart,
+    roles: PHARMACY_ROLES,
+    module: 'pharmacy',
+    children: [
+      { label: 'Procurement Reports', href: ROUTES.PHARMACY_REPORTS_PROCUREMENT, icon: FileText },
+      { label: 'Financial Reports', href: ROUTES.PHARMACY_REPORTS_FINANCIAL, icon: FileText },
+    ],
+  },
+  {
+    label: 'System Logs',
+    href: ROUTES.PHARMACY_LOGS,
+    icon: ScrollText,
+    roles: PHARMACY_ROLES,
+    module: 'pharmacy',
   },
 ]
 
 export const Sidebar: React.FC = () => {
   const location = useLocation()
   const { user, logout: storeLogout } = useAuthStore()
-  const { sidebarCollapsed, setSidebarCollapsed } = useSidebar()
+  const { sidebarOpen, sidebarCollapsed, setSidebarOpen } = useSidebar()
+  const [isMobile, setIsMobile] = useState(false)
 
   const userRole = user?.role?.role_code
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024)
+    }
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
   
   // Memoize filtered navigation to prevent unnecessary recalculations
   const filteredNavigation = useMemo(() => {
-    return filterNavigation(navigation, userRole)
-  }, [userRole])
+    const roleFiltered = filterNavigation(navigation, userRole)
+    const activeModule = getActiveModule(location.pathname, userRole)
+    return roleFiltered.filter((item) => item.module === activeModule)
+  }, [userRole, location.pathname])
 
   const handleLogout = async () => {
     await logout()
@@ -263,10 +289,7 @@ export const Sidebar: React.FC = () => {
     const checkAndExpand = (items: NavItem[]) => {
       items.forEach((item) => {
         if (item.children && item.children.length > 0) {
-          // Always expand Pharmacy Logistics (top level)
-          if (item.href === ROUTES.PHARMACY) {
-            newExpanded.add(item.href)
-          } else if (hasActiveChild(item)) {
+          if (hasActiveChild(item)) {
             newExpanded.add(item.href)
           }
           checkAndExpand(item.children)
@@ -302,157 +325,179 @@ export const Sidebar: React.FC = () => {
     const hasChildren = item.children && item.children.length > 0
     const expanded = hasChildren && isExpanded(item.href)
     const hasActive = hasActiveChild(item)
-    
-    // Pharmacy Logistics should always be expanded (not collapsible)
-    const isPharmacyLogistics = item.href === ROUTES.PHARMACY && depth === 0
-    const alwaysExpanded = isPharmacyLogistics
+
+    const activeState = isActive || hasActive
 
     if (hasChildren) {
       return (
-        <div key={item.href}>
-          {alwaysExpanded ? (
-            // Always expanded - render as a label without button
-            <div
-              className={cn(
-                'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium',
-                isActive || hasActive
-                  ? 'text-primary-700 bg-primary-50'
-                  : 'text-gray-600',
-                sidebarCollapsed && 'justify-center'
-              )}
-            >
+        <div key={item.href} className="space-y-0.5">
+          <motion.button
+            whileHover={{ x: 4 }}
+            whileTap={{ scale: 0.98 }}
+            transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+            onClick={() => toggleExpanded(item.href)}
+            className={cn(
+              'w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-200 group',
+              activeState
+                ? 'text-[#00a68a] bg-[#e6f7f4]'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            )}
+          >
+            <div className={cn(
+              "w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 flex-shrink-0",
+              activeState 
+                ? "bg-[#00a68a] text-white shadow-sm shadow-[#00a68a]/20" 
+                : "bg-slate-50 text-slate-500 group-hover:bg-slate-100"
+            )}>
               <Icon className="w-5 h-5 flex-shrink-0" />
-              {!sidebarCollapsed && (
-                <span className="flex-1 text-left">{item.label}</span>
-              )}
             </div>
-          ) : (
-            // Collapsible - render as button
-            <button
-              onClick={() => toggleExpanded(item.href)}
-              className={cn(
-                'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors',
-                isActive || hasActive
-                  ? 'text-primary-700 bg-primary-50'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100',
-                sidebarCollapsed && 'justify-center'
-              )}
+            
+            <span className={cn("flex-1 text-left tracking-tight", sidebarCollapsed && "lg:hidden")}>
+              {item.label}
+            </span>
+            
+            <motion.div
+              animate={{ rotate: expanded ? 180 : 0 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
             >
-              <Icon className="w-5 h-5 flex-shrink-0" />
-              {!sidebarCollapsed && (
-                <>
-                  <span className="flex-1 text-left">{item.label}</span>
-                  <motion.div
-                    animate={{ rotate: expanded ? 180 : 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <ChevronDown className="w-4 h-4 flex-shrink-0" />
-                  </motion.div>
-                </>
-              )}
-            </button>
-          )}
+              <ChevronDown className="w-4 h-4 flex-shrink-0" />
+            </motion.div>
+          </motion.button>
           
-          {!sidebarCollapsed && (
-            <AnimatePresence initial={false}>
-              {(alwaysExpanded || expanded) && (
-                <motion.div
-                  initial={alwaysExpanded ? false : { height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={alwaysExpanded ? false : { height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2, ease: 'easeInOut' }}
-                  className="overflow-hidden"
-                >
-                  <div className="ml-4 mt-1 space-y-1 border-l-2 border-gray-100 pl-3">
-                    {item.children?.map((child) => renderNavItem(child, depth + 1))}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          )}
+          <AnimatePresence initial={false}>
+            {expanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2, ease: 'easeInOut' }}
+                className="overflow-hidden"
+              >
+                <div className="ml-[1.75rem] mt-1 space-y-1 border-l-2 border-[#e6f7f4]/80 pl-4">
+                  {item.children?.map((child) => renderNavItem(child, depth + 1))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )
     }
 
     return (
-      <NavLink
+      <motion.div
         key={item.href}
-        to={item.href}
-        className={({ isActive }) =>
-          cn(
-            'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors',
-            isActive
-              ? 'text-primary-700 bg-primary-100'
-              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100',
-            sidebarCollapsed && 'justify-center'
-          )
-        }
+        whileHover={{ x: 4 }}
+        whileTap={{ scale: 0.98 }}
+        transition={{ type: 'spring', stiffness: 350, damping: 25 }}
       >
-        <Icon className="w-5 h-5 flex-shrink-0" />
-        {!sidebarCollapsed && <span>{item.label}</span>}
-      </NavLink>
+        <NavLink
+          to={item.href}
+          onClick={() => {
+            if (isMobile) {
+              setSidebarOpen(false)
+            }
+          }}
+          className={({ isActive }) =>
+            cn(
+              'flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-200 group',
+              isActive
+                ? 'text-[#00a68a] bg-[#e6f7f4]'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            )
+          }
+        >
+          <div className={cn(
+            "w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 flex-shrink-0",
+            isActive 
+              ? "bg-[#00a68a] text-white shadow-sm shadow-[#00a68a]/20" 
+              : "bg-slate-50 text-slate-500 group-hover:bg-slate-100"
+          )}>
+            <Icon className="w-5 h-5 flex-shrink-0" />
+          </div>
+          <span>{item.label}</span>
+        </NavLink>
+      </motion.div>
     )
-  }, [currentPath, sidebarCollapsed, expandedItems, hasActiveChild, toggleExpanded, isExpanded])
+  }, [currentPath, sidebarCollapsed, expandedItems, hasActiveChild, toggleExpanded, isExpanded, setSidebarOpen, isMobile])
 
   return (
-    <motion.aside
-      initial={false}
-      animate={{ width: sidebarCollapsed ? 80 : 280 }}
-      transition={{ duration: 0.2, ease: 'easeInOut' }}
-      className={cn(
-        'fixed left-0 bg-white border-r border-gray-200',
-        'flex flex-col z-30'
-      )}
-      style={{ top: '112px', height: 'calc(100vh - 112px)' }}
-    >
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto pt-6 px-4 pb-4 space-y-1">
-        {!sidebarCollapsed && (
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
-            Navigation Panel
-          </p>
-        )}
-        {filteredNavigation.map((item) => renderNavItem(item))}
-      </nav>
-
-      {/* User Profile */}
-      <div className="p-4 border-t border-gray-100">
-        <div
-          className={cn(
-            'flex items-center gap-3 p-3 rounded-xl bg-gray-50',
-            sidebarCollapsed && 'justify-center'
-          )}
-        >
-          <Avatar
-            src={user?.profile_photo_url}
-            name={user?.full_name}
-            size="sm"
+    <>
+      {/* Backdrop for Mobile */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSidebarOpen(false)}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-30 lg:hidden"
           />
-          
-          {!sidebarCollapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">
+        )}
+      </AnimatePresence>
+
+      <motion.aside
+        initial={false}
+        animate={{ 
+          x: isMobile ? (sidebarOpen ? 0 : -280) : 0,
+          width: 280,
+        }}
+        transition={{ duration: 0.3, ease: 'easeInOut' }}
+        className={cn(
+          'fixed left-0 bg-white border-r border-slate-200',
+          'flex flex-col z-30',
+          'top-20 sm:top-28 h-[calc(100vh-80px)] sm:h-[calc(100vh-112px)]',
+          'lg:translate-x-0 lg:w-[280px]'
+        )}
+      >
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto pt-6 px-4 pb-4 space-y-1">
+          <p className={cn(
+            "text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mb-4 px-3"
+          )}>
+            NAVIGATION PANEL
+          </p>
+          {filteredNavigation.map((item) => renderNavItem(item))}
+        </nav>
+
+        {/* User Profile */}
+        <div className="p-4 border-t border-slate-100">
+          <div
+            className={cn(
+              'flex items-center gap-3 p-3 rounded-xl bg-slate-50/50 border border-slate-100/80 shadow-[0_2px_8px_-3px_rgba(0,0,0,0.05)]'
+            )}
+          >
+            <Avatar
+              src={user?.profile_photo_url}
+              name={user?.full_name}
+              size="sm"
+            />
+            
+            <div className={cn("flex-1 min-w-0")}>
+              <p className="text-sm font-semibold text-slate-800 truncate">
                 {user?.full_name}
               </p>
-              <p className="text-xs text-gray-500 truncate">
+              <p className="text-xs text-slate-400 truncate">
                 {user?.role?.role_name}
               </p>
             </div>
-          )}
 
-          <button
-            onClick={handleLogout}
-            title="Logout"
-            className="p-2 text-gray-400 hover:text-error-600 hover:bg-error-50 rounded-lg transition-colors"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={handleLogout}
+              title="Logout"
+              className={cn(
+                "p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors duration-200"
+              )}
+            >
+              <LogOut className="w-4 h-4" />
+            </motion.button>
+          </div>
         </div>
-      </div>
-    </motion.aside>
+      </motion.aside>
+    </>
   )
 }
 
 export default Sidebar
-
 

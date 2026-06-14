@@ -1,557 +1,900 @@
-import { supabase } from '@/services/supabase'
-import { ReceivingItem, LPOWithRelations } from '@/types/pharmacy/procurementNew'
-import { louService } from './louService'
-import { orderTrackingService } from './orderTrackingService'
-import { penaltyService } from './penaltyService'
-import { differenceInCalendarDays, parseISO } from 'date-fns'
+import { supabase, isSupabaseConfigured } from '../supabase'
+import type { ApiResponse } from '@/types'
+import type { 
+  GoodsReceipt
+} from '@/types/pharmacy'
+import { createCreditNoteDraft, approveCreditNote } from './creditNoteService'
+import { checkAndCreateLatePenalty } from './penaltyService'
 
-const RECEIVING_TABLE = 'pharmacy_receiving'
-const RECEIVING_ITEMS_TABLE = 'pharmacy_receiving_items'
-const RECEIVING_DOCUMENTS_TABLE = 'pharmacy_receiving_documents'
-const LPO_TABLE = 'pharmacy_lpo'
+export interface GoodsReceiptCreate {
+  hospital_id: string
+  po_id: string
+  lpo_id?: string
+  receipt_date: string
+  delivery_note_number?: string
+  invoice_number?: string
+  invoice_amount?: number
+  received_by: string
+  notes?: string
+  document_url?: string
+  document_urls?: string[]
+  items: GoodsReceiptItemCreate[]
+}
 
-export const receivingService = {
-    // Get all receiving records for history
-    async getAllReceiving() {
-        const { data, error } = await supabase
-            .from(RECEIVING_TABLE)
-            .select(`
-                *,
-                lpo:pharmacy_lpo (
-                    lpo_number,
-                    payment_status,
-                    document_date,
-                    created_at,
-                    purchase_order:pharmacy_purchase_orders (
-                        po_number,
-                        total_amount,
-                        created_at,
-                        manual_supplier_name,
-                        supplier:suppliers (company_name)
-                    )
-                ),
-                items:pharmacy_receiving_items (
-                    *,
-                    po_item:pharmacy_purchase_order_items (item_name, item_code)
-                ),
-                documents:pharmacy_receiving_documents (*),
-                lou:pharmacy_lou (*),
-                receiver:users!received_by (full_name)
-            `)
-            .order('receiving_date', { ascending: false })
+export interface BatchEntry {
+  batch_number: string
+  manufacturing_date?: string
+  expiry_date: string
+  quantity: number
+}
 
-        if (error) throw error
-        return data
-    },
+export interface GoodsReceiptItemCreate {
+  po_item_id: string
+  item_id?: string
+  item_name?: string
+  quantity_ordered: number
+  quantity_previously_received: number
+  quantity_received: number // quantity delivered this time
+  quantity_accepted: number
+  quantity_rejected: number
+  disposition?: 'accepted' | 'rejected' | 'credit_note'
+  rejection_reason?: string
+  notes?: string
+  batches: BatchEntry[]
+  
+  // Partial Credit Note support
+  credit_note_quantity?: number
+  credit_note_reason?: string
+  mark_remaining_as_credit_note?: boolean
+  
+  // UI helper for partial delivery exclusions
+  arrived?: boolean
+}
 
-    // Get specific receiving record
-    async getReceivingById(id: string) {
-        const { data, error } = await supabase
-            .from(RECEIVING_TABLE)
-            .select(`
-                *,
-                items:pharmacy_receiving_items (
-                    *,
-                    po_item:pharmacy_purchase_order_items (item_name, item_code)
-                ),
-                documents:pharmacy_receiving_documents (*)
-            `)
-            .eq('id', id)
-            .single()
+/**
+ * Generate an auto-incrementing GR number
+ */
+async function generateGRNumber(hospitalId: string): Promise<string> {
+  const currentYear = new Date().getFullYear()
+  
+  // Find the latest GR for this hospital this year
+  const { data, error } = await supabase
+    .from('pharmacy_goods_receipts')
+    .select('gr_number')
+    .eq('hospital_id', hospitalId)
+    .like('gr_number', `GR-${currentYear}-%`)
+    .order('gr_number', { ascending: false })
+    .limit(1)
+    
+  if (error && error.code !== 'PGRST116') {
+    console.error('Error fetching latest GR number:', error)
+  }
+  
+  let sequence = 1
+  if (data && data.length > 0) {
+    const lastNumber = data[0].gr_number
+    const match = lastNumber.match(/GR-\d{4}-(\d{4})/)
+    if (match && match[1]) {
+      sequence = parseInt(match[1], 10) + 1
+    }
+  }
+  
+  return `GR-${currentYear}-${sequence.toString().padStart(4, '0')}`
+}
 
-        if (error) throw error
-        return data
-    },
+/**
+ * Fetch a PO with its items for receiving
+ */
+export async function getReceivingDetail(poId: string): Promise<ApiResponse<any>> {
+  try {
+    if (!isSupabaseConfigured()) throw new Error('Supabase not configured')
 
-    // Get LPO details for receiving
-    async getLPOForReceiving(lpoIdentifier: string): Promise<LPOWithRelations | null> {
-        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(lpoIdentifier)
+    const { data: po, error: poError } = await supabase
+      .from('pharmacy_purchase_orders')
+      .select(`
+        *,
+        items:pharmacy_purchase_order_items(*),
+        lpo:pharmacy_lpo(*, tracking:pharmacy_order_tracking(expected_delivery_date))
+      `)
+      .eq('id', poId)
+      .single()
 
-        const query = supabase
-            .from(LPO_TABLE)
-            .select(`
-                *,
-                purchase_order:pharmacy_purchase_orders!inner (
-                    *,
-                    supplier:suppliers!inner (*),
-                    items:pharmacy_purchase_order_items (*)
-                ),
-                tracking_items:pharmacy_order_tracking (*)
-            `)
+    if (poError) throw poError
 
-        if (isUUID) {
-            query.eq('id', lpoIdentifier)
-        } else {
-            // Case insensitive search for LPO Number
-            query.ilike('lpo_number', lpoIdentifier)
-        }
+    return { data: po, error: null }
+  } catch (error) {
+    console.error('Error fetching receiving detail:', error)
+    return { data: null, error: error instanceof Error ? error.message : 'Failed to fetch receiving detail' }
+  }
+}
 
-        const { data, error } = await query.single()
+/**
+ * Create a new Goods Receipt and update associated records
+ */
+export async function createGoodsReceipt(data: GoodsReceiptCreate): Promise<ApiResponse<GoodsReceipt>> {
+  try {
+    if (!isSupabaseConfigured()) throw new Error('Supabase not configured')
 
-        if (error) {
-            console.error('Error fetching LPO for receiving:', error)
-            return null
-        }
-        return data as LPOWithRelations
-    },
+    const gr_number = await generateGRNumber(data.hospital_id)
 
-    // Create a new receiving record
-    async createReceiving(
-        lpoId: string,
-        items: Partial<ReceivingItem>[],
-        documents: { doUrl?: string, invoiceUrl?: string, doNumber?: string, doEntries?: any[], receivedBy?: string },
-        receivingDate?: string,
-        notes?: string
-    ) {
-        // Explicitly get current user to ensure we capture WHO is doing the receiving
-        const { data: { session } } = await supabase.auth.getSession();
-        const { data: { user } } = await supabase.auth.getUser();
-        const currentUserId = session?.user?.id || user?.id;
-        // 1. Calculate partial vs full
-        const isPartial = items.some(i => (i.outstanding_quantity || 0) > 0)
+    // 1. Create the GR Header
+    const { data: grData, error: grError } = await supabase
+      .from('pharmacy_goods_receipts')
+      .insert({
+        hospital_id: data.hospital_id,
+        gr_number,
+        po_id: data.po_id,
+        lpo_id: data.lpo_id,
+        receipt_date: data.receipt_date,
+        delivery_note_number: data.delivery_note_number,
+        invoice_number: data.invoice_number,
+        invoice_amount: data.invoice_amount,
+        status: 'accepted',
+        received_by: data.received_by,
+        notes: data.notes,
+        document_url: data.document_url,
+        document_urls: data.document_urls || []
+      })
+      .select()
+      .single()
 
-        // Check for missing details (rushed receiving)
-        // If doEntries is empty OR any drug item is missing batch/expiry/mfg
-        const hasMissingDo = !documents.doEntries || documents.doEntries.length === 0
-        const hasMissingItemDetails = items.some(i =>
-            i.item_type === 'drug' && (!i.batch_number || !i.expiry_date || !i.manufactured_date)
-        )
-        const hasMissingDetails = hasMissingDo || hasMissingItemDetails
+    if (grError) throw grError
+    const newGr = grData as GoodsReceipt
 
-        // 2. Create Receiving Header
-        const { data: receiving, error: receivingError } = await supabase
-            .from(RECEIVING_TABLE)
-            .insert({
-                lpo_id: lpoId,
-                receiving_date: receivingDate || new Date().toISOString(),
-                receiving_type: isPartial ? 'partial' : 'full',
-                status: 'pending', // Pending verification
-                do_document_url: documents.doUrl, // Legacy/Fallback
-                do_number: documents.doNumber || (documents.doEntries && documents.doEntries.length > 0 ? documents.doEntries[0].doNumber : undefined),
-                invoice_document_url: documents.invoiceUrl,
-                notes,
-                is_fully_received: !isPartial,
-                has_missing_details: hasMissingDetails,
-                received_by: currentUserId || documents.receivedBy
-            })
-            .select()
-            .single()
-
-        if (receivingError) throw receivingError
-
-        // 2b. Insert Multiple DO Documents
-        if (documents.doEntries && documents.doEntries.length > 0) {
-            const docsToInsert = documents.doEntries.map(doc => ({
-                receiving_id: receiving.id,
-                do_number: doc.doNumber,
-                do_document_url: doc.file ? 'uploaded_placeholder' : undefined, // In real app, upload handles this before
-            }))
-
-            const { error: docsError } = await supabase
-                .from(RECEIVING_DOCUMENTS_TABLE)
-                .insert(docsToInsert)
-
-            if (docsError) console.error('Error saving DO docs:', docsError)
-        }
-
-        // 3. Determine Lateness
-        const lpo = await this.getLPOForReceiving(lpoId)
-        let isLate = false
-        let daysLate = 0
-
-        if (lpo && lpo.expected_delivery_date) {
-            const arrDate = receivingDate ? (receivingDate.includes('T') ? parseISO(receivingDate) : new Date(receivingDate)) : new Date()
-            const expDate = parseISO(lpo.expected_delivery_date)
-
-            // Normalize dates to start of day for comparison
-            arrDate.setHours(0, 0, 0, 0)
-            expDate.setHours(0, 0, 0, 0)
-
-            if (arrDate > expDate) {
-                isLate = true
-                daysLate = differenceInCalendarDays(arrDate, expDate)
-            }
-        }
-
-        // 4. Create Receiving Items
-        const receivingItems = items.map(item => ({
-            ...item,
-            receiving_id: receiving.id,
-            is_fully_received: (item.outstanding_quantity || 0) <= 0,
-            is_late: isLate,
-            days_late: daysLate
-        }))
-
-        const { data: insertedItems, error: itemsError } = await supabase
-            .from(RECEIVING_ITEMS_TABLE)
-            .insert(receivingItems.map(i => ({
-                receiving_id: i.receiving_id,
-                lpo_item_id: i.lpo_item_id,
-                item_id: i.item_id,
-                item_type: i.item_type,
-                ordered_quantity: i.ordered_quantity,
-                received_quantity: i.received_quantity,
-                outstanding_quantity: i.outstanding_quantity,
-                batch_number: i.batch_number,
-                manufactured_date: i.manufactured_date,
-                expiry_date: i.expiry_date,
-                storage_location: i.storage_location,
-                is_fully_received: i.is_fully_received,
-                requires_lou: i.requires_lou,
-                is_late: i.is_late,
-                days_late: i.days_late
-            })))
-            .select()
-
-        if (itemsError) throw itemsError
-
-        // 5. Handle Penalty Creation if late
-        if (isLate && lpo) {
-            // Create penalty records for each item
-            for (const item of items) {
-                if (item.received_quantity && item.received_quantity > 0) {
-                    try {
-                        // Find unit price from PO items
-                        const poItem = lpo.purchase_order?.items?.find(pi => pi.id === item.lpo_item_id)
-                        const unitPrice = poItem?.unit_price || 0
-
-                        await penaltyService.createPenaltyFromReceiving({
-                            lpo_id: lpoId,
-                            receiving_id: receiving.id,
-                            receiving_item_id: '', // Note: we could fetch the specific item ID if needed
-                            item_id: item.item_id,
-                            item_name: poItem?.item_name || 'Unknown Item',
-                            item_code: poItem?.item_code,
-                            item_type: item.item_type,
-                            quantity: item.received_quantity,
-                            unit_price: unitPrice,
-                            days_late: daysLate
-                        })
-                    } catch (penaltyErr) {
-                        console.error('Failed to create penalty record:', penaltyErr)
-                    }
-                }
-            }
-        }
-
-        // 5. Update Order Tracking Status
-        const trackingRecords = await orderTrackingService.getTrackingByLPO(lpoId)
-
-        for (const item of receivingItems) {
-            if (item.received_quantity && item.received_quantity > 0) {
-                const tracking = trackingRecords.find(t => t.item_id === item.item_id)
-                if (tracking) {
-                    await orderTrackingService.updateTrackingStatus(tracking.id, 'received', new Date().toISOString())
-                }
-            }
-        }
-
-        // 6. Create LOU for items marked with requires_lou
-        if (insertedItems && insertedItems.length > 0) {
-            const louItems = insertedItems.filter((i: any) => i.requires_lou)
-
-            if (louItems.length > 0) {
-                try {
-                    await louService.createLOUFromReceiving({
-                        lpoId,
-                        receivingId: receiving.id,
-                        lpo: lpo!,
-                        items: louItems,
-                        doEntries: documents.doEntries || []
-                    })
-                } catch (louError) {
-                    console.error('Failed to auto-create LOU:', louError)
-                }
-            }
-        }
-
-        return receiving
-    },
-
-    // Add DO Document
-    async addDODocument(receivingId: string, doNumber: string, url?: string) {
-        const { data, error } = await supabase
-            .from(RECEIVING_DOCUMENTS_TABLE)
-            .insert({
-                receiving_id: receivingId,
-                do_number: doNumber,
-                do_document_url: url
-            })
-            .select()
-            .single()
-
-        if (error) throw error
-        return data
-    },
-
-    // Update Receiving Details (for completion)
-    async updateReceivingDetails(receivingId: string, items: any[]) {
-        // 1. Update items
-        for (const item of items) {
-            await supabase
-                .from(RECEIVING_ITEMS_TABLE)
-                .update({
-                    batch_number: item.batch_number,
-                    manufactured_date: item.manufactured_date,
-                    expiry_date: item.expiry_date,
-                    requires_lou: item.requires_lou
-                })
-                .eq('id', item.id)
-        }
-
-        // 2. Mark as complete
-        const { error } = await supabase
-            .from(RECEIVING_TABLE)
-            .update({
-                has_missing_details: false,
-                missing_details_completed_at: new Date().toISOString()
-            })
-            .eq('id', receivingId)
-
-        if (error) throw error
-        return true
-    },
-
-    // Quick Receive: Receive all items in full
-    async quickReceiveFullLPO(lpoId: string) {
-        const lpo = await this.getLPOForReceiving(lpoId)
-        if (!lpo) throw new Error('LPO not found')
-
-        const items = lpo.purchase_order?.items?.map(item => ({
-            lpo_item_id: item.id, // Note: Assuming PO Item ID maps here, checking schema... actually lpo_item_id typically refers to PO Item ID in this schema context
-            item_id: item.item_id,
-            item_type: (item.item_type === 'drug' ? 'drug' : 'non_drug') as 'drug' | 'non_drug',
-            ordered_quantity: item.quantity_ordered,
-            received_quantity: item.quantity_ordered,
-            outstanding_quantity: 0,
-            is_fully_received: true,
-            // Quick receive assumes no batch/expiry needed for non-drugs or defaults?
-            // User requirement: Batch/expiry mandatory for drugs. 
-            // So quick receive might NOT WORK for drugs if we don't prompt.
-            // But user approved "Quick Receive (80% of cases)".
-            // If drugs are involved, we might need to prompt or set dummy/TBA?
-            // Actually, Quick Receive usually implies ignoring details or they are pre-filled.
-            // IF items are DRUGS, we CANNOT allow Quick Receive without Batch.
-            // So we should fail or only allow if no drugs?
-            // OR: Quick Receive Modal MUST ask for batch for drugs inline.
-            // For now, I'll allow it with empty batch implies "To Be Updated" or generic.
-            // But Plan said "Pre-filled items list".
-            // Implementation Plan said: "Quick Receive (80% of cases): One-click confirmation".
-            // This conflicts with "Batch Mandatory for Drugs".
-            // I will implement it such that if it's a drug, it sets a placeholder or leaves null (if DB allows).
-            // DB schema: I didn't set NOT NULL. So it allows null.
-        })) || []
-
-        return this.createReceiving(lpoId, items, {}, 'Quick Received')
-    },
-
-    // Verify a receiving record
-    async verifyReceiving(receivingId: string, verifiedBy: string) {
-        // 1. Get the record and its items
-        const { data: record, error: recordError } = await supabase
-            .from(RECEIVING_TABLE)
-            .select('lpo_id, items:pharmacy_receiving_items(*)')
-            .eq('id', receivingId)
-            .single()
-
-        if (recordError) throw recordError
-
-        // 2. Update Receiving Status
-        const { data, error } = await supabase
-            .from(RECEIVING_TABLE)
-            .update({
-                status: 'verified',
-                verified_by: verifiedBy,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', receivingId)
-            .select()
-            .single()
-
-        if (error) throw error
-
-        // 3. Update Order Tracking items to 'delivered'
-        const trackingRecords = await orderTrackingService.getTrackingByLPO(record.lpo_id)
-        for (const item of record.items) {
-            const tracking = trackingRecords.find(t => t.item_id === item.item_id)
-            if (tracking && tracking.status === 'received') {
-                await orderTrackingService.updateTrackingStatus(tracking.id, 'delivered', new Date().toISOString())
-            }
-        }
-
-        // Trigger generic inventory update here (placeholder)
-        // inventoryService.updateStock(...)
-
-        return data
-    },
-
-    // Get receiving history for an LPO
-    async getReceivingHistory(lpoId: string) {
-        const { data, error } = await supabase
-            .from(RECEIVING_TABLE)
-            .select(`
-                *,
-                items:pharmacy_receiving_items (*),
-                receiver:users!received_by (full_name)
-            `)
-            .eq('lpo_id', lpoId)
-            .order('created_at', { ascending: false })
-
-        if (error) throw error
-        return data
-    },
-
-    // Check if LPO is fully completed (all items fully received + docs)
-    async checkLPOCompletion(lpoId: string) {
-        // 1. Get LPO with all items
-        const lpo = await this.getLPOForReceiving(lpoId)
-        if (!lpo) return { isComplete: false, message: 'LPO not found' }
-
-        // 2. Get all receiving records
-        const receivingRecords = await this.getReceivingHistory(lpoId)
-        if (!receivingRecords || receivingRecords.length === 0) return { isComplete: false, message: 'No receiving records found' }
-
-        // 3. Check if all receiving records are verified and complete
-        const allReceivingsVerified = (receivingRecords || []).every((r: any) => r.status === 'verified' && !r.has_missing_details)
-        if (!allReceivingsVerified && receivingRecords.length > 0) return { isComplete: false, message: 'Some receiving records are pending verification or incomplete' }
-
-        // 4. Check if all ordered items are fully received
-        // Aggregate received quantities
-        const receivedMap = new Map<string, number>()
-        receivingRecords.forEach((r: any) => {
-            r.items.forEach((i: any) => {
-                if (!i.item_id) return
-                const current = receivedMap.get(i.item_id) || 0
-                receivedMap.set(i.item_id, current + i.received_quantity)
-            })
+    // 2. Prepare and Insert GR Items
+    const grItems = data.items.flatMap(item => {
+      const itemsToInsert = []
+      
+      // Full or partial credit note: we don't insert a GR item for the CN part directly,
+      // but if there's no accepted quantity and it's full CN, we insert one for tracking.
+      if (item.credit_note_quantity && item.credit_note_quantity > 0 && item.quantity_accepted === 0) {
+        itemsToInsert.push({
+          gr_id: newGr.id,
+          po_item_id: item.po_item_id,
+          item_id: item.item_id,
+          quantity_received: 0,
+          quantity_accepted: 0,
+          quantity_rejected: 0,
+          disposition: 'credit_note',
+          rejection_reason: item.credit_note_reason || item.rejection_reason,
+          notes: item.notes
         })
-
-        const incompleteItems: string[] = []
-        lpo.purchase_order?.items?.forEach(item => {
-            if (!item.item_id) return
-            const received = receivedMap.get(item.item_id) || 0
-            if (received < item.quantity_ordered) {
-                incompleteItems.push(item.item_name || 'Unknown Item')
-            }
-        })
-
-        if (incompleteItems.length > 0) {
-            return {
-                isComplete: false,
-                message: `Items not fully received: ${incompleteItems.slice(0, 3).join(', ')}${incompleteItems.length > 3 ? '...' : ''}`
-            }
-        }
-
-        return { isComplete: true, message: 'All items received and verified' }
-    },
-
-    // Send LPO for Payment
-    async sendForPayment(lpoId: string) {
-        const completionCheck = await this.checkLPOCompletion(lpoId)
-        if (!completionCheck.isComplete) {
-            throw new Error(completionCheck.message)
-        }
-
-        const { data, error } = await supabase
-            .from(LPO_TABLE)
-            .update({
-                payment_status: 'sent_for_payment',
-                sent_for_payment_date: new Date().toISOString(),
-                updated_at: new Date().toISOString()
+      }
+      
+      // Add accepted batches
+      if (item.batches && item.batches.length > 0) {
+        item.batches.forEach(batch => {
+          if (batch.quantity > 0) {
+            itemsToInsert.push({
+              gr_id: newGr.id,
+              po_item_id: item.po_item_id,
+              item_id: item.item_id,
+              quantity_received: batch.quantity,
+              quantity_accepted: batch.quantity,
+              quantity_rejected: 0,
+              batch_number: batch.batch_number,
+              manufacturing_date: batch.manufacturing_date,
+              expiry_date: batch.expiry_date,
+              disposition: 'accepted',
+              notes: item.notes
             })
-            .eq('id', lpoId)
-            .select()
-            .single()
+          }
+        })
+      }
+      
+      // Add rejected quantity as a separate row if any
+      if (item.quantity_rejected > 0) {
+        itemsToInsert.push({
+          gr_id: newGr.id,
+          po_item_id: item.po_item_id,
+          item_id: item.item_id,
+          quantity_received: item.quantity_rejected,
+          quantity_accepted: 0,
+          quantity_rejected: item.quantity_rejected,
+          disposition: 'rejected',
+          rejection_reason: item.rejection_reason,
+          notes: item.notes
+        })
+      }
+      
+      return itemsToInsert
+    })
 
-        if (error) throw error
-        return data
-    },
+    if (grItems.length > 0) {
+      const { error: itemsError } = await supabase
+        .from('pharmacy_goods_receipt_items')
+        .insert(grItems)
 
-    // Delete a receiving record
-    async deleteReceiving(id: string) {
-        // 1. Get record to handle tracking rollback - fetch everything first
-        const { data: record, error: fetchError } = await supabase
-            .from(RECEIVING_TABLE)
-            .select(`
-                lpo_id,
-                items:pharmacy_receiving_items(*)
-            `)
-            .eq('id', id)
-            .single()
+      if (itemsError) throw itemsError
+    }
 
-        if (fetchError || !record) throw new Error('Receiving record not found or could not be loaded for deletion')
+    // Fetch PO to get supplier_id and other details
+    const { data: po, error: poHeaderError } = await supabase
+      .from('pharmacy_purchase_orders')
+      .select('id, supplier_id')
+      .eq('id', data.po_id)
+      .single()
 
-        // 2. Rollback tracking items to 'pending' BEFORE deleting anything
-        // This is safer because if anything fails later, the status is already reset
-        const trackingRecords = await orderTrackingService.getTrackingByLPO(record.lpo_id)
-        if (record.items && record.items.length > 0) {
-            for (const item of record.items) {
-                const tracking = trackingRecords.find(t => t.item_id === item.item_id)
-                if (tracking) {
-                    await orderTrackingService.updateTrackingStatus(tracking.id, 'pending', null)
-                }
-            }
-        }
+    if (poHeaderError) throw poHeaderError
 
-        // 3. Delete associated items explicitly
-        const { error: itemsError } = await supabase
-            .from(RECEIVING_ITEMS_TABLE)
-            .delete()
-            .eq('receiving_id', id)
+    // Fetch PO items to get unit_price for Credit Notes
+    const { data: poItems } = await supabase
+      .from('pharmacy_purchase_order_items')
+      .select('id, unit_price, item_id, item_name, item_code')
+      .eq('po_id', data.po_id)
 
-        if (itemsError) throw itemsError
+    const poItemMap = new Map(poItems?.map(i => [i.id, i]) || [])
 
-        // 4. Delete associated documents explicitly
-        const { error: docsError } = await supabase
-            .from(RECEIVING_DOCUMENTS_TABLE)
-            .delete()
-            .eq('receiving_id', id)
-
-        if (docsError) throw docsError
-
-        // 5. Delete main record
-        const { error: deleteError } = await supabase
-            .from(RECEIVING_TABLE)
-            .delete()
-            .eq('id', id)
-
-        if (deleteError) throw deleteError
-
-        return true
-    },
-
-    // Get KPI Stats
-    async getReceivingStats() {
-        // Total Received (Count of verified receivings)
-        const { count: totalReceived, error: receivedError } = await supabase
-            .from(RECEIVING_TABLE)
-            .select('id', { count: 'exact', head: true })
-
-        // Pending Verification
-        const { count: pendingVerification, error: pendingError } = await supabase
-            .from(RECEIVING_TABLE)
-            .select('id', { count: 'exact', head: true })
-            .eq('status', 'pending')
-
-        // Pending Payment (LPOs that are verified but not sent for payment)
-        // This is tricky without complex joins/aggregation. 
-        // Approximation: Count LPOs with payment_status = 'pending' AND status = 'verified'
-        // But ideally we want LPOs that ARE fully received. 
-        // For simplicity/performance allow simple query mainly driven by payment_status
-        const { count: pendingPayment, error: paymentError } = await supabase
-            .from(LPO_TABLE)
-            .select('id', { count: 'exact', head: true })
-            .eq('payment_status', 'pending')
-            .eq('status', 'verified') // Ensure LPO itself is at least verified
-
-        if (receivedError || pendingError || paymentError) {
-            console.error('Error fetching stats', { receivedError, pendingError, paymentError })
+    // Collect credit note items (both partial and full)
+    const cnItems = data.items
+      .filter(item => (item.credit_note_quantity || 0) > 0 || item.disposition === 'credit_note')
+      .map(item => {
+        const poItem = poItemMap.get(item.po_item_id)
+        const unitPrice = poItem?.unit_price || 0
+        let quantity = item.credit_note_quantity || 0
+        
+        // Fallback for legacy all-or-nothing
+        if (quantity === 0 && item.disposition === 'credit_note') {
+           quantity = Math.max(0, item.quantity_ordered - (item.quantity_previously_received + item.quantity_accepted))
         }
 
         return {
-            totalReceived: totalReceived || 0,
-            pendingVerification: pendingVerification || 0,
-            pendingPayment: pendingPayment || 0
+          po_item_id: item.po_item_id,
+          item_id: poItem?.item_id || item.item_id || '',
+          item_name: poItem?.item_name || item.item_name || '',
+          item_code: poItem?.item_code || '',
+          quantity,
+          unit_price: unitPrice,
+          total_price: quantity * unitPrice,
+          reason: item.credit_note_reason || item.notes || 'Unavailable during delivery'
         }
+      })
+      .filter(cn => cn.quantity > 0)
+
+    if (cnItems.length > 0) {
+      const totalAmount = cnItems.reduce((sum, item) => sum + item.total_price, 0)
+      
+      const cnDraft = await createCreditNoteDraft({
+        hospital_id: data.hospital_id,
+        po_id: data.po_id,
+        supplier_id: po.supplier_id, // Passed supplier_id
+        lpo_id: data.lpo_id,
+        gr_id: newGr.id,
+        reason: 'unavailable',
+        notes: 'Auto-generated from Goods Receipt',
+        amount: totalAmount,
+        items: cnItems
+      }, data.received_by)
+
+      // Auto-approve the CN
+      if (cnDraft.data && cnDraft.data.id) {
+        await approveCreditNote(cnDraft.data.id, data.received_by)
+      }
     }
+
+    // 3. Process each item: update PO Item and Tracking
+    let anyItemsReceived = false
+
+    for (const item of data.items) {
+      const cnQty = item.credit_note_quantity || (item.disposition === 'credit_note' ? (item.quantity_ordered - item.quantity_previously_received) : 0)
+      const hasReceived = item.quantity_received > 0
+      const hasCN = cnQty > 0
+      
+      if (hasReceived || hasCN) {
+        anyItemsReceived = true
+        
+        const newTotalReceived = item.quantity_previously_received + item.quantity_accepted
+        const isItemFullyReceived = (newTotalReceived + cnQty) >= item.quantity_ordered
+
+        // Update PO item quantity_received
+        await supabase
+          .from('pharmacy_purchase_order_items')
+          .update({ quantity_received: newTotalReceived }) // only received, CN doesn't add to stock received
+          .eq('id', item.po_item_id)
+
+        // Update Order Tracking
+        if (data.lpo_id && item.item_id) {
+          const trackingUpdate: any = {}
+          
+          if (isItemFullyReceived) {
+            trackingUpdate.status = 'delivered'
+            trackingUpdate.actual_delivery_date = data.receipt_date
+            trackingUpdate.tarikh_serahan = data.receipt_date ? new Date(data.receipt_date).toISOString() : new Date().toISOString()
+            trackingUpdate.is_overdue = false
+          }
+          
+          if (data.lpo_id && item.item_id) {
+            await supabase
+              .from('pharmacy_order_tracking')
+              .update(trackingUpdate)
+              .eq('lpo_id', data.lpo_id)
+              .eq('item_id', item.item_id)
+          }
+        }
+      }
+    }
+
+    // 4. Update PO Status
+    if (anyItemsReceived) {
+      // Fetch all PO items to verify if they are fully received
+      const { data: updatedPoItems } = await supabase
+        .from('pharmacy_purchase_order_items')
+        .select('id, quantity_ordered, quantity_received')
+        .eq('po_id', data.po_id)
+      
+      // Also fetch any credit notes for this PO to see the credited quantities
+      const { data: creditNotes } = await supabase
+        .from('pharmacy_credit_notes')
+        .select('id')
+        .eq('po_id', data.po_id)
+        
+      const cnItemQuantities = new Map<string, number>()
+      if (creditNotes && creditNotes.length > 0) {
+        const cnIds = creditNotes.map(cn => cn.id)
+        const { data: cnItems } = await supabase
+          .from('pharmacy_credit_note_items')
+          .select('po_item_id, quantity')
+          .in('cn_id', cnIds)
+          
+        if (cnItems) {
+          for (const cnItem of cnItems) {
+            const currentVal = cnItemQuantities.get(cnItem.po_item_id) || 0
+            cnItemQuantities.set(cnItem.po_item_id, currentVal + (cnItem.quantity || 0))
+          }
+        }
+      }
+
+      let allItemsFullyReceived = true
+      if (updatedPoItems && updatedPoItems.length > 0) {
+        for (const poItem of updatedPoItems) {
+          const qtyReceived = poItem.quantity_received || 0
+          const qtyCredited = cnItemQuantities.get(poItem.id) || 0
+          const totalFulfilled = qtyReceived + qtyCredited
+          
+          if (totalFulfilled < poItem.quantity_ordered) {
+            allItemsFullyReceived = false
+            break
+          }
+        }
+      } else {
+        allItemsFullyReceived = false
+      }
+
+      const poStatus = allItemsFullyReceived ? 'completed' : 'partial_received'
+      await supabase
+        .from('pharmacy_purchase_orders')
+        .update({ status: poStatus })
+        .eq('id', data.po_id)
+
+      // Create log entry for PO status change
+      await supabase
+        .from('approval_logs')
+        .insert({
+          entity_type: 'purchase_order',
+          entity_id: data.po_id,
+          action: poStatus,
+          approved_by: data.received_by,
+          notes: `Goods Receipt ${gr_number} created. Status updated to ${poStatus}.`,
+          created_at: new Date().toISOString()
+        })
+    }
+
+    // 5. Check and create late delivery penalty for each received item that is late
+    for (const item of data.items) {
+      if (item.quantity_received > 0) {
+        const poItem = poItemMap.get(item.po_item_id)
+        const itemName = poItem?.item_name || ''
+        const itemCode = poItem?.item_code || ''
+
+        await checkAndCreateLatePenalty(
+          data.hospital_id,
+          data.received_by,
+          data.po_id,
+          newGr.id,
+          data.receipt_date,
+          itemName,
+          itemCode,
+          data.lpo_id
+        )
+      }
+    }
+
+    return { data: newGr, error: null }
+  } catch (error) {
+    console.error('Error creating goods receipt:', error)
+    return { data: null, error: error instanceof Error ? error.message : 'Failed to create goods receipt' }
+  }
+}
+
+/**
+ * Fetch GR history for a specific PO
+ */
+/**
+ * Fetch a specific Goods Receipt with its items
+ */
+export async function getGoodsReceiptDetail(grId: string): Promise<ApiResponse<GoodsReceipt>> {
+  try {
+    if (!isSupabaseConfigured()) throw new Error('Supabase not configured')
+
+    // 1. Try System A (pharmacy_goods_receipts)
+    const { data: grData } = await supabase
+      .from('pharmacy_goods_receipts')
+      .select(`
+        *,
+        items:pharmacy_goods_receipt_items(
+          *,
+          po_item:pharmacy_purchase_order_items(item_name, item_code, packaging_description, unit_price)
+        ),
+        received_by_user:users!pharmacy_goods_receipts_received_by_fkey(full_name, jawatan),
+        inspected_by_user:users!pharmacy_goods_receipts_inspected_by_fkey(full_name, jawatan),
+        purchase_order:pharmacy_purchase_orders!pharmacy_goods_receipts_po_id_fkey(
+          *,
+          supplier:suppliers!pharmacy_purchase_orders_supplier_id_fkey(*)
+        ),
+        penalties:pharmacy_penalties!pharmacy_penalties_gr_id_fkey(*)
+      `)
+      .eq('id', grId)
+      .maybeSingle()
+
+    if (grData) {
+      return { data: grData as GoodsReceipt, error: null }
+    }
+
+    // 2. Try System B (pharmacy_receiving)
+    const { data: recData, error: recError } = await supabase
+      .from('pharmacy_receiving')
+      .select(`
+        *,
+        items:pharmacy_receiving_items(
+          *,
+          po_item:pharmacy_purchase_order_items!fk_receiving_items_lpo_item(item_name, item_code, packaging_description, unit_price)
+        ),
+        received_by_user:users!pharmacy_receiving_received_by_fkey(full_name, jawatan),
+        lpo:pharmacy_lpo!pharmacy_receiving_lpo_id_fkey(
+          *,
+          purchase_order:pharmacy_purchase_orders!pharmacy_lpo_po_id_fkey(
+            *,
+            supplier:suppliers!pharmacy_purchase_orders_supplier_id_fkey(*)
+          )
+        ),
+        penalties:pharmacy_penalties!pharmacy_penalties_receiving_id_fkey(*)
+      `)
+      .eq('id', grId)
+      .maybeSingle()
+
+    if (recError) throw recError
+
+    if (recData) {
+      // Map to GoodsReceipt shape
+      const mapped: any = {
+        id: recData.id,
+        hospital_id: recData.hospital_id,
+        po_id: recData.lpo?.purchase_order?.id,
+        lpo_id: recData.lpo_id,
+        gr_number: recData.do_number || `REC-${recData.id.substring(0,8)}`.toUpperCase(),
+        receipt_date: recData.receiving_date,
+        delivery_note_number: recData.do_number,
+        status: recData.status,
+        received_by: recData.received_by,
+        created_at: recData.created_at,
+        received_by_user: recData.received_by_user,
+        purchase_order: recData.lpo?.purchase_order,
+        penalties: recData.penalties,
+        document_url: recData.do_document_url,
+        document_urls: recData.do_document_urls || [],
+        items: recData.items?.map((i: any) => ({
+          id: i.id,
+          gr_id: recData.id,
+          po_item_id: i.lpo_item_id,
+          quantity_received: i.received_quantity,
+          quantity_accepted: i.received_quantity,
+          quantity_rejected: 0,
+          batch_number: i.batch_number,
+          expiry_date: i.expiry_date,
+          manufacturing_date: i.manufactured_date,
+          disposition: 'accepted',
+          po_item: i.po_item
+        }))
+      }
+      return { data: mapped as GoodsReceipt, error: null }
+    }
+
+    return { data: null, error: 'Record not found' }
+  } catch (error) {
+    console.error('Error fetching GR detail:', error)
+    return { data: null, error: error instanceof Error ? error.message : 'Failed to fetch GR detail' }
+  }
+}
+
+/**
+ * Fetch GR history for a specific PO
+ */
+export async function getGoodsReceiptHistory(poId: string): Promise<ApiResponse<GoodsReceipt[]>> {
+  try {
+    if (!isSupabaseConfigured()) throw new Error('Supabase not configured')
+
+    const { data: grData, error: grError } = await supabase
+      .from('pharmacy_goods_receipts')
+      .select(`
+        *,
+        items:pharmacy_goods_receipt_items(
+          *,
+          po_item:pharmacy_purchase_order_items(item_name, item_code, packaging_description, unit_price)
+        ),
+        received_by_user:users!pharmacy_goods_receipts_received_by_fkey(full_name)
+      `)
+      .eq('po_id', poId)
+      .order('created_at', { ascending: false })
+
+    if (grError) throw grError
+
+    let combinedGr = (grData || []) as GoodsReceipt[]
+
+    // Fetch LPOs for this PO
+    const { data: lpos } = await supabase.from('pharmacy_lpo').select('id').eq('po_id', poId)
+    const lpoIds = lpos?.map(l => l.id) || []
+
+    if (lpoIds.length > 0) {
+      // Fetch receiving records from newer system
+      const { data: receivingData } = await supabase
+        .from('pharmacy_receiving')
+        .select(`
+          *,
+          items:pharmacy_receiving_items(
+            *,
+            po_item:pharmacy_purchase_order_items!fk_receiving_items_lpo_item(item_name, item_code, packaging_description, unit_price)
+          ),
+          received_by_user:users!pharmacy_receiving_received_by_fkey(full_name)
+        `)
+        .in('lpo_id', lpoIds)
+        .order('created_at', { ascending: false })
+
+      if (receivingData && receivingData.length > 0) {
+        const mappedReceiving = receivingData.map((r: any) => ({
+          id: r.id,
+          hospital_id: r.hospital_id,
+          po_id: poId,
+          lpo_id: r.lpo_id,
+          gr_number: r.do_number || `REC-${r.id.substring(0,8)}`.toUpperCase(),
+          receipt_date: r.receiving_date,
+          delivery_note_number: r.do_number,
+          status: r.status,
+          received_by: r.received_by,
+          created_at: r.created_at,
+          received_by_user: r.received_by_user,
+          document_url: r.do_document_url,
+          document_urls: r.do_document_urls || [],
+          items: r.items?.map((i: any) => ({
+            id: i.id,
+            gr_id: r.id,
+            po_item_id: i.lpo_item_id, // Best match
+            quantity_received: i.received_quantity,
+            quantity_accepted: i.received_quantity,
+            quantity_rejected: 0,
+            batch_number: i.batch_number,
+            expiry_date: i.expiry_date,
+            manufacturing_date: i.manufactured_date,
+            disposition: 'accepted',
+            po_item: {
+              item_name: i.po_item?.item_name,
+              item_code: i.po_item?.item_code,
+              packaging_description: i.po_item?.packaging_description,
+              unit_price: i.po_item?.unit_price
+            }
+          }))
+        }))
+        
+        combinedGr = [...combinedGr, ...mappedReceiving].sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )
+      }
+    }
+
+    return { data: combinedGr, error: null }
+  } catch (error) {
+    console.error('Error fetching GR history:', error)
+    return { data: null, error: error instanceof Error ? error.message : 'Failed to fetch GR history' }
+  }
+}
+
+/**
+ * Delete a Goods Receipt and revert associated changes
+ */
+export async function deleteGoodsReceipt(grId: string, poId: string): Promise<ApiResponse<boolean>> {
+  try {
+    if (!isSupabaseConfigured()) throw new Error('Supabase not configured')
+
+    // 1. Check which system this record belongs to
+    const { data: systemAGr } = await supabase
+      .from('pharmacy_goods_receipts')
+      .select('id, lpo_id')
+      .eq('id', grId)
+      .maybeSingle()
+
+    if (systemAGr) {
+      // Handle System A (pharmacy_goods_receipts)
+      const { data: grItems } = await supabase
+        .from('pharmacy_goods_receipt_items')
+        .select('*')
+        .eq('gr_id', grId)
+
+      if (grItems) {
+        for (const item of grItems) {
+          if (item.quantity_accepted > 0) {
+            const { data: poItem } = await supabase
+              .from('pharmacy_purchase_order_items')
+              .select('quantity_received')
+              .eq('id', item.po_item_id)
+              .single()
+            
+            if (poItem) {
+              const newQty = Math.max(0, (poItem.quantity_received || 0) - item.quantity_accepted)
+              await supabase
+                .from('pharmacy_purchase_order_items')
+                .update({ quantity_received: newQty })
+                .eq('id', item.po_item_id)
+            }
+          }
+
+          if (systemAGr.lpo_id && item.item_id) {
+            await supabase
+              .from('pharmacy_order_tracking')
+              .update({ 
+                status: 'pending', 
+                actual_delivery_date: null,
+                tarikh_serahan: null 
+              })
+              .eq('lpo_id', systemAGr.lpo_id)
+              .eq('item_id', item.item_id)
+          }
+        }
+      }
+
+      await supabase.from('pharmacy_penalties').delete().eq('gr_id', grId)
+      const { data: cns } = await supabase.from('pharmacy_credit_notes').select('id').eq('gr_id', grId)
+      if (cns && cns.length > 0) {
+        for (const cn of cns) {
+          await supabase.from('pharmacy_credit_note_items').delete().eq('cn_id', cn.id)
+        }
+        await supabase.from('pharmacy_credit_notes').delete().eq('gr_id', grId)
+      }
+
+      await supabase.from('pharmacy_goods_receipt_items').delete().eq('gr_id', grId)
+      await supabase.from('pharmacy_goods_receipts').delete().eq('id', grId)
+    } else {
+      // Handle System B (pharmacy_receiving)
+      const { data: recData } = await supabase
+        .from('pharmacy_receiving')
+        .select('*, items:pharmacy_receiving_items(*)')
+        .eq('id', grId)
+        .maybeSingle()
+
+      if (recData) {
+        // Reset tracking for items in this receiving
+        if (recData.items) {
+          for (const item of recData.items) {
+            // Revert purchase order item received quantity
+            if (item.lpo_item_id && item.received_quantity > 0) {
+              const { data: poItem } = await supabase
+                .from('pharmacy_purchase_order_items')
+                .select('quantity_received')
+                .eq('id', item.lpo_item_id)
+                .single()
+              
+              if (poItem) {
+                const newQty = Math.max(0, (poItem.quantity_received || 0) - item.received_quantity)
+                await supabase
+                  .from('pharmacy_purchase_order_items')
+                  .update({ quantity_received: newQty })
+                  .eq('id', item.lpo_item_id)
+              }
+            }
+
+            if (recData.lpo_id && item.item_id) {
+              await supabase
+                .from('pharmacy_order_tracking')
+                .update({ 
+                  status: 'pending', 
+                  actual_delivery_date: null,
+                  tarikh_serahan: null 
+                })
+                .eq('lpo_id', recData.lpo_id)
+                .eq('item_id', item.item_id)
+            }
+          }
+        }
+
+        await supabase.from('pharmacy_penalties').delete().eq('receiving_id', grId)
+        await supabase.from('pharmacy_lou').delete().eq('receiving_id', grId)
+        await supabase.from('pharmacy_receiving_items').delete().eq('receiving_id', grId)
+        await supabase.from('pharmacy_receiving_documents').delete().eq('receiving_id', grId)
+        await supabase.from('pharmacy_receiving').delete().eq('id', grId)
+      } else {
+        throw new Error('Record not found')
+      }
+    }
+
+    // 2. Update parent PO status based on remaining records in BOTH systems
+    const { count: countA } = await supabase.from('pharmacy_goods_receipts').select('id', { count: 'exact' }).eq('po_id', poId)
+    
+    // For System B, we need to check via LPO
+    const { data: lpos } = await supabase.from('pharmacy_lpo').select('id').eq('po_id', poId)
+    const lpoIds = lpos?.map(l => l.id) || []
+    const { count: countB } = lpoIds.length > 0 
+      ? await supabase.from('pharmacy_receiving').select('id', { count: 'exact' }).in('lpo_id', lpoIds)
+      : { count: 0 }
+
+    const totalRemaining = (countA || 0) + (countB || 0)
+    const newPoStatus = totalRemaining > 0 ? 'partial_received' : 'approved'
+    
+    await supabase
+      .from('pharmacy_purchase_orders')
+      .update({ status: newPoStatus })
+      .eq('id', poId)
+
+    return { data: true, error: null }
+  } catch (error) {
+    console.error('Error deleting record:', error)
+    return { data: false, error: error instanceof Error ? error.message : 'Failed to delete record' }
+  }
+}
+
+/**
+ * Update an existing Goods Receipt (Modification with reason)
+ */
+export async function updateGoodsReceipt(
+  grId: string, 
+  data: Partial<GoodsReceipt> & { 
+    modification_reason: string,
+    items?: any[] 
+  }
+): Promise<ApiResponse<GoodsReceipt>> {
+  try {
+    if (!isSupabaseConfigured()) throw new Error('Supabase not configured')
+
+    // 1. Try System A (pharmacy_goods_receipts)
+    const { data: grData } = await supabase
+      .from('pharmacy_goods_receipts')
+      .update({
+        delivery_note_number: data.delivery_note_number,
+        invoice_number: data.invoice_number,
+        receipt_date: data.receipt_date,
+        notes: data.notes,
+        document_url: data.document_url,
+        document_urls: data.document_urls,
+        modification_reason: data.modification_reason,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', grId)
+      .select()
+      .maybeSingle()
+
+    if (grData) {
+      // Update Items for System A
+      if (data.items && data.items.length > 0) {
+        for (const item of data.items) {
+          // Fetch old record to calculate quantity delta
+          const { data: oldItem } = await supabase
+            .from('pharmacy_goods_receipt_items')
+            .select('quantity_accepted, po_item_id')
+            .eq('id', item.id)
+            .single()
+
+          if (oldItem) {
+            const qtyDelta = (item.quantity_accepted || 0) - (oldItem.quantity_accepted || 0)
+
+            // Update the item record
+            await supabase
+              .from('pharmacy_goods_receipt_items')
+              .update({
+                quantity_received: item.quantity_accepted,
+                quantity_accepted: item.quantity_accepted,
+                batch_number: item.batch_number,
+                expiry_date: item.expiry_date
+              })
+              .eq('id', item.id)
+
+            // Update PO Item tracking if quantity changed
+            if (qtyDelta !== 0) {
+              const { data: poItem } = await supabase
+                .from('pharmacy_purchase_order_items')
+                .select('quantity_received')
+                .eq('id', oldItem.po_item_id)
+                .single()
+
+              if (poItem) {
+                await supabase
+                  .from('pharmacy_purchase_order_items')
+                  .update({ 
+                    quantity_received: (poItem.quantity_received || 0) + qtyDelta 
+                  })
+                  .eq('id', oldItem.po_item_id)
+              }
+            }
+          }
+        }
+      }
+      return { data: grData as GoodsReceipt, error: null }
+    }
+
+    // 2. Try System B (pharmacy_receiving)
+    const { data: recData, error: recError } = await supabase
+      .from('pharmacy_receiving')
+      .update({
+        do_number: data.delivery_note_number,
+        receiving_date: data.receipt_date,
+        do_document_url: data.document_url,
+        do_document_urls: data.document_urls,
+        notes: data.notes,
+        modification_reason: data.modification_reason,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', grId)
+      .select()
+      .maybeSingle()
+
+    if (recError) throw recError
+    
+    if (recData) {
+      // Update Items for System B
+      if (data.items && data.items.length > 0) {
+        for (const item of data.items) {
+          // Fetch old record to calculate quantity delta
+          const { data: oldItem } = await supabase
+            .from('pharmacy_receiving_items')
+            .select('received_quantity, lpo_item_id')
+            .eq('id', item.id)
+            .single()
+
+          if (oldItem) {
+            const qtyDelta = (item.quantity_accepted || 0) - (oldItem.received_quantity || 0)
+
+            // Update the item record
+            await supabase
+              .from('pharmacy_receiving_items')
+              .update({
+                received_quantity: item.quantity_accepted,
+                batch_number: item.batch_number,
+                expiry_date: item.expiry_date
+              })
+              .eq('id', item.id)
+
+            // Update PO Item tracking if quantity changed
+            if (qtyDelta !== 0) {
+              const { data: poItem } = await supabase
+                .from('pharmacy_purchase_order_items')
+                .select('quantity_received')
+                .eq('id', oldItem.lpo_item_id)
+                .single()
+
+              if (poItem) {
+                await supabase
+                  .from('pharmacy_purchase_order_items')
+                  .update({ 
+                    quantity_received: (poItem.quantity_received || 0) + qtyDelta 
+                  })
+                  .eq('id', oldItem.lpo_item_id)
+              }
+            }
+          }
+        }
+      }
+
+      return { 
+        data: { 
+          ...data,
+          id: recData.id,
+          gr_number: recData.do_number,
+          delivery_note_number: recData.do_number,
+          modification_reason: recData.modification_reason
+        } as GoodsReceipt, 
+        error: null 
+      }
+    }
+
+    return { data: null, error: 'Record not found in either system' }
+  } catch (error) {
+    console.error('Error updating goods receipt:', error)
+    return { data: null, error: error instanceof Error ? error.message : 'Failed to update goods receipt' }
+  }
 }

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { AlertTriangle, Clock, Calendar } from 'lucide-react'
-import { useAuthStore, useIsSessionReady } from '@/stores/authStore'
+import { useAuthStore } from '@/stores/authStore'
 import { Table, Spinner, Badge, Select } from '@/components/ui'
 import { getNearExpiryItems } from '@/services/pharmacy/inventoryService'
 import type { ExpiryItem } from '@/types/pharmacy'
@@ -8,7 +8,6 @@ import type { ExpiryItem } from '@/types/pharmacy'
 export const NearExpiryPage: React.FC = () => {
   const { user } = useAuthStore()
   const hospitalId = user?.hospital_id
-  const isSessionReady = useIsSessionReady()
 
   const [items, setItems] = useState<ExpiryItem[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -16,7 +15,7 @@ export const NearExpiryPage: React.FC = () => {
   const [daysThreshold, setDaysThreshold] = useState(30)
 
   useEffect(() => {
-    if (!isSessionReady || !hospitalId) return
+    if (!hospitalId) return
 
     const load = async () => {
       setIsLoading(true)
@@ -35,7 +34,7 @@ export const NearExpiryPage: React.FC = () => {
     }
 
     void load()
-  }, [isSessionReady, hospitalId, daysThreshold])
+  }, [hospitalId, daysThreshold])
 
   const renderExpiryBadge = (daysToExpiry: number, status: string) => {
     if (status === 'expired' || daysToExpiry <= 0) {
