@@ -1,6 +1,6 @@
 export * from './supabase'
 export * from './baseService'
-export * from './authService'
+export * from './authShim'
 export * from './inquiryService'
 export * from './accessRequestService'
 export * from './accessRequestManagementService'
@@ -27,9 +27,6 @@ export * from './userAccountFixService'
 // System Admin Fix Service (CRITICAL)
 export * from './systemAdminFixService'
 
-// Password Service
-export * from './passwordService'
-
 // Hospital Admin Services
 export * from './memoService'
 export * from './hospitalLogService'
@@ -40,4 +37,3 @@ export * from './patientDatabaseMonitorService'
 
 // Pharmacy Logistics Services
 export * from './pharmacy'
-

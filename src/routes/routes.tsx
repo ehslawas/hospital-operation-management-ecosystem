@@ -11,7 +11,7 @@ import { ProtectedRoute } from './ProtectedRoute'
 import { ROUTES, SYSTEM_ROLES } from '@/lib/constants'
 
 // Lazy load pages
-const LoginPage = lazy(() => import('@/pages/auth/LoginPage'))
+const LoginPage = lazy(() => import('@/modules/auth/pages/LoginPage'))
 const DashboardPage = lazy(() => import('@/pages/dashboard/DashboardPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 const PrivacyPolicyPage = lazy(() => import('@/pages/legal/PrivacyPolicyPage'))
