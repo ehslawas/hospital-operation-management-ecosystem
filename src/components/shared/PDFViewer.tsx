@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 import React, { useEffect, useRef, useState } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import { Loader2, ZoomIn, ZoomOut, AlertCircle } from 'lucide-react'

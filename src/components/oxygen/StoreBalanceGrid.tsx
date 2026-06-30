@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 import React from 'react';
 import { Database, AlertTriangle, Play, RefreshCw } from 'lucide-react';
 

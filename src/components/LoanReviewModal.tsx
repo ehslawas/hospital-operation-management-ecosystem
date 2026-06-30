@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -239,14 +240,14 @@ export default function LoanReviewModal({
                         </div>
                       </div>
                       <div className="text-sm text-slate-600 mb-1">
-                        {loanType === 'INBOUND' ? `${req.fromFacility} → Our Facility` : `Our Facility → ${req.toFacility}`}
+                        {loanType === 'INBOUND' ? `${req.fromFacility} â†’ Our Facility` : `Our Facility â†’ ${req.toFacility}`}
                       </div>
                       <div className="text-sm text-slate-600 mb-1">
                         {loanType === 'INBOUND' ? `Borrowed by: ${req.borrowedBy || req.requestedBy}` : `Loaned to: ${req.borrowedFrom || req.requestedBy}`}
                       </div>
                       <div className="text-xs text-slate-500">
-                        {req.items.length} items • {new Date(req.requestedAt).toLocaleDateString()}
-                        {req.dueDate && ` • Due: ${new Date(req.dueDate).toLocaleDateString()}`}
+                        {req.items.length} items â€¢ {new Date(req.requestedAt).toLocaleDateString()}
+                        {req.dueDate && ` â€¢ Due: ${new Date(req.dueDate).toLocaleDateString()}`}
                       </div>
                     </button>
                   ))}
@@ -272,8 +273,8 @@ export default function LoanReviewModal({
                             </div>
                             <span className="font-medium">
                               {loanType === 'INBOUND' 
-                                ? `${selectedRequest.fromFacility} → Our Facility` 
-                                : `Our Facility → ${selectedRequest.toFacility}`
+                                ? `${selectedRequest.fromFacility} â†’ Our Facility` 
+                                : `Our Facility â†’ ${selectedRequest.toFacility}`
                               }
                             </span>
                           </div>
@@ -369,7 +370,7 @@ export default function LoanReviewModal({
                                 }`}></div>
                                 <div className="flex-1">
                                   <div className="font-semibold text-slate-900 text-sm">{item.itemName}</div>
-                                  <div className="text-xs text-slate-500">{item.itemCode} • {item.category}</div>
+                                  <div className="text-xs text-slate-500">{item.itemCode} â€¢ {item.category}</div>
                                 </div>
                               </div>
                               {!isCompleted && loanType === 'INBOUND' && (

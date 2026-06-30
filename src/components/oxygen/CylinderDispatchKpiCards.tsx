@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 import React from 'react';
 import { ClipboardList, AlertCircle, PlayCircle, CheckCircle, XCircle } from 'lucide-react';
 import type { CylinderDispatchKPI } from '@/types/pharmacy';

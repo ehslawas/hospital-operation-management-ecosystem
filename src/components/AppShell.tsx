@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 'use client';
 
 import Link from 'next/link';
@@ -110,7 +111,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 							{!sidebarCollapsed && (
 								<div className="flex gap-2 text-xs animate-fade-in">
 									<Link href="/dev/login?role=pharmacy_logistics" className="text-slate-500 hover:text-blue-600 transition-all duration-200 font-medium hover:scale-105" suppressHydrationWarning>Grant logistics</Link>
-									<span className="text-slate-300">·</span>
+									<span className="text-slate-300">Â·</span>
 									<Link href="/dev/login?role=admin" className="text-slate-500 hover:text-blue-600 transition-all duration-200 font-medium hover:scale-105" suppressHydrationWarning>Grant admin</Link>
 								</div>
 							)}

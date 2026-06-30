@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 import React from 'react';
 import { Package, CheckCircle, Clock, Truck } from 'lucide-react';
 

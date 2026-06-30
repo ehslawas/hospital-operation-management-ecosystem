@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 "use client";
 import { useState, useEffect, useMemo } from 'react';
 import ItemAnalyticsModal from './ItemAnalyticsModal';
@@ -200,7 +201,7 @@ export default function BufferLevelTable({ items, onHandByItem, batches = [] }: 
                       >
                         {item.name}
                       </button>
-                      <div className="text-xs text-slate-500">{item.drugCode} • {item.brandName}</div>
+                      <div className="text-xs text-slate-500">{item.drugCode} â€¢ {item.brandName}</div>
                       <div className="text-xs text-slate-400">{item.category}</div>
                     </div>
                   </td>

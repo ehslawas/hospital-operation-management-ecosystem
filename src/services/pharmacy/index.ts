@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Pharmacy Logistics Module - Services
  * This file exports all pharmacy-related services

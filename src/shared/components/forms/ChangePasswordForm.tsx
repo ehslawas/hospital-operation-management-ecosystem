@@ -167,3 +167,5 @@ export const ChangePasswordForm: React.FC<ChangePasswordFormProps> = ({
   )
 }
 
+export default ChangePasswordForm
+

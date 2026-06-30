@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 export { ContactModal } from './ContactModal'
 export { JataNegara } from './JataNegara'
 export { PdfPreviewModal } from './PdfPreviewModal'

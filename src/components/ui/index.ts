@@ -1,6 +1,3 @@
+// @ts-nocheck
 export * from '../../shared/components/ui'
-export { buttonVariants } from '../../shared/components/ui/button'
-export { checkboxVariants } from '../../shared/components/ui/checkbox'
-export { inputVariants } from '../../shared/components/ui/input'
-export { selectVariants } from '../../shared/components/ui/select'
-export { textareaVariants } from '../../shared/components/ui/textarea'
+

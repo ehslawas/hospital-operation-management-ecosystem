@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from 'react'
-import MyGalleryPage from '../pages/hub/gallery/MyGalleryPage'
+import MyGalleryPage from '@/modules/hub/pages/gallery/MyGalleryPage'
 import {
   createBrowserRouter,
   RouterProvider,
@@ -18,95 +18,100 @@ const PrivacyPolicyPage = lazy(() => import('@/pages/legal/PrivacyPolicyPage'))
 const TermsOfServicePage = lazy(() => import('@/pages/legal/TermsOfServicePage'))
 
 // Hub pages
-const ModuleHubPage = lazy(() => import('@/pages/hub/ModuleHubPage'))
-const CylinderSubMenu = lazy(() => import('@/pages/hub/modules/CylinderSubMenu'))
-const InventorySubMenu = lazy(() => import('@/pages/hub/modules/InventorySubMenu'))
-const WarrantSubMenu = lazy(() => import('@/pages/hub/modules/WarrantSubMenu'))
-const SuratSubMenu = lazy(() => import('@/pages/hub/modules/SuratSubMenu'))
-const BorangSubMenu = lazy(() => import('@/pages/hub/modules/BorangSubMenu'))
-const SuhuSubMenu = lazy(() => import('@/pages/hub/modules/SuhuSubMenu'))
-const AdminSubMenu = lazy(() => import('@/pages/hub/modules/AdminSubMenu'))
-const PerolehanSubMenu = lazy(() => import('@/pages/hub/modules/PerolehanSubMenu'))
-const FileSubMenu = lazy(() => import('@/pages/hub/modules/FileSubMenu'))
-const FormulariSubMenu = lazy(() => import('@/pages/hub/modules/FormulariSubMenu'))
-const PorterSubMenu = lazy(() => import('@/pages/hub/modules/PorterSubMenu'))
-const TransporterSubMenu = lazy(() => import('@/pages/hub/modules/TransporterSubMenu'))
-const PriviledgingSubMenu = lazy(() => import('@/pages/hub/modules/PriviledgingSubMenu'))
-const TempahanSubMenu = lazy(() => import('@/pages/hub/modules/TempahanSubMenu'))
-const KunciSubMenu = lazy(() => import('@/pages/hub/modules/KunciSubMenu'))
-const CutiSubMenu = lazy(() => import('@/pages/hub/modules/CutiSubMenu'))
-const TimeOffSubMenu = lazy(() => import('@/pages/hub/modules/TimeOffSubMenu'))
+const ModuleHubPage = lazy(() => import('@/modules/hub/pages/ModuleHubPage'))
+const CylinderSubMenu = lazy(() => import('@/modules/hub/pages/modules/CylinderSubMenu'))
+const InventorySubMenu = lazy(() => import('@/modules/hub/pages/modules/InventorySubMenu'))
+const WarrantSubMenu = lazy(() => import('@/modules/hub/pages/modules/WarrantSubMenu'))
+const SuratSubMenu = lazy(() => import('@/modules/hub/pages/modules/SuratSubMenu'))
+const BorangSubMenu = lazy(() => import('@/modules/hub/pages/modules/BorangSubMenu'))
+const SuhuSubMenu = lazy(() => import('@/modules/hub/pages/modules/SuhuSubMenu'))
+const SuhuDashboardPage = lazy(() => import('@/modules/mysuhu/pages/SuhuDashboardPage'))
+const UnitDetailPage = lazy(() => import('@/modules/mysuhu/pages/UnitDetailPage'))
+const BreachLogPage = lazy(() => import('@/modules/mysuhu/pages/BreachLogPage'))
+const AdminSetupPage = lazy(() => import('@/modules/mysuhu/pages/AdminSetupPage'))
+const AdminSubMenu = lazy(() => import('@/modules/hub/pages/modules/AdminSubMenu'))
+const PerolehanSubMenu = lazy(() => import('@/modules/hub/pages/modules/PerolehanSubMenu'))
+const FileSubMenu = lazy(() => import('@/modules/hub/pages/modules/FileSubMenu'))
+const FormulariSubMenu = lazy(() => import('@/modules/hub/pages/modules/FormulariSubMenu'))
+const PorterSubMenu = lazy(() => import('@/modules/hub/pages/modules/PorterSubMenu'))
+const TransporterSubMenu = lazy(() => import('@/modules/hub/pages/modules/TransporterSubMenu'))
+const PriviledgingSubMenu = lazy(() => import('@/modules/hub/pages/modules/PriviledgingSubMenu'))
+const TempahanSubMenu = lazy(() => import('@/modules/hub/pages/modules/TempahanSubMenu'))
+const KunciSubMenu = lazy(() => import('@/modules/hub/pages/modules/KunciSubMenu'))
+const CutiSubMenu = lazy(() => import('@/modules/hub/pages/modules/CutiSubMenu'))
+const TimeOffSubMenu = lazy(() => import('@/modules/hub/pages/modules/TimeOffSubMenu'))
 
 // Gallery pages
 // const GalleryPage = lazy(() => import('../pages/hub/gallery/GalleryPage'))
-const AlbumDetailPage = lazy(() => import('../pages/hub/gallery/AlbumDetailPage'))
+const AlbumDetailPage = lazy(() => import('@/modules/hub/pages/gallery/AlbumDetailPage'))
 
 
 // Admin pages
-const UserListPage = lazy(() => import('@/pages/admin/users/UserListPage'))
-const UserDetailPage = lazy(() => import('@/pages/admin/users/UserDetailPage'))
-const AccessRequestListPage = lazy(() => import('@/pages/admin/accessRequests/AccessRequestListPage'))
-const AccessRequestDetailPage = lazy(() => import('@/pages/admin/accessRequests/AccessRequestDetailPage'))
-const HospitalListPage = lazy(() => import('@/pages/admin/hospitals/HospitalListPage'))
-const HospitalDetailPage = lazy(() => import('@/pages/admin/hospitals/HospitalDetailPage'))
-const ClinicListPage = lazy(() => import('@/pages/admin/clinics/ClinicListPage'))
-const ClinicDetailPage = lazy(() => import('@/pages/admin/clinics/ClinicDetailPage'))
-const DepartmentListPage = lazy(() => import('@/pages/admin/departments/DepartmentListPage'))
-const DepartmentDetailPage = lazy(() => import('@/pages/admin/departments/DepartmentDetailPage'))
-const RoleListPage = lazy(() => import('@/pages/admin/roles/RoleListPage'))
-const RolePermissionPage = lazy(() => import('@/pages/admin/roles/RolePermissionPage'))
-const AuditLogPage = lazy(() => import('@/pages/admin/auditLogs/AuditLogPage'))
-const SystemSettingsPage = lazy(() => import('@/pages/admin/settings/SystemSettingsPage'))
-const ModuleAccessControlPage = lazy(() => import('@/pages/admin/modules/ModuleAccessControlPage'))
-const SystemMonitoringPage = lazy(() => import('@/pages/admin/monitoring/SystemMonitoringPage'))
-const BackupManagementPage = lazy(() => import('@/pages/admin/backups/BackupManagementPage'))
-const AlertCenterPage = lazy(() => import('@/pages/admin/alerts/AlertCenterPage'))
-const SystemLogsPage = lazy(() => import('@/pages/admin/systemLogs/SystemLogsPage'))
+const UserListPage = lazy(() => import('@modules/admin/pages/users/UserListPage'))
+const UserDetailPage = lazy(() => import('@modules/admin/pages/users/UserDetailPage'))
+const AccessRequestListPage = lazy(() => import('@modules/admin/pages/accessRequests/AccessRequestListPage'))
+const AccessRequestDetailPage = lazy(() => import('@modules/admin/pages/accessRequests/AccessRequestDetailPage'))
+const HospitalListPage = lazy(() => import('@modules/admin/pages/hospitals/HospitalListPage'))
+const HospitalDetailPage = lazy(() => import('@modules/admin/pages/hospitals/HospitalDetailPage'))
+const ClinicListPage = lazy(() => import('@modules/admin/pages/clinics/ClinicListPage'))
+const ClinicDetailPage = lazy(() => import('@modules/admin/pages/clinics/ClinicDetailPage'))
+const DepartmentListPage = lazy(() => import('@modules/admin/pages/departments/DepartmentListPage'))
+const DepartmentDetailPage = lazy(() => import('@modules/admin/pages/departments/DepartmentDetailPage'))
+const RoleListPage = lazy(() => import('@modules/admin/pages/roles/RoleListPage'))
+const RolePermissionPage = lazy(() => import('@modules/admin/pages/roles/RolePermissionPage'))
+const AuditLogPage = lazy(() => import('@modules/admin/pages/auditLogs/AuditLogPage'))
+const SystemSettingsPage = lazy(() => import('@modules/admin/pages/settings/SystemSettingsPage'))
+const ModuleAccessControlPage = lazy(() => import('@modules/admin/pages/modules/ModuleAccessControlPage'))
+const SystemMonitoringPage = lazy(() => import('@modules/admin/pages/monitoring/SystemMonitoringPage'))
+const BackupManagementPage = lazy(() => import('@modules/admin/pages/backups/BackupManagementPage'))
+const AlertCenterPage = lazy(() => import('@modules/admin/pages/alerts/AlertCenterPage'))
+const SystemLogsPage = lazy(() => import('@modules/admin/pages/systemLogs/SystemLogsPage'))
 
 // Profile page
-const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage'))
+const ProfilePage = lazy(() => import('@/modules/profile/pages/profile/ProfilePage'))
 
 // Hospital Admin pages
-const MemoListPage = lazy(() => import('@/pages/admin/memos/MemoListPage'))
-const SensitiveDataRequestListPage = lazy(() => import('@/pages/admin/sensitiveData/SensitiveDataRequestListPage'))
-const SensitiveDataRequestDetailPage = lazy(() => import('@/pages/admin/sensitiveData/SensitiveDataRequestDetailPage'))
+const MemoListPage = lazy(() => import('@/modules/hospital-admin/pages/memos/MemoListPage'))
+const SensitiveDataRequestListPage = lazy(() => import('@/modules/hospital-admin/pages/sensitiveData/SensitiveDataRequestListPage'))
+const SensitiveDataRequestDetailPage = lazy(() => import('@/modules/hospital-admin/pages/sensitiveData/SensitiveDataRequestDetailPage'))
 
 // Pharmacy Logistics pages
-const PharmacyLogisticsDashboard = lazy(() => import('@/pages/pharmacy/dashboard/PharmacyLogisticsDashboard'))
-const InventoryOverviewPage = lazy(() => import('@/pages/pharmacy/inventory/InventoryOverviewPage'))
-const DrugInventoryPage = lazy(() => import('@/pages/pharmacy/inventory/DrugInventoryPage'))
-const NonDrugInventoryPage = lazy(() => import('@/pages/pharmacy/inventory/NonDrugInventoryPage'))
-const NearExpiryPage = lazy(() => import('@/pages/pharmacy/inventory/NearExpiryPage'))
-const SlowMovingPage = lazy(() => import('@/pages/pharmacy/inventory/SlowMovingPage'))
-const OxygenDashboardPage = lazy(() => import('@/pages/pharmacy/oxygen/OxygenDashboardPage'))
-const PurchaseOrderListPage = lazy(() => import('@/pages/pharmacy/procurement/PurchaseOrderListPage'))
-const PurchaseOrderCreatePage = lazy(() => import('@/pages/pharmacy/procurement/PurchaseOrderCreatePage'))
-const PurchaseOrderDetailPage = lazy(() => import('@/pages/pharmacy/procurement/PurchaseOrderDetailPage'))
-const ReceivingPage = lazy(() => import('@/pages/pharmacy/procurement/ReceivingPage'))
-const LPOListPage = lazy(() => import('@/pages/pharmacy/procurement/LPOListPage'))
-const OrderTrackingPage = lazy(() => import('@/pages/pharmacy/procurement/OrderTrackingPage'))
-const CreditNoteAuditPage = lazy(() => import('@/pages/pharmacy/procurement/CreditNoteAuditPage'))
-const PenaltyPage = lazy(() => import('@/pages/pharmacy/procurement/PenaltyPage'))
-const PenaltyDetailPage = lazy(() => import('@/pages/pharmacy/procurement/PenaltyDetailPage'))
-const SupplierPerformancePage = lazy(() => import('@/pages/pharmacy/procurement/SupplierPerformancePage'))
-const PaymentPage = lazy(() => import('@/pages/pharmacy/procurement/PaymentPage'))
-const TransferRequestListPage = lazy(() => import('@/pages/pharmacy/distribution/TransferRequestListPage'))
-const BudgetOverviewPage = lazy(() => import('@/pages/pharmacy/financial/BudgetOverviewPage'))
-const WarrantPage = lazy(() => import('@/pages/pharmacy/financial/WarrantPage'))
-const APPLAllocationPage = lazy(() => import('@/pages/pharmacy/financial/APPLAllocationPage'))
-const CCAllocationPage = lazy(() => import('@/pages/pharmacy/financial/CCAllocationPage'))
-const ReportsPage = lazy(() => import('@/pages/pharmacy/reports/ReportsPage'))
-const ProcurementReportPage = lazy(() => import('@/pages/pharmacy/reports/ProcurementReportPage'))
-const FinancialReportPage = lazy(() => import('@/pages/pharmacy/reports/FinancialReportPage'))
-const StockLocationPage = lazy(() => import('@/pages/pharmacy/maintenance/StockLocationPage'))
-const StockVerificationPage = lazy(() => import('@/pages/pharmacy/maintenance/StockVerificationPage'))
-const UnitCatalogPage = lazy(() => import('@/pages/pharmacy/maintenance/UnitCatalogPage'))
-const DrugCatalogPage = lazy(() => import('@/pages/pharmacy/catalog/DrugCatalogPage'))
-const NonDrugCatalogPage = lazy(() => import('@/pages/pharmacy/catalog/NonDrugCatalogPage'))
-const SupplierCatalogPage = lazy(() => import('@/pages/pharmacy/catalog/SupplierCatalogPage'))
-const ContractCatalogPage = lazy(() => import('@/pages/pharmacy/catalog/ContractCatalogPage'))
-const FacilityCatalogPage = lazy(() => import('@/pages/pharmacy/catalog/FacilityCatalogPage'))
-const MyWarrantDashboard = lazy(() => import('@/pages/mywarrant/MyWarrantDashboard'))
+const PharmacyLogisticsDashboard = lazy(() => import('@/modules/mywarrant/pages/dashboard/PharmacyLogisticsDashboard'))
+const InventoryOverviewPage = lazy(() => import('@/modules/inventory/pages/inventory/InventoryOverviewPage'))
+const DrugInventoryPage = lazy(() => import('@/modules/inventory/pages/inventory/DrugInventoryPage'))
+const NonDrugInventoryPage = lazy(() => import('@/modules/inventory/pages/inventory/NonDrugInventoryPage'))
+const NearExpiryPage = lazy(() => import('@/modules/inventory/pages/inventory/NearExpiryPage'))
+const SlowMovingPage = lazy(() => import('@/modules/inventory/pages/inventory/SlowMovingPage'))
+const OxygenDashboardPage = lazy(() => import('@/modules/mycylinder/pages/oxygen/OxygenDashboardPage'))
+const CylinderReportPage = lazy(() => import('@/modules/mycylinder/pages/oxygen/CylinderReportPage'))
+const PurchaseOrderListPage = lazy(() => import('@/modules/procurement/pages/procurement/PurchaseOrderListPage'))
+const PurchaseOrderCreatePage = lazy(() => import('@/modules/procurement/pages/procurement/PurchaseOrderCreatePage'))
+const PurchaseOrderDetailPage = lazy(() => import('@/modules/procurement/pages/procurement/PurchaseOrderDetailPage'))
+const ReceivingPage = lazy(() => import('@/modules/procurement/pages/procurement/ReceivingPage'))
+const LPOListPage = lazy(() => import('@/modules/procurement/pages/procurement/LPOListPage'))
+const OrderTrackingPage = lazy(() => import('@/modules/procurement/pages/procurement/OrderTrackingPage'))
+const CreditNoteAuditPage = lazy(() => import('@/modules/procurement/pages/procurement/CreditNoteAuditPage'))
+const PenaltyPage = lazy(() => import('@/modules/procurement/pages/procurement/PenaltyPage'))
+const PenaltyDetailPage = lazy(() => import('@/modules/procurement/pages/procurement/PenaltyDetailPage'))
+const SupplierPerformancePage = lazy(() => import('@/modules/procurement/pages/procurement/SupplierPerformancePage'))
+const PaymentPage = lazy(() => import('@/modules/procurement/pages/procurement/PaymentPage'))
+const TransferRequestListPage = lazy(() => import('@/modules/distribution/pages/distribution/TransferRequestListPage'))
+const BudgetOverviewPage = lazy(() => import('@/modules/financial/pages/financial/BudgetOverviewPage'))
+const WarrantPage = lazy(() => import('@/modules/financial/pages/financial/WarrantPage'))
+const APPLAllocationPage = lazy(() => import('@/modules/financial/pages/financial/APPLAllocationPage'))
+const CCAllocationPage = lazy(() => import('@/modules/financial/pages/financial/CCAllocationPage'))
+const ReportsPage = lazy(() => import('@/modules/reports/pages/reports/ReportsPage'))
+const ProcurementReportPage = lazy(() => import('@/modules/reports/pages/reports/ProcurementReportPage'))
+const FinancialReportPage = lazy(() => import('@/modules/reports/pages/reports/FinancialReportPage'))
+const StockLocationPage = lazy(() => import('@/modules/maintenance/pages/maintenance/StockLocationPage'))
+const StockVerificationPage = lazy(() => import('@/modules/maintenance/pages/maintenance/StockVerificationPage'))
+const UnitCatalogPage = lazy(() => import('@/modules/maintenance/pages/maintenance/UnitCatalogPage'))
+const DrugCatalogPage = lazy(() => import('@/modules/catalog/pages/catalog/DrugCatalogPage'))
+const NonDrugCatalogPage = lazy(() => import('@/modules/catalog/pages/catalog/NonDrugCatalogPage'))
+const SupplierCatalogPage = lazy(() => import('@/modules/catalog/pages/catalog/SupplierCatalogPage'))
+const ContractCatalogPage = lazy(() => import('@/modules/catalog/pages/catalog/ContractCatalogPage'))
+const FacilityCatalogPage = lazy(() => import('@/modules/catalog/pages/catalog/FacilityCatalogPage'))
+const MyWarrantDashboard = lazy(() => import('@/modules/mywarrant/pages/mywarrant/MyWarrantDashboard'))
 
 // Fallback loading component
 const PageLoader = () => <LoadingOverlay fullScreen message="Loading page..." />
@@ -190,14 +195,7 @@ const router = createBrowserRouter(
           </Suspense>
         ),
       },
-      {
-        path: 'suhu',
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <SuhuSubMenu />
-          </Suspense>
-        ),
-      },
+
       {
         path: 'admin',
         element: (
@@ -652,6 +650,47 @@ const router = createBrowserRouter(
         ),
       },
       {
+        path: 'suhu',
+        children: [
+          {
+            index: true,
+            element: <Navigate to="/suhu/dashboard" replace />,
+          },
+          {
+            path: 'dashboard',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <SuhuDashboardPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'unit/:unitId',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <UnitDetailPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'breaches',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <BreachLogPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'admin',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <AdminSetupPage />
+              </Suspense>
+            ),
+          },
+        ],
+      },
+      {
         path: 'pharmacy/oxygen',
         element: (
           <ProtectedRoute allowedRoles={[
@@ -737,6 +776,24 @@ const router = createBrowserRouter(
           ]}>
             <Suspense fallback={<PageLoader />}>
               <OxygenDashboardPage />
+            </Suspense>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'pharmacy/oxygen/reports',
+        element: (
+          <ProtectedRoute allowedRoles={[
+            SYSTEM_ROLES.PHARMACY_DIRECTOR,
+            SYSTEM_ROLES.PHARMACY_MANAGER,
+            SYSTEM_ROLES.PHARMACIST,
+            SYSTEM_ROLES.PHARMACY_ASSISTANT,
+            SYSTEM_ROLES.ASSISTANT_PHARMACIST,
+            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+            SYSTEM_ROLES.PHARMACY_STAFF,
+          ]}>
+            <Suspense fallback={<PageLoader />}>
+              <CylinderReportPage />
             </Suspense>
           </ProtectedRoute>
         ),
@@ -1397,7 +1454,6 @@ const router = createBrowserRouter(
   ],
   {
     future: {
-      v7_startTransition: true,
       v7_relativeSplatPath: true,
       v7_fetcherPersist: true,
       v7_normalizeFormMethod: true,

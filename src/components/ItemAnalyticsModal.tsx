@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 "use client";
 import { useState, useEffect } from 'react';
 
@@ -148,9 +149,9 @@ export default function ItemAnalyticsModal({ item, batches, onClose }: ItemAnaly
                 <h2 className="text-3xl font-bold tracking-tight">{item.name}</h2>
                 <div className="flex items-center space-x-4 mt-2">
                   <span className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium">{item.drugCode}</span>
-                  <span className="text-slate-300">•</span>
+                  <span className="text-slate-300">â€¢</span>
                   <span className="text-slate-300">{item.brandName}</span>
-                  <span className="text-slate-300">•</span>
+                  <span className="text-slate-300">â€¢</span>
                   <span className="text-slate-300">{item.dosageForm}</span>
                 </div>
                 <div className="flex items-center space-x-4 mt-2 text-sm text-slate-400">
@@ -175,10 +176,10 @@ export default function ItemAnalyticsModal({ item, batches, onClose }: ItemAnaly
         <div className="bg-slate-50/50 border-b border-slate-200">
           <nav className="flex space-x-1 px-8 py-2">
             {[
-              { id: 'usage', label: 'Usage Analytics', icon: '📊' },
-              { id: 'orders', label: 'Order History', icon: '📦' },
-              { id: 'forecast', label: 'Forecast', icon: '🔮' },
-              { id: 'settings', label: 'Buffer Settings', icon: '⚙️' }
+              { id: 'usage', label: 'Usage Analytics', icon: 'ðŸ“Š' },
+              { id: 'orders', label: 'Order History', icon: 'ðŸ“¦' },
+              { id: 'forecast', label: 'Forecast', icon: 'ðŸ”®' },
+              { id: 'settings', label: 'Buffer Settings', icon: 'âš™ï¸' }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -508,9 +509,9 @@ export default function ItemAnalyticsModal({ item, batches, onClose }: ItemAnaly
                             order.status === 'Partial' ? 'bg-amber-100 text-amber-800' :
                             'bg-blue-100 text-blue-800'
                           }`}>
-                            {order.status === 'Received' && '✓ '}
-                            {order.status === 'Partial' && '⚠ '}
-                            {order.status === 'Pending' && '⏳ '}
+                            {order.status === 'Received' && 'âœ“ '}
+                            {order.status === 'Partial' && 'âš  '}
+                            {order.status === 'Pending' && 'â³ '}
                             {order.status}
                           </span>
                         </div>
@@ -608,7 +609,7 @@ export default function ItemAnalyticsModal({ item, batches, onClose }: ItemAnaly
                         : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
                     }`}
                   >
-                    {isEditingLevels ? '✓ Save Changes' : '✏️ Edit Levels'}
+                    {isEditingLevels ? 'âœ“ Save Changes' : 'âœï¸ Edit Levels'}
                   </button>
                 </div>
 

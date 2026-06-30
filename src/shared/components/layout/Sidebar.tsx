@@ -25,6 +25,7 @@ import {
   AlertTriangle,
   AirVent,
   PieChart,
+  Thermometer,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
@@ -39,7 +40,7 @@ interface NavItem {
   icon: React.ElementType
   roles?: string[]
   children?: NavItem[]
-  module?: 'admin' | 'pharmacy' | 'oxygen'
+  module?: 'admin' | 'pharmacy' | 'oxygen' | 'suhu'
 }
 
 // Helper to check if user has access to nav item
@@ -60,7 +61,8 @@ const hasAccess = (item: NavItem, userRole?: string): boolean => {
 }
 
 // Helper to determine the current active module
-const getActiveModule = (pathname: string, userRole?: string): 'admin' | 'pharmacy' | 'oxygen' => {
+const getActiveModule = (pathname: string, userRole?: string): 'admin' | 'pharmacy' | 'oxygen' | 'suhu' => {
+  if (pathname.startsWith('/suhu')) return 'suhu'
   if (pathname.startsWith('/pharmacy/oxygen')) return 'oxygen'
   if (pathname.startsWith('/pharmacy')) return 'pharmacy'
   if (pathname.startsWith('/admin')) return 'admin'
@@ -200,6 +202,7 @@ const navigation: NavItem[] = [
       { label: 'Cylinder Request', href: ROUTES.PHARMACY_OXYGEN_CONSUMPTION, icon: ShoppingCart },
       { label: 'QR Generator', href: '/pharmacy/oxygen/qr', icon: ClipboardList },
       { label: 'Stock Reconciliation', href: '/pharmacy/oxygen/reconciliation', icon: FileText },
+      { label: 'Cylinder Report', href: ROUTES.PHARMACY_OXYGEN_REPORTS, icon: BarChart3 },
     ],
   },
   {
@@ -235,6 +238,17 @@ const navigation: NavItem[] = [
     icon: ScrollText,
     roles: PHARMACY_ROLES,
     module: 'pharmacy',
+  },
+  {
+    label: 'MySuhu',
+    href: '/suhu/dashboard',
+    icon: Thermometer,
+    module: 'suhu',
+    children: [
+      { label: 'Dashboard', href: '/suhu/dashboard', icon: LayoutDashboard },
+      { label: 'Breach Log', href: '/suhu/breaches', icon: AlertTriangle },
+      { label: 'Admin Setup', href: '/suhu/admin', icon: Settings },
+    ],
   },
 ]
 
@@ -430,7 +444,7 @@ export const Sidebar: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setSidebarOpen(false)}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-30 lg:hidden"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] lg:hidden"
           />
         )}
       </AnimatePresence>
@@ -444,7 +458,7 @@ export const Sidebar: React.FC = () => {
         transition={{ duration: 0.3, ease: 'easeInOut' }}
         className={cn(
           'fixed left-0 bg-white border-r border-slate-200',
-          'flex flex-col z-30',
+          'flex flex-col z-[60]',
           'top-20 sm:top-28 h-[calc(100vh-80px)] sm:h-[calc(100vh-112px)]',
           'lg:translate-x-0 lg:w-[280px]'
         )}

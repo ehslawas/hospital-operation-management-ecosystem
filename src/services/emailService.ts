@@ -37,11 +37,6 @@ export async function sendWelcomeEmail(
       const resetLink = `${window.location.origin}/reset-password`
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: resetLink,
-        data: {
-          employee_id: employeeId,
-          full_name: fullName,
-          email_type: 'welcome',
-        },
       })
 
       if (error) {
@@ -63,12 +58,6 @@ export async function sendWelcomeEmail(
     const resetLink = `${window.location.origin}/reset-password`
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: resetLink,
-      data: {
-        employee_id: employeeId,
-        full_name: fullName,
-        email_type: 'welcome',
-        temporary_password: temporaryPassword, // This won't be in the email, but logged for admin
-      },
     })
 
     if (error) {

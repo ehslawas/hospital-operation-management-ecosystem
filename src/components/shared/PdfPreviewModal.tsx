@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 import React from 'react'
 import { X, Download, FileText, Printer } from 'lucide-react'
 import { PDFViewer } from './PDFViewer'

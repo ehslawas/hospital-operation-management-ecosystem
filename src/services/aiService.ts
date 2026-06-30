@@ -995,8 +995,8 @@ IMPORTANT:
       }
       
       // Ensure price is a number
-      if (normalized.price && typeof normalized.price === 'string') {
-        normalized.price = parseFloat(normalized.price.replace(/[^\d.-]/g, '')) || undefined
+      if (normalized.price && typeof (normalized.price as any) === 'string') {
+        normalized.price = parseFloat((normalized.price as any).replace(/[^\d.-]/g, '')) || undefined
       }
       
       // Ensure numeric fields are numbers

@@ -1,1 +1,2 @@
-export * from '../../shared/types/auth'
+﻿export * from '../../../shared/types/auth'
+

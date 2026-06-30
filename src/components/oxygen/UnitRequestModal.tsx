@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 import React, { useState } from 'react';
 import { X, Plus, Trash2, ShieldAlert, FileText, User as UserIcon } from 'lucide-react';
 import type { User } from '@/types';

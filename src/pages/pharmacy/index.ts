@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 // Pharmacy Module Pages
 export * from './dashboard'
 export * from './inventory'

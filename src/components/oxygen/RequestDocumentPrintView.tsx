@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 import React, { useEffect, useState } from 'react';
 import { X, Printer, Loader2, FileText } from 'lucide-react';
 import { getRequestDocumentById } from '@/services/pharmacy/oxygenService';

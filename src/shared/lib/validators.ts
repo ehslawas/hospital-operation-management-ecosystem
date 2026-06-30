@@ -49,17 +49,19 @@ export const passwordSchema = z
 
 // Department schema
 export const departmentSchema = z.object({
-  department_code: z
+  departmentCode: z
     .string({ required_error: required })
     .min(2, 'Department code must be at least 2 characters')
     .max(20, 'Department code is too long')
     .regex(/^[A-Z0-9_-]+$/, 'Department code can only contain uppercase letters, numbers, hyphens, and underscores'),
-  department_name: z
+  departmentName: z
     .string({ required_error: required })
     .min(2, 'Department name must be at least 2 characters')
     .max(100, 'Department name is too long'),
   description: z.string().max(500, 'Description is too long').optional(),
-  head_of_department_id: z.string().optional(),
+  hospitalId: z.string({ required_error: required }).min(1, required),
+  headOfDepartmentId: z.string().optional(),
+  status: z.enum(['active', 'inactive']),
 })
 
 export type DepartmentFormData = z.infer<typeof departmentSchema>

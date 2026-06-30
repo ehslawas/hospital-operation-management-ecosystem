@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Password Service
  * Handles password changes for authenticated users
  */

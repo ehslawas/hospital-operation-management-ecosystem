@@ -5,6 +5,8 @@ import { User } from 'lucide-react'
 export interface AvatarProps {
   src?: string | null
   name?: string
+  alt?: string
+  fallback?: string
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl'
   className?: string
 }
@@ -30,10 +32,13 @@ const iconSizes = {
 export const Avatar: React.FC<AvatarProps> = ({
   src,
   name,
+  alt,
+  fallback,
   size = 'md',
   className,
 }) => {
   const [imgError, setImgError] = React.useState(false)
+  const displayName = name || alt || fallback
 
   if (src && !imgError) {
     return (
@@ -46,7 +51,7 @@ export const Avatar: React.FC<AvatarProps> = ({
       >
         <img
           src={src}
-          alt={name || 'Avatar'}
+          alt={displayName || 'Avatar'}
           className="w-full h-full object-cover"
           onError={() => setImgError(true)}
         />
@@ -54,7 +59,7 @@ export const Avatar: React.FC<AvatarProps> = ({
     )
   }
 
-  if (name) {
+  if (displayName) {
     return (
       <div
         className={cn(
@@ -64,7 +69,7 @@ export const Avatar: React.FC<AvatarProps> = ({
           className
         )}
       >
-        {getInitials(name)}
+        {getInitials(displayName)}
       </div>
     )
   }

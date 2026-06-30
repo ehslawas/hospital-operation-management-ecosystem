@@ -61,3 +61,5 @@ export interface FilterConfig {
   value: string | string[] | boolean | null
   operator?: 'eq' | 'neq' | 'contains' | 'gt' | 'lt' | 'gte' | 'lte'
 }
+
+export type HealthStatus = 'healthy' | 'warning' | 'critical' | 'degraded'

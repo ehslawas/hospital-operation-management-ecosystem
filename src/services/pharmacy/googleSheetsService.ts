@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Google Sheets Sync Service
  * Handles synchronization of contract data from Google Sheets

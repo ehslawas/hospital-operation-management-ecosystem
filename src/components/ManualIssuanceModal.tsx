@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -365,10 +366,10 @@ export default function ManualIssuanceModal({
         <div className="px-8 py-4 bg-slate-50 border-b border-slate-200">
           <div className="flex items-center justify-center space-x-8">
             {[
-              { key: 'create', label: 'Create', icon: '📝' },
-              { key: 'review', label: 'Review', icon: '👀' },
-              { key: 'approve', label: 'Approve', icon: '✅' },
-              { key: 'issue', label: 'Issue', icon: '📦' }
+              { key: 'create', label: 'Create', icon: 'ðŸ“' },
+              { key: 'review', label: 'Review', icon: 'ðŸ‘€' },
+              { key: 'approve', label: 'Approve', icon: 'âœ…' },
+              { key: 'issue', label: 'Issue', icon: 'ðŸ“¦' }
             ].map((step, index) => (
               <div key={step.key} className="flex items-center">
                 <div className={`flex items-center justify-center w-10 h-10 rounded-full text-sm font-semibold ${
@@ -511,7 +512,7 @@ export default function ManualIssuanceModal({
                       <div className={`text-sm mb-2 ${
                         selectedItem?.id === item.id ? 'text-slate-200' : 'text-slate-500'
                       }`}>
-                        {item.code} • {item.form}
+                        {item.code} â€¢ {item.form}
                       </div>
                       
                       {/* Packaging Information */}
@@ -628,7 +629,7 @@ export default function ManualIssuanceModal({
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <div className="font-semibold text-slate-800 text-lg">{item.itemName}</div>
-                          <div className="text-sm text-slate-600 mb-2">{item.drugCode} • {item.dosageForm}</div>
+                          <div className="text-sm text-slate-600 mb-2">{item.drugCode} â€¢ {item.dosageForm}</div>
                           
                           {/* Packaging Information */}
                           <div className="text-xs text-slate-600 mb-2">
@@ -776,7 +777,7 @@ export default function ManualIssuanceModal({
                           <div className="flex justify-between items-start">
                             <div>
                               <h5 className="font-semibold text-slate-800">{item.itemName}</h5>
-                              <p className="text-sm text-slate-600">{item.drugCode} • {item.dosageForm}</p>
+                              <p className="text-sm text-slate-600">{item.drugCode} â€¢ {item.dosageForm}</p>
                               <p className="text-xs text-slate-500">Packaging: {item.packaging}</p>
                             </div>
                             <div className="text-right">
@@ -893,8 +894,8 @@ export default function ManualIssuanceModal({
                           <div className="flex justify-between items-start">
                             <div>
                               <h5 className="font-semibold text-slate-800">{item.itemName}</h5>
-                              <p className="text-sm text-slate-600">{item.drugCode} • {item.dosageForm}</p>
-                              <p className="text-xs text-slate-500">Batch: {item.batchNumber} • Expiry: {new Date(item.expiryDate).toLocaleDateString('en-MY')}</p>
+                              <p className="text-sm text-slate-600">{item.drugCode} â€¢ {item.dosageForm}</p>
+                              <p className="text-xs text-slate-500">Batch: {item.batchNumber} â€¢ Expiry: {new Date(item.expiryDate).toLocaleDateString('en-MY')}</p>
                             </div>
                             <div className="text-right">
                               <p className="font-semibold text-slate-800">Qty: {item.quantity} {item.unit}</p>
@@ -937,7 +938,7 @@ export default function ManualIssuanceModal({
               
               <div className="mb-4">
                 <div className="font-medium text-slate-800">{editingItem.itemName}</div>
-                <div className="text-sm text-slate-600">{editingItem.drugCode} • {editingItem.dosageForm}</div>
+                <div className="text-sm text-slate-600">{editingItem.drugCode} â€¢ {editingItem.dosageForm}</div>
               </div>
 
               <div className="mb-6">

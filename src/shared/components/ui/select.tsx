@@ -6,11 +6,14 @@ import { cn } from "@/lib/utils";
 export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   onValueChange?: (value: string) => void;
   label?: string;
-  error?: boolean;
+  error?: boolean | string;
+  placeholder?: string;
+  options?: { value: string; label: string }[];
+  helperText?: string;
 }
 
 export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
-  ({ value, onValueChange, onChange, children, className = "", label, error, ...props }, ref) => {
+  ({ value, onValueChange, onChange, children, className = "", label, error, placeholder, options, helperText, ...props }, ref) => {
     // Detect if we are using the custom pattern (SelectTrigger, SelectContent, etc.)
     const childrenArray = React.Children.toArray(children);
     const hasCustomComponents = childrenArray.some(
@@ -75,8 +78,24 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           className={selectClasses}
           {...props}
         >
-          {children}
+          {placeholder && (
+            <option value="" disabled>
+              {placeholder}
+            </option>
+          )}
+          {options
+            ? options.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))
+            : children}
         </select>
+        {helperText && !error && (
+          <p className="mt-1.5 text-sm text-slate-500">
+            {helperText}
+          </p>
+        )}
       </div>
     );
   }

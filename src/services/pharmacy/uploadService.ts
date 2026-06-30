@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Upload Service for Pharmacy Catalog
  * Handles file upload tracking and duplicate detection

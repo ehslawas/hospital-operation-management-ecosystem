@@ -15,8 +15,29 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true,
+    watch: {
+      // Exclude archived folders from file watcher — they are not used at runtime
+      ignored: [
+        '**/src/_archived_app/**',
+        '**/src/_archived_features/**',
+      ],
+    },
   },
   optimizeDeps: {
+    // Pre-bundle heavy dependencies eagerly so the browser doesn't stall on first load
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      '@supabase/supabase-js',
+      'lucide-react',
+      'framer-motion',
+      'recharts',
+      'jspdf',
+      'xlsx',
+      'date-fns',
+      'zustand',
+    ],
     esbuildOptions: {
       target: 'esnext',
     },

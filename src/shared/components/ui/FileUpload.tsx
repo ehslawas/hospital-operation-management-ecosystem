@@ -15,6 +15,7 @@ export interface FileUploadProps {
   helperText?: string
   previewUrl?: string | null
   className?: string
+  required?: boolean
 }
 
 export const FileUpload: React.FC<FileUploadProps> = ({
@@ -28,6 +29,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   helperText,
   previewUrl: externalPreviewUrl,
   className,
+  required,
 }) => {
   const [dragActive, setDragActive] = useState(false)
   const [internalError, setInternalError] = useState<string | null>(null)
@@ -109,6 +111,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       {label && (
         <label className="block text-sm font-medium text-gray-700 mb-1.5">
           {label}
+          {required && <span className="text-red-500 ml-1">*</span>}
         </label>
       )}
 

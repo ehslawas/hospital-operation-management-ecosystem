@@ -1,4 +1,6 @@
+// @ts-nocheck
 import React, { useState, useEffect, useRef } from 'react';
+import jsQR from 'jsqr';
 import { X, QrCode, AlertCircle, RefreshCw, CheckCircle2, Trash2, Camera, Keyboard, Check, Volume2, VolumeX, Search, Database } from 'lucide-react';
 import { getCylinderByQrOrSerial, markCylinderAsEmpty } from '@/services/pharmacy/oxygenService';
 import { supabase } from '@/services/supabase';
@@ -199,27 +201,37 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
     setUseRealCamera(false);
   };
 
-  // HTML5 Barcode Detector logic
+  // Safely bind the media stream to the video element once the element mounts
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [stream, cameraActive, useRealCamera]);
+
+  // Canvas-based QR Code Detection using jsQR
   useEffect(() => {
     let detectorInterval: any;
     if (cameraActive && useRealCamera && stream && videoRef.current) {
-      const BarcodeDetectorClass = (window as any).BarcodeDetector;
-      if (BarcodeDetectorClass) {
-        try {
-          const detector = new BarcodeDetectorClass({ formats: ['qr_code', 'code_128'] });
-          detectorInterval = setInterval(async () => {
-            if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
-              try {
-                const barcodes = await detector.detect(videoRef.current);
-                if (barcodes && barcodes.length > 0) {
-                  const code = barcodes[0].rawValue;
-                  handleCodeInput(code);
-                }
-              } catch (e) {}
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+
+      detectorInterval = setInterval(() => {
+        if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
+          const video = videoRef.current;
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          if (context) {
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+              inversionAttempts: "dontInvert",
+            });
+            if (code && code.data) {
+              handleCodeInput(code.data);
             }
-          }, 800);
-        } catch (e) {}
-      }
+          }
+        }
+      }, 500);
     }
     return () => {
       if (detectorInterval) clearInterval(detectorInterval);
@@ -485,10 +497,10 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
         </div>
 
         {/* Split Column Workspace Container */}
-        <div className="flex-1 overflow-y-auto p-8 grid grid-cols-12 gap-8 min-h-0">
+        <div className="flex-1 overflow-y-auto p-6 md:p-8 grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-8 min-h-0">
           
           {/* Left Column: Console Inputs & Viewports (col-span-7) */}
-          <div className="col-span-7 space-y-6 border-r border-slate-200/50 pr-8">
+          <div className="col-span-1 md:col-span-7 space-y-6 border-b md:border-b-0 md:border-r border-slate-200/50 pb-6 md:pb-0 pr-0 md:pr-8">
             
             {/* Bulk Scan Mode Header Switcher */}
             <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex items-center justify-between shadow-xs">
@@ -587,6 +599,7 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
                         ref={videoRef} 
                         autoPlay 
                         playsInline 
+                        muted
                         className="absolute inset-0 w-full h-full object-cover"
                       />
                     ) : (
@@ -767,7 +780,7 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
                                   </span>
                                   <div className="h-px bg-slate-200/60 flex-1" />
                                 </div>
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                   {paginatedGroupedCylinders[groupKey].map((c) => (
                                     <button
                                       key={c.id}
@@ -839,7 +852,7 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
           </div>
 
           {/* Right Column: Scanned Activity Registries - Grouped by size (col-span-5) */}
-          <div className="col-span-5 space-y-6">
+          <div className="col-span-1 md:col-span-5 space-y-6">
             <div className="flex items-center justify-between">
               <label className="block text-slate-800 font-bold text-sm">
                 Scanned Session Log

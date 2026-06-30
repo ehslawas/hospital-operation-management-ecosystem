@@ -20,7 +20,6 @@ interface UserFormProps {
 export const UserForm: React.FC<UserFormProps> = ({ user, onSuccess, onCancel }) => {
   const toast = useToast()
   const [isLoading, setIsLoading] = useState(false)
-  const [profilePhoto, setProfilePhoto] = useState<File | null>(null)
   const [profilePhotoPreview, setProfilePhotoPreview] = useState<string | null>(
     user?.profile_photo_url || null
   )
@@ -78,7 +77,6 @@ export const UserForm: React.FC<UserFormProps> = ({ user, onSuccess, onCancel })
   }, [selectedHospitalId])
 
   const handlePhotoChange = (file: File | null) => {
-    setProfilePhoto(file)
     if (file) {
       const reader = new FileReader()
       reader.onloadend = () => {

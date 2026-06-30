@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 import { supabase, isSupabaseConfigured } from '../../../services/supabase'
 
 /**

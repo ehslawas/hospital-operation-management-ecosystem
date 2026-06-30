@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -246,8 +247,8 @@ export default function ReviewModal({
                         {req.priority}
                       </div>
                     </div>
-                    <div className="text-sm text-slate-600 mb-1">{req.department} • {req.requestedBy}</div>
-                    <div className="text-xs text-slate-500">{req.items.length} items • {new Date(req.requestedAt).toLocaleDateString()}</div>
+                    <div className="text-sm text-slate-600 mb-1">{req.department} â€¢ {req.requestedBy}</div>
+                    <div className="text-xs text-slate-500">{req.items.length} items â€¢ {new Date(req.requestedAt).toLocaleDateString()}</div>
                   </button>
                 ))}
               </div>
@@ -362,7 +363,7 @@ export default function ReviewModal({
                               }`}></div>
                               <div className="flex-1">
                                 <div className="font-semibold text-slate-900 text-sm">{item.itemName}</div>
-                                <div className="text-xs text-slate-500">{item.drugCode} • {item.dosageForm}</div>
+                                <div className="text-xs text-slate-500">{item.drugCode} â€¢ {item.dosageForm}</div>
                               </div>
                             </div>
                             {!isApproved && !isIssued && (

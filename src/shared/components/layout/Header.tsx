@@ -10,6 +10,11 @@ import { SYSTEM_ROLES, MODULE_DEFINITIONS, ROLE_DISPLAY_NAMES, ROUTES } from '@/
  * Get current module name based on route
  */
 const getCurrentModule = (pathname: string): { name: string; code?: string } | null => {
+  // MySuhu
+  if (pathname.startsWith('/suhu')) {
+    return { name: 'MySuhu', code: 'suhu' }
+  }
+
   // Medical Oxygen / MyCylinder
   if (pathname.startsWith('/pharmacy/oxygen')) {
     return { name: 'MyCylinder', code: 'cylinder' }

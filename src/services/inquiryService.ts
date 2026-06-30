@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from './supabase'
 import { mockInquiries } from './mockData'
-import type { Inquiry, InquiryFormData } from '@/types'
+import type { Inquiry } from '@/types'
+import type { InquiryFormData } from '@/lib/validators'
 import { generateId } from '@/lib/utils'
 
 export interface SubmitInquiryResult {
@@ -41,7 +42,7 @@ export async function submitInquiry(data: InquiryFormData): Promise<SubmitInquir
         email: data.email,
         subject: data.subject,
         message: data.message,
-        inquiry_type: data.inquiryType,
+        inquiry_type: data.inquiryType || 'general',
         status: 'new',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

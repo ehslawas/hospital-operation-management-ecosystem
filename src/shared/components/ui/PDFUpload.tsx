@@ -3,7 +3,7 @@ import { PDFDocument } from 'pdf-lib'
 import { cn, formatFileSize } from '@/lib/utils'
 import { Upload, X, FileText, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
 import { Button } from './button'
-import { PDFViewer } from '../shared/PDFViewer'
+import { PDFViewer } from '@/components/shared/PDFViewer'
 
 export interface PDFUploadProps {
   label?: string
@@ -80,7 +80,7 @@ export const PDFUpload: React.FC<PDFUploadProps> = ({
 
       // Convert to blob and create File
       const pdfBytes = await newPdfDoc.save()
-      const blob = new Blob([pdfBytes], { type: 'application/pdf' })
+      const blob = new Blob([pdfBytes as any], { type: 'application/pdf' })
       const newFile = new File([blob], file.name, { type: 'application/pdf' })
 
       return newFile

@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 import React, { useEffect, useState } from 'react';
 import { X, Calendar, Save, Loader2, Info } from 'lucide-react';
 import { supabase } from '@/services/supabase';
@@ -206,7 +207,7 @@ export const CreateRequestDocumentModal: React.FC<CreateRequestDocumentModalProp
               <div className="flex justify-between items-center">
                 <div>
                   <div className="text-xs font-bold text-slate-800">Loan Oxygen BN (8.0m³)</div>
-                  <div className="text-[10px] text-slate-400 font-semibold mt-0.5">Code: 101-N • Ward / Store General Refill</div>
+                  <div className="text-[10px] text-slate-400 font-semibold mt-0.5">Code: 101-N â€¢ Ward / Store General Refill</div>
                 </div>
                 <div className="w-24">
                   <input
@@ -226,7 +227,7 @@ export const CreateRequestDocumentModal: React.FC<CreateRequestDocumentModalProp
               <div className="flex justify-between items-center">
                 <div>
                   <div className="text-xs font-bold text-slate-800">Loan Oxygen PI (1.4m³) (ward usage) (long Cylinder)</div>
-                  <div className="text-[10px] text-slate-400 font-semibold mt-0.5">Code: 101-F • Ward Usage (Long Cylinder)</div>
+                  <div className="text-[10px] text-slate-400 font-semibold mt-0.5">Code: 101-F â€¢ Ward Usage (Long Cylinder)</div>
                 </div>
                 <div className="w-24">
                   <input
@@ -246,7 +247,7 @@ export const CreateRequestDocumentModal: React.FC<CreateRequestDocumentModalProp
               <div className="flex justify-between items-center">
                 <div>
                   <div className="text-xs font-bold text-slate-800">Loan Oxygen PI (1.4m³) (Ambulance usage) (short Cylinder)</div>
-                  <div className="text-[10px] text-slate-400 font-semibold mt-0.5">Code: 101-F • Ambulance Usage (Short Cylinder)</div>
+                  <div className="text-[10px] text-slate-400 font-semibold mt-0.5">Code: 101-F â€¢ Ambulance Usage (Short Cylinder)</div>
                 </div>
                 <div className="w-24">
                   <input

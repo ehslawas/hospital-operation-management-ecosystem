@@ -1,5 +1,4 @@
-// BACKWARD COMPATIBILITY
-export * from '../shared/constants'
+export * from '../constants'
 
 // Module-specific overrides if needed (these were previously in this file)
 export const PHARMACY_PO_STATUS = {

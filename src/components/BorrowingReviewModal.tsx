@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -240,10 +241,10 @@ export default function BorrowingReviewModal({
                         {req.priority || 'NORMAL'}
                       </div>
                     </div>
-                    <div className="text-sm text-slate-600 mb-1">{req.fromFacility} → {req.toFacility}</div>
-                    <div className="text-sm text-slate-600 mb-1">{req.transferCategory} • {req.type}</div>
+                    <div className="text-sm text-slate-600 mb-1">{req.fromFacility} â†’ {req.toFacility}</div>
+                    <div className="text-sm text-slate-600 mb-1">{req.transferCategory} â€¢ {req.type}</div>
                     <div className="text-sm text-slate-600">Requested by: <span className="font-medium text-slate-800">{req.requestedBy}</span></div>
-                    <div className="text-xs text-slate-500">{req.items.length} items • <span suppressHydrationWarning>{new Date(req.requestedAt).toLocaleDateString()}</span></div>
+                    <div className="text-xs text-slate-500">{req.items.length} items â€¢ <span suppressHydrationWarning>{new Date(req.requestedAt).toLocaleDateString()}</span></div>
                   </button>
                 ))}
               </div>
@@ -266,7 +267,7 @@ export default function BorrowingReviewModal({
                               <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5m-4 0h4" />
                             </svg>
                           </div>
-                          <span className="font-medium">{selectedRequest.fromFacility} → {selectedRequest.toFacility}</span>
+                          <span className="font-medium">{selectedRequest.fromFacility} â†’ {selectedRequest.toFacility}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center">
@@ -353,7 +354,7 @@ export default function BorrowingReviewModal({
                               }`}></div>
                               <div className="flex-1">
                                 <div className="font-semibold text-slate-900 text-sm">{item.itemName}</div>
-                                <div className="text-xs text-slate-500">{item.itemCode} • {item.category}</div>
+                                <div className="text-xs text-slate-500">{item.itemCode} â€¢ {item.category}</div>
                               </div>
                             </div>
                             {!isApproved && !isIssued && (

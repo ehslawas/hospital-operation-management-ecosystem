@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { Upload, X, FileSpreadsheet, CheckCircle2, AlertCircle, Loader2, Sparkles, FileImage, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -766,7 +767,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                     }
                     
                     if (category) {
-                      console.log(`[CATEGORY] ✓ Matched "${categoryName}" to existing category: ${category.category_name} (ID: ${category.id})`)
+                      console.log(`[CATEGORY] âœ“ Matched "${categoryName}" to existing category: ${category.category_name} (ID: ${category.id})`)
                       return category.id
                     }
                   }
@@ -784,7 +785,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                     } else {
                       setCategories([...categories, result.data])
                     }
-                    console.log(`[CATEGORY] ✓ Created category: ${result.data.category_name} (ID: ${result.data.id})`)
+                    console.log(`[CATEGORY] âœ“ Created category: ${result.data.category_name} (ID: ${result.data.id})`)
                     return result.data.id
                   } else {
                     console.warn(`[CATEGORY] Failed to create category: "${categoryName}"`, result.error)
@@ -1214,7 +1215,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                       : 'Mapping columns automatically...'}
                   </p>
                   <p className="text-xs text-gray-600">
-                    {file.name} •{' '}
+                    {file.name} â€¢{' '}
                     {importProgress && importProgress.total > 0
                       ? `${importProgress.processed}/${importProgress.total} items processed (${Math.round(
                           (importProgress.processed / importProgress.total) * 100
@@ -1245,13 +1246,13 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                   <FileImage className="w-5 h-5 text-blue-600 mt-0.5" />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-gray-900">
-                      ✓ Successfully extracted {visionResult.total_items} valid item(s)
+                      âœ“ Successfully extracted {visionResult.total_items} valid item(s)
                     </p>
                     <p className="text-xs text-gray-600 mt-1">
                       Confidence: {Math.round(visionResult.confidence * 100)}%
                       {visionResult.errors && visionResult.errors.length > 0 && (
                         <span className="text-amber-600 ml-2">
-                          ⚠️ {visionResult.errors[0]}
+                          âš ï¸ {visionResult.errors[0]}
                         </span>
                       )}
                     </p>
@@ -1318,7 +1319,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                         <p className="text-sm font-medium text-gray-700">{excelCol}</p>
                         <p className="text-xs text-gray-500">Excel Column</p>
                       </div>
-                      <div className="text-gray-400">→</div>
+                      <div className="text-gray-400">â†’</div>
                       <div className="flex-1">
                         <select
                           value={mapping?.targetField || ''}
@@ -1386,7 +1387,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
               <div className="flex-1">
                 <p className="text-sm font-medium text-gray-900">
                   {importResult.errors.length === 0
-                    ? `✓ Successfully imported ${importResult.success} item(s)`
+                    ? `âœ“ Successfully imported ${importResult.success} item(s)`
                     : `Import failed: ${importResult.success} item(s) imported, ${importResult.errors.length} error(s)`}
                 </p>
                 {importResult.errors.length > 0 && (

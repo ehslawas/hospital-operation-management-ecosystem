@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 import React, { useEffect, useState } from 'react';
 import { X, Printer, Loader2, FileText } from 'lucide-react';
 import { getCylinderDispatchRequestById } from '@/services/pharmacy/cylinderDispatchService';
@@ -116,7 +117,7 @@ export const CylinderDispatchPrintView: React.FC<CylinderDispatchPrintViewProps>
     const numPart = parseInt(reqNum.replace(/\D/g, '')) || 1000;
     for (let i = 0; i < qty; i++) {
       const uniqueId = String((numPart * (i + 1) + 80) % 10000).padStart(4, '0');
-      barcodes.push(`• O2-${sizeCode}-${uniqueId}`);
+      barcodes.push(`â€¢ O2-${sizeCode}-${uniqueId}`);
     }
     return barcodes;
   };

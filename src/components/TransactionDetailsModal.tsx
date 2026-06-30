@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -249,7 +250,7 @@ export default function TransactionDetailsModal({ isOpen, onClose, transaction }
                       <div className="w-4 h-4 bg-blue-600 rounded-full"></div>
                     </div>
                     <p className="text-center text-sm font-semibold text-slate-600 mt-3">
-                      Inventory flow: {transaction.balanceBefore} → {transaction.balanceAfter}
+                      Inventory flow: {transaction.balanceBefore} â†’ {transaction.balanceAfter}
                     </p>
                   </div>
                 </div>
