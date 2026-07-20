@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import { supabase, isSupabaseConfigured } from '@/services/supabase'
 import type { ApiResponse } from '@/types'
 import type { 
@@ -174,8 +174,8 @@ export async function createGoodsReceipt(data: GoodsReceiptCreate): Promise<ApiR
               quantity_accepted: batch.quantity,
               quantity_rejected: 0,
               batch_number: batch.batch_number,
-              manufacturing_date: batch.manufacturing_date,
-              expiry_date: batch.expiry_date,
+              manufacturing_date: batch.manufacturing_date || null,
+              expiry_date: (batch.expiry_date === 'N/A' || !batch.expiry_date) ? null : batch.expiry_date,
               disposition: 'accepted',
               notes: item.notes
             })
@@ -791,7 +791,7 @@ export async function updateGoodsReceipt(
                 quantity_received: item.quantity_accepted,
                 quantity_accepted: item.quantity_accepted,
                 batch_number: item.batch_number,
-                expiry_date: item.expiry_date
+                expiry_date: (item.expiry_date === 'N/A' || !item.expiry_date) ? null : item.expiry_date
               })
               .eq('id', item.id)
 

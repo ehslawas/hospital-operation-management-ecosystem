@@ -25,6 +25,7 @@ import {
   Modal,
   LoadingOverlay,
   Spinner,
+  StatCard,
 } from '@/components/ui'
 import { useToastStore } from '@/stores/toastStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -66,45 +67,6 @@ import type {
   UnitCatalogFilter,
 } from '@/types/pharmacy'
 import { MODULE_DEFINITIONS } from '@/lib/constants'
-
-// =====================================================
-// KPI CARD COMPONENT
-// =====================================================
-
-interface KPICardProps {
-  title: string
-  value: number | string
-  color: 'primary' | 'success' | 'warning' | 'error' | 'info'
-  icon: React.ReactNode
-  subtitle?: string
-}
-
-const KPICard: React.FC<KPICardProps> = ({ title, value, color, icon, subtitle }) => {
-  const colorClasses = {
-    primary: 'bg-violet-50 border-violet-200 text-violet-800',
-    success: 'bg-green-50 border-green-200 text-green-800',
-    warning: 'bg-amber-50 border-amber-200 text-amber-800',
-    error: 'bg-red-50 border-red-200 text-red-800',
-    info: 'bg-blue-50 border-blue-200 text-blue-800',
-  }
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={`rounded-xl border p-4 ${colorClasses[color]}`}
-    >
-      <div className="flex items-center justify-between">
-        <div className="flex-1">
-          <p className="text-sm font-medium opacity-80">{title}</p>
-          <p className="text-2xl font-bold mt-1">{value}</p>
-          {subtitle && <p className="text-xs opacity-70 mt-1">{subtitle}</p>}
-        </div>
-        <div className="text-3xl opacity-60">{icon}</div>
-      </div>
-    </motion.div>
-  )
-}
 
 // =====================================================
 // FORM MODAL COMPONENT
@@ -785,28 +747,28 @@ const CatalogItemsModal: React.FC<CatalogItemsModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={`Manage Items - ${catalog.department?.department_name || 'Unit'}`}
-      size="full"
+      size="xl"
     >
       <div className="space-y-4">
         {/* Tabs */}
-        <div className="border-b border-gray-200">
+        <div className="border-b border-gray-100">
           <div className="flex gap-4">
             <button
               onClick={() => setActiveTab('drug')}
-              className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+              className={`px-4 py-2 text-sm font-semibold border-b-2 transition-colors ${
                 activeTab === 'drug'
-                  ? 'border-violet-500 text-violet-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  ? 'border-indigo-600 text-indigo-600'
+                  : 'border-transparent text-gray-400 hover:text-gray-600'
               }`}
             >
               Drugs ({catalog.drug_items_count || 0})
             </button>
             <button
               onClick={() => setActiveTab('non_drug')}
-              className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+              className={`px-4 py-2 text-sm font-semibold border-b-2 transition-colors ${
                 activeTab === 'non_drug'
-                  ? 'border-violet-500 text-violet-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  ? 'border-indigo-600 text-indigo-600'
+                  : 'border-transparent text-gray-400 hover:text-gray-600'
               }`}
             >
               Non-Drugs ({catalog.non_drug_items_count || 0})
@@ -1248,8 +1210,8 @@ export const UnitCatalogPage: React.FC = () => {
       label: 'Department',
       render: (catalog: UnitCatalogWithRelations) => (
         <div>
-          <p className="font-medium">{catalog.department?.department_name || '—'}</p>
-          <p className="text-xs text-gray-500">{catalog.department?.department_code || ''}</p>
+          <p className="font-semibold text-gray-950 text-sm leading-tight">{catalog.department?.department_name || '—'}</p>
+          <p className="font-mono text-[10px] text-gray-400 mt-0.5 tracking-wider uppercase">{catalog.department?.department_code || ''}</p>
         </div>
       ),
     },
@@ -1258,7 +1220,7 @@ export const UnitCatalogPage: React.FC = () => {
       label: 'Module',
       render: (catalog: UnitCatalogWithRelations) => {
         const code = typeof catalog.module_code === 'string' ? catalog.module_code : String(catalog.module_code || '')
-        return <Badge variant="secondary">{moduleName(code)}</Badge>
+        return <Badge variant="secondary" className="text-[11px] font-medium px-2 py-0.5">{moduleName(code)}</Badge>
       },
     },
     {
@@ -1266,16 +1228,16 @@ export const UnitCatalogPage: React.FC = () => {
       label: 'Catalog Items',
       render: (catalog: UnitCatalogWithItemCounts) => (
         <div className="space-y-1">
-          <div className="flex items-center gap-2 text-sm">
-            <Badge variant="success" className="text-xs">
+          <div className="flex items-center gap-1.5">
+            <Badge variant="success" className="font-mono text-[11px] font-medium px-2 py-0.5 tabular-nums">
               {catalog.drug_items_count || 0} Drugs
             </Badge>
-            <Badge variant="info" className="text-xs">
+            <Badge variant="info" className="font-mono text-[11px] font-medium px-2 py-0.5 tabular-nums">
               {catalog.non_drug_items_count || 0} Non-Drugs
             </Badge>
           </div>
-          <div className="text-xs text-gray-500">
-            {catalog.active_drug_items_count || 0} active drugs, {catalog.active_non_drug_items_count || 0} active non-drugs
+          <div className="text-[11px] text-gray-400 font-normal">
+            <span className="font-mono tabular-nums">{catalog.active_drug_items_count || 0}</span> active drugs, <span className="font-mono tabular-nums">{catalog.active_non_drug_items_count || 0}</span> active non-drugs
           </div>
         </div>
       ),
@@ -1290,15 +1252,15 @@ export const UnitCatalogPage: React.FC = () => {
           suspended: 'error',
         }
         const statusStr = typeof catalog.status === 'string' ? catalog.status : String(catalog.status || 'active')
-        return <Badge variant={colors[statusStr] || 'secondary'}>{statusStr}</Badge>
+        return <Badge variant={colors[statusStr] || 'secondary'} className="text-[11px] font-medium px-2 py-0.5 capitalize">{statusStr}</Badge>
       },
     },
     {
       key: 'responsible',
       label: 'Responsible',
       render: (catalog: UnitCatalogWithRelations) => (
-        <span className="text-sm">
-          {catalog.responsible_user?.full_name || <span className="text-gray-400">—</span>}
+        <span className="text-sm font-medium text-gray-600">
+          {catalog.responsible_user?.full_name || <span className="text-gray-300 font-normal">—</span>}
         </span>
       ),
     },
@@ -1306,16 +1268,16 @@ export const UnitCatalogPage: React.FC = () => {
       key: 'last_updated',
       label: 'Last Updated',
       render: (catalog: UnitCatalogWithRelations) => (
-        <div className="text-xs">
+        <div className="text-[11px] text-gray-500 leading-normal">
           {catalog.last_updated_at ? (
             <>
-              <p>{new Date(catalog.last_updated_at).toLocaleDateString()}</p>
-              <p className="text-gray-500">
+              <p className="font-medium text-gray-700">{new Date(catalog.last_updated_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+              <p className="text-gray-400">
                 by {catalog.last_updated_by_user?.full_name || 'Unknown'}
               </p>
             </>
           ) : (
-            <span className="text-gray-400">Never</span>
+            <span className="text-gray-350">Never</span>
           )}
         </div>
       ),
@@ -1324,7 +1286,7 @@ export const UnitCatalogPage: React.FC = () => {
       key: 'actions',
       label: 'Actions',
       render: (catalog: UnitCatalogWithItemCounts) => (
-        <div className="flex gap-2">
+        <div className="flex gap-1">
           <Button
             size="sm"
             variant="outline"
@@ -1333,6 +1295,7 @@ export const UnitCatalogPage: React.FC = () => {
               setShowItemsModal(true)
             }}
             title="Manage Items"
+            className="w-8 h-8 p-0 flex items-center justify-center border-gray-200 text-gray-500 hover:text-gray-800 hover:bg-gray-50 rounded-lg"
           >
             <Package className="w-4 h-4" />
           </Button>
@@ -1344,6 +1307,7 @@ export const UnitCatalogPage: React.FC = () => {
               setShowEditModal(true)
             }}
             title="Edit Unit"
+            className="w-8 h-8 p-0 flex items-center justify-center border-gray-200 text-gray-500 hover:text-gray-800 hover:bg-gray-50 rounded-lg"
           >
             <Edit className="w-4 h-4" />
           </Button>
@@ -1355,6 +1319,7 @@ export const UnitCatalogPage: React.FC = () => {
               setShowHistoryModal(true)
             }}
             title="View History"
+            className="w-8 h-8 p-0 flex items-center justify-center border-gray-200 text-gray-500 hover:text-gray-800 hover:bg-gray-50 rounded-lg"
           >
             <History className="w-4 h-4" />
           </Button>
@@ -1403,71 +1368,85 @@ export const UnitCatalogPage: React.FC = () => {
       {/* Summary Cards */}
       {summary && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <KPICard
+          <StatCard
             title="Total Units"
             value={summary.total_units}
-            color="primary"
-            icon={<Building2 />}
+            color="indigo"
+            icon={Building2}
+            subtitle="Registered catalogs"
           />
-          <KPICard
+          <StatCard
             title="Active"
             value={summary.active_units}
             color="success"
-            icon={<CheckCircle2 />}
+            icon={CheckCircle2}
+            subtitle="Enabled departments"
           />
-          <KPICard
+          <StatCard
             title="With Items"
             value={summary.units_with_items}
             color="info"
-            icon={<Package />}
+            icon={Package}
+            subtitle="Configured items"
           />
-          <KPICard
+          <StatCard
             title="Drug Items"
             value={summary.total_drug_items}
             color="success"
-            icon={<Package />}
+            icon={Package}
             subtitle={`${summary.total_active_drug_items} active`}
           />
-          <KPICard
+          <StatCard
             title="Non-Drug Items"
             value={summary.total_non_drug_items}
-            color="primary"
-            icon={<Package />}
+            color="indigo"
+            icon={Package}
             subtitle={`${summary.total_active_non_drug_items} active`}
           />
         </div>
       )}
 
       {/* Filters */}
-      <div className="bg-white rounded-lg border p-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Input
-            placeholder="Search departments..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            leftIcon={<Search className="w-4 h-4" />}
-          />
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">Search Departments</label>
+            <Input
+              placeholder="Search by name or code..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              leftIcon={<Search className="w-4 h-4 text-gray-400" />}
+              className="text-sm bg-gray-50/50 border-gray-200/80 focus:bg-white"
+            />
+          </div>
 
-          <Select
-            value={moduleFilter}
-            onChange={(e) => setModuleFilter(e.target.value)}
-            options={[
-              { value: 'all', label: 'All Modules' },
-              ...availableModules.map((m) => ({ value: m.code, label: m.name })),
-            ]}
-          />
+          <div>
+            <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">Filter by Module</label>
+            <Select
+              value={moduleFilter}
+              onChange={(e) => setModuleFilter(e.target.value)}
+              options={[
+                { value: 'all', label: 'All Modules' },
+                ...availableModules.map((m) => ({ value: m.code, label: m.name })),
+              ]}
+              className="text-sm bg-gray-50/50 border-gray-200/80 focus:bg-white"
+            />
+          </div>
 
-          <Select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            options={[
-              { value: 'all', label: 'All Statuses' },
-              { value: 'active', label: 'Active' },
-              { value: 'inactive', label: 'Inactive' },
-              { value: 'suspended', label: 'Suspended' },
-            ]}
-          />
-
+          <div>
+            <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">Status</label>
+            <Select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              options={[
+                { value: 'all', label: 'All Statuses' },
+                { value: 'active', label: 'Active' },
+                { value: 'inactive', label: 'Inactive' },
+                { value: 'suspended', label: 'Suspended' },
+              ]}
+              className="text-sm bg-gray-50/50 border-gray-200/80 focus:bg-white"
+            />
+          </div>
         </div>
       </div>
 

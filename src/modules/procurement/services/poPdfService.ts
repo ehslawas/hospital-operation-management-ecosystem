@@ -61,7 +61,7 @@ async function compileVectorPO(options: VectorPDFOptions): Promise<ArrayBuffer> 
   const balanceAfter = balance !== null ? balance - totalAmount : null;
 
   // Helper: Format Currency
-  const fmt = (val: number | null | undefined) => (val !== null && val !== undefined && !isNaN(val)) ? `RM ${Number(val).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}` : 'â€”';
+  const fmt = (val: number | null | undefined) => (val !== null && val !== undefined && !isNaN(val)) ? `RM ${Number(val).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}` : '-';
 
   // --- PDF Configuration ---
   const pageWidth = 210;
@@ -157,7 +157,7 @@ async function compileVectorPO(options: VectorPDFOptions): Promise<ArrayBuffer> 
     // 8. Info Grid layout with thin horizontal lines
     let gridY = 53;
     const rowHeight = 9.5;
-    const orderDateStr = order.order_date ? new Date(order.order_date).toLocaleDateString('ms-MY', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase() : 'â€”';
+    const orderDateStr = order.order_date ? new Date(order.order_date).toLocaleDateString('ms-MY', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase() : '-';
     const poLabel = 'NO. PESANAN / PO NUMBER';
 
     const drawGridRow = (y: number, label1: string, val1: string, label2?: string, val2?: string) => {
@@ -194,27 +194,27 @@ async function compileVectorPO(options: VectorPDFOptions): Promise<ArrayBuffer> 
     };
 
     // Row 1: PO / SQ No. & Department
-    const deptVal = order.department === 'other' ? (order.manual_department || 'â€”') : (order.department || 'â€”');
-    const poVal = order?.po_type === 'sq' ? 'â€”' : (order.po_number || 'â€”');
+    const deptVal = order.department === 'other' ? (order.manual_department || '-') : (order.department || '-');
+    const poVal = order?.po_type === 'sq' ? '-' : (order.po_number || '-');
     drawGridRow(gridY, poLabel, poVal, 'JABATAN / DEPARTMENT', deptVal.toUpperCase());
     gridY += rowHeight;
 
     // Row 2: Vote Code & Order Date
-    const voteCodeVal = order.vote_code === 'other' ? (order.manual_vote_code || 'â€”') : (order.vote_code || 'â€”');
+    const voteCodeVal = order.vote_code === 'other' ? (order.manual_vote_code || '-') : (order.vote_code || '-');
     drawGridRow(gridY, 'KOD UNDI / VOTE CODE', voteCodeVal, 'TARIKH PESANAN / ORDER DATE', orderDateStr);
     gridY += rowHeight;
 
     // Row 3: Vote Activity & Category
-    const voteActVal = order.vote_activity === 'other' ? (order.manual_vote_activity || 'â€”') : (order.vote_activity || 'â€”');
-    const catVal = order.category === 'other' ? (order.manual_category || 'â€”') : (order.category?.replace('_', ' ') || 'â€”');
+    const voteActVal = order.vote_activity === 'other' ? (order.manual_vote_activity || '-') : (order.vote_activity || '-');
+    const catVal = order.category === 'other' ? (order.manual_category || '-') : (order.category?.replace('_', ' ') || '-');
     drawGridRow(gridY, 'AKTIVITI UNDI / VOTE ACTIVITY', voteActVal, 'KATEGORI / CATEGORY', catVal.toUpperCase());
     gridY += rowHeight;
 
     // Row 4: Contract No. / INV SQ No.
     const contractLabel = order.po_type === 'sq' ? 'INV SQ NO.' : 'NO. KONTRAK / CONTRACT NO.';
     const contractDisplay = order.po_type === 'sq' 
-      ? (order.inv_sq_number || 'â€”') 
-      : ((order.vote_code === '990102' || order.po_type === 'manual') ? 'â€”' : (order.kkm_contract_number || order.supplier?.contract_number || 'â€”'));
+      ? (order.inv_sq_number || '-') 
+      : ((order.vote_code === '990102' || order.po_type === 'manual') ? '-' : (order.kkm_contract_number || order.supplier?.contract_number || '-'));
     drawGridRow(gridY, contractLabel, contractDisplay);
     gridY += rowHeight;
 
@@ -262,8 +262,8 @@ async function compileVectorPO(options: VectorPDFOptions): Promise<ArrayBuffer> 
       });
       gridY += boxHeight;
     } else {
-      const companyName = order.manual_supplier_name || order.supplier?.company_name || 'â€”';
-      const address = order.manual_supplier_address || order.supplier?.address || 'â€”';
+      const companyName = order.manual_supplier_name || order.supplier?.company_name || '-';
+      const address = order.manual_supplier_address || order.supplier?.address || '-';
 
       // Box 1: Company Name Container
       doc.rect(margin + 5, gridY, contentWidth - 10, 11);
@@ -305,7 +305,7 @@ async function compileVectorPO(options: VectorPDFOptions): Promise<ArrayBuffer> 
       doc.setFont('times', 'bold');
       doc.setFontSize(8.5);
       doc.setTextColor(75, 85, 99);
-      doc.text(`No. Pesanan: ${order.po_number || 'â€”'}`, pageWidth - margin - 5, 17, { align: 'right' });
+      doc.text(`No. Pesanan: ${order.po_number || '-'}`, pageWidth - margin - 5, 17, { align: 'right' });
       doc.setFont('times', 'italic');
       doc.text(`Halaman ${pageNum}`, pageWidth - margin - 5, 22, { align: 'right' });
       doc.setDrawColor(31, 41, 55);
@@ -335,19 +335,18 @@ async function compileVectorPO(options: VectorPDFOptions): Promise<ArrayBuffer> 
     return [
       idx + 1,
       { content: `${itemNameText}${contractInfo}`, styles: { fontStyle: contractInfo ? 'normal' : 'bold' } },
-      item.item_code || '—',
+      (item.item_code === (item.contract_number || order.kkm_contract_number || order.supplier?.contract_number)) ? '—' : (item.item_code || '—'),
       qty,
       `RM ${price.toFixed(2)}`,
-      `RM ${(qty * price).toFixed(2)}`,
-      item.packaging_description || '—'
+      item.packaging_description || '—',
+      `RM ${(qty * price).toFixed(2)}`
     ];
   });
 
   // Add total amount row to body
   tableData.push([
-    { content: 'JUMLAH KESELURUHAN / TOTAL AMOUNT:', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: [240, 240, 240] } },
-    { content: `RM ${totalAmount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`, styles: { halign: 'right', fontStyle: 'bold', fillColor: [240, 240, 240] } },
-    { content: '', styles: { fillColor: [240, 240, 240] } }
+    { content: 'JUMLAH KESELURUHAN / TOTAL AMOUNT:', colSpan: 6, styles: { halign: 'right', fontStyle: 'bold', fillColor: [240, 240, 240] } },
+    { content: `RM ${totalAmount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`, styles: { halign: 'right', fontStyle: 'bold', fillColor: [240, 240, 240] } }
   ]);
 
   // Draw Page 1 manual header elements
@@ -357,20 +356,72 @@ async function compileVectorPO(options: VectorPDFOptions): Promise<ArrayBuffer> 
   // --- Render Items Table ---
   autoTable(doc, {
     startY: tableStartY,
-    head: [['BIL', 'NAMA ITEM / ITEM NAME', 'KOD ITEM / ITEM CODE', 'KUANTITI / QTY', 'HARGA UNIT / PRICE', 'JUMLAH / TOTAL', 'PEMBUNGKUSAN / PKG']],
+    head: [['BIL', 'NAMA ITEM / ITEM NAME', 'KOD ITEM / ITEM CODE', 'KUANTITI / QTY', 'HARGA UNIT / PRICE', 'PEMBUNGKUSAN / PKG', 'JUMLAH / TOTAL']],
     body: tableData,
     theme: 'grid',
     styles: { font: 'times', fontSize: 8.5, cellPadding: 2.2, lineColor: [0, 0, 0], lineWidth: 0.15 },
     headStyles: { fillColor: [240, 240, 240], textColor: 0, fontStyle: 'bold', font: 'times', fontSize: 7.5, halign: 'center' },
     margin: { left: margin + 5, right: margin + 5, bottom: 42 },
     columnStyles: {
-        0: { halign: 'center', cellWidth: 8 },
+        0: { halign: 'center', cellWidth: 10 },
         1: { cellWidth: 'auto' },
         2: { halign: 'center', cellWidth: 26 },
-        3: { halign: 'center', cellWidth: 20 },
-        4: { halign: 'right', cellWidth: 24 },
-        5: { halign: 'right', cellWidth: 24 },
-        6: { halign: 'center', cellWidth: 25 }
+        3: { halign: 'center', cellWidth: 14 },
+        4: { halign: 'right', cellWidth: 20 },
+        5: { halign: 'center', cellWidth: 30 },
+        6: { halign: 'right', cellWidth: 22 }
+    },
+    didParseCell: (data) => {
+      if (data.column.index === 1 && data.section === 'body') {
+        data.cell.styles.textColor = [255, 255, 255];
+        data.cell.styles.fontStyle = 'bold';
+      }
+    },
+    didDrawCell: (data) => {
+      if (data.column.index === 1 && data.section === 'body') {
+        const rawCell = data.cell.raw;
+        const text = typeof rawCell === 'object' && rawCell !== null && 'content' in rawCell 
+          ? (rawCell as any).content 
+          : String(rawCell);
+        const logicalLines = text.split('\n');
+        
+        const startX = data.cell.x + data.cell.padding('left');
+        const fontSize = data.cell.styles.fontSize || 8.5;
+        const scaleFactor = (doc as any).internal.scaleFactor || 2.834645;
+        const fontSizeMm = fontSize / scaleFactor;
+        const lineHeightMm = (fontSize * 1.15) / scaleFactor;
+        const maxWritableWidth = data.cell.width - data.cell.padding('left') - data.cell.padding('right');
+        
+        let currentY = data.cell.y + data.cell.padding('top') + fontSizeMm - 0.15;
+        
+        logicalLines.forEach((logicalLine: string, idx: number) => {
+          const trimmed = logicalLine.trim();
+          if (!trimmed) return;
+          
+          let isBold = false;
+          if (idx === 0) {
+            isBold = true;
+          } else if (trimmed.startsWith('No. Kontrak:')) {
+            isBold = true;
+          } else if (trimmed.startsWith('Tamat Kontrak:')) {
+            isBold = true;
+          } else if (trimmed.startsWith('Tempoh Serahan:')) {
+            isBold = false;
+          }
+          
+          const wrappedSubLines = doc.splitTextToSize(logicalLine, maxWritableWidth);
+          wrappedSubLines.forEach((subLine: string) => {
+            if (isBold) {
+              doc.setFont('times', 'bold');
+            } else {
+              doc.setFont('times', 'normal');
+            }
+            doc.setTextColor(0);
+            doc.text(subLine, startX, currentY);
+            currentY += lineHeightMm;
+          });
+        });
+      }
     },
     didDrawPage: (data) => {
       renderPageFrame(data);
@@ -435,7 +486,7 @@ async function compileVectorPO(options: VectorPDFOptions): Promise<ArrayBuffer> 
   doc.setFont('times', 'bold');
   doc.setFontSize(8.5);
   doc.setTextColor(75, 85, 99);
-  doc.text(`No. Pesanan: ${order.po_number || 'â€”'}`, pageWidth - margin - 5, 17, { align: 'right' });
+  doc.text(`No. Pesanan: ${order.po_number || '-'}`, pageWidth - margin - 5, 17, { align: 'right' });
   doc.setFont('times', 'italic');
   doc.text(`Halaman ${(doc as any).internal.getNumberOfPages()}`, pageWidth - margin - 5, 22, { align: 'right' });
   doc.setDrawColor(31, 41, 55);
@@ -495,7 +546,7 @@ async function compileVectorPO(options: VectorPDFOptions): Promise<ArrayBuffer> 
   doc.setFontSize(9.5);
   doc.setFont('times', 'bold');
   doc.text('No. Telefon :', margin + 8, ry + supplierBoxHeight - 2);
-  doc.text(String(order.supplier?.phone || 'â€”'), margin + 48, ry + supplierBoxHeight - 2);
+  doc.text(String(order.supplier?.phone || '-'), margin + 48, ry + supplierBoxHeight - 2);
 
   // Set precise vertical coordinates dynamically based on supplierBoxHeight to prevent overlaps
   ry = 37 + supplierBoxHeight + 9; // Federal Treasury Registration
@@ -533,7 +584,7 @@ async function compileVectorPO(options: VectorPDFOptions): Promise<ArrayBuffer> 
   // Signature 4 (Applicant)
   doc.setFont('times', 'bold');
   doc.text('Tarikh :', margin + 10, ry);
-  const orderDateStr2 = order.order_date ? new Date(order.order_date).toLocaleDateString('ms-MY', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase() : 'â€”';
+  const orderDateStr2 = order.order_date ? new Date(order.order_date).toLocaleDateString('ms-MY', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase() : '-';
   doc.text(orderDateStr2, margin + 23, ry);
   
   doc.line(pageWidth - margin - 75, ry, pageWidth - margin - 5, ry);

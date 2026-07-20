@@ -167,8 +167,21 @@ export const ScanReconciliationModal: React.FC<ScanReconciliationModalProps> = (
   }, [stream, cameraActive, useRealCamera]);
 
   const handleCodeLookup = async (code: string) => {
-    const cleaned = code.trim();
+    let cleaned = code.trim();
     if (!cleaned) return;
+
+    // Support QR codes that are URLs
+    if (cleaned.startsWith('http://') || cleaned.startsWith('https://')) {
+      try {
+        const url = new URL(cleaned);
+        const pathSegments = url.pathname.split('/').filter(Boolean);
+        if (pathSegments.length > 0) {
+          cleaned = pathSegments[pathSegments.length - 1];
+        }
+      } catch (err) {
+        console.error("Failed to parse scanned URL:", err);
+      }
+    }
 
     setStatusMessage(null);
     setMatchedCylinder(null);

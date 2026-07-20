@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import { supabase, isSupabaseConfigured } from '@/services/supabase'
 
 export interface FinancialReportData {
@@ -44,6 +44,27 @@ export interface FinancialReportData {
     balance: number
     usageRate: number
     poCount: number
+  }[]
+  
+  departmentItems: {
+    department: string
+    items: {
+      itemName: string
+      itemCode: string
+      poNumber: string
+      supplierName: string
+      category: string
+      voteCode: string
+      quantityOrdered: number
+      quantityReceived: number
+      quantityPending: number
+      unitPrice: number
+      totalCost: number
+      orderDate: string
+      poStatus: string
+      deliveryStatus: 'received' | 'partial' | 'pending' | 'not_started'
+      paymentStatus: 'paid' | 'sent_for_payment' | 'processing' | 'pending'
+    }[]
   }[]
   
   byVoteActivity: {
@@ -190,11 +211,14 @@ export async function generateFinancialReport(
         .select(`
           id, po_number, po_type, order_date, total_amount, vote_code, category, department, status, manual_supplier_name,
           supplier:suppliers(company_name),
-          items:pharmacy_purchase_order_items(item_name, item_code, quantity_ordered, unit_price)
+          items:pharmacy_purchase_order_items(item_name, item_code, quantity_ordered, quantity_received, unit_price),
+          lpo:pharmacy_lpo(payment_status, lpo_number)
         `)
         .eq('hospital_id', hospitalId)
         .gte('order_date', dateFrom)
         .lte('order_date', dateTo)
+        .not('po_number', 'ilike', 'SQ-%')
+        .not('po_number', 'ilike', 'INV-%')
 
       const [warrantsRes, poRes] = await Promise.all([warrantsPromise, poPromise])
 
@@ -215,6 +239,7 @@ export async function generateFinancialReport(
       const voteActivityMap = new Map<string, { allocation: number; expenses: number; poCount: number }>()
       const monthlyTrendMap = new Map<string, { allocation: number; expenses: number }>()
       const itemsMap = new Map<string, { itemName: string; itemCode: string; category: string; department: string; voteCode: string; quantity: number; totalSpent: number }>()
+      const deptOrdersMap = new Map<string, { department: string; orders: any[] }>()
 
       // 1. Process warrants
       rawWarrants.forEach(w => {
@@ -310,6 +335,10 @@ export async function generateFinancialReport(
 
           // Process PO Items for Detailed Spend Breakdown
           const itemsList = po.items || []
+          const orderItems: any[] = []
+          let totalReceived = 0
+          let totalOrdered = 0
+
           itemsList.forEach((item: any) => {
             const itemQty = Number(item.quantity_ordered || 0)
             const itemCost = Number(item.unit_price || 0) * itemQty
@@ -327,7 +356,55 @@ export async function generateFinancialReport(
             existingItem.quantity += itemQty
             existingItem.totalSpent += itemCost
             itemsMap.set(itemKey, existingItem)
+
+            const qtyOrdered = itemQty
+            const qtyReceived = Number(item.quantity_received || 0)
+            const qtyPending = Math.max(0, qtyOrdered - qtyReceived)
+            const unitPrice = Number(item.unit_price || 0)
+            const totalCost = qtyOrdered * unitPrice
+
+            totalOrdered += qtyOrdered
+            totalReceived += qtyReceived
+
+            orderItems.push({
+              itemName: item.item_name || 'Generic Item',
+              itemCode: item.item_code || 'N/A',
+              quantityOrdered: qtyOrdered,
+              quantityReceived: qtyReceived,
+              quantityPending: qtyPending,
+              unitPrice,
+              totalCost
+            })
           })
+
+          let deliveryStatus: 'received' | 'partial' | 'pending' | 'not_started' = 'pending'
+          if (totalOrdered > 0 && totalReceived >= totalOrdered) {
+            deliveryStatus = 'received'
+          } else if (totalReceived > 0) {
+            deliveryStatus = 'partial'
+          } else if (po.status === 'draft') {
+            deliveryStatus = 'not_started'
+          }
+
+          const lpoObj = po.lpo ? (Array.isArray(po.lpo) ? po.lpo[0] : po.lpo) : null
+          const lpoNumber = lpoObj?.lpo_number || po.po_number?.replace('PO-', 'LPO-') || 'LPO-2026-UNKNOWN'
+          const paymentStatus = lpoObj?.payment_status || 'pending'
+          const doNumber = po.po_number?.replace('PO-', 'DO-') || 'DO-2026-UNKNOWN'
+          const supplierName = po.supplier?.company_name || po.manual_supplier_name || 'Generic Supplier'
+
+          const deptGroup = deptOrdersMap.get(displayDept) || { department: displayDept, orders: [] }
+          deptGroup.orders.push({
+            poNumber: po.po_number || 'N/A',
+            lpoNumber,
+            doNumber,
+            orderDate: po.order_date || 'N/A',
+            supplierName,
+            totalCost: Number(po.total_amount || 0),
+            deliveryStatus,
+            paymentStatus,
+            items: orderItems
+          })
+          deptOrdersMap.set(displayDept, deptGroup)
         }
       })
 
@@ -490,7 +567,8 @@ export async function generateFinancialReport(
           annualProjection,
           variance,
           burnRate
-        }
+        },
+        departmentOrders: Array.from(deptOrdersMap.values())
       }
 
       return { data, error: null }
@@ -617,7 +695,168 @@ export async function generateFinancialReport(
         annualProjection: 2182000,
         variance: 668000,
         burnRate: (mockExp / mockAlloc) * 100
-      }
+      },
+      departmentOrders: [
+        {
+          department: 'Pharmacy',
+          orders: [
+            {
+              poNumber: 'PO-2026-0041',
+              lpoNumber: 'LPO-2026-0041',
+              doNumber: 'DO-2026-0041',
+              orderDate: '2026-05-22',
+              supplierName: 'Apex Pharmacy Marketing Sdn Bhd',
+              totalCost: 190000,
+              deliveryStatus: 'partial',
+              paymentStatus: 'processing',
+              items: [
+                { itemName: 'Paracetamol 500mg Tablets (APPL)', itemCode: 'DRG-001', quantityOrdered: 250000, quantityReceived: 250000, quantityPending: 0, unitPrice: 0.5, totalCost: 125000 },
+                { itemName: 'Insulin Glargine 100 U/ml Pen', itemCode: 'DRG-708', quantityOrdered: 1200, quantityReceived: 800, quantityPending: 400, unitPrice: 54.16, totalCost: 65000 }
+              ]
+            }
+          ]
+        },
+        {
+          department: 'Emergency & Trauma',
+          orders: [
+            {
+              poNumber: 'PO-2026-0040',
+              lpoNumber: 'LPO-2026-0040',
+              doNumber: 'DO-2026-0040',
+              orderDate: '2026-05-20',
+              supplierName: 'Zuellig Pharma Malaysia Sdn Bhd',
+              totalCost: 60000,
+              deliveryStatus: 'partial',
+              paymentStatus: 'pending',
+              items: [
+                { itemName: 'Disposable Sterile Syringes 5ml', itemCode: 'NDG-102', quantityOrdered: 120000, quantityReceived: 60000, quantityPending: 60000, unitPrice: 0.5, totalCost: 60000 }
+              ]
+            },
+            {
+              poNumber: 'PO-2026-0035',
+              lpoNumber: 'LPO-2026-0035',
+              doNumber: 'DO-2026-0035',
+              orderDate: '2026-05-04',
+              supplierName: 'Gas Malaysia Healthcare',
+              totalCost: 45000,
+              deliveryStatus: 'received',
+              paymentStatus: 'paid',
+              items: [
+                { itemName: 'Medical Grade Gaseous Oxygen Cylinder 10L', itemCode: 'OXY-001', quantityOrdered: 1200, quantityReceived: 1200, quantityPending: 0, unitPrice: 37.5, totalCost: 45000 }
+              ]
+            }
+          ]
+        },
+        {
+          department: 'General Ward',
+          orders: [
+            {
+              poNumber: 'PO-2026-0036',
+              lpoNumber: 'LPO-2026-0036',
+              doNumber: 'DO-2026-0036',
+              orderDate: '2026-05-08',
+              supplierName: 'Duopharma Marketing Sdn Bhd',
+              totalCost: 135000,
+              deliveryStatus: 'partial',
+              paymentStatus: 'pending',
+              items: [
+                { itemName: 'Amoxicillin 250mg Capsules', itemCode: 'DRG-002', quantityOrdered: 180000, quantityReceived: 180000, quantityPending: 0, unitPrice: 0.5, totalCost: 90000 },
+                { itemName: 'Standard IV Infusion Sets', itemCode: 'NDG-110', quantityOrdered: 50000, quantityReceived: 0, quantityPending: 50000, unitPrice: 0.9, totalCost: 45000 }
+              ]
+            }
+          ]
+        },
+        {
+          department: 'Laboratory & Pathology',
+          orders: [
+            {
+              poNumber: 'PO-2026-0039',
+              lpoNumber: 'LPO-2026-0039',
+              doNumber: 'DO-2026-0039',
+              orderDate: '2026-05-18',
+              supplierName: 'B. Braun Medical Supplies Sdn Bhd',
+              totalCost: 92000,
+              deliveryStatus: 'pending',
+              paymentStatus: 'pending',
+              items: [
+                { itemName: 'Cardiac Biomarker Troponin-I Test Kit', itemCode: 'REA-204', quantityOrdered: 2500, quantityReceived: 0, quantityPending: 2500, unitPrice: 36.8, totalCost: 92000 }
+              ]
+            }
+          ]
+        },
+        {
+          department: 'Operation Theater',
+          orders: [
+            {
+              poNumber: 'PO-2026-0038',
+              lpoNumber: 'LPO-2026-0038',
+              doNumber: 'DO-2026-0038',
+              orderDate: '2026-05-15',
+              supplierName: 'Duopharma Marketing Sdn Bhd',
+              totalCost: 180000,
+              deliveryStatus: 'received',
+              paymentStatus: 'paid',
+              items: [
+                { itemName: 'Sutures Vicryl 3-0 Absorption Braided', itemCode: 'NST-440', quantityOrdered: 3000, quantityReceived: 3000, quantityPending: 0, unitPrice: 60.0, totalCost: 180000 }
+              ]
+            }
+          ]
+        },
+        {
+          department: 'Maternity Ward',
+          orders: [
+            {
+              poNumber: 'PO-2026-0037',
+              lpoNumber: 'LPO-2026-0037',
+              doNumber: 'DO-2026-0037',
+              orderDate: '2026-05-10',
+              supplierName: 'Medi-Life (M) Sdn Bhd',
+              totalCost: 135000,
+              deliveryStatus: 'received',
+              paymentStatus: 'sent_for_payment',
+              items: [
+                { itemName: 'Hepatitis B Recombinant Vaccine', itemCode: 'VAC-004', quantityOrdered: 15000, quantityReceived: 15000, quantityPending: 0, unitPrice: 9.0, totalCost: 135000 }
+              ]
+            }
+          ]
+        },
+        {
+          department: 'Nephrology',
+          orders: [
+            {
+              poNumber: 'PO-2026-0042',
+              lpoNumber: 'LPO-2026-0042',
+              doNumber: 'DO-2026-0042',
+              orderDate: '2026-05-24',
+              supplierName: 'PharmaNiaga Logistics Sdn Bhd',
+              totalCost: 84250,
+              deliveryStatus: 'received',
+              paymentStatus: 'paid',
+              items: [
+                { itemName: 'Renal Dialysis Solution B-1', itemCode: 'DRG-305', quantityOrdered: 8000, quantityReceived: 8000, quantityPending: 0, unitPrice: 10.53, totalCost: 84250 }
+              ]
+            }
+          ]
+        },
+        {
+          department: 'Radiology & Radiography',
+          orders: [
+            {
+              poNumber: 'PO-2026-0034',
+              lpoNumber: 'LPO-2026-0034',
+              doNumber: 'DO-2026-0034',
+              orderDate: '2026-04-28',
+              supplierName: 'Komedic Sdn Bhd',
+              totalCost: 28000,
+              deliveryStatus: 'received',
+              paymentStatus: 'paid',
+              items: [
+                { itemName: 'Radiography Contrast Media - Iopromide', itemCode: 'RAD-012', quantityOrdered: 250, quantityReceived: 250, quantityPending: 0, unitPrice: 112.0, totalCost: 28000 }
+              ]
+            }
+          ]
+        }
+      ]
     }
 
     return { data, error: null }

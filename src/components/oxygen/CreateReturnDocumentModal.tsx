@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, Edit3, CheckSquare, Square, ChevronDown, ChevronRight, AlertCircle, RefreshCw, Trash2, Plus, QrCode, CheckCircle2, ChevronLeft, Search } from 'lucide-react';
 import { supabase } from '@/services/supabase';
+import { useAuthStore } from '@/stores/authStore';
 import { getEmptyCylindersInStore, createReturnDocument, getCylinderByQrOrSerial, markCylinderAsEmpty } from '@/services/pharmacy/oxygenService';
 import type { OxygenCylinderWithRelations } from '@/types/pharmacy';
 
@@ -33,6 +34,7 @@ export const CreateReturnDocumentModal: React.FC<CreateReturnDocumentModalProps>
   sessionScannedCylinders,
   setSessionScannedCylinders,
 }) => {
+  const { user } = useAuthStore();
   const [suppliers, setSuppliers] = useState<{ id: string; company_name: string }[]>([]);
   const [emptyCylinders, setEmptyCylinders] = useState<OxygenCylinderWithRelations[]>([]);
   
@@ -46,6 +48,8 @@ export const CreateReturnDocumentModal: React.FC<CreateReturnDocumentModalProps>
   const [manualLoans, setManualLoans] = useState<{ sizeCode: string; qty: number }[]>([]);
   const [manualSizeSelect, setManualSizeSelect] = useState('101-F (1.4m3)');
   const [manualQtyInput, setManualQtyInput] = useState<number>(1);
+  const [supplierCylinders, setSupplierCylinders] = useState<OxygenCylinderWithRelations[]>([]);
+  const [supplierSizeFilter, setSupplierSizeFilter] = useState<'all' | '101-N' | '101-F'>('101-N');
   
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -70,7 +74,7 @@ export const CreateReturnDocumentModal: React.FC<CreateReturnDocumentModalProps>
     setSelectedSizeFilter('');
   }, [cylinderTab]);
 
-  const loanSizes = ['101-F (1.4m3)'];
+  const loanSizes = ['101-F (1.4m3)', '101-N (8.0m3)'];
 
   // Load suppliers and empty cylinders
   useEffect(() => {
@@ -101,8 +105,7 @@ export const CreateReturnDocumentModal: React.FC<CreateReturnDocumentModalProps>
       const { data: sups, error: supErr } = await supabase
         .from('suppliers')
         .select('id, company_name, supplier_code')
-        .eq('status', 'active')
-        .or('supplier_code.ilike.SUP-ND-%,company_name.ilike.%linde%,company_name.ilike.%gas%');
+        .eq('status', 'active');
 
       if (supErr) throw supErr;
       setSuppliers(sups || []);
@@ -118,6 +121,7 @@ export const CreateReturnDocumentModal: React.FC<CreateReturnDocumentModalProps>
       const res = await getEmptyCylindersInStore(hospitalId);
       if (res.error) throw new Error(res.error);
       const filtered = (res.data || []).filter((c: any) => {
+        if (c.supplier_tagged) return true;
         const serial = (c.serial_number || '').toUpperCase();
         const typeName = (c.type_info?.type_name || '').toLowerCase();
         const isLoan = c.is_loan || 
@@ -135,6 +139,32 @@ export const CreateReturnDocumentModal: React.FC<CreateReturnDocumentModalProps>
       setSelectedCylinders([]);
       setRemarks('');
       setReturnDate(new Date().toISOString().split('T')[0]);
+
+      // 3. Fetch supplier-tagged cylinders
+      const { isSupabaseConfigured } = await import('@/services/supabase');
+      if (isSupabaseConfigured()) {
+        const { data: supCyls, error: supCylsErr } = await supabase
+          .from('pharmacy_oxygen_cylinder_inventory')
+          .select(`
+            *,
+            size_info:pharmacy_oxygen_cylinder_sizes(*),
+            type_info:pharmacy_oxygen_cylinder_types(*)
+          `)
+          .eq('hospital_id', hospitalId)
+          .eq('supplier_tagged', true)
+          .neq('status', 'returned_to_supplier')
+          .order('serial_number', { ascending: true });
+
+        if (!supCylsErr) {
+          setSupplierCylinders(supCyls || []);
+        }
+      } else {
+        const { mockOxygenCylinders } = await import('@/services/pharmacy/mockData');
+        const mockSupCyls = mockOxygenCylinders.filter(
+          c => c.supplier_tagged === true && c.status !== 'returned_to_supplier'
+        );
+        setSupplierCylinders(mockSupCyls);
+      }
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : 'Failed to load return document details.');
@@ -149,7 +179,7 @@ export const CreateReturnDocumentModal: React.FC<CreateReturnDocumentModalProps>
   const availableSizes = Array.from(new Set(
     emptyCylinders
       .filter(c => {
-        const isLoan = c.is_loan || c.type_info?.type_name?.toLowerCase().includes('loan');
+        const isLoan = !c.supplier_tagged && (c.is_loan || c.type_info?.type_name?.toLowerCase().includes('loan'));
         const isScanned = sessionScannedCylinders.some(sc => sc.id === c.id);
         return (cylinderTab === 'loan' ? isLoan : !isLoan) && isScanned;
       })
@@ -159,7 +189,7 @@ export const CreateReturnDocumentModal: React.FC<CreateReturnDocumentModalProps>
 
   // Filter empty cylinders by active tab, search query, and size filter
   const filteredCylinders = emptyCylinders.filter(c => {
-    const isLoan = c.is_loan || c.type_info?.type_name?.toLowerCase().includes('loan');
+    const isLoan = !c.supplier_tagged && (c.is_loan || c.type_info?.type_name?.toLowerCase().includes('loan'));
     const matchesTab = cylinderTab === 'loan' ? isLoan : !isLoan;
     
     if (!matchesTab) return false;
@@ -277,7 +307,7 @@ export const CreateReturnDocumentModal: React.FC<CreateReturnDocumentModalProps>
     setIsSubmitting(true);
     setError(null);
     try {
-      const creatorId = localStorage.getItem('userId') || 'fbbd44d1-f322-4fdb-a367-a18e5371e205'; // fallback
+      const creatorId = user?.id || localStorage.getItem('userId') || 'fbbd44d1-f322-4fdb-a367-a18e5371e205';
       
       // Auto-generate placeholder cylinders for manual quantities
       const payloadManualLoans: { serial_number: string; qr_code?: string }[] = [];
@@ -422,7 +452,7 @@ export const CreateReturnDocumentModal: React.FC<CreateReturnDocumentModalProps>
                           }`}
                         >
                           All ({emptyCylinders.filter(c => {
-                            const isLoan = c.is_loan || c.type_info?.type_name?.toLowerCase().includes('loan');
+                            const isLoan = !c.supplier_tagged && (c.is_loan || c.type_info?.type_name?.toLowerCase().includes('loan'));
                             const isScanned = sessionScannedCylinders.some(sc => sc.id === c.id);
                             return (cylinderTab === 'loan' ? isLoan : !isLoan) && isScanned;
                           }).length})
@@ -595,11 +625,90 @@ export const CreateReturnDocumentModal: React.FC<CreateReturnDocumentModalProps>
                     </span>
                   </div>
 
+                  {/* Manual Supplier Tag Selection (Loan Cylinders Only) */}
+                  {supplierCylinders.length > 0 || scannedCylinders.some(c => c.supplier_tagged) ? (
+                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4 shadow-sm">
+                      <div className="flex justify-between items-center flex-wrap gap-2">
+                        <label className="block text-slate-700 font-bold text-xs flex items-center gap-1.5">
+                          <QrCode className="w-4 h-4 text-rose-600 animate-pulse" />
+                          Select Supplier Cylinder ID (Loan 101-N / 101-F)
+                        </label>
+                        
+                        {/* Size Filter Toggle/Pills */}
+                        <div className="flex bg-slate-200/80 p-0.5 rounded-lg text-[10px] font-extrabold uppercase">
+                          {(['all', '101-N', '101-F'] as const).map((filterVal) => {
+                            const count = supplierCylinders.filter(c => filterVal === 'all' || c.size_info?.code === filterVal).length;
+                            return (
+                              <button
+                                key={filterVal}
+                                type="button"
+                                onClick={() => setSupplierSizeFilter(filterVal)}
+                                className={`px-2.5 py-1 rounded-md transition-all ${
+                                  supplierSizeFilter === filterVal
+                                    ? 'bg-rose-500 text-white shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-800'
+                                }`}
+                              >
+                                {filterVal === 'all' ? 'All' : filterVal} ({count})
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Checkbox Grid of available supplier cylinders */}
+                      {(() => {
+                        const displayedCyls = supplierCylinders.filter(c => supplierSizeFilter === 'all' || c.size_info?.code === supplierSizeFilter);
+                        if (displayedCyls.length === 0) {
+                          return (
+                            <p className="text-[11px] text-slate-400 font-semibold italic text-center py-4 bg-white border border-dashed border-slate-200 rounded-xl">
+                              No active supplier-tagged cylinders found for this size.
+                            </p>
+                          );
+                        }
+                        return (
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
+                            {displayedCyls.map((cyl) => {
+                              const isSelected = scannedCylinders.some(sc => sc.id === cyl.id);
+                              return (
+                                <label
+                                  key={cyl.id}
+                                  className={`flex items-center gap-2.5 p-3 border rounded-xl cursor-pointer transition-all select-none hover:bg-slate-100/50 ${
+                                    isSelected
+                                      ? 'border-rose-400 bg-rose-50/20 text-rose-800 ring-2 ring-rose-500/5 shadow-sm'
+                                      : 'border-slate-200 bg-white text-slate-700'
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => {
+                                      if (isSelected) {
+                                        setScannedCylinders(scannedCylinders.filter(sc => sc.id !== cyl.id));
+                                      } else {
+                                        setScannedCylinders([...scannedCylinders, cyl]);
+                                      }
+                                    }}
+                                    className="rounded border-slate-300 text-rose-600 focus:ring-rose-500 w-4 h-4 cursor-pointer"
+                                  />
+                                  <div className="flex flex-col min-w-0">
+                                    <span className="text-[11px] font-mono font-bold truncate leading-none mb-1">{cyl.serial_number}</span>
+                                    <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider">{cyl.size_info?.code || '101-N'}</span>
+                                  </div>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  ) : null}
+
                   {/* Add Manual Quantity Widget */}
                   <div className="bg-rose-50/30 border border-rose-100 rounded-2xl p-4 shadow-sm">
                     <label className="block text-slate-700 font-bold text-xs mb-2 flex items-center gap-1.5">
                       <Plus className="w-4 h-4 text-rose-600" />
-                      Add Manual Quantity (Loan Cylinders Only)
+                      Add Manual Quantity (Generic Loan Cylinders Only)
                     </label>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2.5">
                       <div className="sm:col-span-2">
@@ -694,8 +803,7 @@ export const CreateReturnDocumentModal: React.FC<CreateReturnDocumentModalProps>
               <button
                 type="button"
                 onClick={() => setStep('details')}
-                disabled={scannedCylinders.length === 0 && manualLoans.length === 0}
-                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white font-bold text-xs shadow-lg hover:shadow-xl hover:scale-102 transition-all duration-300 flex items-center gap-1 disabled:opacity-50 disabled:scale-100 disabled:shadow-lg disabled:cursor-not-allowed"
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white font-bold text-xs shadow-lg hover:shadow-xl hover:scale-102 transition-all duration-300 flex items-center gap-1"
               >
                 <span>Proceed to Details</span>
                 <ChevronRight className="w-4 h-4" />

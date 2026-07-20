@@ -39,12 +39,17 @@ export const BreachLogPage: React.FC = () => {
   const [correctReadingId, setCorrectReadingId] = useState<string | null>(null)
   const [correctNote, setCorrectNote] = useState('')
 
+  const userRole = user?.role?.role_code || ''
+  const isAdmin = ['system_admin', 'hospital_admin', 'hospital_administrator'].includes(userRole)
+  const userDeptId = user?.department_id || ''
+
   const loadData = async () => {
     setLoading(true)
     try {
+      const deptIdFilter = !isAdmin && userDeptId ? userDeptId : undefined
       const [logsRes, locsRes] = await Promise.all([
-        getBreachLogs(hospitalId, startDate || undefined, endDate || undefined),
-        getLokasi(hospitalId)
+        getBreachLogs(hospitalId, startDate || undefined, endDate || undefined, deptIdFilter),
+        getLokasi(hospitalId, deptIdFilter)
       ])
       setBreaches(logsRes.data || [])
       setLocations(locsRes.data || [])
@@ -83,7 +88,8 @@ export const BreachLogPage: React.FC = () => {
       setCorrectNote('')
       
       // Reload logs
-      const logsRes = await getBreachLogs(hospitalId, startDate || undefined, endDate || undefined)
+      const deptIdFilter = !isAdmin && userDeptId ? userDeptId : undefined
+      const logsRes = await getBreachLogs(hospitalId, startDate || undefined, endDate || undefined, deptIdFilter)
       setBreaches(logsRes.data || [])
     } catch (e) {
       console.error('Failed to annotate log', e)

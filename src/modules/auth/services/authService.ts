@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import { supabase, isSupabaseConfigured } from '../../../services/supabase'
 import {
   findUserByEmployeeId,
@@ -345,6 +345,19 @@ async function loginWithSupabase(employeeId: string, password: string): Promise<
       last_login: new Date().toISOString(),
     })
     .eq('id', userData.id)
+
+  // Create audit log for login
+  try {
+    await supabase.from('audit_logs').insert({
+      user_id: userData.id,
+      action: 'Login',
+      module: 'auth',
+      entity_type: 'users',
+      entity_id: userData.id,
+    })
+  } catch (logErr) {
+    console.error('Failed to log login event:', logErr)
+  }
 
   // Fetch full user data with relations
   // Note: We use the !column_name syntax to disambiguate relationships

@@ -450,10 +450,13 @@ export interface OxygenCylinder extends BaseEntity {
   cylinder_size_id?: string
   cylinder_type_id?: string
   qr_code?: string
+  supplier_tagged?: boolean
+  supplier_tag_source?: string
 }
 
 export interface OxygenCylinderWithRelations extends OxygenCylinder {
   type_info?: OxygenCylinderTypeInfo
+  size_info?: any
   current_location?: StockLocation
   assigned_ward?: Department
   supplier?: Supplier
@@ -1978,5 +1981,41 @@ export interface UnitCatalogFormData {
   responsible_user_id?: string | null
   notes?: string | null
   update_reason?: string | null
+}
+
+export interface CylinderMaintenance extends BaseEntity {
+  hospital_id: string
+  maintenance_no: string
+  supplier_id?: string | null
+  status: 'draft' | 'pending_approval' | 'approved' | 'sent_to_supplier' | 'in_progress' | 'completed' | 'cancelled'
+  requested_by: string
+  requested_date: string
+  completion_date?: string | null
+  total_cost: number
+  budget_source?: 'warrant' | 'appl' | 'cc' | 'lp' | null
+  justification?: string | null
+  notes?: string | null
+}
+
+export interface CylinderMaintenanceItem extends BaseEntity {
+  maintenance_id: string
+  cylinder_id: string
+  maintenance_type: 'replacing_valve' | 'painting' | 'general_maintenance' | 'hydrostatic_testing' | 'other'
+  cost: number
+  notes?: string | null
+}
+
+export interface CylinderMaintenanceWithRelations extends CylinderMaintenance {
+  supplier?: {
+    id: string
+    company_name: string
+  } | null
+  requested_by_user?: {
+    id: string
+    full_name: string
+  } | null
+  items?: (CylinderMaintenanceItem & {
+    cylinder?: OxygenCylinderWithRelations | null
+  })[]
 }
 

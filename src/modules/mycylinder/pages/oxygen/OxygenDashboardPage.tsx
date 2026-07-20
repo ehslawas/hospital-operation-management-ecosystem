@@ -78,11 +78,13 @@ import {
   deactivateCylinderQrTag,
   getOxygenCylinderTypes,
   generateNewCylindersWithQr,
+  addSupplierTaggedLoanCylinders,
 } from '@/services/pharmacy/oxygenService'
 import { 
   generateOxygenPoPdf, 
   generateOxygenReceptionReportPdf 
 } from '@/services/pharmacy/oxygenPdfService'
+import { extractSerialsFromDocument } from '@/shared/lib/pdfParser'
 import { 
   getPharmacyPOSignatures, 
   updatePharmacyPOSignatures, 
@@ -157,8 +159,53 @@ export const OxygenDashboardPage: React.FC = () => {
   const [qrPage, setQrPage] = useState(1)
   const [qrPageSize, setQrPageSize] = useState(10)
   const [isAssigningTag, setIsAssigningTag] = useState(false)
+  const [supplierTagRows, setSupplierTagRows] = useState<string[]>([''])
 
-  // Lock generator quantity to 1 if a loan cylinder is selected
+  // OCR Auto-Extraction States
+  const [deliveryDocFile, setDeliveryDocFile] = useState<File | null>(null)
+  const [isOcrProcessing, setIsOcrProcessing] = useState(false)
+  const [ocrExtractedTags, setOcrExtractedTags] = useState<{ serial: string; selected: boolean }[]>([])
+  const [showOcrReview, setShowOcrReview] = useState(false)
+  const [ocrError, setOcrError] = useState<string | null>(null)
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setDeliveryDocFile(e.target.files[0])
+      setOcrError(null)
+      setShowOcrReview(false)
+    }
+  }
+
+  const handleRunOcr = async () => {
+    if (!deliveryDocFile) return
+    setIsOcrProcessing(true)
+    setOcrError(null)
+    setShowOcrReview(false)
+    
+    try {
+      const serials = await extractSerialsFromDocument(deliveryDocFile)
+      setOcrExtractedTags(serials.map(s => ({ serial: s, selected: true })))
+      setShowOcrReview(true)
+    } catch (err: any) {
+      console.error(err)
+      setOcrError(err.message || 'Failed to extract serial numbers. Please try again or enter manually.')
+    } finally {
+      setIsOcrProcessing(false)
+    }
+  }
+
+  const handleApplyExtractedTags = () => {
+    const selectedTags = ocrExtractedTags
+      .filter(t => t.selected)
+      .map(t => t.serial)
+    
+    if (selectedTags.length > 0) {
+      setSupplierTagRows(selectedTags)
+      setShowOcrReview(false)
+      setDeliveryDocFile(null)
+    }
+  }
+
   useEffect(() => {
     if (selectedTypeId) {
       const type = cylinderTypes.find(t => t.id === selectedTypeId)
@@ -167,10 +214,16 @@ export const OxygenDashboardPage: React.FC = () => {
         setGenerateQuantity(1)
       }
     }
+    setSupplierTagRows([''])
+    setDeliveryDocFile(null)
+    setOcrExtractedTags([])
+    setShowOcrReview(false)
+    setOcrError(null)
   }, [selectedTypeId, cylinderTypes])
 
   const selectedType = cylinderTypes.find(t => t.id === selectedTypeId)
   const isLoanSelected = selectedType ? (selectedType.type_name.toLowerCase().includes('loan') || selectedType.type_code.startsWith('101-')) : false
+  const isOcrEligible = selectedType ? (selectedType.type_code === '101-N' || selectedType.type_code === '101-F') : false
 
   // Reconciliation Audit States
   const [physicalCounts, setPhysicalCounts] = useState<Record<string, string>>({})
@@ -1180,6 +1233,67 @@ export const OxygenDashboardPage: React.FC = () => {
     }
   }
 
+  const handleRegisterSupplierTags = async () => {
+    if (!selectedTypeId || !user || !hospitalId) return
+    
+    // Filter out empty rows and trim values
+    const cleanedTags = supplierTagRows
+      .map(t => t.trim())
+      .filter(t => t.length > 0)
+
+    if (cleanedTags.length === 0) {
+      alert('Please fill in at least one supplier cylinder ID.')
+      return
+    }
+
+    // Check for duplicates within the current entry list
+    const seen = new Set<string>()
+    const duplicates = new Set<string>()
+    cleanedTags.forEach(tag => {
+      const upper = tag.toUpperCase()
+      if (seen.has(upper)) {
+        duplicates.add(upper)
+      }
+      seen.add(upper)
+    })
+
+    if (duplicates.size > 0) {
+      alert(`Please remove duplicates from your list: ${Array.from(duplicates).join(', ')}`)
+      return
+    }
+
+    setIsAssigningTag(true)
+    try {
+      const res = await addSupplierTaggedLoanCylinders(
+        hospitalId,
+        selectedTypeId,
+        cleanedTags,
+        user.id
+      )
+      if (res.data) {
+        await loadData()
+        setGeneratedLabels(res.data.success)
+        
+        let message = `Successfully registered ${res.data.success.length} loan cylinders with supplier tags!`
+        if (res.data.conflicts.length > 0) {
+          message += `\n\nSkipped ${res.data.conflicts.length} duplicate tags (already registered): ${res.data.conflicts.join(', ')}`
+        }
+        alert(message)
+        
+        // Reset rows to 1 empty row upon success
+        setSupplierTagRows([''])
+      } else {
+        alert(res.error || 'Failed to register supplier cylinders.')
+      }
+    } catch (err) {
+      console.error(err)
+      alert('Error registering supplier cylinders.')
+    } finally {
+      setIsAssigningTag(false)
+    }
+  }
+
+
   const handleDeactivateQrTag = async (id: string) => {
     if (!confirm('Are you sure you want to deactivate and remove this QR tag? This cylinder will need to be re-tagged before it can be scanned.')) return
     try {
@@ -1338,6 +1452,17 @@ export const OxygenDashboardPage: React.FC = () => {
                  subTab={supplierReturnsSubTab}
                  onSubTabChange={setSupplierReturnsSubTab}
                  hideSubTabBar={true}
+                 onSuccess={async () => {
+                   if (!hospitalId) return
+                   const [aggRes, docsRes, reqsRes] = await Promise.all([
+                     getCylinderInventoryByType(hospitalId),
+                     getReturnDocuments(hospitalId),
+                     getRequestDocuments(hospitalId),
+                   ])
+                   if (aggRes.data) setCylinderAggregates(aggRes.data)
+                   if (docsRes.data) setReturnDocs(docsRes.data)
+                   if (reqsRes.data) setRequestDocs(reqsRes.data)
+                 }}
                />
              )}
           </div>
@@ -1509,6 +1634,9 @@ export const OxygenDashboardPage: React.FC = () => {
     if (currentPath === '/pharmacy/oxygen/qr') {
       const seenLoanSizes = new Set<string>()
       const uniqueTaggedCylindersList = taggedCylindersList.filter(c => {
+        if (c.supplier_tagged) {
+          return true
+        }
         const serial = (c.serial_number || '').toUpperCase()
         const isLoan = c.is_loan || 
                        (c.size_info?.is_loan) || 
@@ -1663,23 +1791,19 @@ export const OxygenDashboardPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Quantity Slider */}
-                  <div className={`bg-slate-50 border border-slate-100/50 rounded-2xl p-4 flex flex-col gap-3 transition-all ${isLoanSelected ? 'bg-amber-50/40 border-amber-200/50' : ''}`}>
-                    <div className="flex justify-between items-center">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-wide">
-                        Quantity to Register
-                      </label>
-                      <span className={`text-xs font-black px-2.5 py-1 rounded-lg border ${
-                        isLoanSelected 
-                          ? 'text-amber-700 bg-amber-50 border-amber-200' 
-                          : 'text-[#00a68a] bg-teal-50 border-teal-100'
-                      }`}>
-                        {generateQuantity} {generateQuantity === 1 ? 'Cylinder' : 'Cylinders'}
-                      </span>
-                    </div>
-                    
-                    {!isLoanSelected ? (
-                      <>
+                  {!isLoanSelected ? (
+                    <>
+                      {/* Quantity Slider */}
+                      <div className="bg-slate-50 border border-slate-100/50 rounded-2xl p-4 flex flex-col gap-3 transition-all">
+                        <div className="flex justify-between items-center">
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-wide">
+                            Quantity to Register
+                          </label>
+                          <span className="text-xs font-black px-2.5 py-1 rounded-lg border text-[#00a68a] bg-teal-50 border-teal-100">
+                            {generateQuantity} {generateQuantity === 1 ? 'Cylinder' : 'Cylinders'}
+                          </span>
+                        </div>
+                        
                         <div className="flex items-center gap-4">
                           <button
                             type="button"
@@ -1721,25 +1845,216 @@ export const OxygenDashboardPage: React.FC = () => {
                             </button>
                           ))}
                         </div>
-                      </>
-                    ) : (
-                      <div className="text-[10px] text-amber-800 bg-amber-50/60 border border-amber-200/60 p-3 rounded-xl flex items-start gap-2 animate-[fadeIn_200ms_ease-out]">
-                        <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                        <span className="leading-normal font-semibold">
-                          Locked to 1. Loan cylinders do not track individual serials. Only 1 static QR code label is needed to identify this cylinder type and record its return quantity.
-                        </span>
                       </div>
-                    )}
-                  </div>
 
-                  <button 
-                    onClick={handleGenerateBatchQr}
-                    disabled={!selectedTypeId || isAssigningTag}
-                    className="w-full py-4 bg-gradient-to-r from-[#00a68a] to-emerald-600 hover:from-[#008f76] hover:to-emerald-700 disabled:opacity-50 text-white rounded-2xl text-xs font-black shadow-lg shadow-teal-500/10 hover:shadow-teal-500/20 hover:shadow-xl transition-all flex items-center justify-center gap-2"
-                  >
-                    <QrCode className="w-4 h-4 animate-pulse" />
-                    {isAssigningTag ? 'Registering Cylinders...' : 'Register & Generate QR Codes'}
-                  </button>
+                      <button 
+                        onClick={handleGenerateBatchQr}
+                        disabled={!selectedTypeId || isAssigningTag}
+                        className="w-full py-4 bg-gradient-to-r from-[#00a68a] to-emerald-600 hover:from-[#008f76] hover:to-emerald-700 disabled:opacity-50 text-white rounded-2xl text-xs font-black shadow-lg shadow-teal-500/10 hover:shadow-teal-500/20 hover:shadow-xl transition-all flex items-center justify-center gap-2"
+                      >
+                        <QrCode className="w-4 h-4 animate-pulse" />
+                        {isAssigningTag ? 'Registering Cylinders...' : 'Register & Generate QR Codes'}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {/* Document Upload + OCR Panel */}
+                      {isOcrEligible && (
+                        <div className="bg-white border border-slate-200/60 rounded-2xl p-5 flex flex-col gap-4 shadow-sm">
+                          <div>
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-wide block mb-1">
+                              Auto-Extract Serials from Delivery Order
+                            </label>
+                            <p className="text-[10px] text-slate-400">
+                              Upload the PDF or an image scan of the delivery order to automatically extract and prefix serial numbers.
+                            </p>
+                          </div>
+                          
+                          <div className="border-2 border-dashed border-slate-200 hover:border-[#00a68a]/50 rounded-xl p-5 text-center cursor-pointer transition-all bg-slate-50/30 hover:bg-teal-50/10 flex flex-col items-center justify-center gap-2 relative">
+                            <input
+                              type="file"
+                              accept="image/*,application/pdf"
+                              onChange={handleFileChange}
+                              className="absolute inset-0 opacity-0 cursor-pointer"
+                            />
+                            <div className="p-2.5 bg-teal-50 text-[#00a68a] rounded-full">
+                              <FileText className="w-5 h-5" />
+                            </div>
+                            {deliveryDocFile ? (
+                              <div className="text-xs font-semibold text-slate-700 truncate max-w-full px-2">
+                                {deliveryDocFile.name} ({(deliveryDocFile.size / 1024).toFixed(1)} KB)
+                              </div>
+                            ) : (
+                              <div className="text-[11px] text-slate-500">
+                                Click or drag & drop PDF / Image here
+                              </div>
+                            )}
+                          </div>
+
+                          {ocrError && (
+                            <div className="text-[10px] text-rose-600 bg-rose-50/50 border border-rose-100 p-2.5 rounded-xl flex items-center gap-2">
+                              <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                              <span>{ocrError}</span>
+                            </div>
+                          )}
+
+                          {isOcrProcessing ? (
+                            <div className="py-4 flex flex-col items-center justify-center gap-2 text-xs font-semibold text-slate-600 bg-slate-50 rounded-xl">
+                              <Spinner className="w-5 h-5 text-[#00a68a]" />
+                              <span>Processing OCR & extracting serials...</span>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={handleRunOcr}
+                              disabled={!deliveryDocFile}
+                              className="w-full py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 disabled:opacity-50 disabled:from-slate-200 disabled:to-slate-200 disabled:text-slate-400 text-white rounded-xl text-xs font-black shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                            >
+                              <RefreshCw className="w-3.5 h-3.5" />
+                              Run OCR Extraction
+                            </button>
+                          )}
+
+                          {showOcrReview && (
+                            <div className="border border-slate-100 rounded-xl p-4 bg-slate-50/50 flex flex-col gap-3">
+                              <div className="flex justify-between items-center">
+                                <span className="text-[10px] font-bold text-slate-600">
+                                  Extracted Serials ({ocrExtractedTags.length} found)
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const allChecked = ocrExtractedTags.every(t => t.selected);
+                                    setOcrExtractedTags(ocrExtractedTags.map(t => ({ ...t, selected: !allChecked })));
+                                  }}
+                                  className="text-[9px] text-[#00a68a] hover:underline font-bold"
+                                >
+                                  {ocrExtractedTags.every(t => t.selected) ? 'Deselect All' : 'Select All'}
+                                </button>
+                              </div>
+
+                              {ocrExtractedTags.length === 0 ? (
+                                <div className="text-xs text-slate-400 text-center py-4">
+                                  No serial numbers detected. Please verify document or enter manually.
+                                </div>
+                              ) : (
+                                <div className="grid grid-cols-2 gap-2 max-h-[160px] overflow-y-auto pr-1">
+                                  {ocrExtractedTags.map((tag, idx) => (
+                                    <label
+                                      key={idx}
+                                      className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all text-[11px] font-mono select-none ${
+                                        tag.selected
+                                          ? 'bg-teal-50/50 border-teal-200 text-[#00a68a] font-bold'
+                                          : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                                      }`}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={tag.selected}
+                                        onChange={() => {
+                                          const newTags = [...ocrExtractedTags];
+                                          newTags[idx].selected = !newTags[idx].selected;
+                                          setOcrExtractedTags(newTags);
+                                        }}
+                                        className="rounded border-slate-300 text-[#00a68a] focus:ring-[#00a68a] w-3.5 h-3.5"
+                                      />
+                                      <span className="truncate">{tag.serial}</span>
+                                    </label>
+                                  ))}
+                                </div>
+                              )}
+
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setShowOcrReview(false)}
+                                  className="flex-1 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg text-[10px] font-bold transition-all"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleApplyExtractedTags}
+                                  disabled={ocrExtractedTags.filter(t => t.selected).length === 0}
+                                  className="flex-[2] py-2 bg-[#00a68a] hover:bg-[#008f76] disabled:opacity-50 text-white rounded-lg text-[10px] font-bold transition-all shadow-sm"
+                                >
+                                  Apply {ocrExtractedTags.filter(t => t.selected).length} Tags
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Supplier Tag Manual Entry Panel */}
+                      <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 border border-slate-200/60 rounded-2xl p-5 flex flex-col gap-4 shadow-inner">
+                        <div>
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-wide block mb-1">
+                            Manual Supplier Tag Entry
+                          </label>
+                          <p className="text-[10px] text-slate-400">
+                            Enter the unique ID already tagged on each physical loan cylinder. Add rows as needed.
+                          </p>
+                        </div>
+
+                        <div className="flex flex-col gap-3 max-h-[300px] overflow-y-auto pr-1">
+                          {supplierTagRows.map((rowValue, index) => (
+                            <div key={index} className="flex gap-2 items-center">
+                              <span className="text-[10px] font-mono font-bold text-slate-400 w-5 text-right">#{index + 1}</span>
+                              <input
+                                type="text"
+                                placeholder="e.g. SL-80L-99824"
+                                value={rowValue}
+                                onChange={(e) => {
+                                  const newRows = [...supplierTagRows]
+                                  newRows[index] = e.target.value
+                                  setSupplierTagRows(newRows)
+                                }}
+                                className="flex-1 border border-slate-200 rounded-xl p-3 text-xs outline-none focus:ring-2 focus:ring-[#00a68a]/20 focus:border-[#00a68a] transition-all font-mono uppercase bg-white"
+                              />
+                              {supplierTagRows.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSupplierTagRows(supplierTagRows.filter((_, i) => i !== index))
+                                  }}
+                                  className="p-3 bg-rose-50 hover:bg-rose-100 hover:text-rose-600 text-rose-500 rounded-xl transition-all"
+                                  title="Remove Row"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setSupplierTagRows([...supplierTagRows, ''])}
+                          className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-black transition-all active:scale-95 flex items-center justify-center gap-1.5 border border-slate-200"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          Add Tag Row
+                        </button>
+                        
+                        <div className="text-[10px] text-amber-800 bg-amber-50/60 border border-amber-200/60 p-3 rounded-xl flex items-start gap-2 animate-[fadeIn_200ms_ease-out]">
+                          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                          <span className="leading-normal font-semibold">
+                            Each row represents one supplier cylinder ID. These tags will be registered directly into the system database as unique loan assets.
+                          </span>
+                        </div>
+                      </div>
+
+                      <button 
+                        onClick={handleRegisterSupplierTags}
+                        disabled={supplierTagRows.filter(t => t.trim()).length === 0 || isAssigningTag}
+                        className="w-full py-4 bg-gradient-to-r from-[#00a68a] to-emerald-600 hover:from-[#008f76] hover:to-emerald-700 disabled:opacity-50 text-white rounded-2xl text-xs font-black shadow-lg shadow-teal-500/10 hover:shadow-teal-500/20 hover:shadow-xl transition-all flex items-center justify-center gap-2"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        {isAssigningTag ? 'Registering Supplier Tags...' : `Register ${supplierTagRows.filter(t => t.trim()).length || ''} Supplier Tags`}
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -1924,7 +2239,7 @@ export const OxygenDashboardPage: React.FC = () => {
                             <td className="px-6 py-4 text-gray-600 font-medium">{cyl.type_info?.type_name || 'Standard Cylinder'}</td>
                             <td className="px-6 py-4 font-mono text-gray-500 font-semibold select-all">{cyl.qr_code_value}</td>
                             <td className="px-6 py-4 text-gray-600 font-semibold">
-                              {cyl.qr_tagged_at ? new Date(cyl.qr_tagged_at).toLocaleString('ms-MY', { day: '2-digit', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '-'}
+                              {cyl.qr_tagged_at || cyl.created_at ? new Date(cyl.qr_tagged_at || cyl.created_at).toLocaleString('ms-MY', { day: '2-digit', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '-'}
                             </td>
                             <td className="px-6 py-4 text-right">
                               <div className="flex items-center justify-end gap-2">

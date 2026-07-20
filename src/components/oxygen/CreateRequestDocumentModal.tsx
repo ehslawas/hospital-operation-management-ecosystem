@@ -1,7 +1,8 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import React, { useEffect, useState } from 'react';
 import { X, Calendar, Save, Loader2, Info } from 'lucide-react';
 import { supabase } from '@/services/supabase';
+import { useAuthStore } from '@/stores/authStore';
 import { createRequestDocument } from '@/services/pharmacy/oxygenService';
 
 interface CreateRequestDocumentModalProps {
@@ -17,6 +18,7 @@ export const CreateRequestDocumentModal: React.FC<CreateRequestDocumentModalProp
   onClose,
   onSuccess,
 }) => {
+  const { user: currentUser } = useAuthStore();
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [selectedSupplierId, setSelectedSupplierId] = useState('');
   const [requestedDate, setRequestedDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -109,7 +111,7 @@ export const CreateRequestDocumentModal: React.FC<CreateRequestDocumentModalProp
 
       // Fetch active user ID
       const { data: { user } } = await supabase.auth.getUser();
-      const userId = user?.id || '00000000-0000-0000-0000-000000000000';
+      const userId = currentUser?.id || user?.id || '00000000-0000-0000-0000-000000000000';
 
       const res = await createRequestDocument(
         hospitalId,

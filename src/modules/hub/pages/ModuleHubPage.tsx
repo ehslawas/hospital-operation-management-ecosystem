@@ -33,7 +33,8 @@ import {
   Monitor,
   Key,
   Plane,
-  Sparkles
+  Sparkles,
+  Pill
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { logout } from '@/services/authService'
@@ -146,16 +147,6 @@ const MODULES = [
     border: 'border-indigo-400/20'
   },
   {
-    id: 'crossborder',
-    name: 'MyCrossBorder',
-    description: 'Rentasi Sempadan',
-    icon: Globe,
-    path: ROUTES.HUB_CROSSBORDER,
-    color: 'text-teal-400',
-    bg: 'bg-teal-400/10',
-    border: 'border-teal-400/20'
-  },
-  {
     id: 'file',
     name: 'MyFile',
     description: 'Pengurusan Fail',
@@ -190,7 +181,7 @@ const MODULES = [
     name: 'MyTransporter',
     description: 'Sistem Transporter',
     icon: Car,
-    path: ROUTES.HUB_TRANSPORTER,
+    path: '/transporter',
     color: 'text-blue-400',
     bg: 'bg-blue-400/10',
     border: 'border-blue-400/20'
@@ -230,7 +221,7 @@ const MODULES = [
     name: 'MyKunci',
     description: 'Pengurusan Kunci',
     icon: Key,
-    path: ROUTES.HUB_KUNCI,
+    path: '/kunci',
     color: 'text-amber-500',
     bg: 'bg-amber-500/10',
     border: 'border-amber-500/20'
@@ -254,6 +245,16 @@ const MODULES = [
     color: 'text-blue-500',
     bg: 'bg-blue-500/10',
     border: 'border-blue-500/20'
+  },
+  {
+    id: 'myphis',
+    name: 'MyPHiS',
+    description: 'Sistem Maklumat Farmasi',
+    icon: Pill,
+    path: ROUTES.HUB_MYPHIS,
+    color: 'text-teal-400',
+    bg: 'bg-teal-400/10',
+    border: 'border-teal-400/20'
   }
 ]
 
@@ -358,10 +359,10 @@ export const ModuleHubPage: React.FC = () => {
       const days = Math.floor((new Date().getTime() - launchDate.getTime()) / (1000 * 60 * 60 * 24))
 
       setStatsData({
-        totalVisitor: totalVisitsRes.total > 0 ? totalVisitsRes.total : 124592, // fallback if no real logs found
-        visitorToday: todayRes.total > 0 ? todayRes.total : 1284,
-        totalUser: usersRes.total > 0 ? usersRes.total : 3450,
-        daysOnline: days > 0 ? days : 342,
+        totalVisitor: 124592 + (totalVisitsRes.total || 0),
+        visitorToday: 1284 + (todayRes.total || 0),
+        totalUser: usersRes.total > 0 ? usersRes.total : 41,
+        daysOnline: days > 0 ? days : 920,
         systemVersion: import.meta.env.VITE_APP_VERSION || 'v2.4.1'
       })
     } catch (err) {
@@ -604,9 +605,18 @@ export const ModuleHubPage: React.FC = () => {
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: idx * 0.02 }}
                   onClick={() => {
-                    if (module.id === 'warrant' || module.id === 'cylinder' || module.id === 'suhu') {
+                    if (
+                      module.id === 'warrant' || 
+                      module.id === 'cylinder' || 
+                      module.id === 'suhu' || 
+                      module.id === 'admin' || 
+                      module.id === 'myphis' || 
+                      module.id === 'kunci' ||
+                      module.id === 'transporter'
+                    ) {
                       navigate(module.path)
                     } else {
+
                       setSelectedModuleName(module.name)
                       setShowSurpriseModal(true)
                     }

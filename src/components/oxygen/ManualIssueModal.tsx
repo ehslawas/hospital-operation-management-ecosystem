@@ -47,7 +47,6 @@ export const ManualIssueModal: React.FC<ManualIssueModalProps> = ({
   const [cylinderTab, setCylinderTab] = useState<'trackable' | 'loan'>('trackable');
 
   // Trackable scanner / picker states
-  const [activeScanTab, setActiveScanTab] = useState<'manual'>('manual');
   const [qrInput, setQrInput] = useState('');
   const [cameraActive, setCameraActive] = useState(false);
   const [useRealCamera, setUseRealCamera] = useState(false);
@@ -144,13 +143,13 @@ export const ManualIssueModal: React.FC<ManualIssueModalProps> = ({
 
   // Handle camera stream toggling
   useEffect(() => {
-    if (cameraActive && activeScanTab === 'camera') {
+    if (cameraActive) {
       startCamera();
     } else {
       stopCamera();
     }
     return () => stopCamera();
-  }, [cameraActive, activeScanTab]);
+  }, [cameraActive]);
 
   // Audio success/error sound indicator
   const playBeep = (type: 'success' | 'error') => {
@@ -257,11 +256,28 @@ export const ManualIssueModal: React.FC<ManualIssueModalProps> = ({
       return;
     }
 
-    // Find cylinder in inventory
-    const match = availableCylinders.find(c => 
-      (c.serial_number || '').toLowerCase() === cleaned.toLowerCase() || 
-      (c.qr_code || '').toLowerCase() === cleaned.toLowerCase()
-    );
+    // Normalise the scanned code: strip common QR prefixes like "O2-" or "O2 "
+    // so that a QR value of "O2-P101-F0130" still matches a serial of "P101-F0130"
+    const normaliseCode = (raw: string) =>
+      raw.trim().replace(/^O2[-\s]*/i, '').trim().toLowerCase();
+
+    const cleanedNorm = normaliseCode(cleaned);
+
+    // Find cylinder in inventory – try exact match first, then normalised prefix-stripped match
+    const match = availableCylinders.find(c => {
+      const serial = (c.serial_number || '').toLowerCase();
+      const qr     = (c.qr_code     || '').toLowerCase();
+      const serialNorm = normaliseCode(c.serial_number || '');
+      const qrNorm     = normaliseCode(c.qr_code     || '');
+
+      return (
+        serial === cleaned.toLowerCase() ||
+        qr     === cleaned.toLowerCase() ||
+        serialNorm === cleanedNorm       ||
+        qrNorm     === cleanedNorm
+      );
+    });
+
     if (!match) {
       playBeep('error');
       setError(`Cylinder "${cleaned}" not found in available store inventory.`);

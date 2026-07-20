@@ -26,6 +26,11 @@ import {
   AirVent,
   PieChart,
   Thermometer,
+  Key,
+  Car,
+  Calendar,
+  Wrench,
+  Globe,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
@@ -40,7 +45,7 @@ interface NavItem {
   icon: React.ElementType
   roles?: string[]
   children?: NavItem[]
-  module?: 'admin' | 'pharmacy' | 'oxygen' | 'suhu'
+  module?: 'admin' | 'pharmacy' | 'oxygen' | 'suhu' | 'myphis' | 'kunci' | 'transporter' | 'crossborder'
 }
 
 // Helper to check if user has access to nav item
@@ -60,12 +65,28 @@ const hasAccess = (item: NavItem, userRole?: string): boolean => {
   */
 }
 
-// Helper to determine the current active module
-const getActiveModule = (pathname: string, userRole?: string): 'admin' | 'pharmacy' | 'oxygen' | 'suhu' => {
+const getActiveModule = (pathname: string, userRole?: string, locationState?: any): 'admin' | 'pharmacy' | 'oxygen' | 'suhu' | 'myphis' | 'kunci' | 'transporter' | 'crossborder' => {
+  if (pathname.startsWith('/crossborder')) return 'crossborder'
+  if (pathname.startsWith('/transporter')) return 'transporter'
+  if (pathname.startsWith('/kunci')) return 'kunci'
+  if (pathname.startsWith('/hub/myphis') || pathname.includes('/myphis')) return 'myphis'
   if (pathname.startsWith('/suhu')) return 'suhu'
   if (pathname.startsWith('/pharmacy/oxygen')) return 'oxygen'
   if (pathname.startsWith('/pharmacy')) return 'pharmacy'
   if (pathname.startsWith('/admin')) return 'admin'
+
+  // Check navigation state fallback (useful on shared pages like Profile)
+  if (locationState && typeof locationState === 'object' && locationState.fromModule) {
+    const fromModuleCode = locationState.fromModule.code
+    if (fromModuleCode === 'suhu') return 'suhu'
+    if (fromModuleCode === 'oxygen' || fromModuleCode === 'cylinder') return 'oxygen'
+    if (fromModuleCode === 'pharmacy_logistics' || fromModuleCode === 'pharmacy') return 'pharmacy'
+    if (fromModuleCode === 'system_admin' || fromModuleCode === 'hospital_admin' || fromModuleCode === 'admin') return 'admin'
+    if (fromModuleCode === 'myphis') return 'myphis'
+    if (fromModuleCode === 'system_kunci' || fromModuleCode === 'kunci') return 'kunci'
+    if (fromModuleCode === 'transporter') return 'transporter'
+    if (fromModuleCode === 'crossborder') return 'crossborder'
+  }
   
   // Fallback based on user role
   if (userRole && [
@@ -78,6 +99,7 @@ const getActiveModule = (pathname: string, userRole?: string): 'admin' | 'pharma
   
   return 'pharmacy'
 }
+
 
 // Filter navigation based on user role
 const filterNavigation = (items: NavItem[], userRole?: string): NavItem[] => {
@@ -170,6 +192,7 @@ const navigation: NavItem[] = [
       { label: 'APPL Allocation', href: ROUTES.PHARMACY_APPL_ALLOCATION, icon: FileText },
       { label: 'CC Allocation', href: ROUTES.PHARMACY_CC_ALLOCATION, icon: FileText },
       { label: 'LP Allocation', href: ROUTES.PHARMACY_LP_ALLOCATION, icon: FileText },
+      { label: 'Budget Forecasting', href: ROUTES.PHARMACY_FORECAST, icon: BarChart3 },
     ],
   },
   {
@@ -203,6 +226,7 @@ const navigation: NavItem[] = [
       { label: 'QR Generator', href: '/pharmacy/oxygen/qr', icon: ClipboardList },
       { label: 'Stock Reconciliation', href: '/pharmacy/oxygen/reconciliation', icon: FileText },
       { label: 'Cylinder Report', href: ROUTES.PHARMACY_OXYGEN_REPORTS, icon: BarChart3 },
+      { label: 'Cylinder Maintenance', href: '/pharmacy/oxygen/maintenance', icon: Wrench },
     ],
   },
   {
@@ -250,7 +274,59 @@ const navigation: NavItem[] = [
       { label: 'Admin Setup', href: '/suhu/admin', icon: Settings },
     ],
   },
+  {
+    label: 'MyPHiS',
+    href: '/hub/myphis',
+    icon: Database,
+    module: 'myphis',
+    children: [
+      { label: 'Dashboard', href: '/hub/myphis', icon: LayoutDashboard },
+    ],
+  },
+  {
+    label: 'MyKunci',
+    href: '/kunci/dashboard',
+    icon: Key,
+    module: 'kunci',
+    children: [
+      { label: 'Dashboard', href: '/kunci/dashboard', icon: LayoutDashboard },
+      { label: 'Daftar Kunci', href: '/kunci/daftar', icon: ClipboardList },
+      { label: 'Log Pergerakan', href: '/kunci/log', icon: FileText },
+      { label: 'Verifikasi Bulanan', href: '/kunci/audit', icon: Shield },
+      { label: 'Polisi Kunci KKM', href: '/kunci/polisi', icon: ScrollText },
+    ],
+  },
+  {
+    label: 'MyTransporter',
+    href: '/transporter/dashboard',
+    icon: Car,
+    module: 'transporter',
+    children: [
+      { label: 'Dashboard', href: '/transporter/dashboard', icon: LayoutDashboard },
+      { label: 'Permohonan Baru', href: '/transporter/requests/new', icon: FileText },
+      { label: 'Semak Slot SG', href: '/transporter/availability', icon: Calendar },
+      { label: 'Permohonan Saya', href: '/transporter/requests/my', icon: ClipboardList },
+      { label: 'Panel Pemandu', href: '/transporter/driver/panel', icon: Truck },
+      { label: 'Kelulusan Pentadbir', href: '/transporter/admin/approval', icon: Shield },
+      { label: 'Kenderaan Fleet', href: '/transporter/admin/vehicles', icon: Settings },
+      { label: 'Aduan Pemandu', href: '/transporter/admin/vehicles/issues', icon: AlertTriangle },
+      { label: 'Mileage & Claims', href: '/transporter/admin/vehicles/movement', icon: BarChart3 },
+      { label: 'Penugasan Peranan', href: '/transporter/admin/roles', icon: Users },
+    ],
+  },
+  {
+    label: 'MyCrossBorder',
+    href: '/crossborder/dashboard',
+    icon: Globe,
+    module: 'crossborder',
+    children: [
+      { label: 'Dashboard', href: '/crossborder/dashboard', icon: LayoutDashboard },
+      { label: 'Permohonan Baru', href: '/crossborder/create', icon: FileText },
+      { label: 'Log Pergerakan', href: '/crossborder/log', icon: ClipboardList },
+    ],
+  },
 ]
+
 
 export const Sidebar: React.FC = () => {
   const location = useLocation()
@@ -259,6 +335,48 @@ export const Sidebar: React.FC = () => {
   const [isMobile, setIsMobile] = useState(false)
 
   const userRole = user?.role?.role_code
+
+  const [transporterCounts, setTransporterCounts] = useState({
+    myRequests: 0,
+    driverPanel: 0,
+    adminApproval: 0
+  })
+
+  useEffect(() => {
+    if (!user) return
+
+    let isMounted = true
+
+    const fetchTransporterCounts = async () => {
+      try {
+        const { getRequests } = await import('@/modules/mytransporter/services/transporterService')
+        const res = await getRequests()
+        if (res.data && isMounted) {
+          const list = res.data
+          const myRequestsCount = list.filter(r => r.pemohon_id === user.id && r.status_semasa === 'draft').length
+          const driverPanelCount = list.filter(r => r.status_semasa === 'submitted' || r.status_semasa === 'driver_rejected').length
+          const adminApprovalCount = list.filter(r => r.status_semasa === 'driver_accepted').length
+
+          setTransporterCounts({
+            myRequests: myRequestsCount,
+            driverPanel: driverPanelCount,
+            adminApproval: adminApprovalCount
+          })
+        }
+      } catch (err) {
+        console.error('Error fetching transporter counts in sidebar:', err)
+      }
+    }
+
+    fetchTransporterCounts()
+
+    const interval = setInterval(fetchTransporterCounts, 10000)
+
+    return () => {
+      isMounted = false
+      clearInterval(interval)
+    }
+  }, [user, location.pathname])
 
   useEffect(() => {
     const handleResize = () => {
@@ -272,9 +390,9 @@ export const Sidebar: React.FC = () => {
   // Memoize filtered navigation to prevent unnecessary recalculations
   const filteredNavigation = useMemo(() => {
     const roleFiltered = filterNavigation(navigation, userRole)
-    const activeModule = getActiveModule(location.pathname, userRole)
+    const activeModule = getActiveModule(location.pathname, userRole, location.state)
     return roleFiltered.filter((item) => item.module === activeModule)
-  }, [userRole, location.pathname])
+  }, [userRole, location.pathname, location.state])
 
   const handleLogout = async () => {
     await logout()
@@ -342,6 +460,20 @@ export const Sidebar: React.FC = () => {
 
     const activeState = isActive || hasActive
 
+    let badgeCount = 0
+    if (item.href === '/transporter/requests/my') {
+      badgeCount = transporterCounts.myRequests
+    } else if (item.href === '/transporter/driver/panel') {
+      badgeCount = transporterCounts.driverPanel
+    } else if (item.href === '/transporter/admin/approval') {
+      badgeCount = transporterCounts.adminApproval
+    }
+
+    let totalChildBadgeCount = 0
+    if (item.module === 'transporter') {
+      totalChildBadgeCount = transporterCounts.myRequests + transporterCounts.driverPanel + transporterCounts.adminApproval
+    }
+
     if (hasChildren) {
       return (
         <div key={item.href} className="space-y-0.5">
@@ -366,8 +498,13 @@ export const Sidebar: React.FC = () => {
               <Icon className="w-5 h-5 flex-shrink-0" />
             </div>
             
-            <span className={cn("flex-1 text-left tracking-tight", sidebarCollapsed && "lg:hidden")}>
-              {item.label}
+            <span className={cn("flex-1 text-left tracking-tight flex items-center justify-between", sidebarCollapsed && "lg:hidden")}>
+              <span>{item.label}</span>
+              {totalChildBadgeCount > 0 && (
+                <span className="px-2 py-0.5 bg-rose-50 text-rose-600 border border-rose-100/50 rounded-full text-[10px] font-bold mr-2">
+                  {totalChildBadgeCount}
+                </span>
+              )}
             </span>
             
             <motion.div
@@ -428,11 +565,18 @@ export const Sidebar: React.FC = () => {
           )}>
             <Icon className="w-5 h-5 flex-shrink-0" />
           </div>
-          <span>{item.label}</span>
+          <span className="flex-1 flex justify-between items-center">
+            <span>{item.label}</span>
+            {badgeCount > 0 && (
+              <span className="px-2 py-0.5 bg-rose-50 text-rose-600 border border-rose-100/50 rounded-full text-[10px] font-bold">
+                {badgeCount}
+              </span>
+            )}
+          </span>
         </NavLink>
       </motion.div>
     )
-  }, [currentPath, sidebarCollapsed, expandedItems, hasActiveChild, toggleExpanded, isExpanded, setSidebarOpen, isMobile])
+  }, [currentPath, sidebarCollapsed, expandedItems, hasActiveChild, toggleExpanded, isExpanded, setSidebarOpen, isMobile, transporterCounts])
 
   return (
     <>

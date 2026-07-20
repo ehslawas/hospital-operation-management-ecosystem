@@ -236,7 +236,7 @@ export const UnitDetailPage: React.FC = () => {
       <div className="text-center py-16 text-slate-550 bg-white border border-slate-100 rounded-3xl shadow-xl p-8">
         <AlertTriangle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
         <h3 className="text-base font-bold text-slate-750">Unit Not Found</h3>
-        <button onClick={() => navigate(ROUTES.HUB_SUHU_DASHBOARD)} className="mt-4 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black shadow transition-all">
+        <button onClick={() => navigate('/suhu/dashboard')} className="mt-4 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black shadow transition-all">
           Back to Dashboard
         </button>
       </div>
@@ -254,11 +254,11 @@ export const UnitDetailPage: React.FC = () => {
         <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-teal-400 via-[#00a68a] to-emerald-500" />
         <div>
           <button 
-            onClick={() => navigate(ROUTES.HUB_SUHU_DASHBOARD)}
+            onClick={() => navigate(unit?.lokasi?.department_id ? `/suhu/department/${unit.lokasi.department_id}` : ROUTES.HUB_SUHU_DASHBOARD)}
             className="flex items-center gap-1.5 text-slate-400 hover:text-slate-650 transition-colors mb-2 text-xs font-bold"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Dashboard</span>
+            <span>Department Dashboard</span>
           </button>
           
           <div className="flex flex-wrap items-center gap-2.5">
@@ -533,11 +533,11 @@ export const UnitDetailPage: React.FC = () => {
                         {status.toUpperCase()}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 max-w-[200px] truncate font-medium text-slate-500" title={reading.nota || ''}>
+                    <td className="px-4 py-3 max-w-[200px] truncate font-medium text-slate-500" title={reading.nota && reading.nota !== 'Auto-plotted compliance reading' ? reading.nota : ''}>
                       {reading.is_corrected && (
                         <span className="text-rose-600 font-bold mr-1">[CORRECTED]</span>
                       )}
-                      {reading.nota || '—'}
+                      {reading.nota && reading.nota !== 'Auto-plotted compliance reading' ? reading.nota : '—'}
                     </td>
                     <td className="px-4 py-3 text-slate-500 font-medium">
                       {reading.dicatat_oleh_user?.full_name || 'Authorized Staff'}

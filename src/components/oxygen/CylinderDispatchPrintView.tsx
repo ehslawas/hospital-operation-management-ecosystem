@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import React, { useEffect, useState } from 'react';
 import { X, Printer, Loader2, FileText } from 'lucide-react';
 import { getCylinderDispatchRequestById } from '@/services/pharmacy/cylinderDispatchService';
@@ -107,7 +107,7 @@ export const CylinderDispatchPrintView: React.FC<CylinderDispatchPrintViewProps>
     if (code.includes('N')) return '8.0m3';
     if (code.includes('F')) return '1.4m3';
     if (code.includes('E')) return '0.7m3';
-    if (code.includes('D')) return '0.7m3';
+    if (code.includes('D')) return '0.5m3';
     if (code.includes('HS')) return '6.4m3';
     return '1.4m3';
   };

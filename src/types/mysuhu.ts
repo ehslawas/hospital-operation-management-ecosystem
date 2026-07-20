@@ -13,6 +13,7 @@ export interface Lokasi {
   deskripsi: string | null;
   status: LokasiStatus;
   hospital_id: string;
+  department_id?: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -46,6 +47,8 @@ export interface BacaanSuhu {
   id: string;
   unit_id: string;
   suhu: number;
+  suhu_min?: number;
+  suhu_max?: number;
   status_bacaan: 'normal' | 'warning' | 'breach';
   ambang_id: string;
   tarikh_masa: string;

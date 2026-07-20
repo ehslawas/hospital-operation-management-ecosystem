@@ -1,4 +1,5 @@
 import * as pdfjsLib from 'pdfjs-dist';
+import Tesseract from 'tesseract.js';
 
 // Use CDN worker for simplicity in Vite environments
 // Matches the version installed (4.10.38)
@@ -161,6 +162,123 @@ export async function extractDatesFromPdf(file: File): Promise<ExtractedLpoDates
     console.error('Error extracting dates from PDF:', error);
   }
   return result;
+}
+
+/**
+ * Parses and extracts serial numbers from a raw string text, formatting them with 'saboxy-' prefix.
+ */
+export function parseSerialsFromText(text: string): string[] {
+  const lowerText = text.toLowerCase();
+  
+  // Find "serial" section
+  let startIdx = -1;
+  const serialKeywords = ['serial no', 'serial number', 'serialno', 's/n', 'silinder sewaan'];
+  for (const keyword of serialKeywords) {
+    const idx = lowerText.indexOf(keyword);
+    if (idx !== -1) {
+      startIdx = idx + keyword.length;
+      break;
+    }
+  }
+  
+  let searchArea = text;
+  if (startIdx !== -1) {
+    searchArea = text.substring(startIdx);
+    
+    // Find where the serial section ends (Batch No., Filling Date, etc.)
+    const endKeywords = ['batch', 'filling', 'expiry', 'date', 'perihal', 'total', 'qty', 'catatan', 'nota', 'notes'];
+    let endIdx = searchArea.length;
+    const lowerSearchArea = searchArea.toLowerCase();
+    for (const keyword of endKeywords) {
+      const idx = lowerSearchArea.indexOf(keyword);
+      if (idx !== -1 && idx < endIdx) {
+        endIdx = idx;
+      }
+    }
+    searchArea = searchArea.substring(0, endIdx);
+  }
+  
+  // Split by whitespace, commas, semicolons, or pipes
+  const words = searchArea.split(/[\s,;|]+/);
+  const serialsSet = new Set<string>();
+  
+  for (let word of words) {
+    // Clean token: remove leading/trailing punctuation except letters/numbers
+    const cleaned = word.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '').trim();
+    
+    // Match alphanumeric values of length 4 to 12 containing at least 2 digits
+    if (/^[a-zA-Z0-9]{4,12}$/.test(cleaned) && (cleaned.match(/\d/g) || []).length >= 2) {
+      const lowerCleaned = cleaned.toLowerCase();
+      // Filter out typical layout labels
+      if (lowerCleaned.includes('101n') || lowerCleaned.includes('101f') || lowerCleaned.includes('size') || lowerCleaned.includes('page')) {
+        continue;
+      }
+      
+      // Prefix formatting: 'saboxy-<UPPERCASE_SERIAL>'
+      let finalSerial = cleaned.toUpperCase();
+      if (/^saboxy-/i.test(finalSerial)) {
+        finalSerial = `saboxy-${finalSerial.substring(7)}`;
+      } else {
+        finalSerial = `saboxy-${finalSerial}`;
+      }
+      
+      serialsSet.add(finalSerial);
+    }
+  }
+  
+  return Array.from(serialsSet);
+}
+
+/**
+ * Extracts serial numbers from a PDF or image document using text extraction or Tesseract OCR.
+ */
+export async function extractSerialsFromDocument(file: File): Promise<string[]> {
+  try {
+    if (file.type === 'application/pdf') {
+      // 1. Try digital text extraction first
+      const digitalText = await extractTextFromPdf(file);
+      if (digitalText && digitalText.trim().length > 0) {
+        const digitalSerials = parseSerialsFromText(digitalText);
+        if (digitalSerials.length > 0) {
+          return digitalSerials;
+        }
+      }
+      
+      // 2. Fallback to OCR on rendered pages if digital text extraction yielded nothing
+      const arrayBuffer = await file.arrayBuffer();
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+      const pdf = await loadingTask.promise;
+      
+      let fullOcrText = '';
+      const pagesToScan = Math.min(pdf.numPages, 3);
+      
+      for (let i = 1; i <= pagesToScan; i++) {
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 2.0 }); // Higher scale helps OCR accuracy
+        
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        if (context) {
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+          
+          await page.render({ canvasContext: context, viewport }).promise;
+          
+          const { data: { text: pageText } } = await Tesseract.recognize(canvas, 'eng');
+          fullOcrText += '\n' + pageText;
+        }
+      }
+      
+      return parseSerialsFromText(fullOcrText);
+    } else {
+      // Image file OCR
+      const { data: { text: ocrText } } = await Tesseract.recognize(file, 'eng');
+      return parseSerialsFromText(ocrText);
+    }
+  } catch (error) {
+    console.error('Error extracting serial numbers from document:', error);
+    throw new Error('Failed to parse document. Please ensure the document is clear and readable.');
+  }
 }
 
 

@@ -20,6 +20,7 @@ import {
   IconPackage
 } from '@/components/ui/Icons'
 import GoodsReceivingForm from './GoodsReceivingForm'
+import { createGoodsReceipt } from '../../services/receivingService'
 import { cn } from '@/lib/utils'
 
 interface ExcelUploadModalProps {
@@ -51,6 +52,7 @@ export default function ExcelUploadModal({
   const [activeGroupIndex, setActiveGroupIndex] = useState<number | null>(null)
   const [approvedGroups, setApprovedGroups] = useState<string[]>([]) // Array of LPO numbers
   const [skippedGroups, setSkippedGroups] = useState<string[]>([]) // Array of LPO numbers
+  const [isBulkAuthorizing, setIsBulkAuthorizing] = useState(false)
 
   // Pagination & Search States
   const [currentPage, setCurrentPage] = useState(1)
@@ -193,6 +195,98 @@ export default function ExcelUploadModal({
       
       // Auto-select next ready group
       selectNextReadyGroup(activeGroupIndex, [activeGroup.lpoNumber])
+    }
+  }
+
+  const handleAuthorizeAllQueue = async () => {
+    const readyGroups = matchedGroups.filter(g => 
+      g.poId && 
+      !approvedGroups.includes(g.lpoNumber) && 
+      !skippedGroups.includes(g.lpoNumber) && 
+      !g.alreadyProcessed
+    )
+
+    if (readyGroups.length === 0) {
+      alert("No pending POs ready to authorize.")
+      return
+    }
+
+    if (!window.confirm(`Are you sure you want to authorize all ${readyGroups.length} pending Purchase Orders?`)) {
+      return
+    }
+
+    setIsBulkAuthorizing(true)
+    setError(null)
+
+    try {
+      for (const group of readyGroups) {
+        const payloadItems = group.items.map((item: any) => {
+          const qty = item.quantity_received || 0
+          const batches = item.batches && item.batches.length > 0
+            ? item.batches.map((b: any) => ({
+                batch_number: b.batch_number || 'NOT APPLICABLE',
+                manufacturing_date: b.mfg_date || b.manufacturing_date || null,
+                expiry_date: (b.expiry_date === 'N/A' || !b.expiry_date) ? null : b.expiry_date,
+                quantity: b.quantity
+              }))
+            : [
+                {
+                  batch_number: item.batch_number || 'NOT APPLICABLE',
+                  manufacturing_date: item.mfg_date || item.manufacturing_date || null,
+                  expiry_date: (item.expiry_date === 'N/A' || !item.expiry_date) ? null : item.expiry_date,
+                  quantity: qty
+                }
+              ]
+
+          return {
+            po_item_id: item.poItemId,
+            item_id: item.item_id,
+            item_name: item.item_name,
+            quantity_ordered: item.quantity_ordered,
+            quantity_previously_received: item.quantity_previously_received,
+            quantity_received: qty,
+            quantity_accepted: qty,
+            quantity_rejected: 0,
+            disposition: 'accepted',
+            rejection_reason: '',
+            notes: 'Auto-authorized in bulk from Excel',
+            batches
+          }
+        })
+
+        const receivedItems = payloadItems.filter(i => i.quantity_accepted > 0)
+
+        if (receivedItems.length > 0) {
+          const payload = {
+            hospital_id: hospitalId,
+            po_id: group.poId,
+            lpo_id: group.lpoId,
+            receipt_date: group.receiptDate || new Date().toISOString().split('T')[0],
+            delivery_note_number: group.deliveryNote || `DO-${group.lpoNumber}`,
+            invoice_number: group.invoiceNumber || '',
+            received_by: userId,
+            notes: 'Bulk Authorized via Excel Import',
+            document_urls: [],
+            items: receivedItems
+          }
+
+          const res = await createGoodsReceipt(payload)
+          if (res.error) {
+            throw new Error(`Failed on LPO ${group.lpoNumber}: ${res.error}`)
+          }
+        }
+
+        setApprovedGroups(prev => [...prev, group.lpoNumber])
+      }
+
+      onSuccess()
+      setActiveGroupIndex(null)
+      alert("Successfully authorized all pending POs!")
+    } catch (err: any) {
+      console.error(err)
+      setError(err.message || "An error occurred during bulk authorization.")
+    } finally {
+      setIsBulkAuthorizing(false)
     }
   }
 
@@ -360,6 +454,26 @@ export default function ExcelUploadModal({
           <div className="flex gap-6 h-[70vh] overflow-hidden items-stretch">
             {/* Left Column: Compact Queue List */}
             <div className="w-[360px] shrink-0 flex flex-col gap-4 border-r border-slate-200 pr-5 overflow-y-auto h-full">
+              {/* Authorize All Pending Button */}
+              {matchedGroupsOnly.some(g => !approvedGroups.includes(g.lpoNumber) && !skippedGroups.includes(g.lpoNumber) && !g.alreadyProcessed) && (
+                <button
+                  type="button"
+                  disabled={isBulkAuthorizing}
+                  onClick={handleAuthorizeAllQueue}
+                  className="w-full py-2.5 bg-emerald-600 border border-emerald-500 text-xs font-black text-white hover:bg-emerald-500 rounded-xl uppercase tracking-wider transition-all active:scale-98 shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 shrink-0"
+                >
+                  {isBulkAuthorizing ? (
+                    <>
+                      <Spinner className="w-3.5 h-3.5 text-white" /> AUTHORIZING...
+                    </>
+                  ) : (
+                    <>
+                      AUTHORIZE ALL PENDING ({matchedGroupsOnly.filter(g => !approvedGroups.includes(g.lpoNumber) && !skippedGroups.includes(g.lpoNumber) && !g.alreadyProcessed).length})
+                    </>
+                  )}
+                </button>
+              )}
+
               {/* Search Bar */}
               <div className="relative w-full">
                 <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">

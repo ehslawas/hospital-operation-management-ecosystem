@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import type { FinancialReportData } from './financialReportService'
@@ -230,7 +230,50 @@ export async function generateFinancialReportPdf(data: FinancialReportData): Pro
       didDrawPage: drawFooter
     })
 
-    y = (doc as any).lastAutoTable.finalY + 15
+    y = (doc as any).lastAutoTable.finalY + 10
+
+    doc.setFont('times', 'bold')
+    doc.setFontSize(11)
+    doc.setTextColor(31, 41, 55)
+    doc.text('3A. Perincian Pesanan Mengikut Jabatan (Department Order Details)', margin, y)
+    y += 6
+
+    const deptItemRows: any[] = []
+    if (data.departmentOrders && data.departmentOrders.length > 0) {
+      data.departmentOrders.forEach(deptGroup => {
+        deptGroup.orders.forEach(order => {
+          order.items.forEach(item => {
+            deptItemRows.push([
+              deptGroup.department,
+              item.itemName,
+              order.poNumber,
+              order.lpoNumber,
+              order.doNumber,
+              fmtNum(item.quantityOrdered),
+              fmtNum(item.quantityReceived),
+              fmt(item.totalCost),
+              order.deliveryStatus.toUpperCase(),
+              order.paymentStatus.replace(/_/g, ' ').toUpperCase()
+            ])
+          })
+        })
+      })
+    }
+
+    autoTable(doc, {
+      startY: y,
+      head: [['Jabatan', 'Nama Item', 'No. PO', 'No. LPO', 'No. DO', 'Qty Pesan', 'Qty Terima', 'Kos (RM)', 'Hantar', 'Bayar']],
+      body: deptItemRows,
+      theme: 'grid',
+      styles: { font: 'times', fontSize: 7 },
+      headStyles: { fillColor: [79, 70, 229] },
+      columnStyles: {
+        1: { cellWidth: 35 }, // Item Name
+      },
+      didDrawPage: drawFooter
+    })
+
+    y = (doc as any).lastAutoTable.finalY + 10
 
     doc.setFont('times', 'bold')
     doc.setFontSize(12)

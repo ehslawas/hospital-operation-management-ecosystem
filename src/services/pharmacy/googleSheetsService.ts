@@ -293,6 +293,12 @@ export function parseContractRows(
     h.includes('kod item') ||
     h === 'kod'
   )
+  const deliveryPeriodIdx = headers.findIndex(h => 
+    h.includes('delivery') || 
+    h.includes('tempoh') || 
+    h.includes('serahan') || 
+    h.includes('period')
+  )
 
   const normalizedRows: any[][] = []
   const numberToNameMap = new Map<string, string>()
@@ -416,6 +422,9 @@ export function parseContractRows(
     if (itemCodeIdx >= 0 && row[itemCodeIdx]) {
       contract.item_code = String(row[itemCodeIdx]).trim()
     }
+    if (deliveryPeriodIdx >= 0 && row[deliveryPeriodIdx]) {
+      contract.delivery_period = String(row[deliveryPeriodIdx]).trim()
+    }
 
     // Store all other columns in metadata
     const extraMetadata: Record<string, any> = {}
@@ -433,7 +442,8 @@ export function parseContractRows(
           idx !== statusIdx &&
           idx !== sstIdx &&
           idx !== unitPriceIdx &&
-          idx !== itemCodeIdx
+          idx !== itemCodeIdx &&
+          idx !== deliveryPeriodIdx
         ) {
           extraMetadata[header] = row[idx]
         }
@@ -593,6 +603,34 @@ export async function syncContractsFromGoogleSheets(
       .select('id, contract_number, contract_name, sync_hash')
       .eq('hospital_id', hospitalId)
 
+    // Get all suppliers for this hospital once to avoid query inside loop and enable fuzzy lookup
+    const { data: allSuppliers } = await supabase
+      .from('suppliers')
+      .select('id, company_name')
+      .eq('hospital_id', hospitalId)
+
+    const cleanName = (name: string) => {
+      return name
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '') // remove all non-alphanumeric
+        .replace(/sdnbhd/g, '')     // remove sdn bhd
+        .replace(/sdn/g, '')        // remove sdn
+        .replace(/bhd/g, '')        // remove bhd
+        .trim();
+    };
+
+    const supplierCache = new Map<string, string>(); // cleaned_name -> supplier_id
+    if (allSuppliers) {
+      allSuppliers.forEach(s => {
+        if (s.company_name) {
+          const key = cleanName(s.company_name);
+          if (key) {
+            supplierCache.set(key, s.id);
+          }
+        }
+      });
+    }
+
     const contractKeyMap = new Map<string, any>()
     const numberMap = new Map<string, any>()
     const nameMap = new Map<string, any>()
@@ -670,6 +708,7 @@ export async function syncContractsFromGoogleSheets(
           unit_price: contract.unit_price || null,
           sst_rate: contract.sst_rate || null,
           item_code: contract.item_code || null,
+          delivery_period: contract.delivery_period || null,
           currency: (contract.currency || 'MYR').trim().toUpperCase(),
           status: finalStatus, // Always guaranteed to be exactly 'active', 'expired', 'terminated', or 'pending'
           metadata: contract.metadata || null,
@@ -678,17 +717,35 @@ export async function syncContractsFromGoogleSheets(
           sync_hash: syncHash,
         }
 
-        // Try to find supplier by name
+        // Try to find supplier by name (with cached fuzzy/substring matching)
         if (contract.supplier_name) {
-          const { data: supplier } = await supabase
-            .from('suppliers')
-            .select('id')
-            .ilike('company_name', contract.supplier_name)
-            .limit(1)
-            .maybeSingle()
+          const cleanedContractSupplier = cleanName(contract.supplier_name);
+          let matchedSupplierId = supplierCache.get(cleanedContractSupplier);
+          
+          if (!matchedSupplierId && allSuppliers) {
+            const found = allSuppliers.find(s => {
+              if (!s.company_name) return false;
+              const cleanS = cleanName(s.company_name);
+              return cleanS.includes(cleanedContractSupplier) || cleanedContractSupplier.includes(cleanS);
+            });
+            if (found) {
+              matchedSupplierId = found.id;
+            }
+          }
 
-          if (supplier) {
-            contractData.supplier_id = supplier.id
+          if (matchedSupplierId) {
+            contractData.supplier_id = matchedSupplierId;
+          } else {
+            const { data: supplier } = await supabase
+              .from('suppliers')
+              .select('id')
+              .ilike('company_name', contract.supplier_name.trim())
+              .limit(1)
+              .maybeSingle()
+
+            if (supplier) {
+              contractData.supplier_id = supplier.id
+            }
           }
         }
 

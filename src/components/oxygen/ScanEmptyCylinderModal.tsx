@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import jsQR from 'jsqr';
 import { X, QrCode, AlertCircle, RefreshCw, CheckCircle2, Trash2, Camera, Keyboard, Check, Volume2, VolumeX, Search, Database } from 'lucide-react';
 import { getCylinderByQrOrSerial, markCylinderAsEmpty } from '@/services/pharmacy/oxygenService';
+import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/services/supabase';
 import type { OxygenCylinderWithRelations } from '@/types/pharmacy';
 
@@ -24,6 +25,7 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
   setSessionScannedCylinders,
 }) => {
   // Navigation tabs for the 2 modes
+  const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'camera' | 'manual'>('camera');
   
   // Input text field
@@ -79,15 +81,12 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
           `)
           .eq('hospital_id', hospitalId)
           .neq('status', 'issued') // retrieve allocated/in-use cylinders
-          .not('serial_number', 'ilike', '101-n%') // exclude 101-N loan items
-          .not('serial_number', 'ilike', '101-f%') // exclude 101-F loan items
-          .not('serial_number', 'ilike', '101_n%') 
-          .not('serial_number', 'ilike', '101_f%')
           .limit(1000);
 
         if (!error && data) {
           const normalized = data
             .filter((c: any) => {
+              if (c.supplier_tagged) return true;
               const sizeCode = c.size_info?.code || '';
               const isLoan = c.is_loan || c.size_info?.is_loan || !sizeCode.startsWith('P');
               return !isLoan;
@@ -149,30 +148,39 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
     if (!soundEnabled) return;
     try {
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
-
-      oscillator.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
 
       if (type === 'success') {
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
-        gainNode.gain.setValueAtTime(0.06, audioCtx.currentTime);
-        oscillator.start();
-        setTimeout(() => {
-          oscillator.stop();
-          audioCtx.close();
-        }, 120);
+        // Two-tone confirmation chirp — loud and satisfying
+        const playTone = (freq: number, startTime: number, duration: number) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, startTime);
+          gain.gain.setValueAtTime(0, startTime);
+          gain.gain.linearRampToValueAtTime(0.55, startTime + 0.01);  // loud ramp up
+          gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+          osc.start(startTime);
+          osc.stop(startTime + duration);
+        };
+        playTone(880, audioCtx.currentTime, 0.12);          // first beep: A5
+        playTone(1320, audioCtx.currentTime + 0.13, 0.18);  // second beep: E6 (higher)
+        setTimeout(() => audioCtx.close(), 400);
       } else {
-        oscillator.type = 'sawtooth';
-        oscillator.frequency.setValueAtTime(220, audioCtx.currentTime);
-        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        oscillator.start();
-        setTimeout(() => {
-          oscillator.stop();
-          audioCtx.close();
-        }, 280);
+        // Error buzz — harsh descending tone
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.3);
+        gain.gain.setValueAtTime(0.45, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + 0.3);
+        setTimeout(() => audioCtx.close(), 400);
       }
     } catch (e) {
       console.warn("Could not play sound:", e);
@@ -209,39 +217,82 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
   }, [stream, cameraActive, useRealCamera]);
 
   // Canvas-based QR Code Detection using jsQR
+  // lastScannedRef: tracks the last successfully decoded QR data and when it was scanned.
+  // This prevents the camera re-triggering the same code while an API call is in-flight
+  // or scanning a neighbouring QR by accident.
+  const lastScannedRef = useRef<{ code: string; ts: number } | null>(null);
+  const SCAN_COOLDOWN_MS = 2000; // ignore same code for 2 s after a successful scan
+
   useEffect(() => {
-    let detectorInterval: any;
+    let animFrameId: number;
+    let running = false;
+
     if (cameraActive && useRealCamera && stream && videoRef.current) {
       const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
+      const context = canvas.getContext('2d', { willReadFrequently: true });
 
-      detectorInterval = setInterval(() => {
-        if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
-          const video = videoRef.current;
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          if (context) {
+      const scanFrame = () => {
+        if (!running) return;
+        animFrameId = requestAnimationFrame(() => {
+          if (
+            videoRef.current &&
+            videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA &&
+            context
+          ) {
+            const video = videoRef.current;
+            // Scale down to 640px wide for faster jsQR processing without losing readability
+            const scale = Math.min(1, 640 / video.videoWidth);
+            canvas.width = Math.floor(video.videoWidth * scale);
+            canvas.height = Math.floor(video.videoHeight * scale);
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
             const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-            const code = jsQR(imageData.data, imageData.width, imageData.height, {
-              inversionAttempts: "dontInvert",
+            const detected = jsQR(imageData.data, imageData.width, imageData.height, {
+              inversionAttempts: 'attemptBoth', // detect both light-on-dark and dark-on-light QRs
             });
-            if (code && code.data) {
-              handleCodeInput(code.data);
+            if (detected && detected.data) {
+              const now = Date.now();
+              const last = lastScannedRef.current;
+              // Cooldown: skip if we just scanned the exact same code within SCAN_COOLDOWN_MS
+              if (!last || last.code !== detected.data || now - last.ts > SCAN_COOLDOWN_MS) {
+                lastScannedRef.current = { code: detected.data, ts: now };
+                handleCodeInput(detected.data);
+              }
             }
           }
-        }
-      }, 500);
+          // ~150 ms between frames — much faster than the old 500 ms polling
+          setTimeout(scanFrame, 150);
+        });
+      };
+
+      running = true;
+      scanFrame();
     }
+
     return () => {
-      if (detectorInterval) clearInterval(detectorInterval);
+      running = false;
+      if (animFrameId) cancelAnimationFrame(animFrameId);
     };
   }, [cameraActive, useRealCamera, stream]);
 
   // Unified lookup processing
   const handleCodeInput = async (inputStr: string) => {
-    const cleanedInput = inputStr.trim();
+    if (isSubmitting) return;
+
+    let cleanedInput = inputStr.trim();
     if (!cleanedInput) return;
+
+    // Support QR codes that are encoded as URLs (extract the last segment as the serial/code)
+    if (cleanedInput.startsWith('http://') || cleanedInput.startsWith('https://')) {
+      try {
+        const url = new URL(cleanedInput);
+        const pathSegments = url.pathname.split('/').filter(Boolean);
+        if (pathSegments.length > 0) {
+          cleanedInput = pathSegments[pathSegments.length - 1];
+        }
+      } catch (err) {
+        console.error("Failed to parse scanned URL:", err);
+      }
+    }
 
     // Reject loan cylinders starting with 101-N or 101-F (case insensitive)
     const upperInput = cleanedInput.toUpperCase();
@@ -278,13 +329,12 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
           errorCount++;
           continue;
         }
-
         try {
           const res = await getCylinderByQrOrSerial(hospitalId, code);
           if (res.data && !res.error) {
             let targetCylinder = res.data;
             if (targetCylinder.status !== 'issued') {
-              const creatorId = localStorage.getItem('userId') || 'fbbd44d1-f322-4fdb-a367-a18e5371e205';
+              const creatorId = user?.id || localStorage.getItem('userId') || 'fbbd44d1-f322-4fdb-a367-a18e5371e205';
               const updateRes = await markCylinderAsEmpty(hospitalId, targetCylinder.id, creatorId);
               if (!updateRes.error) {
                 targetCylinder = { ...targetCylinder, status: 'issued' };
@@ -337,7 +387,7 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
         if (isBulkScanMode) {
           let targetCylinder = cyl;
           if (cyl.status !== 'issued') {
-            const creatorId = localStorage.getItem('userId') || 'fbbd44d1-f322-4fdb-a367-a18e5371e205';
+            const creatorId = user?.id || localStorage.getItem('userId') || 'fbbd44d1-f322-4fdb-a367-a18e5371e205';
             const updateRes = await markCylinderAsEmpty(hospitalId, cyl.id, creatorId);
             if (updateRes.error) {
               playBeep('error');
@@ -356,6 +406,8 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
           setTimeout(() => setSuccessFlash(false), 500);
           setStatusMessage({ type: 'success', text: `Scanned: ${targetCylinder.serial_number}` });
           setQrInput('');
+          // Reset cooldown so camera is immediately ready for the NEXT cylinder
+          lastScannedRef.current = null;
           onSuccess();
         } else {
           playBeep('success');
@@ -387,7 +439,7 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
         setMatchedCylinder(null);
         setQrInput('');
       } else {
-        const creatorId = localStorage.getItem('userId') || 'fbbd44d1-f322-4fdb-a367-a18e5371e205';
+        const creatorId = user?.id || localStorage.getItem('userId') || 'fbbd44d1-f322-4fdb-a367-a18e5371e205';
         const res = await markCylinderAsEmpty(hospitalId, matchedCylinder.id, creatorId);
         if (res.error) {
           setStatusMessage({ type: 'error', text: res.error });
@@ -428,7 +480,10 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
     // 2. Valve Type Filter
     if (selectedTypeFilter && c.type_info?.code !== selectedTypeFilter) return false;
 
-    // 3. Search Text Filter
+    // 3. Exclude already scanned cylinders in the current session
+    if (sessionScannedCylinders.some(sc => sc.id === c.id)) return false;
+
+    // 4. Search Text Filter
     if (!qrInput.trim()) return true;
     const q = qrInput.trim().toLowerCase();
     return (

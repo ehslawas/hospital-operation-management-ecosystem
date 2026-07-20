@@ -353,6 +353,21 @@ export const PurchaseOrderCreatePage: React.FC = () => {
                         item_code: lpData.item_code || item.item_code
                       }
                     }
+
+                    // 4. Try Contract Catalog
+                    const { data: contractData } = await supabase
+                      .from('contracts')
+                      .select('contract_name, item_code')
+                      .eq('id', item.item_id)
+                      .maybeSingle()
+
+                    if (contractData) {
+                      return {
+                        ...item,
+                        item_name: contractData.contract_name || item.item_name,
+                        item_code: contractData.item_code || item.item_code
+                      }
+                    }
                   } catch (err) {
                     // Ignore errors during enrichment
                   }
@@ -504,6 +519,55 @@ export const PurchaseOrderCreatePage: React.FC = () => {
           })
         }
 
+        // Also fetch from contracts table to ensure items defined in contract catalog are searchable
+        const { data: contractsRes } = await supabase
+          .from('contracts')
+          .select('*')
+          .eq('hospital_id', hospitalId)
+          .eq('status', 'active')
+          .or(`contract_name.ilike.%${itemSearch}%,item_code.ilike.%${itemSearch}%,contract_number.ilike.%${itemSearch}%`)
+          .limit(50)
+
+        if (contractsRes) {
+          contractsRes.forEach((contract) => {
+            const alreadyExists = combinedItems.some(
+              (existing) => 
+                (existing.item_code && contract.item_code && existing.item_code.toLowerCase() === contract.item_code.toLowerCase()) ||
+                (existing.drug_code && contract.item_code && existing.drug_code.toLowerCase() === contract.item_code.toLowerCase()) ||
+                (('drug_name' in existing && existing.drug_name.toLowerCase() === contract.contract_name.toLowerCase()) ||
+                 ('item_name' in existing && existing.item_name.toLowerCase() === contract.contract_name.toLowerCase()))
+            )
+            if (!alreadyExists) {
+              const isNonDrug = contract.contract_type === 'non_drug' || 
+                                contract.contract_type === 'non-drug' || 
+                                contract.contract_type?.toLowerCase().includes('non')
+              
+              // Find matching master item from drugs or non-drugs in the list to resolve the code
+              const matchingMasterItem = combinedItems.find(
+                (m) => m.item_type === (isNonDrug ? 'non_drug' : 'drug') && 
+                       (('drug_name' in m && m.drug_name === contract.contract_name) ||
+                        ('item_name' in m && m.item_name === contract.contract_name))
+              );
+              const resolvedMasterCode = matchingMasterItem 
+                ? ('drug_code' in matchingMasterItem ? (matchingMasterItem as any).drug_code : (matchingMasterItem as any).item_code) 
+                : '';
+
+              combinedItems.push({
+                id: contract.id,
+                item_type: isNonDrug ? 'non_drug' : 'drug',
+                drug_name: contract.contract_name,
+                item_name: contract.contract_name,
+                drug_code: contract.item_code || resolvedMasterCode || '',
+                item_code: contract.item_code || resolvedMasterCode || '',
+                price: contract.unit_price || 0,
+                packaging_description: contract.metadata?.packaging_description || contract.sst_rate || '',
+                category: 'Contract Catalog',
+                supplier_id: contract.supplier_id,
+              } as any)
+            }
+          })
+        }
+
         setAllItems(combinedItems)
         setShowSuggestions(combinedItems.length > 0)
       } catch (error) {
@@ -575,11 +639,36 @@ export const PurchaseOrderCreatePage: React.FC = () => {
 
     const autoFillContracts = async () => {
       try {
-        const { data: supplierContracts } = await supabase
+        let { data: supplierContracts } = await supabase
           .from('contracts')
           .select('*')
           .eq('supplier_id', formData.supplier_id)
           .eq('status', 'active')
+
+        if ((!supplierContracts || supplierContracts.length === 0) && suppliers.length > 0) {
+          const selectedSupplier = suppliers.find(s => s.id === formData.supplier_id);
+          if (selectedSupplier?.company_name) {
+            const { data: allActive } = await supabase
+              .from('contracts')
+              .select('*')
+              .eq('status', 'active')
+
+            const cleanStr = (name: string) => name ? name.toLowerCase().replace(/[^a-z0-9]/g, '').replace(/sdn\s*bhd/gi, '').replace(/sdn/gi, '').replace(/bhd/gi, '').trim() : '';
+            const targetCleanName = cleanStr(selectedSupplier.company_name);
+
+            const nameContracts = (allActive || []).filter((c: any) => {
+              if (!c.supplier_name) return false;
+              const cleanContractSupplier = cleanStr(c.supplier_name);
+              return cleanContractSupplier === targetCleanName || 
+                     cleanContractSupplier.includes(targetCleanName) || 
+                     targetCleanName.includes(cleanContractSupplier);
+            });
+
+            if (nameContracts && nameContracts.length > 0) {
+              supplierContracts = nameContracts;
+            }
+          }
+        }
 
         if (supplierContracts && supplierContracts.length > 0) {
           const clean = (s: string) => s ? s.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
@@ -650,6 +739,9 @@ export const PurchaseOrderCreatePage: React.FC = () => {
       // 1. Auto-select Pharmaniaga for APPL (990102)
       if (field === 'vote_code' && value === '990102') {
         const pharmaniaga = suppliers.find(s => 
+          s.company_name.toLowerCase().includes('pharmaniaga') &&
+          s.company_name.toLowerCase().includes('logistic')
+        ) || suppliers.find(s => 
           s.company_name.toLowerCase().includes('pharmaniaga')
         );
         if (pharmaniaga) {
@@ -736,11 +828,37 @@ export const PurchaseOrderCreatePage: React.FC = () => {
           .eq('status', 'active');
 
         // If supplier is already selected, restrict lookup to this supplier
+        let useFallback = false;
+        let selectedSupplierName = '';
         if (formData.supplier_id && formData.supplier_id !== 'other') {
           query = query.eq('supplier_id', formData.supplier_id);
+          useFallback = true;
+          selectedSupplierName = suppliers.find(s => s.id === formData.supplier_id)?.company_name || '';
         }
 
-        const { data: matchedContracts } = await query;
+        let { data: matchedContracts } = await query;
+
+        if ((!matchedContracts || matchedContracts.length === 0) && useFallback && selectedSupplierName) {
+          const { data: allActive } = await supabase
+            .from('contracts')
+            .select('*')
+            .eq('status', 'active')
+
+          const cleanStr = (name: string) => name ? name.toLowerCase().replace(/[^a-z0-9]/g, '').replace(/sdn\s*bhd/gi, '').replace(/sdn/gi, '').replace(/bhd/gi, '').trim() : '';
+          const targetCleanName = cleanStr(selectedSupplierName);
+
+          const fallbackContracts = (allActive || []).filter((c: any) => {
+            if (!c.supplier_name) return false;
+            const cleanContractSupplier = cleanStr(c.supplier_name);
+            return cleanContractSupplier === targetCleanName || 
+                   cleanContractSupplier.includes(targetCleanName) || 
+                   targetCleanName.includes(cleanContractSupplier);
+          });
+
+          if (fallbackContracts && fallbackContracts.length > 0) {
+            matchedContracts = fallbackContracts;
+          }
+        }
 
         if (matchedContracts && matchedContracts.length > 0) {
           const clean = (s: string) => s ? s.toLowerCase().replace(/[^a-z0-9]/g, '') : '';

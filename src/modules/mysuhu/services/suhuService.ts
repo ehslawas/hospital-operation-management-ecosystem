@@ -23,6 +23,29 @@ export function calculateReadingStatus(suhu: number, min: number, max: number): 
   return 'normal';
 }
 
+export function calculateReadingStatusWithRange(
+  suhu: number,
+  suhuMin: number,
+  suhuMax: number,
+  minLimit: number,
+  maxLimit: number
+): 'normal' | 'warning' | 'breach' {
+  if (suhuMin < minLimit || suhuMax > maxLimit || suhu < minLimit || suhu > maxLimit) {
+    return 'breach';
+  }
+  const range = maxLimit - minLimit;
+  const margin = range * 0.1; // 10% approaching threshold
+  if (
+    suhuMin <= minLimit + margin ||
+    suhuMax >= maxLimit - margin ||
+    suhu <= minLimit + margin ||
+    suhu >= maxLimit - margin
+  ) {
+    return 'warning';
+  }
+  return 'normal';
+}
+
 // ============================================
 // LOCAL STORAGE MOCK DATA SYSTEM
 // ============================================
@@ -42,7 +65,7 @@ const setMockData = <T>(key: string, value: T): void => {
 const initMockData = () => {
   // Clear old mock data if it contains the old location names
   const existingLocations = localStorage.getItem(STORAGE_PREFIX + 'lokasi');
-  if (existingLocations && existingLocations.includes('Pharmacy Logistics')) {
+  if (existingLocations && (!existingLocations.includes('department_id') || existingLocations.includes('Pharmacy Logistics'))) {
     localStorage.removeItem(STORAGE_PREFIX + 'lokasi');
     localStorage.removeItem(STORAGE_PREFIX + 'unit_pemantauan');
     localStorage.removeItem(STORAGE_PREFIX + 'ambang_suhu');
@@ -59,6 +82,7 @@ const initMockData = () => {
         deskripsi: 'Stor Logistik Farmasi Utama',
         status: 'active',
         hospital_id: 'hosp-1',
+        department_id: '7a3bd6c4-c8e6-491b-8441-0ee9bd73f880',
         created_by: 'user-1',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -71,6 +95,7 @@ const initMockData = () => {
         deskripsi: 'Satelit Farmasi Klinik Pakar',
         status: 'active',
         hospital_id: 'hosp-1',
+        department_id: '0c6c6f1b-d3b6-4779-91c3-536956858fca',
         created_by: 'user-1',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -83,6 +108,7 @@ const initMockData = () => {
         deskripsi: 'Wad Am / General Ward',
         status: 'active',
         hospital_id: 'hosp-1',
+        department_id: '2fa7312e-8d31-4612-b66b-045706fc6401',
         created_by: 'user-1',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -95,6 +121,7 @@ const initMockData = () => {
         deskripsi: 'Wad Kanak-Kanak / Paediatric Ward',
         status: 'active',
         hospital_id: 'hosp-1',
+        department_id: '9e864dc8-6a6c-47c6-9d74-57d87ccd06e9',
         created_by: 'user-1',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -107,6 +134,7 @@ const initMockData = () => {
         deskripsi: 'Jabatan Kecemasan & Trauma',
         status: 'active',
         hospital_id: 'hosp-1',
+        department_id: '6135bb5c-864e-4926-b3d7-59394884abd4',
         created_by: 'user-1',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -307,21 +335,29 @@ initMockData();
 // ============================================
 
 /**
- * Get all active/inactive locations for a hospital
+ * Get all active/inactive locations for a hospital, optionally filtered by department
  */
-export async function getLokasi(hospitalId: string): Promise<ApiResponse<Lokasi[]>> {
+export async function getLokasi(hospitalId: string, departmentId?: string): Promise<ApiResponse<Lokasi[]>> {
   try {
     if (isSupabaseConfigured()) {
-      const { data, error } = await supabase
+      let query = supabase
         .from('lokasi')
         .select('*')
-        .eq('hospital_id', hospitalId)
-        .order('kod_lokasi', { ascending: true });
+        .eq('hospital_id', hospitalId);
+        
+      if (departmentId) {
+        query = query.eq('department_id', departmentId);
+      }
+      
+      const { data, error } = await query.order('kod_lokasi', { ascending: true });
         
       if (error) throw error;
       return { data: data || [], error: null };
     } else {
-      const locations = getMockData<Lokasi[]>('lokasi', []);
+      let locations = getMockData<Lokasi[]>('lokasi', []);
+      if (departmentId) {
+        locations = locations.filter(l => l.department_id === departmentId);
+      }
       return { data: locations, error: null };
     }
   } catch (error: any) {
@@ -398,17 +434,20 @@ export async function updateLokasi(id: string, updates: Partial<Lokasi>): Promis
 }
 
 /**
- * Get monitoring units under a location
+ * Get monitoring units under a location, optionally filtered by department
  */
-export async function getUnitPemantauan(lokasiId?: string): Promise<ApiResponse<UnitPemantauanWithRelations[]>> {
+export async function getUnitPemantauan(lokasiId?: string, departmentId?: string): Promise<ApiResponse<UnitPemantauanWithRelations[]>> {
   try {
     if (isSupabaseConfigured()) {
       let query = supabase.from('unit_pemantauan').select(`
         *,
-        lokasi:lokasi(*)
+        lokasi:lokasi!inner(*)
       `);
       if (lokasiId) {
         query = query.eq('lokasi_id', lokasiId);
+      }
+      if (departmentId) {
+        query = query.eq('lokasi.department_id', departmentId);
       }
       
       const { data, error } = await query;
@@ -458,7 +497,7 @@ export async function getUnitPemantauan(lokasiId?: string): Promise<ApiResponse<
 
       const filteredUnits = lokasiId ? units.filter(u => u.lokasi_id === lokasiId) : units;
       
-      const res = filteredUnits.map(unit => {
+      let res = filteredUnits.map(unit => {
         const lokasi = locations.find(l => l.id === unit.lokasi_id);
         const activeThreshold = thresholds.find(t => t.unit_id === unit.id && t.effective_until === null);
         
@@ -485,6 +524,10 @@ export async function getUnitPemantauan(lokasiId?: string): Promise<ApiResponse<
           status_pemantauan,
         };
       });
+
+      if (departmentId) {
+        res = res.filter(unit => unit.lokasi?.department_id === departmentId);
+      }
 
       return { data: res, error: null };
     }
@@ -704,10 +747,14 @@ export async function logTemperature(
   suhu: number,
   tarikhMasa: string,
   dicatatOleh: string,
-  nota?: string | null
+  nota?: string | null,
+  suhuMin?: number,
+  suhuMax?: number
 ): Promise<ApiResponse<BacaanSuhu>> {
   try {
     let activeThreshold: AmbangSuhu | null = null;
+    const finalSuhuMin = suhuMin !== undefined ? suhuMin : suhu;
+    const finalSuhuMax = suhuMax !== undefined ? suhuMax : suhu;
     
     if (isSupabaseConfigured()) {
       // 1. Fetch active threshold config
@@ -723,7 +770,7 @@ export async function logTemperature(
       activeThreshold = threshold;
       
       // Calculate status
-      const status_bacaan = calculateReadingStatus(suhu, threshold.min_suhu, threshold.max_suhu);
+      const status_bacaan = calculateReadingStatusWithRange(suhu, finalSuhuMin, finalSuhuMax, threshold.min_suhu, threshold.max_suhu);
       
       // 2. Insert reading
       const { data: reading, error: readErr } = await supabase
@@ -731,6 +778,8 @@ export async function logTemperature(
         .insert({
           unit_id: unitId,
           suhu,
+          suhu_min: finalSuhuMin,
+          suhu_max: finalSuhuMax,
           status_bacaan,
           ambang_id: threshold.id,
           tarikh_masa: tarikhMasa,
@@ -750,12 +799,14 @@ export async function logTemperature(
       if (!threshold) throw new Error('No active threshold configured for this unit');
       activeThreshold = threshold;
 
-      const status_bacaan = calculateReadingStatus(suhu, threshold.min_suhu, threshold.max_suhu);
+      const status_bacaan = calculateReadingStatusWithRange(suhu, finalSuhuMin, finalSuhuMax, threshold.min_suhu, threshold.max_suhu);
       
       const newReading: BacaanSuhu = {
         id: 'read-' + Math.random().toString(36).substr(2, 9),
         unit_id: unitId,
         suhu,
+        suhu_min: finalSuhuMin,
+        suhu_max: finalSuhuMax,
         status_bacaan,
         ambang_id: threshold.id,
         tarikh_masa: tarikhMasa,
@@ -844,12 +895,13 @@ export async function getReadings(
 }
 
 /**
- * Get all breach logs across units for quality audit
+ * Get all breach logs across units for quality audit, optionally filtered by department
  */
 export async function getBreachLogs(
   hospitalId: string,
   startDate?: string,
-  endDate?: string
+  endDate?: string,
+  departmentId?: string
 ): Promise<ApiResponse<BacaanSuhuWithRelations[]>> {
   try {
     if (isSupabaseConfigured()) {
@@ -870,6 +922,9 @@ export async function getBreachLogs(
       }
       if (endDate) {
         query = query.lte('tarikh_masa', endDate);
+      }
+      if (departmentId) {
+        query = query.eq('unit.lokasi.department_id', departmentId);
       }
       
       const { data, error } = await query;
@@ -897,6 +952,7 @@ export async function getBreachLogs(
         if (!unit) continue;
         const lokasi = locations.find(l => l.id === unit.lokasi_id);
         if (!lokasi || lokasi.hospital_id !== hospitalId) continue;
+        if (departmentId && lokasi.department_id !== departmentId) continue;
         
         const ambang = thresholds.find(t => t.id === r.ambang_id);
         
@@ -956,5 +1012,102 @@ export async function annotateReading(
   } catch (error: any) {
     console.error('Error annotating reading:', error);
     return { data: {} as BacaanSuhu, error: error.message || 'Failed to annotate reading' };
+  }
+}
+ 
+/**
+ * Delete auto-plotted compliance readings for a unit in a date range
+ */
+export async function deleteAutoPlottedReadings(
+  unitId: string,
+  startDate: string,
+  endDate: string
+): Promise<ApiResponse<boolean>> {
+  try {
+    if (isSupabaseConfigured()) {
+      const { error } = await supabase
+        .from('bacaan_suhu')
+        .delete()
+        .eq('unit_id', unitId)
+        .eq('nota', 'Auto-plotted compliance reading')
+        .gte('tarikh_masa', startDate)
+        .lte('tarikh_masa', endDate);
+        
+      if (error) throw error;
+      return { data: true, error: null };
+    } else {
+      const readings = getMockData<BacaanSuhu[]>('bacaan_suhu', []);
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      
+      const filtered = readings.filter(r => {
+        if (r.unit_id !== unitId) return true;
+        if (r.nota !== 'Auto-plotted compliance reading') return true;
+        const time = new Date(r.tarikh_masa);
+        if (time >= start && time <= end) return false;
+        return true;
+      });
+      
+      setMockData('bacaan_suhu', filtered);
+      return { data: true, error: null };
+    }
+  } catch (error: any) {
+    console.error('Error deleting auto-plotted readings:', error);
+    return { data: false, error: error.message || 'Failed to delete auto-plotted readings' };
+  }
+}
+
+/**
+ * Update temperature values of an existing reading
+ */
+export async function updateReadingValues(
+  readingId: string,
+  suhu: number,
+  suhuMin: number,
+  suhuMax: number,
+  tarikhMasa?: string
+): Promise<ApiResponse<BacaanSuhu>> {
+  try {
+    if (isSupabaseConfigured()) {
+      const updateData: any = {
+        suhu,
+        suhu_min: suhuMin,
+        suhu_max: suhuMax,
+        updated_at: new Date().toISOString()
+      };
+      if (tarikhMasa) {
+        updateData.tarikh_masa = tarikhMasa;
+      }
+      const { data, error } = await supabase
+        .from('bacaan_suhu')
+        .update(updateData)
+        .eq('id', readingId)
+        .select('*')
+        .single();
+        
+      if (error) throw error;
+      return { data, error: null };
+    } else {
+      const readings = getMockData<BacaanSuhu[]>('bacaan_suhu', []);
+      const index = readings.findIndex(r => r.id === readingId);
+      if (index === -1) throw new Error('Reading not found');
+      
+      const updated = {
+        ...readings[index],
+        suhu,
+        suhu_min: suhuMin,
+        suhu_max: suhuMax,
+        updated_at: new Date().toISOString()
+      };
+      if (tarikhMasa) {
+        updated.tarikh_masa = tarikhMasa;
+      }
+      readings[index] = updated;
+      setMockData('bacaan_suhu', readings);
+      return { data: updated, error: null };
+    }
+  } catch (error: any) {
+    console.error('Error updating reading values:', error);
+    return { data: {} as BacaanSuhu, error: error.message || 'Failed to update reading values' };
   }
 }

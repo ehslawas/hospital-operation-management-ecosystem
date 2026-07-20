@@ -26,6 +26,7 @@ const SuratSubMenu = lazy(() => import('@/modules/hub/pages/modules/SuratSubMenu
 const BorangSubMenu = lazy(() => import('@/modules/hub/pages/modules/BorangSubMenu'))
 const SuhuSubMenu = lazy(() => import('@/modules/hub/pages/modules/SuhuSubMenu'))
 const SuhuDashboardPage = lazy(() => import('@/modules/mysuhu/pages/SuhuDashboardPage'))
+const DepartmentSuhuPage = lazy(() => import('@/modules/mysuhu/pages/DepartmentSuhuPage'))
 const UnitDetailPage = lazy(() => import('@/modules/mysuhu/pages/UnitDetailPage'))
 const BreachLogPage = lazy(() => import('@/modules/mysuhu/pages/BreachLogPage'))
 const AdminSetupPage = lazy(() => import('@/modules/mysuhu/pages/AdminSetupPage'))
@@ -38,8 +39,37 @@ const TransporterSubMenu = lazy(() => import('@/modules/hub/pages/modules/Transp
 const PriviledgingSubMenu = lazy(() => import('@/modules/hub/pages/modules/PriviledgingSubMenu'))
 const TempahanSubMenu = lazy(() => import('@/modules/hub/pages/modules/TempahanSubMenu'))
 const KunciSubMenu = lazy(() => import('@/modules/hub/pages/modules/KunciSubMenu'))
+const CrossBorderSubMenu = lazy(() => import('@/modules/hub/pages/modules/CrossBorderSubMenu'))
 const CutiSubMenu = lazy(() => import('@/modules/hub/pages/modules/CutiSubMenu'))
 const TimeOffSubMenu = lazy(() => import('@/modules/hub/pages/modules/TimeOffSubMenu'))
+
+// Kunci pages
+const KunciDashboardPage = lazy(() => import('@/modules/mykunci/pages/KunciDashboardPage'))
+const KunciRegistryPage = lazy(() => import('@/modules/mykunci/pages/KunciRegistryPage'))
+const KunciLogPage = lazy(() => import('@/modules/mykunci/pages/KunciLogPage'))
+const KunciAuditPage = lazy(() => import('@/modules/mykunci/pages/KunciAuditPage'))
+const KunciPolicyPage = lazy(() => import('@/modules/mykunci/pages/KunciPolicyPage'))
+
+// Crossborder pages
+const CrossborderDashboardPage = lazy(() => import('@/modules/mycrossborder/pages/CrossborderDashboardPage'))
+const CrossborderCreatePage = lazy(() => import('@/modules/mycrossborder/pages/CrossborderCreatePage'))
+const CrossborderDetailPage = lazy(() => import('@/modules/mycrossborder/pages/CrossborderDetailPage'))
+const CrossborderLogPage = lazy(() => import('@/modules/mycrossborder/pages/CrossborderLogPage'))
+
+// Transporter pages
+const TransporterDashboardPage = lazy(() => import('@/modules/mytransporter/pages/TransporterDashboardPage'))
+const TransporterRequestFormPage = lazy(() => import('@/modules/mytransporter/pages/TransporterRequestFormPage'))
+const TransporterAvailabilityPage = lazy(() => import('@/modules/mytransporter/pages/TransporterAvailabilityPage'))
+const TransporterMyRequestsPage = lazy(() => import('@/modules/mytransporter/pages/TransporterMyRequestsPage'))
+const TransporterDriverPanelPage = lazy(() => import('@/modules/mytransporter/pages/TransporterDriverPanelPage'))
+const TransporterAdminApprovalPage = lazy(() => import('@/modules/mytransporter/pages/TransporterAdminApprovalPage'))
+const TransporterVehicleRegistryPage = lazy(() => import('@/modules/mytransporter/pages/TransporterVehicleRegistryPage'))
+const TransporterVehicleMovementPage = lazy(() => import('@/modules/mytransporter/pages/TransporterVehicleMovementPage'))
+const TransporterDriverMonitorPage = lazy(() => import('@/modules/mytransporter/pages/TransporterDriverMonitorPage'))
+const TransporterReportsPage = lazy(() => import('@/modules/mytransporter/pages/TransporterReportsPage'))
+const TransporterVehicleIssuesPage = lazy(() => import('@/modules/mytransporter/pages/TransporterVehicleIssuesPage'))
+const TransporterRoleAssignmentPage = lazy(() => import('@/modules/mytransporter/pages/TransporterRoleAssignmentPage'))
+
 
 // Gallery pages
 // const GalleryPage = lazy(() => import('../pages/hub/gallery/GalleryPage'))
@@ -84,6 +114,8 @@ const NearExpiryPage = lazy(() => import('@/modules/inventory/pages/inventory/Ne
 const SlowMovingPage = lazy(() => import('@/modules/inventory/pages/inventory/SlowMovingPage'))
 const OxygenDashboardPage = lazy(() => import('@/modules/mycylinder/pages/oxygen/OxygenDashboardPage'))
 const CylinderReportPage = lazy(() => import('@/modules/mycylinder/pages/oxygen/CylinderReportPage'))
+const CylinderMaintenancePage = lazy(() => import('@/modules/mycylinder/pages/oxygen/CylinderMaintenancePage'))
+const MyPhisDashboardPage = lazy(() => import('@/modules/myphis/pages/MyPhisDashboardPage'))
 const PurchaseOrderListPage = lazy(() => import('@/modules/procurement/pages/procurement/PurchaseOrderListPage'))
 const PurchaseOrderCreatePage = lazy(() => import('@/modules/procurement/pages/procurement/PurchaseOrderCreatePage'))
 const PurchaseOrderDetailPage = lazy(() => import('@/modules/procurement/pages/procurement/PurchaseOrderDetailPage'))
@@ -100,6 +132,7 @@ const BudgetOverviewPage = lazy(() => import('@/modules/financial/pages/financia
 const WarrantPage = lazy(() => import('@/modules/financial/pages/financial/WarrantPage'))
 const APPLAllocationPage = lazy(() => import('@/modules/financial/pages/financial/APPLAllocationPage'))
 const CCAllocationPage = lazy(() => import('@/modules/financial/pages/financial/CCAllocationPage'))
+const HospitalBudgetForecastPage = lazy(() => import('@/modules/financial/pages/financial/HospitalBudgetForecastPage'))
 const ReportsPage = lazy(() => import('@/modules/reports/pages/reports/ReportsPage'))
 const ProcurementReportPage = lazy(() => import('@/modules/reports/pages/reports/ProcurementReportPage'))
 const FinancialReportPage = lazy(() => import('@/modules/reports/pages/reports/FinancialReportPage'))
@@ -269,7 +302,16 @@ const router = createBrowserRouter(
         ),
       },
       {
+        path: 'crossborder',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <CrossBorderSubMenu />
+          </Suspense>
+        ),
+      },
+      {
         path: 'cuti',
+
         element: (
           <Suspense fallback={<PageLoader />}>
             <CutiSubMenu />
@@ -630,6 +672,14 @@ const router = createBrowserRouter(
           </ProtectedRoute>
         ),
       },
+      {
+        path: 'hub/myphis',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <MyPhisDashboardPage />
+          </Suspense>
+        ),
+      },
 
       {
         path: 'pharmacy/inventory',
@@ -665,6 +715,14 @@ const router = createBrowserRouter(
             ),
           },
           {
+            path: 'department/:departmentId',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <DepartmentSuhuPage />
+              </Suspense>
+            ),
+          },
+          {
             path: 'unit/:unitId',
             element: (
               <Suspense fallback={<PageLoader />}>
@@ -685,6 +743,178 @@ const router = createBrowserRouter(
             element: (
               <Suspense fallback={<PageLoader />}>
                 <AdminSetupPage />
+              </Suspense>
+            ),
+          },
+        ],
+      },
+      {
+        path: 'kunci',
+        children: [
+          {
+            index: true,
+            element: <Navigate to="/kunci/dashboard" replace />,
+          },
+          {
+            path: 'dashboard',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <KunciDashboardPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'daftar',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <KunciRegistryPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'log',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <KunciLogPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'audit',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <KunciAuditPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'polisi',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <KunciPolicyPage />
+              </Suspense>
+            ),
+          },
+        ],
+      },
+      {
+        path: 'crossborder',
+        children: [
+          {
+            path: '*',
+            element: <Navigate to="/transporter/dashboard" replace />,
+          },
+        ],
+      },
+      {
+        path: 'transporter',
+        children: [
+
+          {
+            index: true,
+            element: <Navigate to="/transporter/dashboard" replace />,
+          },
+          {
+            path: 'dashboard',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <TransporterDashboardPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'requests/new',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <TransporterRequestFormPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'requests/edit/:id',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <TransporterRequestFormPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'requests/my',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <TransporterMyRequestsPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'availability',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <TransporterAvailabilityPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'driver/panel',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <TransporterDriverPanelPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'driver/monitor',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <TransporterDriverMonitorPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'admin/approval',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <TransporterAdminApprovalPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'admin/vehicles',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <TransporterVehicleRegistryPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'admin/vehicles/movement',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <TransporterVehicleMovementPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'admin/vehicles/issues',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <TransporterVehicleIssuesPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'admin/reports',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <TransporterReportsPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'admin/roles',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <TransporterRoleAssignmentPage />
               </Suspense>
             ),
           },
@@ -794,6 +1024,24 @@ const router = createBrowserRouter(
           ]}>
             <Suspense fallback={<PageLoader />}>
               <CylinderReportPage />
+            </Suspense>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'pharmacy/oxygen/maintenance',
+        element: (
+          <ProtectedRoute allowedRoles={[
+            SYSTEM_ROLES.PHARMACY_DIRECTOR,
+            SYSTEM_ROLES.PHARMACY_MANAGER,
+            SYSTEM_ROLES.PHARMACIST,
+            SYSTEM_ROLES.PHARMACY_ASSISTANT,
+            SYSTEM_ROLES.ASSISTANT_PHARMACIST,
+            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+            SYSTEM_ROLES.PHARMACY_STAFF,
+          ]}>
+            <Suspense fallback={<PageLoader />}>
+              <CylinderMaintenancePage />
             </Suspense>
           </ProtectedRoute>
         ),
@@ -1158,6 +1406,24 @@ const router = createBrowserRouter(
           ]}>
             <Suspense fallback={<PageLoader />}>
               <CCAllocationPage />
+            </Suspense>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'pharmacy/financial/forecast',
+        element: (
+          <ProtectedRoute allowedRoles={[
+            SYSTEM_ROLES.PHARMACY_DIRECTOR,
+            SYSTEM_ROLES.PHARMACY_MANAGER,
+            SYSTEM_ROLES.PHARMACIST,
+            SYSTEM_ROLES.PHARMACY_ASSISTANT,
+            SYSTEM_ROLES.ASSISTANT_PHARMACIST,
+            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+            SYSTEM_ROLES.PHARMACY_STAFF,
+          ]}>
+            <Suspense fallback={<PageLoader />}>
+              <HospitalBudgetForecastPage />
             </Suspense>
           </ProtectedRoute>
         ),

@@ -6,6 +6,7 @@ import type { GoodsReceiptCreate, GoodsReceiptItemCreate } from './receivingServ
 export interface ExcelRow {
   rowNumber: number
   lpoNumber: string
+  altLpoNumber?: string
   lpoApprovalDate: string
   receiptNo: string
   goodsReceivedDate: string
@@ -318,9 +319,12 @@ export async function parseSupplierExcel(
               continue
             }
 
+            const altLpoNumber = cleanString(rowData[1])
+
             rows.push({
               rowNumber: rowNum,
               lpoNumber,
+              altLpoNumber,
               lpoApprovalDate: cleanString(rowData[indices.lpoApprovalDate]),
               receiptNo: cleanString(rowData[indices.receiptNo]),
               goodsReceivedDate: parseExcelDate(rowData[indices.goodsReceivedDate], xlsxInstance),
@@ -377,32 +381,57 @@ export async function matchExcelToDatabase(
     rowsByLPO.set(key, list)
   })
 
-  const uniqueLpos = Array.from(rowsByLPO.keys())
-  onProgress?.(`Querying ${uniqueLpos.length} LPOs in database...`, 30)
+  // Gather all unique search keys from the Excel rows (fuzzy matching PO/LPO columns)
+  const uniqueSearchKeys = new Set<string>()
+  parsed.rows.forEach(row => {
+    if (row.lpoNumber) {
+      const key = row.lpoNumber.toUpperCase().trim()
+      uniqueSearchKeys.add(key)
+      uniqueSearchKeys.add(key.replace(/O/g, '0'))
+      uniqueSearchKeys.add(key.replace(/0/g, 'O'))
+    }
+    if (row.altLpoNumber) {
+      const key = row.altLpoNumber.toUpperCase().trim()
+      uniqueSearchKeys.add(key)
+      uniqueSearchKeys.add(key.replace(/O/g, '0'))
+      uniqueSearchKeys.add(key.replace(/0/g, 'O'))
+    }
+  })
 
-  // 1. Fetch ALL matching LPOs in a single batch query
-  const { data: lposList, error: lposError } = await supabase
-    .from('pharmacy_lpo')
-    .select(`
-      id, 
-      lpo_number,
-      payment_status,
-      po_id,
-      purchase_order:pharmacy_purchase_orders!pharmacy_lpo_po_id_fkey(
-        id,
-        po_number,
-        supplier_id,
-        status,
-        supplier:suppliers!pharmacy_purchase_orders_supplier_id_fkey(company_name),
-        items:pharmacy_purchase_order_items(*)
-      )
-    `)
-    .in('lpo_number', uniqueLpos)
-    .eq('hospital_id', hospitalId)
+  const searchKeysArray = Array.from(uniqueSearchKeys)
+  onProgress?.(`Querying ${searchKeysArray.length} LPO keys in database...`, 30)
 
-  if (lposError) {
-    console.error('Error fetching LPOs in batch:', lposError)
-    throw new Error(`Database error querying LPOs: ${lposError.message}`)
+  // 1. Fetch matching LPOs in chunked batches of 100 to avoid PostgREST request URL size limit issues
+  const lposList: any[] = []
+  const chunkSize = 100
+  for (let i = 0; i < searchKeysArray.length; i += chunkSize) {
+    const chunk = searchKeysArray.slice(i, i + chunkSize)
+    const { data: chunkData, error: chunkError } = await supabase
+      .from('pharmacy_lpo')
+      .select(`
+        id, 
+        lpo_number,
+        payment_status,
+        po_id,
+        purchase_order:pharmacy_purchase_orders!pharmacy_lpo_po_id_fkey(
+          id,
+          po_number,
+          supplier_id,
+          status,
+          supplier:suppliers!pharmacy_purchase_orders_supplier_id_fkey(company_name),
+          items:pharmacy_purchase_order_items(*)
+        )
+      `)
+      .in('lpo_number', chunk)
+      .eq('hospital_id', hospitalId)
+
+    if (chunkError) {
+      console.error('Error fetching LPO chunk in batch:', chunkError)
+      throw new Error(`Database error querying LPO chunk: ${chunkError.message}`)
+    }
+    if (chunkData) {
+      lposList.push(...chunkData)
+    }
   }
 
   // Create lookup maps for fast matching
@@ -411,48 +440,54 @@ export async function matchExcelToDatabase(
   
   if (lposList) {
     lposList.forEach(l => {
-      lpoMap.set(l.lpo_number.toUpperCase().trim(), l)
+      const dbLpo = l.lpo_number.toUpperCase().trim()
+      lpoMap.set(dbLpo, l)
+      lpoMap.set(dbLpo.replace(/O/g, '0'), l)
+      lpoMap.set(dbLpo.replace(/0/g, 'O'), l)
       lpoIds.push(l.id)
     })
   }
 
-  // 2. Fetch existing goods receipts for duplicate checks in a single batch query (System A and B)
+  // 2. Fetch existing goods receipts for duplicate checks in chunked batch queries
   const existingGrMapA = new Map<string, Set<string>>() // lpo_id -> Set of delivery_notes
   const existingGrMapB = new Map<string, Set<string>>() // lpo_id -> Set of do_numbers
+  const grDataA: any[] = []
+  const grDataB: any[] = []
 
   if (lpoIds.length > 0) {
     onProgress?.('Checking for duplicate goods receipts...', 60)
-    
-    const [grResA, grResB] = await Promise.all([
-      supabase
-        .from('pharmacy_goods_receipts')
-        .select('lpo_id, delivery_note_number')
-        .in('lpo_id', lpoIds),
-      supabase
-        .from('pharmacy_receiving')
-        .select('lpo_id, do_number')
-        .in('lpo_id', lpoIds)
-    ])
+    for (let i = 0; i < lpoIds.length; i += chunkSize) {
+      const idChunk = lpoIds.slice(i, i + chunkSize)
+      const [grResA, grResB] = await Promise.all([
+        supabase
+          .from('pharmacy_goods_receipts')
+          .select('lpo_id, delivery_note_number')
+          .in('lpo_id', idChunk),
+        supabase
+          .from('pharmacy_receiving')
+          .select('lpo_id, do_number')
+          .in('lpo_id', idChunk)
+      ])
 
-    if (grResA.data) {
-      grResA.data.forEach(gr => {
-        if (!gr.lpo_id || !gr.delivery_note_number) return
-        const key = gr.lpo_id
-        const set = existingGrMapA.get(key) || new Set<string>()
-        set.add(gr.delivery_note_number.toUpperCase().trim())
-        existingGrMapA.set(key, set)
-      })
+      if (grResA.data) grDataA.push(...grResA.data)
+      if (grResB.data) grDataB.push(...grResB.data)
     }
 
-    if (grResB.data) {
-      grResB.data.forEach(gr => {
-        if (!gr.lpo_id || !gr.do_number) return
-        const key = gr.lpo_id
-        const set = existingGrMapB.get(key) || new Set<string>()
-        set.add(gr.do_number.toUpperCase().trim())
-        existingGrMapB.set(key, set)
-      })
-    }
+    grDataA.forEach(gr => {
+      if (!gr.lpo_id || !gr.delivery_note_number) return
+      const key = gr.lpo_id
+      const set = existingGrMapA.get(key) || new Set<string>()
+      set.add(gr.delivery_note_number.toUpperCase().trim())
+      existingGrMapA.set(key, set)
+    })
+
+    grDataB.forEach(gr => {
+      if (!gr.lpo_id || !gr.do_number) return
+      const key = gr.lpo_id
+      const set = existingGrMapB.get(key) || new Set<string>()
+      set.add(gr.do_number.toUpperCase().trim())
+      existingGrMapB.set(key, set)
+    })
   }
 
   onProgress?.('Cross-referencing items...', 80)
@@ -466,7 +501,19 @@ export async function matchExcelToDatabase(
     const pct = 80 + Math.floor((processed / total) * 20)
     onProgress?.(`Processing LPO ${lpoKey}...`, pct)
 
-    const lpoData = lpoMap.get(lpoKey)
+    let lpoData = lpoMap.get(lpoKey)
+    if (!lpoData) {
+      lpoData = lpoMap.get(lpoKey.replace(/O/g, '0')) || lpoMap.get(lpoKey.replace(/0/g, 'O'))
+    }
+    if (!lpoData) {
+      for (const row of excelRows) {
+        if (row.altLpoNumber) {
+          const altKey = row.altLpoNumber.toUpperCase().trim()
+          lpoData = lpoMap.get(altKey) || lpoMap.get(altKey.replace(/O/g, '0')) || lpoMap.get(altKey.replace(/0/g, 'O'))
+          if (lpoData) break
+        }
+      }
+    }
 
     if (!lpoData) {
       // Unmatched LPO group
@@ -569,6 +616,19 @@ export async function matchExcelToDatabase(
           const score = commonCount / excelTokens.size
           return score >= 0.6 // Match if 60% of Excel description words are found in DB item description
         })
+      }
+
+      // 4th Fallback: If PO has only one item, match it
+      if (!matchedPoItem && poItems.length === 1) {
+        matchedPoItem = poItems[0]
+      }
+
+      // 5th Fallback: Match by quantity if unique in PO items list
+      if (!matchedPoItem) {
+        const potentialItems = poItems.filter(pi => pi.quantity_ordered === row.quantity)
+        if (potentialItems.length === 1) {
+          matchedPoItem = potentialItems[0]
+        }
       }
 
       if (matchedPoItem) {

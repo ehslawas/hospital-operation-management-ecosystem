@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import React, { useState, useEffect, useRef, useMemo, useId } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { 
@@ -237,11 +237,27 @@ export const PurchaseOrderDetailView: React.FC<PurchaseOrderDetailViewProps> = (
                 const nameCol = item.item_type === 'drug' ? 'drug_name' : 'item_name'
                 const codeCol = item.item_type === 'drug' ? 'drug_code' : 'item_code'
 
-                const { data: stdData } = await supabase
+                let stdData = null
+                const { data: stdById } = await supabase
                   .from(table)
                   .select(`${nameCol}, ${codeCol}`)
                   .eq('id', item.item_id)
                   .maybeSingle()
+                
+                if (stdById) {
+                  stdData = stdById
+                } else if (item.item_name && item.item_name !== 'Unknown Item') {
+                  // Fallback: try lookup by name
+                  const { data: stdByName } = await supabase
+                    .from(table)
+                    .select(`${nameCol}, ${codeCol}`)
+                    .eq(nameCol, item.item_name)
+                    .limit(1)
+                    .maybeSingle()
+                  if (stdByName) {
+                    stdData = stdByName
+                  }
+                }
                 
                 if (stdData) {
                   return {
@@ -282,6 +298,38 @@ export const PurchaseOrderDetailView: React.FC<PurchaseOrderDetailViewProps> = (
                     item_code: lpData.item_code || item.item_code
                   }
                 }
+
+                // 4. Try Contracts Catalog
+                const { data: contractData } = await supabase
+                  .from('contracts')
+                  .select('contract_name, item_code')
+                  .eq('id', item.item_id)
+                  .maybeSingle()
+
+                if (contractData) {
+                  return {
+                    ...item,
+                    item_name: contractData.contract_name || item.item_name,
+                    item_code: contractData.item_code || item.item_code
+                  }
+                }
+
+                if (item.item_name && item.item_name !== 'Unknown Item') {
+                  const { data: contractByName } = await supabase
+                    .from('contracts')
+                    .select('contract_name, item_code')
+                    .eq('contract_name', item.item_name)
+                    .limit(1)
+                    .maybeSingle()
+                  
+                  if (contractByName) {
+                    return {
+                      ...item,
+                      item_name: contractByName.contract_name || item.item_name,
+                      item_code: contractByName.item_code || item.item_code
+                    }
+                  }
+                }
               } catch (err) {
                 // Silently ignore 406 or other lookup errors during background enrichment
               }
@@ -291,17 +339,23 @@ export const PurchaseOrderDetailView: React.FC<PurchaseOrderDetailViewProps> = (
           setItems(enrichedItems)
           
           // --- Self-Healing Logic ---
-          // If we found new names, save them back to the DB to fix legacy records permanently
+          // If we found new names or codes, save them back to the DB to fix legacy records permanently
           for (const enriched of enrichedItems) {
             const original = resolvedItems.find(o => o.id === enriched.id)
-            if (original && enriched.item_name !== original.item_name && enriched.item_name !== 'Unknown Item') {
-              void supabase
-                .from('pharmacy_purchase_order_items')
-                .update({ 
-                  item_name: enriched.item_name,
-                  item_code: enriched.item_code 
-                })
-                .eq('id', enriched.id)
+            if (original) {
+              const nameChanged = enriched.item_name !== original.item_name && enriched.item_name !== 'Unknown Item';
+              const codeChanged = enriched.item_code !== original.item_code && enriched.item_code && 
+                                  enriched.item_code !== poData.kkm_contract_number && 
+                                  enriched.item_code !== poData.supplier?.contract_number;
+              if (nameChanged || codeChanged) {
+                void supabase
+                  .from('pharmacy_purchase_order_items')
+                  .update({ 
+                    item_name: enriched.item_name,
+                    item_code: enriched.item_code 
+                  })
+                  .eq('id', enriched.id)
+              }
             }
           }
         })()
@@ -680,16 +734,16 @@ export const PurchaseOrderDetailView: React.FC<PurchaseOrderDetailViewProps> = (
                   <div className="border-b border-gray-300 pb-0.5">
                     <label className="text-[8pt] font-bold text-gray-600 uppercase block">No. Pesanan / PO Number</label>
                     <p className="text-[10.5pt] font-bold text-gray-900">
-                      {order?.po_type === 'sq' ? 'â€”' : order?.po_number}
+                      {order?.po_type === 'sq' ? '-' : order?.po_number}
                     </p>
                   </div>
                   <div className="border-b border-gray-300 pb-0.5">
                     <label className="text-[8pt] font-bold text-gray-600 uppercase block">Kod Undi / Vote Code</label>
-                    <p className="text-[10.5pt] font-bold text-gray-900">{order?.vote_code === 'other' ? order.manual_vote_code : (order?.vote_code || 'â€”')}</p>
+                    <p className="text-[10.5pt] font-bold text-gray-900">{order?.vote_code === 'other' ? order.manual_vote_code : (order?.vote_code || '-')}</p>
                   </div>
                   <div className="border-b border-gray-300 pb-0.5">
                     <label className="text-[8pt] font-bold text-gray-600 uppercase block">Aktiviti Undi / Vote Activity</label>
-                    <p className="text-[10.5pt] font-bold text-gray-900">{order?.vote_activity === 'other' ? order.manual_vote_activity : (order?.vote_activity || 'â€”')}</p>
+                    <p className="text-[10.5pt] font-bold text-gray-900">{order?.vote_activity === 'other' ? order.manual_vote_activity : (order?.vote_activity || '-')}</p>
                   </div>
                   <div className="border-b border-gray-300 pb-0.5">
                     <label className="text-[8pt] font-bold text-gray-600 uppercase block">
@@ -697,8 +751,8 @@ export const PurchaseOrderDetailView: React.FC<PurchaseOrderDetailViewProps> = (
                     </label>
                     <p className="text-[10.5pt] font-bold text-gray-900">
                       {order?.po_type === 'sq'
-                        ? (order?.inv_sq_number || 'â€”')
-                        : (order?.vote_code === '990102' || order?.po_type === 'manual' ? 'â€”' : (order?.kkm_contract_number || order?.supplier?.contract_number || 'â€”'))}
+                        ? (order?.inv_sq_number || '-')
+                        : (order?.vote_code === '990102' || order?.po_type === 'manual' ? '-' : (order?.kkm_contract_number || order?.supplier?.contract_number || '-'))}
                     </p>
                   </div>
                   {order?.inv_sq_number && order?.po_type !== 'sq' && (
@@ -719,15 +773,15 @@ export const PurchaseOrderDetailView: React.FC<PurchaseOrderDetailViewProps> = (
                 <div className="space-y-0.5">
                   <div className="border-b border-gray-300 pb-0.5">
                     <label className="text-[8pt] font-bold text-gray-600 uppercase block">Jabatan / Department</label>
-                    <p className="text-[10.5pt] font-bold text-gray-900 uppercase">{order?.department === 'other' ? order.manual_department : (order?.department || 'â€”')}</p>
+                    <p className="text-[10.5pt] font-bold text-gray-900 uppercase">{order?.department === 'other' ? order.manual_department : (order?.department || '-')}</p>
                   </div>
                   <div className="border-b border-gray-300 pb-0.5">
                     <label className="text-[8pt] font-bold text-gray-600 uppercase block">Tarikh Pesanan / Order Date</label>
-                    <p className="text-[10.5pt] font-bold text-gray-900">{order?.order_date ? formatDate(order.order_date) : 'â€”'}</p>
+                    <p className="text-[10.5pt] font-bold text-gray-900">{order?.order_date ? formatDate(order.order_date) : '-'}</p>
                   </div>
                   <div className="border-b border-gray-300 pb-0.5">
                     <label className="text-[8pt] font-bold text-gray-600 uppercase block">Kategori / Category</label>
-                    <p className="text-[10.5pt] font-bold text-gray-900 uppercase">{order?.category === 'other' ? order.manual_category : (order?.category?.replace('_', ' ') || 'â€”')}</p>
+                    <p className="text-[10.5pt] font-bold text-gray-900 uppercase">{order?.category === 'other' ? order.manual_category : (order?.category?.replace('_', ' ') || '-')}</p>
                   </div>
                 </div>
               </td>
@@ -763,11 +817,11 @@ export const PurchaseOrderDetailView: React.FC<PurchaseOrderDetailViewProps> = (
             <>
               <div className="border border-gray-500 p-2 bg-white">
                 <label className="text-[8pt] font-bold text-gray-600 uppercase block mb-0.5">Nama Syarikat / Company Name</label>
-                <p className="text-[12pt] font-bold text-gray-900 uppercase">{order?.manual_supplier_name || order?.supplier?.company_name || 'â€”'}</p>
+                <p className="text-[12pt] font-bold text-gray-900 uppercase">{order?.manual_supplier_name || order?.supplier?.company_name || '-'}</p>
               </div>
               <div className="border border-gray-500 p-2 bg-white min-h-[60px]">
                 <label className="text-[8pt] font-bold text-gray-600 uppercase block mb-0.5">Alamat / Address</label>
-                <p className="text-[10pt] text-gray-900 whitespace-pre-line leading-tight">{order?.manual_supplier_address || order?.supplier?.address || 'â€”'}</p>
+                <p className="text-[10pt] text-gray-900 whitespace-pre-line leading-tight">{order?.manual_supplier_address || order?.supplier?.address || '-'}</p>
               </div>
             </>
           )}
@@ -785,8 +839,8 @@ export const PurchaseOrderDetailView: React.FC<PurchaseOrderDetailViewProps> = (
               <th className="border border-gray-800 px-2 py-1.5 text-[9pt] font-bold uppercase text-center w-[12%]">Kod Item / Item Code</th>
               <th className="border border-gray-800 px-2 py-1.5 text-[9pt] font-bold uppercase text-center w-[9%]">Kuantiti / Quantity</th>
               <th className="border border-gray-800 px-2 py-1.5 text-[9pt] font-bold uppercase text-center w-[11%]">Harga Unit / Unit Price</th>
-              <th className="border border-gray-800 px-2 py-1.5 text-[9pt] font-bold uppercase text-center w-[11%]">Jumlah / Total</th>
               <th className="border border-gray-800 px-2 py-1.5 text-[9pt] font-bold uppercase text-center w-[16%]">Pembungkusan / Packaging</th>
+              <th className="border border-gray-800 px-2 py-1.5 text-[9pt] font-bold uppercase text-center w-[11%]">Jumlah / Total</th>
             </tr>
           </thead>
           <tbody>
@@ -803,27 +857,28 @@ export const PurchaseOrderDetailView: React.FC<PurchaseOrderDetailViewProps> = (
                       <div className="space-y-0 text-[7.5pt] leading-tight text-gray-700 italic">
                         <p><span className="font-bold not-italic">No. Kontrak:</span> {contractNo}</p>
                         <p><span className="font-bold not-italic">Tempoh Serahan:</span> {deliveryPeriod}</p>
-                        <p><span className="font-bold not-italic">Tamat Kontrak:</span> {contractEndDate ? formatDate(contractEndDate) : 'â€”'}</p>
+                        <p><span className="font-bold not-italic">Tamat Kontrak:</span> {contractEndDate ? formatDate(contractEndDate) : '-'}</p>
                       </div>
                     )}
                   </td>
-                <td className="border border-gray-800 px-2 py-1 text-center text-[8.5pt] font-medium">{item.item_code}</td>
+                <td className="border border-gray-800 px-2 py-1 text-center text-[8.5pt] font-medium">
+                  {(!item.item_code || item.item_code === contractNo || item.item_code === order?.kkm_contract_number || item.item_code === order?.supplier?.contract_number) ? '-' : item.item_code}
+                </td>
                 <td className="border border-gray-800 px-2 py-1 text-center font-bold text-[9.5pt]">{item.quantity_ordered}</td>
                 <td className="border border-gray-800 px-2 py-1 text-right font-medium text-[9pt]">{formatCurrency(item.unit_price)}</td>
-                <td className="border border-gray-800 px-2 py-1 text-right font-bold text-[9.5pt]">{formatCurrency(item.quantity_ordered * item.unit_price)}</td>
                 <td className="border border-gray-800 px-2 py-1 text-center text-[8.5pt]">{item.packaging_description}</td>
+                <td className="border border-gray-800 px-2 py-1 text-right font-bold text-[9.5pt]">{formatCurrency(item.quantity_ordered * item.unit_price)}</td>
                 </tr>
               );
             })}
             {isLastPage && (
               <tr className="bg-gray-100 font-bold border-t-2 border-gray-800">
-                <td colSpan={5} className="border border-gray-800 px-2 py-1 text-[9.5pt] uppercase text-right">
+                <td colSpan={6} className="border border-gray-800 px-2 py-1 text-[9.5pt] uppercase text-right">
                   JUMLAH KESELURUHAN / TOTAL AMOUNT:
                 </td>
                 <td className="border border-gray-800 px-2 py-1 text-[10.5pt] text-right">
                   {formatCurrency(items.reduce((sum, item) => sum + (item.quantity_ordered * item.unit_price), 0))}
                 </td>
-                <td className="border border-gray-800"></td>
               </tr>
             )}
             {!isLastPage && (
@@ -857,7 +912,7 @@ export const PurchaseOrderDetailView: React.FC<PurchaseOrderDetailViewProps> = (
                     <tr className="border-b border-gray-800">
                       <td className="px-2 py-1.5 text-[9pt] font-bold uppercase border-r border-gray-800 leading-tight">BAKI SEBELUM /<br />BALANCE BEFORE:</td>
                       <td className="px-2 py-1.5 text-[10.5pt] font-bold text-right">
-                        {balance !== null ? `RM ${balance.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}` : 'â€”'}
+                        {balance !== null ? `RM ${balance.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}` : '-'}
                       </td>
                     </tr>
                     <tr className="border-b border-gray-800 bg-gray-50">
@@ -869,7 +924,7 @@ export const PurchaseOrderDetailView: React.FC<PurchaseOrderDetailViewProps> = (
                     <tr>
                       <td className="px-2 py-1.5 text-[9pt] font-bold uppercase border-r border-gray-800 leading-tight">BAKI SELEPAS /<br />BALANCE AFTER:</td>
                       <td className="px-2 py-1.5 text-[11.5pt] font-black text-right">
-                        {balance !== null ? `RM ${(balance - items.reduce((sum, item) => sum + (item.quantity_ordered * item.unit_price), 0)).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}` : 'â€”'}
+                        {balance !== null ? `RM ${(balance - items.reduce((sum, item) => sum + (item.quantity_ordered * item.unit_price), 0)).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}` : '-'}
                       </td>
                     </tr>
                   </tbody>
@@ -935,7 +990,12 @@ export const PurchaseOrderDetailView: React.FC<PurchaseOrderDetailViewProps> = (
                   <td className="border border-gray-800 px-2 py-1">
                     <div className="font-bold text-[9.5pt] mb-1">{item.item_name}</div>
                   </td>
-                  <td className="border border-gray-800 px-2 py-1 text-center text-[8.5pt] font-medium">{item.item_code}</td>
+                  <td className="border border-gray-800 px-2 py-1 text-center text-[8.5pt] font-medium">
+                    {(!item.item_code || 
+                      item.item_code === (item as any).contract_number || 
+                      item.item_code === order?.kkm_contract_number || 
+                      item.item_code === order?.supplier?.contract_number) ? '-' : item.item_code}
+                  </td>
                   <td className="border border-gray-800 px-2 py-1 text-center font-bold text-[9.5pt]">{item.quantity_ordered}</td>
                   <td className="border border-gray-800 px-2 py-1 text-right font-medium text-[9pt]">{formatCurrency(item.unit_price)}</td>
                   <td className="border border-gray-800 px-2 py-1 text-right font-bold text-[9.5pt]">{formatCurrency(item.quantity_ordered * item.unit_price)}</td>
@@ -985,7 +1045,7 @@ export const PurchaseOrderDetailView: React.FC<PurchaseOrderDetailViewProps> = (
                     <tr className="border-b border-gray-800">
                       <td className="px-2 py-1.5 text-[9pt] font-bold uppercase border-r border-gray-800 leading-tight">BAKI SEBELUM /<br />BALANCE BEFORE:</td>
                       <td className="px-2 py-1.5 text-[10.5pt] font-bold text-right">
-                        {balance !== null ? `RM ${balance.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}` : 'â€”'}
+                        {balance !== null ? `RM ${balance.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}` : '-'}
                       </td>
                     </tr>
                     <tr className="border-b border-gray-800 bg-gray-50">
@@ -997,7 +1057,7 @@ export const PurchaseOrderDetailView: React.FC<PurchaseOrderDetailViewProps> = (
                     <tr>
                       <td className="px-2 py-1.5 text-[9pt] font-bold uppercase border-r border-gray-800 leading-tight">BAKI SELEPAS /<br />BALANCE AFTER:</td>
                       <td className="px-2 py-1.5 text-[11.5pt] font-black text-right">
-                        {balance !== null ? `RM ${(balance - items.reduce((sum, item) => sum + (item.quantity_ordered * item.unit_price), 0)).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}` : 'â€”'}
+                        {balance !== null ? `RM ${(balance - items.reduce((sum, item) => sum + (item.quantity_ordered * item.unit_price), 0)).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}` : '-'}
                       </td>
                     </tr>
                   </tbody>
@@ -1052,7 +1112,7 @@ export const PurchaseOrderDetailView: React.FC<PurchaseOrderDetailViewProps> = (
               </tr>
               <tr>
                 <td className="border border-gray-800 px-4 py-3 font-bold bg-gray-100 text-[10pt]">No. Telefon :</td>
-                <td className="border border-gray-800 px-4 py-3 font-bold text-[11pt]">{order?.supplier?.phone || 'â€”'}</td>
+                <td className="border border-gray-800 px-4 py-3 font-bold text-[11pt]">{order?.supplier?.phone || '-'}</td>
               </tr>
             </tbody>
           </table>
@@ -1096,7 +1156,7 @@ export const PurchaseOrderDetailView: React.FC<PurchaseOrderDetailViewProps> = (
       <div className="px-8 py-4 border-b-2 border-gray-800">
         <div className="flex justify-between items-end">
           <div className="pb-2">
-            <p className="text-[11pt] font-bold">Tarikh : <span className="font-serif ml-2 underline decoration-dotted">{order?.order_date ? formatDate(order.order_date) : 'â€”'}</span></p>
+            <p className="text-[11pt] font-bold">Tarikh : <span className="font-serif ml-2 underline decoration-dotted">{order?.order_date ? formatDate(order.order_date) : '-'}</span></p>
           </div>
           <div className="text-center">
             <div className="w-64 border-b border-dotted border-black mb-2 mx-auto"></div>
@@ -1125,7 +1185,7 @@ export const PurchaseOrderDetailView: React.FC<PurchaseOrderDetailViewProps> = (
         
         <div className="flex justify-between items-end mb-4">
           <div className="pb-2">
-            <p className="text-[11pt] font-bold">Tarikh : <span className="font-serif ml-2 underline decoration-dotted">{order?.order_date ? formatDate(order.order_date) : 'â€”'}</span></p>
+            <p className="text-[11pt] font-bold">Tarikh : <span className="font-serif ml-2 underline decoration-dotted">{order?.order_date ? formatDate(order.order_date) : '-'}</span></p>
           </div>
           <div className="text-center">
             <div className="w-72 border-b border-dotted border-black mb-2 mx-auto"></div>

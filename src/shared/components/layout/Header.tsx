@@ -10,10 +10,21 @@ import { SYSTEM_ROLES, MODULE_DEFINITIONS, ROLE_DISPLAY_NAMES, ROUTES } from '@/
  * Get current module name based on route
  */
 const getCurrentModule = (pathname: string): { name: string; code?: string } | null => {
+  // MyCrossBorder
+  if (pathname.startsWith('/crossborder')) {
+    return { name: 'MyCrossBorder', code: 'crossborder' }
+  }
+
   // MySuhu
   if (pathname.startsWith('/suhu')) {
     return { name: 'MySuhu', code: 'suhu' }
   }
+
+  // MyKunci
+  if (pathname.startsWith('/kunci')) {
+    return { name: 'MyKunci', code: 'kunci' }
+  }
+
 
   // Medical Oxygen / MyCylinder
   if (pathname.startsWith('/pharmacy/oxygen')) {
@@ -37,9 +48,14 @@ const getCurrentModule = (pathname: string): { name: string; code?: string } | n
   }
 
   // Transporter
-  if (pathname.startsWith('/hub/transporter')) {
+  if (pathname.startsWith('/transporter') || pathname.startsWith('/hub/transporter')) {
     const module = MODULE_DEFINITIONS.find(m => m.code === 'system_transporter')
     return { name: module?.name || 'MyTransporter', code: 'system_transporter' }
+  }
+
+  // MyPHiS
+  if (pathname.startsWith('/hub/myphis') || pathname.includes('/myphis')) {
+    return { name: 'MyPHiS', code: 'myphis' }
   }
 
   // Dashboard
@@ -62,6 +78,7 @@ const getModuleFromRole = (roleCode?: string): string | null => {
     SYSTEM_ROLES.PHARMACY_MANAGER,
     SYSTEM_ROLES.PHARMACIST,
     SYSTEM_ROLES.PHARMACY_ASSISTANT,
+    SYSTEM_ROLES.ASSISTANT_PHARMACIST,
     SYSTEM_ROLES.PHARMACY_STOREKEEPER,
     SYSTEM_ROLES.PHARMACY_STAFF,
   ].includes(roleCode as any)) {
@@ -91,8 +108,15 @@ export const Header: React.FC = () => {
   const currentModule = useMemo(() => {
     const routeModule = getCurrentModule(location.pathname)
     if (routeModule) return routeModule
+
+    // Check if we came from a specific module via navigation state (e.g. from profile click)
+    const state = location.state as any
+    if (state && typeof state === 'object' && state.fromModule) {
+      return state.fromModule
+    }
+
     return { name: getModuleFromRole(user?.role?.role_code) || 'HOME System', code: undefined }
-  }, [location.pathname, user?.role?.role_code])
+  }, [location.pathname, location.state, user?.role?.role_code])
 
   // Get role display name
   const roleDisplayName = useMemo(() => {
@@ -183,7 +207,7 @@ export const Header: React.FC = () => {
 
           {/* User */}
           <button
-            onClick={() => navigate(ROUTES.PROFILE)}
+            onClick={() => navigate(ROUTES.PROFILE, { state: { fromModule: currentModule } })}
             className="flex items-center gap-2 sm:gap-3 hover:bg-white/10 rounded-lg px-2 py-1 transition-colors"
           >
             <div className="text-right hidden sm:block">

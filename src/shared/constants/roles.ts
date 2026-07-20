@@ -14,6 +14,8 @@ export const SYSTEM_ROLES = {
   ASSISTANT_PHARMACIST: 'assistant_pharmacist',
   HOSPITAL_ADMINISTRATOR: 'hospital_administrator',
   STAFF: 'staff',
+  TRANSPORT_DRIVER: 'transport_driver',
+  TRANSPORT_ADMIN: 'transport_admin',
 } as const
 
 export const ROLE_DISPLAY_NAMES: Record<string, string> = {
@@ -32,4 +34,7 @@ export const ROLE_DISPLAY_NAMES: Record<string, string> = {
   [SYSTEM_ROLES.ASSISTANT_PHARMACIST]: 'Assistant Pharmacist',
   [SYSTEM_ROLES.HOSPITAL_ADMINISTRATOR]: 'Hospital Administrator',
   [SYSTEM_ROLES.STAFF]: 'Staff',
+  [SYSTEM_ROLES.TRANSPORT_DRIVER]: 'Transport Driver',
+  [SYSTEM_ROLES.TRANSPORT_ADMIN]: 'Transport Admin',
 } as const
+

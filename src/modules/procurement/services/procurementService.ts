@@ -79,7 +79,7 @@ export async function getPurchaseOrders(
           supplier:suppliers(*),
           budget:pharmacy_budgets(*),
           goods_receipts:pharmacy_goods_receipts(*),
-          lpo:pharmacy_lpo(id, lpo_number, payment_status, receiving:pharmacy_receiving(*))
+          lpo:pharmacy_lpo(id, lpo_number, payment_status, receiving:pharmacy_receiving(*), assessments:pharmacy_supplier_assessments(*))
         `,
           { count: 'exact' }
         )
@@ -88,6 +88,13 @@ export async function getPurchaseOrders(
       if (filter?.search) {
         const search = filter.search.trim()
         if (search) {
+          // Normalize PO vs P0 character typo (e.g. user types PO26... but DB has P026...)
+          const altSearch = search.toUpperCase().includes('PO') 
+            ? search.replace(/PO/gi, 'P0') 
+            : search.toUpperCase().includes('P0') 
+              ? search.replace(/P0/gi, 'PO') 
+              : search
+
           // 1. Find PO IDs that have matching items (searching by item_name or item_code)
           const { data: itemMatches } = await supabase
             .from('pharmacy_purchase_order_items')
@@ -104,11 +111,11 @@ export async function getPurchaseOrders(
           
           const supplierIds = supplierMatches?.map(m => m.id) || []
 
-          // 2a. Find PO IDs from pharmacy_lpo matching lpo_number
+          // 2a. Find PO IDs from pharmacy_lpo matching lpo_number (fuzzy character matching PO vs P0)
           const { data: lpoMatches } = await supabase
             .from('pharmacy_lpo')
             .select('po_id')
-            .ilike('lpo_number', `%${search}%`)
+            .or(`lpo_number.ilike.%${search}%,lpo_number.ilike.%${altSearch}%`)
           
           const poIdsFromLpo = Array.from(new Set(lpoMatches?.map(m => m.po_id).filter(Boolean) || []))
 
@@ -116,7 +123,7 @@ export async function getPurchaseOrders(
           const { data: grMatches } = await supabase
             .from('pharmacy_goods_receipts')
             .select('po_id')
-            .or(`delivery_note_number.ilike.%${search}%,gr_number.ilike.%${search}%`)
+            .or(`delivery_note_number.ilike.%${search}%,gr_number.ilike.%${search}%,delivery_note_number.ilike.%${altSearch}%,gr_number.ilike.%${altSearch}%`)
           
           const poIdsFromGr = Array.from(new Set(grMatches?.map(m => m.po_id).filter(Boolean) || []))
 
@@ -147,6 +154,7 @@ export async function getPurchaseOrders(
           // 3. Build the combined OR filter for the main query
           const orConditions = [
             `po_number.ilike.%${search}%`,
+            `po_number.ilike.%${altSearch}%`,
             `delivery_address.ilike.%${search}%`,
             `manual_supplier_name.ilike.%${search}%`
           ]
@@ -465,11 +473,45 @@ export async function getPurchaseOrderById(
       // Fetch all active/relevant contracts for this supplier to match against items
       if (order.supplier && order.items && order.items.length > 0) {
         try {
-          const { data: supplierContracts } = await supabase
+          let { data: supplierContracts } = await supabase
             .from('contracts')
             .select('*')
             .eq('supplier_id', order.supplier.id)
             .eq('status', 'active')
+
+          if ((!supplierContracts || supplierContracts.length === 0) && order.supplier.company_name) {
+            // Retrieve all active contracts to perform robust JS matching (handles spacing/punctuation typos in supplier name)
+            const { data: allActive } = await supabase
+              .from('contracts')
+              .select('*')
+              .eq('status', 'active')
+
+            const clean = (name: string) => name ? name.toLowerCase().replace(/[^a-z0-9]/g, '').replace(/sdn\s*bhd/gi, '').replace(/sdn/gi, '').replace(/bhd/gi, '').trim() : '';
+            const targetCleanName = clean(order.supplier.company_name);
+
+            const nameContracts = (allActive || []).filter((c: any) => {
+              if (!c.supplier_name) return false;
+              const cleanContractSupplier = clean(c.supplier_name);
+              return cleanContractSupplier === targetCleanName || 
+                     cleanContractSupplier.includes(targetCleanName) || 
+                     targetCleanName.includes(cleanContractSupplier);
+            });
+
+            if (nameContracts && nameContracts.length > 0) {
+              supplierContracts = nameContracts;
+              
+              // Self-healing: if name-matched contracts don't have supplier_id set, update them
+              nameContracts.forEach((c: any) => {
+                if (!c.supplier_id && order.supplier.id) {
+                  void supabase
+                    .from('contracts')
+                    .update({ supplier_id: order.supplier.id })
+                    .eq('id', c.id)
+                    .then(() => {}); // fire-and-forget
+                }
+              });
+            }
+          }
 
           if (supplierContracts && supplierContracts.length > 0) {
             const clean = (s: string) => s ? s.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
@@ -559,13 +601,15 @@ export async function getPurchaseOrderById(
           order.supplier.contract_number = effectiveContractNo;
         }
 
-        // Only hit contracts_view if we are missing end_date or delivery_period
+        // Only hit contracts if we are missing end_date or delivery_period
         if (!order.supplier.contract_end_date || !order.supplier.delivery_period) {
           try {
             const { data: contractData } = await supabase
-              .from('contracts_view')
+              .from('contracts')
               .select('end_date, delivery_period')
               .eq('contract_number', effectiveContractNo)
+              .eq('status', 'active')
+              .limit(1)
               .maybeSingle()
 
             if (contractData) {
@@ -577,7 +621,7 @@ export async function getPurchaseOrderById(
               }
             }
           } catch (_err) {
-            // contracts_view may not exist in all environments â€” silently ignore
+            // silently ignore
           }
         }
       }

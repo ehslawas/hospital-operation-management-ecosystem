@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import React, { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { ROUTES } from '@/lib/constants'
@@ -531,6 +531,14 @@ export default function FinancialReportPage() {
   const [sandboxAmount, setSandboxAmount] = useState(1000000)
   const [sandboxActive, setSandboxActive] = useState(false)
   const [activeDrawerId, setActiveDrawerId] = useState<string | null>(null)
+  const [drawerTopPosition, setDrawerTopPosition] = useState(0)
+  const drawerRef = React.useRef<HTMLDivElement>(null)
+
+  React.useEffect(() => {
+    if (activeDrawerId && drawerRef.current) {
+      drawerRef.current.scrollTop = 0;
+    }
+  }, [activeDrawerId])
   const [exactForecastMap, setExactForecastMap] = useState<Record<string, { allocation: number, spent: number }>>({})
 
   // Search/Filter states inside specific tabs
@@ -1709,7 +1717,7 @@ export default function FinancialReportPage() {
                                       : 'bg-indigo-650 border-indigo-650 text-white hover:bg-indigo-700'
                                   )}
                                 >
-                                  {sandboxActive ? 'ðŸ›‘ Close Playground' : 'âš¡ Open Sandbox'}
+                                   {sandboxActive ? '🛑 Close Playground' : '⚡ Open Sandbox'}
                                 </button>
                                 <button
                                   onClick={() => {
@@ -1828,7 +1836,7 @@ export default function FinancialReportPage() {
                                         <div className="flex flex-col items-center">
                                           <div className="text-[10px] font-bold text-slate-600 flex items-center gap-1">
                                             <span className="capitalize">{cat.trend}</span>
-                                            <span>{cat.trend === 'increasing' ? 'ðŸ“ˆ' : cat.trend === 'decreasing' ? 'ðŸ“‰' : 'âž¡ï¸'}</span>
+                                             <span>{cat.trend === 'increasing' ? '📈' : cat.trend === 'decreasing' ? '📉' : '➡'}</span>
                                           </div>
                                           <span className="text-[8px] font-bold text-slate-400">{cat.confidence}% conf</span>
                                         </div>
@@ -1836,11 +1844,16 @@ export default function FinancialReportPage() {
 
                                       <td className="p-4 text-center">
                                         <button
-                                          onClick={() => setActiveDrawerId(cat.id)}
+                                          onClick={(e) => {
+                                            const rect = e.currentTarget.getBoundingClientRect();
+                                            // Align top of drawer card with top of row (capped to prevent viewport overflow)
+                                            setDrawerTopPosition(Math.min(rect.top - 80, window.innerHeight - 500));
+                                            setActiveDrawerId(cat.id);
+                                          }}
                                           className="px-3.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-xl text-[10px] font-black border border-indigo-200/50 transition-all flex items-center gap-1 mx-auto"
                                         >
                                           <span>Backup Reasons</span>
-                                          <span>âž¡ï¸</span>
+                                           <span>➡</span>
                                         </button>
                                       </td>
                                     </tr>
@@ -1941,7 +1954,7 @@ export default function FinancialReportPage() {
                               </div>
                               
                               <div className="border-t border-slate-200/60 pt-3 mt-4 flex items-start space-x-2 text-[9.5px] font-bold text-slate-400">
-                                <span>â„¹ï¸</span>
+                                 <span>ℹ️</span>
                                 <p className="leading-relaxed">This predictive financial modeling forecast recalculates instantly inside your active workspace session when using simulative sandbox or elapsed month selectors.</p>
                               </div>
                             </div>
@@ -2095,7 +2108,7 @@ export default function FinancialReportPage() {
                               disabled={txnPage === 1}
                               className="px-3.5 py-1.5 bg-white border border-slate-200 rounded-xl text-[10px] font-black text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white transition-all shadow-sm flex items-center gap-1.5"
                             >
-                              â—€ Prev
+                              ◀ Prev
                             </button>
                             <div className="flex items-center gap-1">
                               {Array.from({ length: totalTxnPages }).map((_, i) => {
@@ -2122,7 +2135,7 @@ export default function FinancialReportPage() {
                               disabled={txnPage === totalTxnPages}
                               className="px-3.5 py-1.5 bg-white border border-slate-200 rounded-xl text-[10px] font-black text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white transition-all shadow-sm flex items-center gap-1.5"
                             >
-                              Next â–¶
+                              Next ▶
                             </button>
                           </div>
                         </div>
@@ -2165,61 +2178,67 @@ export default function FinancialReportPage() {
                         />
                         {/* Drawer Panel */}
                         <motion.div
-                          className="relative w-full max-w-xl bg-slate-950 border-l border-slate-800 shadow-2xl overflow-y-auto"
+                          ref={drawerRef}
+                          style={{
+                            marginTop: `${Math.max(20, drawerTopPosition)}px`,
+                            maxHeight: `calc(100vh - ${Math.max(20, drawerTopPosition)}px - 40px)`
+                          }}
+                          className="relative w-full max-w-3xl bg-white border border-slate-200 shadow-2xl flex flex-col rounded-3xl mr-6 mb-6 overflow-hidden"
                           initial={{ x: '100%' }}
                           animate={{ x: 0 }}
                           exit={{ x: '100%' }}
                           transition={{ type: 'spring', damping: 30, stiffness: 300 }}
                         >
                           {/* Drawer Header */}
-                          <div className="px-6 py-5 border-b border-slate-800 bg-gradient-to-r from-slate-950 to-slate-900">
+                          <div className="px-6 py-5 border-b border-slate-200 bg-slate-50">
                             <div className="flex items-center justify-between">
                               <div>
-                                <span className="text-[9px] bg-indigo-900/60 text-indigo-300 font-black px-2 py-0.5 rounded border border-indigo-700/40 uppercase tracking-widest">
+                                <span className="text-[9px] bg-indigo-50 text-indigo-700 font-black px-2 py-0.5 rounded border border-indigo-200 uppercase tracking-widest">
                                   {cat.voteCode}-{cat.voteActivity}
                                 </span>
-                                <h2 className="text-lg font-black text-white mt-2">{cat.categoryName}</h2>
-                                <p className="text-[10px] text-slate-400 font-bold mt-0.5">Backup justification and procurement drivers</p>
+                                <h2 className="text-lg font-black text-slate-800 mt-2">{cat.categoryName}</h2>
+                                <p className="text-[10px] text-slate-550 font-bold mt-0.5">Backup justification and procurement drivers</p>
                               </div>
                               <button
                                 onClick={() => setActiveDrawerId(null)}
-                                className="text-slate-500 hover:text-white text-xl font-bold transition-colors p-1"
+                                className="text-slate-400 hover:text-slate-600 text-xl font-bold transition-colors p-1"
                               >
-                                âœ•
+                                ✖
                               </button>
                             </div>
                           </div>
 
                           {/* Drawer Body */}
-                          <div className="px-6 py-5 space-y-6">
+                          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
 
                     {/* KPI Breakdown */}
-                    <div className="grid grid-cols-3 gap-4 bg-slate-950/50 p-4 border border-slate-800/80 rounded-2xl">
-                      <div className="text-center border-r border-slate-800">
-                        <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Allocation</span>
-                        <span className="text-sm font-extrabold text-white mt-1 block">{formatCurrency(currentAllocation).replace('MYR', 'RM')}</span>
+                    <div className="grid grid-cols-3 gap-4 bg-slate-50 p-4 border border-slate-200 rounded-2xl">
+                      <div className="text-center border-r border-slate-200">
+                        <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">Allocation</span>
+                        <span className="text-sm font-extrabold text-slate-800 mt-1 block">{formatCurrency(currentAllocation).replace('MYR', 'RM')}</span>
                       </div>
-                      <div className="text-center border-r border-slate-800">
-                        <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Avg Burn</span>
-                        <span className="text-sm font-extrabold text-indigo-300 mt-1 block">{formatCurrency(avgMonthlyUse).replace('MYR', 'RM')}/mo</span>
+                      <div className="text-center border-r border-slate-200">
+                        <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">Avg Burn</span>
+                        <span className="text-sm font-extrabold text-indigo-650 mt-1 block">{formatCurrency(avgMonthlyUse).replace('MYR', 'RM')}/mo</span>
                       </div>
                       <div className="text-center">
-                        <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">EOY Proj Spend</span>
-                        <span className="text-sm font-extrabold text-white mt-1 block">{formatCurrency(eoyProjectedSpend).replace('MYR', 'RM')}</span>
+                        <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">EOY Proj Spend</span>
+                        <span className="text-sm font-extrabold text-slate-800 mt-1 block">{formatCurrency(eoyProjectedSpend).replace('MYR', 'RM')}</span>
                       </div>
                     </div>
 
                      {/* Itemized Justifications (The "Why" Backup) */}
                     <div className="space-y-5">
-                      <h3 className="text-xs uppercase font-extrabold tracking-widest text-slate-400">Procurement & Itemized Driver Breakdown</h3>
+                      <h3 className="text-xs uppercase font-black tracking-widest text-slate-500">Procurement & Itemized Driver Breakdown</h3>
                       
                       {(() => {
                         // Dynamically look up real items in reportData that belong to this code or department
                         const matchingRealItems = reportData 
                           ? reportData.topItems.filter(item => {
-                              const deptName = item.department.toLowerCase();
-                              const catCode = item.voteCode;
-                              const normCat = item.category.toLowerCase();
+                              if (!item) return false;
+                              const deptName = (item.department || '').toLowerCase();
+                              const catCode = item.voteCode || '';
+                              const normCat = (item.category || '').toLowerCase();
 
                               if (cat.voteCode === 'Nephrology' && deptName.includes('nephrology')) return true;
                               if (cat.voteCode === 'Radiology & Radiography' && deptName.includes('radiology')) return true;
@@ -2244,31 +2263,32 @@ export default function FinancialReportPage() {
                           ? matchingRealItems.map((dbItem, index) => {
                               const baseJust = cat.justifications[0] || { priority: 'HIGH', reason: 'High demand and critical caseload increase in specialized ward.' };
                               // Determine dynamic unit price
-                              const qty = dbItem.quantity || 1;
-                              const unitPrice = dbItem.totalSpent / qty;
+                              const qty = typeof dbItem.quantity === 'number' && dbItem.quantity > 0 ? dbItem.quantity : 1;
+                              const totalSpent = typeof dbItem.totalSpent === 'number' ? dbItem.totalSpent : 0;
+                              const unitPrice = totalSpent / qty;
 
                               return {
                                 id: `db-item-${index}`,
                                 code: dbItem.itemCode || 'N/A',
-                                name: dbItem.itemName,
+                                name: dbItem.itemName || 'Unnamed Item',
                                 monthlyConsumption: `${Math.round(qty / elapsedMonths).toLocaleString()} units / month`,
-                                reason: `${baseJust.reason} Dynamic ledger tracking confirms a total spent of ${formatCurrency(dbItem.totalSpent).replace('MYR', 'RM')} across ${qty.toLocaleString()} units at RM ${unitPrice.toFixed(2)}/unit.`,
-                                addedCost: dbItem.totalSpent * 0.35, // Projected extra need
+                                reason: `${baseJust.reason} Dynamic ledger tracking confirms a total spent of ${formatCurrency(totalSpent).replace('MYR', 'RM')} across ${qty.toLocaleString()} units at RM ${unitPrice.toFixed(2)}/unit.`,
+                                addedCost: totalSpent * 0.35, // Projected extra need
                                 priority: baseJust.priority
                               };
                             })
                           : cat.justifications;
 
                         return itemsToShow.map((item: any) => (
-                          <div key={item.id} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden hover:border-slate-700/60 transition-colors">
+                          <div key={item.id} className="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden hover:border-slate-300/80 transition-colors">
                             
                             {/* Item Header */}
-                            <div className="bg-slate-950/60 px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+                            <div className="bg-slate-100/80 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
                               <div>
-                                <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-black border border-slate-700/50">
+                                <span className="text-[10px] bg-white text-slate-700 px-2 py-0.5 rounded font-black border border-slate-200">
                                   {item.code}
                                 </span>
-                                <span className="text-sm font-extrabold text-white ml-2">{item.name}</span>
+                                <span className="text-sm font-extrabold text-slate-800 ml-2">{item.name}</span>
                               </div>
                               
                               <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border tracking-wider ${
@@ -2285,23 +2305,23 @@ export default function FinancialReportPage() {
                             </div>
 
                             {/* Item Body */}
-                            <div className="p-4 space-y-3">
+                            <div className="p-4 space-y-3 bg-white">
                               <div className="grid grid-cols-2 gap-4">
                                 <div>
                                   <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">Real Monthly Rate</span>
-                                  <span className="text-xs font-semibold text-slate-350 mt-0.5 block">{item.monthlyConsumption}</span>
+                                  <span className="text-xs font-bold text-slate-700 mt-0.5 block">{item.monthlyConsumption}</span>
                                 </div>
                                 <div>
                                   <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">Estimated Added Cost</span>
-                                  <span className="text-xs font-black text-rose-450 mt-0.5 block">
+                                  <span className="text-xs font-extrabold text-rose-650 mt-0.5 block font-mono">
                                     {item.addedCost > 0 ? formatCurrency(item.addedCost).replace('MYR', 'RM') : 'RM 0 (Covered)'}
                                   </span>
                                 </div>
                               </div>
 
-                              <div className="border-t border-slate-800 pt-3">
+                              <div className="border-t border-slate-100 pt-3">
                                 <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">Primary Purchasing Backing Justification</span>
-                                <p className="text-xs font-medium text-slate-350 mt-1 leading-relaxed">
+                                <p className="text-xs font-semibold text-slate-650 mt-1 leading-relaxed">
                                   {item.reason}
                                 </p>
                               </div>
@@ -2315,10 +2335,10 @@ export default function FinancialReportPage() {
                   </div>
 
                   {/* Drawer Footer */}
-                  <div className="px-6 py-4 border-t border-slate-800 bg-slate-950 flex justify-end space-x-3">
+                  <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end space-x-3">
                     <button
                       onClick={() => setActiveDrawerId(null)}
-                      className="bg-slate-800 text-slate-300 border border-slate-700 px-5 py-2.5 rounded-xl text-xs font-bold hover:bg-slate-700 transition-colors"
+                      className="bg-white text-slate-600 border border-slate-200 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-slate-50 transition-colors"
                     >
                       Dismiss Panel
                     </button>

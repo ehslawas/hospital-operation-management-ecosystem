@@ -29,8 +29,11 @@ import {
   BadgeCheck,
   Landmark,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Upload
 } from 'lucide-react'
+import { parsePaymentExcel } from '@/modules/procurement/services/paymentExcelParser'
+import type { PaymentExcelRow, ParseError } from '@/modules/procurement/services/paymentExcelParser'
 
 export const PaymentPage: React.FC = () => {
   const { user } = useAuthStore()
@@ -47,6 +50,7 @@ export const PaymentPage: React.FC = () => {
   const [search, setSearch] = useState('')
   const [voteCodeFilter, setVoteCodeFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
+  const [excelStatusFilter, setExcelStatusFilter] = useState('')
 
   // Pagination
   const [page, setPage] = useState(1)
@@ -64,9 +68,113 @@ export const PaymentPage: React.FC = () => {
   const [effectiveDate, setEffectiveDate] = useState('')
   const [creditNote, setCreditNote] = useState('')
   const [dateSentToAdmin, setDateSentToAdmin] = useState('')
+  const [receivedDate, setReceivedDate] = useState('')
+  const [invoiceDate, setInvoiceDate] = useState('')
   const [egrnReference, setEgrnReference] = useState('')
   const [invoiceNumber, setInvoiceNumber] = useState('')
   const [confirmPHISChecked, setConfirmPHISChecked] = useState(false)
+
+  // Excel Upload States
+  const [paymentExcelData, setPaymentExcelData] = useState<Map<string, PaymentExcelRow>>(() => {
+    try {
+      const stored = localStorage.getItem('paymentExcelData')
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        return new Map(parsed)
+      }
+    } catch (e) {
+      console.error('Failed to load stored Excel data:', e)
+    }
+    return new Map()
+  })
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+  const [uploadedFileName, setUploadedFileName] = useState('')
+  const [uploadProgress, setUploadProgress] = useState({ status: '', percent: 0 })
+  const [uploadPreviewRows, setUploadPreviewRows] = useState<PaymentExcelRow[]>([])
+  const [uploadErrors, setUploadErrors] = useState<ParseError[]>([])
+  const [isParsingExcel, setIsParsingExcel] = useState(false)
+  const [modalFilter, setModalFilter] = useState<'all' | 'matched' | 'not_found' | 'error'>('all')
+  const [isBulkAuthorizing, setIsBulkAuthorizing] = useState(false)
+
+  const modalCounts = useMemo(() => {
+    let matched = 0
+    let notFound = 0
+    uploadPreviewRows.forEach(row => {
+      const normalizedLpoKey = (row.lpoNumber || '').toUpperCase().trim().replace(/\s+/g, '')
+      const isMatched = lpos.some(l => (l.lpo_number || '').toUpperCase().trim().replace(/\s+/g, '') === normalizedLpoKey)
+      if (isMatched) matched++
+      else notFound++
+    })
+    return {
+      all: uploadPreviewRows.length,
+      matched,
+      notFound,
+      errors: uploadErrors.length
+    }
+  }, [uploadPreviewRows, lpos, uploadErrors])
+
+  const filteredPreviewRows = useMemo(() => {
+    return uploadPreviewRows.filter(row => {
+      const normalizedLpoKey = (row.lpoNumber || '').toUpperCase().trim().replace(/\s+/g, '')
+      const isMatched = lpos.some(l => (l.lpo_number || '').toUpperCase().trim().replace(/\s+/g, '') === normalizedLpoKey)
+      
+      if (modalFilter === 'matched') return isMatched
+      if (modalFilter === 'not_found') return !isMatched
+      if (modalFilter === 'error') return false
+      return true
+    })
+  }, [uploadPreviewRows, modalFilter, lpos])
+
+  // Excel File Upload Handler
+  const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploadedFileName(file.name)
+    setIsParsingExcel(true)
+    setUploadErrors([])
+    setUploadPreviewRows([])
+    setUploadProgress({ status: 'Starting parse...', percent: 0 })
+    setModalFilter('all')
+    setIsUploadModalOpen(true)
+
+    try {
+      const result = await parsePaymentExcel(file, (status, percent) => {
+        setUploadProgress({ status, percent })
+      })
+
+      setUploadPreviewRows(result.rows)
+      setUploadErrors(result.errors)
+    } catch (err: any) {
+      console.error('Error parsing payment Excel:', err)
+      setUploadErrors([{
+        row: 0,
+        column: 'File',
+        message: err.message || 'Failed to parse Excel file. Ensure it is a valid Excel format.',
+        severity: 'error'
+      }])
+    } finally {
+      setIsParsingExcel(false)
+      // Reset input value to allow uploading same file again
+      e.target.value = ''
+    }
+  }
+
+  const handleApplyExcelData = () => {
+    const newMap = new Map<string, PaymentExcelRow>()
+    uploadPreviewRows.forEach(row => {
+      const normalizedKey = (row.lpoNumber || '').toUpperCase().trim().replace(/\s+/g, '')
+      newMap.set(normalizedKey, row)
+    })
+    setPaymentExcelData(newMap)
+    try {
+      localStorage.setItem('paymentExcelData', JSON.stringify(Array.from(newMap.entries())))
+    } catch (e) {
+      console.error('Failed to store Excel data:', e)
+    }
+    setIsUploadModalOpen(false)
+    toast.success('Excel Data Loaded', `${newMap.size} payment record(s) applied successfully. Relevant settlement details will auto-fill on clicking Settle.`)
+  }
 
   // Load LPOs
   const loadLpos = useCallback(async () => {
@@ -199,9 +307,16 @@ export const PaymentPage: React.FC = () => {
       if (voteCodeFilter && l.vote_code !== voteCodeFilter) return false
       if (categoryFilter && l.category !== categoryFilter) return false
 
+      // Excel status filter
+      if (excelStatusFilter) {
+        const hasExcel = paymentExcelData.has((l.lpo_number || '').toUpperCase().trim().replace(/\s+/g, ''))
+        if (excelStatusFilter === 'ready' && !hasExcel) return false
+        if (excelStatusFilter === 'not_found' && hasExcel) return false
+      }
+
       return true
     })
-  }, [lpos, activeTab, search, voteCodeFilter, categoryFilter])
+  }, [lpos, activeTab, search, voteCodeFilter, categoryFilter, excelStatusFilter, paymentExcelData])
 
   // Pagination bounds
   const paginatedLpos = useMemo(() => {
@@ -228,6 +343,8 @@ export const PaymentPage: React.FC = () => {
     setEffectiveDate(todayStr)
     setCreditNote('')
     setDateSentToAdmin(todayStr)
+    setReceivedDate(todayStr)
+    setInvoiceDate(todayStr)
     setConfirmPHISChecked(false)
 
     // Prepopulate GRN/Invoice values
@@ -297,6 +414,8 @@ export const PaymentPage: React.FC = () => {
               setEffectiveDate(details.effectiveDate || todayStr)
               setCreditNote(details.creditNote || '')
               setDateSentToAdmin(details.dateSentToAdmin || todayStr)
+              setReceivedDate(details.receivedDate || todayStr)
+              setInvoiceDate(details.invoiceDate || todayStr)
               grnNumberVal = details.egrnReference || grnNumberVal
               invoiceNumberVal = details.invoiceNumber || invoiceNumberVal
               setConfirmPHISChecked(true)
@@ -308,18 +427,45 @@ export const PaymentPage: React.FC = () => {
       }
 
       // Set fallback values if database references are empty (to ensure stunning mock consistency as shown in Photo 2)
-      if (!grnNumberVal) {
-        const lpoDigits = lpo.lpo_number?.replace(/\D/g, '') || ''
-        grnNumberVal = `QRD${lpoDigits.substring(Math.max(0, lpoDigits.length - 7)) || '5887462'}`
-      }
       if (!invoiceNumberVal) {
         invoiceNumberVal = `INV-${lpo.lpo_number}`
       }
 
-      setEgrnReference(grnNumberVal)
+      setEgrnReference(lpo.payment_status === 'paid' ? grnNumberVal : '')
       setInvoiceNumber(invoiceNumberVal)
       setWorkspaceGrn(grnData)
       setWorkspacePenalty(penaltyData)
+
+      // 1. Set System Received Date
+      let systemReceivedDate = todayStr
+      if (grnData && grnData.receipt_date) {
+        systemReceivedDate = grnData.receipt_date.split('T')[0]
+      } else if (lpo.actual_delivery_date) {
+        systemReceivedDate = lpo.actual_delivery_date.split('T')[0]
+      }
+      setReceivedDate(systemReceivedDate)
+
+      // 2. Set default Invoice Date & Payment Date
+      setInvoiceDate(todayStr)
+      setEffectiveDate(todayStr)
+
+      // 3. Override with Excel data if available
+      const normalizedKey = (lpo.lpo_number || '').toUpperCase().trim().replace(/\s+/g, '')
+      const excelRow = paymentExcelData.get(normalizedKey)
+      if (excelRow) {
+        if (excelRow.paymentDate) {
+          setEffectiveDate(excelRow.paymentDate)
+        }
+        if (excelRow.creditNoteAmount !== undefined) {
+          setCreditNote(excelRow.creditNoteAmount > 0 ? String(excelRow.creditNoteAmount) : '')
+        }
+        if (excelRow.invoiceDate) {
+          setInvoiceDate(excelRow.invoiceDate)
+        }
+        if (excelRow.invoiceNo) {
+          setInvoiceNumber(excelRow.invoiceNo)
+        }
+      }
     } catch (err) {
       console.error('Error loading workspace details:', err)
     } finally {
@@ -331,6 +477,113 @@ export const PaymentPage: React.FC = () => {
       setSelectedPoItems(lpo.raw_po.items)
     } else {
       setSelectedPoItems([])
+    }
+  }
+
+  const handleBulkAuthorizeDisbursement = async () => {
+    if (!hospitalId) return
+
+    // Find LPOs that have excel data and are not paid yet
+    const eligibleLpos = lpos.filter(l => {
+      const hasExcel = paymentExcelData.has((l.lpo_number || '').toUpperCase().trim().replace(/\s+/g, ''))
+      const isUnpaid = l.payment_status !== 'paid'
+      return hasExcel && isUnpaid
+    })
+
+    if (eligibleLpos.length === 0) {
+      alert("Tiada LPO yang mempunyai data Excel yang bersedia untuk bayaran pukal.")
+      return
+    }
+
+    const confirmProceed = window.confirm(
+      `Adakah anda pasti untuk meluluskan pembayaran secara pukal bagi ${eligibleLpos.length} LPO yang mempunyai rekod Excel?\n\nStatus pembayaran akan dikemaskini kepada 'Paid'.`
+    )
+    if (!confirmProceed) return
+
+    setIsBulkAuthorizing(true)
+    let successCount = 0
+    let failedCount = 0
+
+    try {
+      const todayStr = new Date().toISOString().split('T')[0]
+      const lpoIds = eligibleLpos.map(l => l.lpo_id)
+
+      // Fetch all goods receipts for these LPOs to get received dates
+      const { data: grs } = await supabase
+        .from('pharmacy_goods_receipts')
+        .select('*')
+        .in('lpo_id', lpoIds)
+
+      const grMap = new Map<string, any>()
+      grs?.forEach(g => {
+        grMap.set(g.lpo_id, g)
+      })
+
+      for (const lpo of eligibleLpos) {
+        const normalizedKey = (lpo.lpo_number || '').toUpperCase().trim().replace(/\s+/g, '')
+        const excelRow = paymentExcelData.get(normalizedKey)
+        if (!excelRow) continue
+
+        // Determine received date
+        const grData = grMap.get(lpo.lpo_id)
+        let systemReceivedDate = todayStr
+        if (grData && grData.receipt_date) {
+          systemReceivedDate = grData.receipt_date.split('T')[0]
+        } else if (lpo.actual_delivery_date) {
+          systemReceivedDate = lpo.actual_delivery_date.split('T')[0]
+        }
+
+        const effectiveDateVal = excelRow.paymentDate || todayStr
+        const invoiceDateVal = excelRow.invoiceDate || todayStr
+        const creditNoteVal = excelRow.creditNoteAmount && excelRow.creditNoteAmount > 0 ? String(excelRow.creditNoteAmount) : ''
+        const invoiceNumberVal = excelRow.invoiceNo || `INV-${lpo.lpo_number}`
+        const egrnReferenceVal = '' // Always blank by default as requested
+
+        // 1. Update LPO Status to Paid
+        const result = await updateLPOPaymentStatus(lpo.lpo_id, 'paid')
+        if (result.error) {
+          failedCount++
+          continue
+        }
+
+        // 2. Prepare settlement JSON payload
+        const paymentDetails = {
+          effectiveDate: effectiveDateVal,
+          creditNote: creditNoteVal,
+          dateSentToAdmin: invoiceDateVal, // compatibility
+          receivedDate: systemReceivedDate,
+          invoiceDate: invoiceDateVal,
+          egrnReference: egrnReferenceVal,
+          invoiceNumber: invoiceNumberVal,
+          paymentMethod: 'eft',
+          confirmPHISLedger: true,
+          disbursedAmount: lpo.total_amount,
+          settledAt: new Date().toISOString(),
+          settledBy: user?.full_name || user?.email || 'Accounts Officer'
+        }
+
+        const notesText = `[SETTLEMENT_JSON]${JSON.stringify(paymentDetails)}[END_JSON]\n\nPayment settled successfully.\n- Effective Date (Payment Date): ${effectiveDateVal}\n- Invoice Number: ${invoiceNumberVal}\n- Invoice Date: ${invoiceDateVal}\n- Received Date: ${systemReceivedDate}\n- eGRN: ${egrnReferenceVal}\n- Credit Note: ${creditNoteVal || '—'}`
+
+        // 3. Add log entry
+        await supabase.from('approval_logs').insert({
+          entity_type: 'purchase_order',
+          entity_id: lpo.po_id,
+          action: 'approved',
+          approved_by: user?.id,
+          notes: notesText,
+          created_at: new Date().toISOString()
+        })
+
+        successCount++
+      }
+
+      alert(`Proses bayaran pukal selesai!\n- Berjaya diluluskan: ${successCount} LPO\n- Gagal: ${failedCount}`)
+      void loadLpos()
+    } catch (err: any) {
+      console.error(err)
+      alert("Ralat berlaku ketika memproses bayaran pukal: " + (err.message || String(err)))
+    } finally {
+      setIsBulkAuthorizing(false)
     }
   }
 
@@ -456,13 +709,54 @@ export const PaymentPage: React.FC = () => {
             </div>
           </div>
 
-          <button 
-            onClick={loadLpos}
-            className="flex items-center gap-2 px-4 py-2 text-xs font-bold bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-xl border border-slate-200/85 transition-all duration-200 active:scale-95 shadow-sm"
-          >
-            <IconRefresh className="w-3.5 h-3.5 text-slate-500" />
-            Reload Data
-          </button>
+          <div className="flex items-center gap-2">
+            {paymentExcelData.size > 0 && (
+              <button
+                onClick={handleBulkAuthorizeDisbursement}
+                disabled={isBulkAuthorizing}
+                className="flex items-center gap-2 px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl border border-emerald-650 transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-emerald-600/10 animate-fade-in"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-emerald-150" />
+                {isBulkAuthorizing ? 'Authorizing...' : 'Bulk Authorize'}
+              </button>
+            )}
+
+            <input
+              type="file"
+              id="payment-excel-upload"
+              accept=".xlsx,.xls"
+              className="hidden"
+              onChange={handleExcelUpload}
+            />
+            <button
+              onClick={() => document.getElementById('payment-excel-upload')?.click()}
+              className="flex items-center gap-2 px-4 py-2 text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl border border-indigo-650 transition-all duration-200 active:scale-95 shadow-sm shadow-indigo-600/10"
+            >
+              <Upload className="w-3.5 h-3.5 text-indigo-150" />
+              Upload Excel
+            </button>
+
+            {paymentExcelData.size > 0 && (
+              <button
+                onClick={() => {
+                  setPaymentExcelData(new Map())
+                  localStorage.removeItem('paymentExcelData')
+                  toast.success('Excel Data Cleared', 'Excel payment mappings have been cleared.')
+                }}
+                className="flex items-center gap-2 px-3 py-2 text-xs font-bold bg-amber-50 hover:bg-amber-105 border border-amber-200 text-amber-700 rounded-xl transition-all duration-200 active:scale-95 shadow-sm"
+              >
+                Clear Excel
+              </button>
+            )}
+
+            <button 
+              onClick={loadLpos}
+              className="flex items-center gap-2 px-4 py-2 text-xs font-bold bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-xl border border-slate-200/85 transition-all duration-200 active:scale-95 shadow-sm"
+            >
+              <IconRefresh className="w-3.5 h-3.5 text-slate-500" />
+              Reload Data
+            </button>
+          </div>
         </div>
 
         {/* Stats Cards Row */}
@@ -588,6 +882,19 @@ export const PaymentPage: React.FC = () => {
                   ))}
                 </select>
               </div>
+
+              <div className="relative">
+                <IconFilter className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                <select
+                  value={excelStatusFilter}
+                  onChange={(e) => { setExcelStatusFilter(e.target.value); setPage(1) }}
+                  className="pl-8 pr-8 py-2 text-xs font-bold bg-white text-slate-700 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all duration-150 appearance-none shadow-sm cursor-pointer"
+                >
+                  <option value="">All Excel Mappings</option>
+                  <option value="ready">Excel Mapped (READY)</option>
+                  <option value="not_found">Excel Unmapped (NOT FOUND)</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -630,6 +937,7 @@ export const PaymentPage: React.FC = () => {
                     <th className="px-6 py-4.5 font-bold tracking-widest">Supplier Name</th>
                     <th className="px-6 py-4.5 font-bold tracking-widest">Category & Vote Code</th>
                     <th className="px-6 py-4.5 font-bold tracking-widest">LPO Date</th>
+                    <th className="px-6 py-4.5 text-center font-bold tracking-widest">Excel Status</th>
                     <th className="px-6 py-4.5 text-right font-bold tracking-widest">Invoice Amount</th>
                     <th className="px-6 py-4.5 text-center font-bold tracking-widest">Payment Status</th>
                     <th className="px-6 py-4.5 text-right font-bold tracking-widest">Actions</th>
@@ -713,6 +1021,12 @@ export const PaymentPage: React.FC = () => {
                               <span className="text-[9px] text-slate-600 font-mono font-bold px-1.5 py-0.5 border border-slate-200 bg-slate-100 rounded-md shadow-3xs uppercase">
                                 LPO
                               </span>
+                              {paymentExcelData.has((lpo.lpo_number || '').toUpperCase().trim().replace(/\s+/g, '')) && (
+                                <span className="inline-flex items-center gap-1 text-[8.5px] text-amber-700 font-extrabold px-1.5 py-0.5 border border-amber-200 bg-amber-50 rounded-md shadow-3xs uppercase tracking-wide">
+                                  <Sparkles className="w-2.5 h-2.5 text-amber-600 animate-pulse" />
+                                  Auto-fill Ready
+                                </span>
+                              )}
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="font-mono bg-indigo-50/70 text-indigo-700 border border-indigo-100/50 px-1.5 py-0.5 rounded text-[10px] font-bold shadow-3xs">
@@ -756,6 +1070,18 @@ export const PaymentPage: React.FC = () => {
                             <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
                             <span className="font-extrabold text-[12.5px] tracking-tight">{lpoDate.date}</span>
                           </div>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          {paymentExcelData.has((lpo.lpo_number || '').toUpperCase().trim().replace(/\s+/g, '')) ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-250/50 text-amber-700 text-[10px] font-black tracking-widest rounded-full shadow-3xs">
+                              <Sparkles className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
+                              READY
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-50 border border-slate-200 text-slate-400 text-[10px] font-black tracking-widest rounded-full shadow-3xs">
+                              NOT FOUND
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-5 text-right tabular-nums">
                           <div className="inline-flex items-baseline justify-end w-full">
@@ -1074,11 +1400,55 @@ export const PaymentPage: React.FC = () => {
                       <p className="text-[10px] text-slate-400 font-semibold">Enter the payment execution details below.</p>
                     </div>
 
+                    {selectedLpo && paymentExcelData.has((selectedLpo.lpo_number || '').toUpperCase().trim().replace(/\s+/g, '')) && (
+                      <div className="bg-emerald-50 border border-emerald-250/60 rounded-xl p-3 flex items-start gap-2.5 shadow-2xs">
+                        <Sparkles className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wide block">
+                            Auto-filled from Excel
+                          </span>
+                          <p className="text-[9.5px] font-semibold text-emerald-600 leading-normal">
+                            Values have been automatically retrieved from the uploaded payment file.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="space-y-4.5">
-                      {/* Effective Date input */}
+                      {/* Received Date (System) */}
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                          Effective Date
+                          Received Date (System)
+                        </label>
+                        <input
+                          type="date"
+                          value={receivedDate}
+                          disabled={true}
+                          className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 text-slate-500 rounded-xl outline-none transition-all font-semibold cursor-not-allowed"
+                        />
+                      </div>
+
+                      {/* Invoice Date */}
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                          Invoice Date
+                        </label>
+                        <input
+                          type="date"
+                          value={invoiceDate}
+                          onChange={(e) => {
+                            setInvoiceDate(e.target.value)
+                            setDateSentToAdmin(e.target.value)
+                          }}
+                          disabled={selectedLpo.payment_status === 'paid'}
+                          className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 disabled:bg-slate-50 disabled:text-slate-500 transition-all font-semibold"
+                        />
+                      </div>
+
+                      {/* Effective Date (Payment Date) input */}
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                          Effective Date (Payment Date)
                         </label>
                         <input
                           type="date"
@@ -1101,20 +1471,6 @@ export const PaymentPage: React.FC = () => {
                           onChange={(e) => setCreditNote(e.target.value)}
                           disabled={selectedLpo.payment_status === 'paid'}
                           className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 disabled:bg-slate-50 disabled:text-slate-500 transition-all font-semibold placeholder:text-slate-300"
-                        />
-                      </div>
-
-                      {/* Date Sent to Admin */}
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                          Date Sent to Admin
-                        </label>
-                        <input
-                          type="date"
-                          value={dateSentToAdmin}
-                          onChange={(e) => setDateSentToAdmin(e.target.value)}
-                          disabled={selectedLpo.payment_status === 'paid'}
-                          className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 disabled:bg-slate-50 disabled:text-slate-500 transition-all font-semibold"
                         />
                       </div>
 
@@ -1215,6 +1571,227 @@ export const PaymentPage: React.FC = () => {
 
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Excel Upload Preview Modal */}
+      {isUploadModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 font-sans">
+          {/* Backdrop Blur */}
+          <div 
+            onClick={() => setIsUploadModalOpen(false)}
+            className="absolute inset-0 bg-slate-950/45 backdrop-blur-xs transition-opacity duration-300"
+          />
+
+          {/* Modal content */}
+          <div className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl flex flex-col z-10 overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200 max-h-[85vh]">
+            {/* Header */}
+            <div className="bg-slate-900 p-5 px-6 text-white flex items-center justify-between flex-shrink-0">
+              <div className="space-y-1">
+                <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest block">Consolidated File Processing</span>
+                <h3 className="text-base font-black tracking-tight flex items-center gap-2">
+                  <IconFileText className="w-4.5 h-4.5 text-indigo-400" />
+                  Payment Excel Upload Preview
+                </h3>
+              </div>
+              <button 
+                onClick={() => setIsUploadModalOpen(false)}
+                className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-150">
+                <div>
+                  <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">File details</h4>
+                  <p className="text-sm font-extrabold text-indigo-600 mt-0.5">{uploadedFileName}</p>
+                </div>
+                <div className="flex gap-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  <div>
+                    Parsed: <span className="text-slate-900 font-black">{uploadPreviewRows.length}</span>
+                  </div>
+                  <div>
+                    Errors: <span className={cn("font-black", uploadErrors.length > 0 ? "text-red-500" : "text-emerald-600")}>{uploadErrors.length}</span>
+                  </div>
+                </div>
+              </div>
+
+              {!isParsingExcel && (uploadPreviewRows.length > 0 || uploadErrors.length > 0) && (
+                <div className="flex flex-wrap items-center gap-1 bg-slate-55 p-1 rounded-2xl border border-slate-200 shadow-sm self-start">
+                  <button
+                    onClick={() => setModalFilter('all')}
+                    className={cn(
+                      "px-4 py-2 text-xs font-bold rounded-xl transition-all duration-200 uppercase tracking-wider",
+                      modalFilter === 'all' 
+                        ? "bg-slate-900 text-white shadow-md shadow-slate-950/10" 
+                        : "text-slate-500 hover:text-slate-950"
+                    )}
+                  >
+                    All ({modalCounts.all})
+                  </button>
+                  <button
+                    onClick={() => setModalFilter('matched')}
+                    className={cn(
+                      "px-4 py-2 text-xs font-bold rounded-xl transition-all duration-200 uppercase tracking-wider",
+                      modalFilter === 'matched' 
+                        ? "bg-emerald-600 text-white shadow-md shadow-emerald-505/10" 
+                        : "text-slate-500 hover:text-slate-950"
+                    )}
+                  >
+                    Matched ({modalCounts.matched})
+                  </button>
+                  <button
+                    onClick={() => setModalFilter('not_found')}
+                    className={cn(
+                      "px-4 py-2 text-xs font-bold rounded-xl transition-all duration-200 uppercase tracking-wider",
+                      modalFilter === 'not_found' 
+                        ? "bg-amber-600 text-white shadow-md shadow-amber-505/10" 
+                        : "text-slate-500 hover:text-slate-950"
+                    )}
+                  >
+                    Not Found ({modalCounts.notFound})
+                  </button>
+                  <button
+                    onClick={() => setModalFilter('error')}
+                    className={cn(
+                      "px-4 py-2 text-xs font-bold rounded-xl transition-all duration-200 uppercase tracking-wider",
+                      modalFilter === 'error' 
+                        ? "bg-red-600 text-white shadow-md shadow-red-505/10" 
+                        : "text-slate-500 hover:text-slate-950"
+                    )}
+                  >
+                    Errors / Warnings ({modalCounts.errors})
+                  </button>
+                </div>
+              )}
+
+              {isParsingExcel ? (
+                <div className="py-16 flex flex-col items-center justify-center gap-3">
+                  <Spinner size="lg" className="text-indigo-600" />
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest animate-pulse">
+                    {uploadProgress.status} ({uploadProgress.percent}%)
+                  </p>
+                </div>
+              ) : uploadErrors.length > 0 && uploadPreviewRows.length === 0 ? (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-xs space-y-1.5">
+                  <h5 className="font-extrabold uppercase tracking-wider flex items-center gap-1.5">
+                    <AlertCircle className="w-4 h-4 text-red-650" />
+                    Parsing Error
+                  </h5>
+                  <ul className="list-disc pl-5 space-y-1 font-medium">
+                    {uploadErrors.map((err, idx) => (
+                      <li key={idx}>
+                        {err.row > 0 ? `Row ${err.row}: ` : ''}{err.message}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {uploadErrors.length > 0 && (modalFilter === 'all' || modalFilter === 'error') && (
+                    <div className="p-4 bg-amber-50 border border-amber-250 rounded-2xl text-amber-800 text-xs space-y-1.5 max-h-60 overflow-y-auto">
+                      <h5 className="font-extrabold uppercase tracking-wider flex items-center gap-1.5">
+                        <AlertCircle className="w-4 h-4 text-amber-650" />
+                        Warnings during parsing ({uploadErrors.length})
+                      </h5>
+                      <ul className="list-disc pl-5 space-y-1 font-semibold">
+                        {uploadErrors.map((err, idx) => (
+                          <li key={idx}>
+                            Row {err.row} ({err.column || 'General'}): {err.message}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {modalFilter !== 'error' && (
+                    <div className="border border-slate-150 rounded-2xl overflow-hidden">
+                      {filteredPreviewRows.length === 0 ? (
+                        <div className="p-12 text-center text-slate-400 font-bold uppercase tracking-wider bg-white">
+                          No matching records found for this filter.
+                        </div>
+                      ) : (
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50/70 border-b border-slate-150 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                              <th className="px-4 py-3 font-bold tracking-widest">LPO Number</th>
+                              <th className="px-4 py-3 font-bold tracking-widest">Supplier</th>
+                              <th className="px-4 py-3 font-bold tracking-widest">Payment Date</th>
+                              <th className="px-4 py-3 font-bold tracking-widest">Invoice Details</th>
+                              <th className="px-4 py-3 text-right font-bold tracking-widest">Amount (RM)</th>
+                              <th className="px-4 py-3 text-center font-bold tracking-widest">Match DB</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-xs font-semibold text-slate-700 bg-white">
+                            {filteredPreviewRows.map((row, idx) => {
+                              const normalizedLpoKey = (row.lpoNumber || '').toUpperCase().trim().replace(/\s+/g, '')
+                              const isMatched = lpos.some(l => (l.lpo_number || '').toUpperCase().trim().replace(/\s+/g, '') === normalizedLpoKey)
+                              
+                              return (
+                                <tr key={idx} className="hover:bg-slate-50/50">
+                                  <td className="px-4 py-3.5 font-extrabold text-slate-900 font-mono">
+                                    {row.lpoNumber}
+                                  </td>
+                                  <td className="px-4 py-3.5 truncate max-w-[150px] uppercase font-bold text-slate-500">
+                                    {row.supplierName || '—'}
+                                  </td>
+                                  <td className="px-4 py-3.5">
+                                    {row.paymentDate}
+                                  </td>
+                                  <td className="px-4 py-3.5 space-y-0.5">
+                                    <span className="font-bold text-slate-800 font-mono block">{row.invoiceNo}</span>
+                                    <span className="text-[10px] text-slate-400">{row.invoiceDate}</span>
+                                  </td>
+                                  <td className="px-4 py-3.5 text-right tabular-nums font-black text-slate-900">
+                                    {row.paymentAmount > 0 ? formatCurrency(row.paymentAmount).replace('MYR', '').replace('RM', '').trim() : '—'}
+                                  </td>
+                                  <td className="px-4 py-3.5 text-center">
+                                    {isMatched ? (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 border border-emerald-250 text-emerald-700 text-[9px] font-black uppercase tracking-wider rounded-md">
+                                        Matched
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 border border-amber-250 text-amber-700 text-[9px] font-black uppercase tracking-wider rounded-md" title="LPO number not found in local system LPO list">
+                                        Not Found
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="bg-slate-50 p-5 px-6 border-t border-slate-150 flex items-center justify-end gap-3 flex-shrink-0">
+              <button
+                onClick={() => setIsUploadModalOpen(false)}
+                className="px-4 py-2 border border-slate-250 hover:bg-slate-105 font-bold text-xs rounded-xl text-slate-600 transition-all uppercase tracking-wider bg-white"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={isParsingExcel || uploadPreviewRows.length === 0}
+                onClick={handleApplyExcelData}
+                className={cn(
+                  "px-5 py-2.5 font-black text-xs rounded-xl text-white shadow-md transition-all flex items-center gap-2 uppercase tracking-widest",
+                  isParsingExcel || uploadPreviewRows.length === 0
+                    ? "bg-slate-400 cursor-not-allowed" 
+                    : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/10 active:scale-95"
+                )}
+              >
+                Apply to Payment Table
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -23,6 +23,9 @@ import GoodsReceivingForm from './GoodsReceivingForm'
 import ExcelUploadModal from './ExcelUploadModal'
 import { cn } from '@/lib/utils'
 import { ChevronRight, Sparkles } from 'lucide-react'
+import { supabase } from '@/services/supabase'
+import { createSupplierAssessment, updateLPOPaymentStatus } from '@/services/pharmacy/lpoService'
+import { getGoodsReceiptHistory } from '@/services/pharmacy/receivingService'
 
 const ReceivingPage = () => {
   const navigate = useNavigate()
@@ -32,7 +35,7 @@ const ReceivingPage = () => {
   const [orders, setOrders] = useState<PurchaseOrderWithRelations[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [counts, setCounts] = useState({ fullyReceived: 0, partialReceived: 0, totalReceipts: 0 })
+  const [counts, setCounts] = useState({ fullyReceived: 0, partialReceived: 0, totalReceipts: 0, assessedLpos: 0 })
 
   // Filters
   const [search, setSearch] = useState('')
@@ -47,6 +50,235 @@ const ReceivingPage = () => {
   const [selectedPoId, setSelectedPoId] = useState<string | null>(null)
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [isExcelUploadOpen, setIsExcelUploadOpen] = useState(false)
+  const [isAutoFilling, setIsAutoFilling] = useState(false)
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false)
+
+  const handleBulkProceedToPayment = async () => {
+    if (!hospitalId) return
+
+    const confirmProceed = window.confirm(
+      "Adakah anda pasti untuk memproses bayaran bagi semua LPO yang telah selesai Penilaian Prestasi?\n\nStatus pembayaran akan dikemaskini kepada 'Sent for Payment'."
+    )
+    if (!confirmProceed) return
+
+    setIsProcessingPayment(true)
+    let processedCount = 0
+    let skippedCount = 0
+    let failedCount = 0
+
+    try {
+      // Fetch all POs for this hospital with LPO assessments
+      const { data: poList, error: poError } = await supabase
+        .from('pharmacy_purchase_orders')
+        .select(`
+          id,
+          status,
+          lpo:pharmacy_lpo(
+            id,
+            lpo_number,
+            payment_status,
+            assessments:pharmacy_supplier_assessments(id)
+          )
+        `)
+        .eq('hospital_id', hospitalId)
+        .in('status', ['partial_received', 'completed'])
+
+      if (poError) throw poError
+
+      if (!poList || poList.length === 0) {
+        alert("Tiada LPO ditemui.")
+        setIsProcessingPayment(false)
+        return
+      }
+
+      for (const po of poList) {
+        if (!po.lpo || po.lpo.length === 0) {
+          continue
+        }
+
+        for (const lpo of po.lpo) {
+          const hasAssessments = lpo.assessments && lpo.assessments.length > 0
+          const isEligiblePayment = !lpo.payment_status || lpo.payment_status === 'pending'
+
+          if (hasAssessments && isEligiblePayment) {
+            const res = await updateLPOPaymentStatus(lpo.id, 'sent_for_payment')
+            if (res.error) {
+              failedCount++
+            } else {
+              processedCount++
+            }
+          } else {
+            skippedCount++
+          }
+        }
+      }
+
+      alert(`Proses selesai!\n- Bayaran diproses: ${processedCount} LPO\n- Gagal: ${failedCount}\n- Dilangkau/Sudah diproses: ${skippedCount}`)
+      await loadOrders()
+    } catch (err: any) {
+      console.error(err)
+      alert("Ralat berlaku ketika memproses bayaran: " + (err.message || String(err)))
+    } finally {
+      setIsProcessingPayment(false)
+    }
+  }
+
+  const handleAutoFillAssessments = async () => {
+    if (!hospitalId) return
+    
+    const confirmProceed = window.confirm(
+      "Adakah anda pasti untuk mengisi secara automatik Penilaian Prestasi Pembekal bagi semua pesanan yang bertanda 'Belum'?\n\nPenilaian akan dikira berdasarkan tarikh jangkaan penghantaran dan tarikh penerimaan sebenar."
+    )
+    if (!confirmProceed) return
+
+    setIsAutoFilling(true)
+    let processedCount = 0
+    let skippedCount = 0
+    let failedCount = 0
+
+    try {
+      // Fetch all POs for this hospital in 'partial_received' or 'completed' status
+      const { data: poList, error: poError } = await supabase
+        .from('pharmacy_purchase_orders')
+        .select(`
+          id,
+          po_number,
+          expected_delivery_date,
+          actual_delivery_date,
+          lpo:pharmacy_lpo(id, lpo_number, expected_delivery_date, tracking:pharmacy_order_tracking(expected_delivery_date))
+        `)
+        .eq('hospital_id', hospitalId)
+        .in('status', ['partial_received', 'completed'])
+
+      if (poError) throw poError
+
+      if (!poList || poList.length === 0) {
+        alert("Tiada pesanan untuk dinilai.")
+        setIsAutoFilling(false)
+        return
+      }
+
+      for (const po of poList) {
+        const lpo = po.lpo?.[0]
+        const lpoId = lpo?.id
+        if (!lpoId) {
+          skippedCount++
+          continue
+        }
+
+        // Fetch GR history for this PO
+        const historyRes = await getGoodsReceiptHistory(po.id)
+        if (historyRes.error || !historyRes.data || historyRes.data.length === 0) {
+          skippedCount++
+          continue
+        }
+
+        const history = historyRes.data
+
+        // Fetch existing assessments for this LPO
+        const { data: existingAssessments, error: assessError } = await supabase
+          .from('pharmacy_supplier_assessments')
+          .select('*')
+          .eq('lpo_id', lpoId)
+
+        if (assessError) {
+          failedCount++
+          continue
+        }
+
+        // Determine unassessed Goods Receipts
+        const unassessedGrs = history.filter(
+          (gr) => !existingAssessments?.some((a) => a.goods_receipt_id === gr.id)
+        )
+
+        if (unassessedGrs.length === 0) {
+          continue
+        }
+
+        // Get expected delivery date for calculation
+        let expectedDateStr = null
+        if (lpo.expected_delivery_date) {
+          expectedDateStr = lpo.expected_delivery_date
+        } else if (Array.isArray(lpo.tracking) && lpo.tracking.length > 0) {
+          const track = lpo.tracking.find((t: any) => t.expected_delivery_date)
+          if (track) {
+            expectedDateStr = track.expected_delivery_date
+          }
+        }
+        if (!expectedDateStr && po.expected_delivery_date) {
+          expectedDateStr = po.expected_delivery_date
+        }
+
+        // For each unassessed GR, calculate ratings and create assessment
+        for (const gr of unassessedGrs) {
+          const actualDateStr = gr.receipt_date || po.actual_delivery_date
+          
+          let deliveryStars = 5 // Default if not enough date info to determine delay
+          
+          if (expectedDateStr && actualDateStr) {
+            const expected = new Date(expectedDateStr)
+            const actual = new Date(actualDateStr)
+            
+            // Clear times for date-only comparison
+            const expectedDateOnly = new Date(expected.getFullYear(), expected.getMonth(), expected.getDate())
+            const actualDateOnly = new Date(actual.getFullYear(), actual.getMonth(), actual.getDate())
+            
+            const diffTime = actualDateOnly.getTime() - expectedDateOnly.getTime()
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+            
+            if (diffDays <= 0) {
+              deliveryStars = 5
+            } else if (diffDays <= 7) {
+              deliveryStars = 4
+            } else {
+              deliveryStars = 3
+            }
+          }
+
+          const quality = 5
+          const support = 5
+          const totalScore = quality + support + deliveryStars
+          const percentage = Math.round((totalScore / 15) * 100)
+
+          let performanceLevel = 'Tidak Memuaskan'
+          if (percentage >= 80) {
+            performanceLevel = 'Sangat Memuaskan'
+          } else if (percentage >= 60) {
+            performanceLevel = 'Memuaskan'
+          }
+
+          const response = await createSupplierAssessment({
+            lpo_id: lpoId,
+            goods_receipt_id: gr.id,
+            ratings: {
+              quality,
+              support,
+              delivery: deliveryStars
+            },
+            total_score: totalScore,
+            percentage,
+            performance_level: performanceLevel,
+            comments: 'Penilaian auto-generated berdasarkan tempoh penghantaran.',
+            assessed_by: user?.id
+          })
+
+          if (response.error) {
+            failedCount++
+          } else {
+            processedCount++
+          }
+        }
+      }
+
+      alert(`Proses selesai!\n- Berjaya dinilai: ${processedCount} resit\n- Gagal: ${failedCount}\n- Tiada tindakan diperlukan / dilangkau: ${skippedCount}`)
+      await loadOrders()
+    } catch (err: any) {
+      console.error(err)
+      alert("Ralat berlaku ketika memproses penilaian: " + (err.message || String(err)))
+    } finally {
+      setIsAutoFilling(false)
+    }
+  }
 
   // Load orders pending receiving
   const loadOrders = useCallback(async () => {
@@ -70,8 +302,32 @@ const ReceivingPage = () => {
     )
 
     const countRes = await getReceivingCounts(hospitalId)
+    let assessedLposCount = 0
+    try {
+      const { data: poList } = await supabase
+        .from('pharmacy_purchase_orders')
+        .select(`
+          id,
+          lpo:pharmacy_lpo(
+            id,
+            assessments:pharmacy_supplier_assessments(id)
+          )
+        `)
+        .eq('hospital_id', hospitalId)
+        .in('status', ['partial_received', 'completed'])
+
+      assessedLposCount = poList?.filter(po => 
+        po.lpo?.some((l: any) => l.assessments && l.assessments.length > 0)
+      ).length || 0
+    } catch (e) {
+      console.error(e)
+    }
+
     if (countRes.data) {
-      setCounts(countRes.data)
+      setCounts({
+        ...countRes.data,
+        assessedLpos: assessedLposCount
+      })
     }
 
     if (res.error) {
@@ -253,13 +509,31 @@ const ReceivingPage = () => {
             </div>
           </div>
 
-          <button
-            onClick={() => setIsExcelUploadOpen(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 shrink-0"
-          >
-            <IconUpload className="w-4 h-4" />
-            Upload Excel
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleAutoFillAssessments}
+              disabled={isAutoFilling}
+              className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 shrink-0"
+            >
+              <Sparkles className="w-4 h-4 text-indigo-200 animate-pulse" />
+              {isAutoFilling ? 'Memproses...' : 'Auto-Fill Penilaian'}
+            </button>
+            <button
+              onClick={handleBulkProceedToPayment}
+              disabled={isProcessingPayment}
+              className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 shrink-0"
+            >
+              <IconCheckCircle className="w-4 h-4 text-emerald-250 animate-pulse" />
+              {isProcessingPayment ? 'Memproses...' : 'Proses Bayaran (Bulk)'}
+            </button>
+            <button
+              onClick={() => setIsExcelUploadOpen(true)}
+              className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 shrink-0"
+            >
+              <IconUpload className="w-4 h-4" />
+              Upload Excel
+            </button>
+          </div>
         </div>
 
         {/* Elevated Dashboard KPI Metrics Section wrapped in a luxurious white background card */}
@@ -291,6 +565,21 @@ const ReceivingPage = () => {
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Fully Fulfilled</p>
                   <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{counts.fullyReceived}</h3>
                   <p className="text-[11px] font-semibold text-emerald-600">Audit verified intake</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Assessed LPOs (Penilaian Prestasi) */}
+            <div className="bg-slate-50/50 border-2 border-slate-100 p-6 rounded-[2.5rem] relative overflow-hidden group hover:border-slate-200 hover:shadow-xl hover:shadow-slate-100/40 hover:-translate-y-1 transition-all duration-300">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/[0.03] rounded-full -mr-12 -mt-12 group-hover:scale-110 transition-transform duration-300" />
+              <div className="flex items-start gap-4 relative z-10">
+                <div className="w-12 h-12 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center justify-center text-indigo-600 shadow-sm group-hover:scale-110 transition-transform duration-300">
+                  <IconCheckCircle className="w-6 h-6 text-indigo-600" />
+                </div>
+                <div className="space-y-1 flex-1">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Penilaian Prestasi</p>
+                  <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{counts.assessedLpos || 0}</h3>
+                  <p className="text-[11px] font-semibold text-indigo-600">LPO selesai dinilai</p>
                 </div>
               </div>
             </div>
@@ -367,13 +656,14 @@ const ReceivingPage = () => {
                       <Table.Cell as="th" className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] py-5 border-r border-slate-100 w-[130px] text-center">Department</Table.Cell>
                       <Table.Cell as="th" className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] py-5 border-r border-slate-100">Supplier Entity</Table.Cell>
                       <Table.Cell as="th" className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] py-5 border-r border-slate-100 text-center w-[140px]">Payment Status</Table.Cell>
+                      <Table.Cell as="th" className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] py-5 border-r border-slate-100 text-center w-[150px]">Penilaian Prestasi</Table.Cell>
                       <Table.Cell as="th" className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] py-5 text-center pr-6 w-[130px]">Status</Table.Cell>
                     </Table.Row>
                   </Table.Head>
                   <Table.Body>
                     {orders.length === 0 ? (
                       <Table.Row>
-                        <Table.Cell colSpan={8} className="text-center py-40 bg-slate-50/50">
+                        <Table.Cell colSpan={9} className="text-center py-40 bg-slate-50/50">
                           <div className="flex flex-col items-center opacity-30">
                             <IconClipboardList className="w-20 h-20 text-slate-300 mb-4" />
                             <p className="text-slate-400 font-black text-xs uppercase tracking-[0.3em]">No registry entries found</p>
@@ -486,6 +776,21 @@ const ReceivingPage = () => {
 
                             <Table.Cell className="py-8 border-r border-slate-50 text-center w-[140px]">
                               {renderPaymentStatusBadge(order)}
+                            </Table.Cell>
+
+                            <Table.Cell className="py-8 border-r border-slate-50 text-center w-[150px]">
+                              {(() => {
+                                const hasAssessments = order.lpo?.some((l: any) => l.assessments && l.assessments.length > 0)
+                                return hasAssessments ? (
+                                  <span className="inline-block px-3 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-lg shadow-sm">
+                                    Selesai
+                                  </span>
+                                ) : (
+                                  <span className="inline-block px-3 py-1 bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-black uppercase tracking-wider rounded-lg shadow-sm">
+                                    Belum
+                                  </span>
+                                )
+                              })()}
                             </Table.Cell>
 
                             <Table.Cell className="py-8 text-center pr-6 w-[130px]">

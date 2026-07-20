@@ -1120,6 +1120,9 @@ export default function FacilityCatalogPage() {
 
     const newLogs: SpecsAuditLog[] = []
     const updatedItem = { ...editForm }
+    if (selectedItem.type !== 'Drug') {
+      delete updatedItem.dosageForm
+    }
     
     const checkChange = (field: keyof UnifiedCatalogItem, displayName: string, formatVal: (v: any) => string = (v) => String(v)) => {
       if (editForm[field] !== selectedItem[field]) {
@@ -1138,7 +1141,9 @@ export default function FacilityCatalogPage() {
 
     checkChange('name', 'Item Name')
     checkChange('brandName', 'Brand Name')
-    checkChange('dosageForm', 'Dosage Form')
+    if (selectedItem.type === 'Drug') {
+      checkChange('dosageForm', 'Dosage Form')
+    }
     checkChange('procurement_vote', 'Procurement Vote')
     checkChange('kkmContractNumber', 'KKM Contract Number')
     checkChange('strength', 'Strength/Specification')
@@ -1281,7 +1286,7 @@ export default function FacilityCatalogPage() {
       pku: sectionsForm.pku || 'N/A',
       supplierName: supplierName,
       brandName: sectionsForm.brandName || 'N/A',
-      dosageForm: sectionsForm.dosageForm || 'Tablet',
+      dosageForm: type === 'Drug' ? (sectionsForm.dosageForm || 'Tablet') : undefined,
       kkmContractNumber: sectionsForm.procurement_vote === 'CC' ? sectionsForm.kkmContractNumber : undefined,
       
       strength: sectionsForm.strength || undefined,
@@ -2341,28 +2346,30 @@ export default function FacilityCatalogPage() {
                                 )}
                               </div>
 
-                              <div className="flex justify-between items-center py-2 border-b border-slate-100/80">
-                                <span className="text-xs font-bold text-slate-500">Dosage Form</span>
-                                {isEditingSpecs ? (
-                                  <select
-                                    value={editForm.dosageForm || 'tablet'}
-                                    onChange={(e) => setEditForm({ ...editForm, dosageForm: e.target.value })}
-                                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none"
-                                  >
-                                    <option value="capsule">capsule</option>
-                                    <option value="tablet">tablet</option>
-                                    <option value="bott">bott</option>
-                                    <option value="pfsy">pfsy</option>
-                                    <option value="penfill">penfill</option>
-                                    <option value="cream">cream</option>
-                                    <option value="ointment">ointment</option>
-                                  </select>
-                                ) : (
-                                  <span className="text-xs font-extrabold text-slate-880 bg-white border border-slate-100/70 px-3 py-1 rounded-xl shadow-3xs capitalize">
-                                    {selectedItem.dosageForm || 'Consumable'}
-                                  </span>
-                                )}
-                              </div>
+                              {selectedItem.type === 'Drug' && (
+                                <div className="flex justify-between items-center py-2 border-b border-slate-100/80">
+                                  <span className="text-xs font-bold text-slate-500">Dosage Form</span>
+                                  {isEditingSpecs ? (
+                                    <select
+                                      value={editForm.dosageForm || 'tablet'}
+                                      onChange={(e) => setEditForm({ ...editForm, dosageForm: e.target.value })}
+                                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none"
+                                    >
+                                      <option value="capsule">capsule</option>
+                                      <option value="tablet">tablet</option>
+                                      <option value="bott">bott</option>
+                                      <option value="pfsy">pfsy</option>
+                                      <option value="penfill">penfill</option>
+                                      <option value="cream">cream</option>
+                                      <option value="ointment">ointment</option>
+                                    </select>
+                                  ) : (
+                                    <span className="text-xs font-extrabold text-slate-880 bg-white border border-slate-100/70 px-3 py-1 rounded-xl shadow-3xs capitalize">
+                                      {selectedItem.dosageForm || 'Consumable'}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
 
                               <div className="flex flex-col py-1 space-y-2">
                                 <span className="text-xs font-bold text-slate-500">Procurement Type</span>
@@ -2430,8 +2437,17 @@ export default function FacilityCatalogPage() {
                           {/* s2. Pharmacology */}
                           <div className="space-y-3 break-inside-avoid mb-6">
                             <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center">
-                              <Pill className="w-4 h-4 mr-2 text-rose-500" />
-                              s2. Pharmacology
+                              {selectedItem.type === 'Drug' ? (
+                                <>
+                                  <Pill className="w-4 h-4 mr-2 text-rose-500" />
+                                  s2. Pharmacology
+                                </>
+                              ) : (
+                                <>
+                                  <Layers className="w-4 h-4 mr-2 text-rose-500" />
+                                  s2. Technical Classification
+                                </>
+                              )}
                             </h4>
                             
                             <div className="bg-slate-50/30 p-5 rounded-2xl border border-slate-100 space-y-3.5 hover:border-slate-200/50 transition-all shadow-2xs">
@@ -3027,7 +3043,7 @@ export default function FacilityCatalogPage() {
               setShowCreateCustomForm(false)
             }}
             title={selectedMasterItem ? `Set Technical Specifications: ${selectedMasterItem.name}` : showCreateCustomForm ? "Create Custom Facility Item" : "Manage Facility Catalog Items"}
-            size={selectedMasterItem || showCreateCustomForm ? "5xl" : "md"}
+            size={selectedMasterItem || showCreateCustomForm ? "5xl" : "3xl"}
           >
             <div className="space-y-6 py-2">
               
@@ -3088,7 +3104,7 @@ export default function FacilityCatalogPage() {
                     <table className="w-full border-collapse text-left">
                       <thead>
                         <tr className="bg-slate-50/80 border-b border-slate-100">
-                          <th className="px-6 py-3.5 text-xs font-black uppercase tracking-wider text-slate-400 w-1/3">Item Code</th>
+                          <th className="px-6 py-3.5 text-xs font-black uppercase tracking-wider text-slate-400 w-1/4">Item Code</th>
                           <th className="px-6 py-3.5 text-xs font-black uppercase tracking-wider text-slate-400">Item Name</th>
                         </tr>
                       </thead>
@@ -3230,22 +3246,24 @@ export default function FacilityCatalogPage() {
                           />
                         </div>
 
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Dosage Form</label>
-                          <select
-                            value={sectionsForm.dosageForm || 'tablet'}
-                            onChange={e => setSectionsForm({ ...sectionsForm, dosageForm: e.target.value })}
-                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none"
-                          >
-                            <option value="capsule">capsule</option>
-                            <option value="tablet">tablet</option>
-                            <option value="bott">bott</option>
-                            <option value="pfsy">pfsy</option>
-                            <option value="penfill">penfill</option>
-                            <option value="cream">cream</option>
-                            <option value="ointment">ointment</option>
-                          </select>
-                        </div>
+                        {sectionsForm.type === 'Drug' && (
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Dosage Form</label>
+                            <select
+                              value={sectionsForm.dosageForm || 'tablet'}
+                              onChange={e => setSectionsForm({ ...sectionsForm, dosageForm: e.target.value })}
+                              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none"
+                            >
+                              <option value="capsule">capsule</option>
+                              <option value="tablet">tablet</option>
+                              <option value="bott">bott</option>
+                              <option value="pfsy">pfsy</option>
+                              <option value="penfill">penfill</option>
+                              <option value="cream">cream</option>
+                              <option value="ointment">ointment</option>
+                            </select>
+                          </div>
+                        )}
 
                         <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-1">
@@ -3280,8 +3298,17 @@ export default function FacilityCatalogPage() {
                     {/* s2. Pharmacology & Technical Spec */}
                     <div className="space-y-3 break-inside-avoid mb-6">
                       <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center border-b border-slate-100 pb-2">
-                        <Pill className="w-4 h-4 mr-2 text-rose-500" />
-                        s2. Pharmacology & Technical Spec
+                        {sectionsForm.type === 'Drug' ? (
+                          <>
+                            <Pill className="w-4 h-4 mr-2 text-rose-500" />
+                            s2. Pharmacology & Technical Spec
+                          </>
+                        ) : (
+                          <>
+                            <Layers className="w-4 h-4 mr-2 text-rose-500" />
+                            s2. Technical Classification
+                          </>
+                        )}
                       </h4>
                       <div className="bg-slate-50/30 p-5 rounded-2xl border border-slate-150 space-y-3.5 shadow-2xs">
 

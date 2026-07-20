@@ -117,6 +117,8 @@ export default function GoodsReceivingForm({
 
   const initializeItems = (poData: any, prefill?: any) => {
     console.warn('initializeItems prefillData received:', prefill)
+    const isDrug = poData?.category === 'drug'
+    const defaultExpiry = isDrug ? '' : 'N/A'
     const initialItems: GoodsReceiptItemCreate[] = poData.items.map((item: any) => {
       const qtyOrdered = item.quantity_ordered || 0
       const qtyPrevReceived = item.quantity_received || 0
@@ -143,14 +145,14 @@ export default function GoodsReceivingForm({
             ? prefilledItem.batches.map((b: any) => ({
                 batch_number: b.batch_number || '',
                 manufacturing_date: b.mfg_date || '',
-                expiry_date: b.expiry_date || '',
+                expiry_date: b.expiry_date || defaultExpiry,
                 quantity: b.quantity
               }))
             : [
                 {
                   batch_number: prefilledItem.batch_number || '',
                   manufacturing_date: prefilledItem.mfg_date || '',
-                  expiry_date: prefilledItem.expiry_date || '',
+                  expiry_date: prefilledItem.expiry_date || defaultExpiry,
                   quantity: prefilledItem.quantity_accepted
                 }
               ],
@@ -176,7 +178,7 @@ export default function GoodsReceivingForm({
         disposition: 'accepted',
         rejection_reason: '',
         notes: '',
-        batches: [{ batch_number: '', manufacturing_date: '', expiry_date: '', quantity: defaultQty }],
+        batches: [{ batch_number: '', manufacturing_date: '', expiry_date: defaultExpiry, quantity: defaultQty }],
         credit_note_quantity: 0,
         mark_remaining_as_credit_note: false,
         credit_note_reason: '',
@@ -450,13 +452,14 @@ Matched Items: ${JSON.stringify((prefillData.items || []).map((i: any) => ({ nam
           return
         }
         
+        const isDrug = po?.category === 'drug'
         for (const batch of item.batches) {
           if (batch.quantity > 0) {
             if (!batch.batch_number) {
               setError(`Batch number required for accepted items: ${item.item_name}`)
               return
             }
-            if (!batch.expiry_date) {
+            if (isDrug && !batch.expiry_date) {
               setError(`Expiry date required for accepted items: ${item.item_name}`)
               return
             }
@@ -857,13 +860,38 @@ Matched Items: ${JSON.stringify((prefillData.items || []).map((i: any) => ({ nam
                                   quantity_received: remaining,
                                   quantity_accepted: remaining,
                                   quantity_rejected: 0,
+                                  batches: item.batches.map(b => ({
+                                    ...b,
+                                    quantity: b.quantity || remaining,
+                                    batch_number: b.batch_number || 'NOT APPLICABLE',
+                                    expiry_date: b.expiry_date || (po?.category === 'drug' ? '' : 'N/A')
+                                  })),
+                                  arrived: true
+                                }
+                              })
+                              setItems(newItems)
+                            }}
+                            className="px-2.5 py-1 bg-emerald-600 border border-emerald-500 text-[9px] font-black text-white hover:bg-emerald-500 rounded uppercase tracking-tighter transition-all active:scale-95 shadow-sm"
+                          >
+                            Authorize All
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              const newItems = items.map(item => {
+                                const remaining = Math.max(0, item.quantity_ordered - item.quantity_previously_received)
+                                return {
+                                  ...item,
+                                  quantity_received: remaining,
+                                  quantity_accepted: remaining,
+                                  quantity_rejected: 0,
                                   batches: item.batches.length > 0 ? [{ ...item.batches[0], quantity: remaining }] : [{ batch_number: '', manufacturing_date: '', expiry_date: '', quantity: remaining }],
                                   arrived: true
                                 }
                               })
                               setItems(newItems)
                             }}
-                            className="px-2.5 py-1 bg-slate-880 border border-slate-700 text-[9px] font-black text-slate-350 hover:text-white rounded uppercase tracking-tighter hover:bg-slate-700 transition-all active:scale-95"
+                            className="px-2.5 py-1 bg-slate-800 border border-slate-700 text-[9px] font-black text-slate-300 hover:text-white rounded uppercase tracking-tighter hover:bg-slate-700 transition-all active:scale-95"
                           >
                             Select All
                           </button>
@@ -880,11 +908,11 @@ Matched Items: ${JSON.stringify((prefillData.items || []).map((i: any) => ({ nam
                               }))
                               setItems(newItems)
                             }}
-                            className="px-2.5 py-1 bg-slate-880 border border-slate-700 text-[9px] font-black text-slate-350 hover:text-white rounded uppercase tracking-tighter hover:bg-slate-700 transition-all active:scale-95"
+                            className="px-2.5 py-1 bg-slate-800 border border-slate-700 text-[9px] font-black text-slate-300 hover:text-white rounded uppercase tracking-tighter hover:bg-slate-700 transition-all active:scale-95"
                           >
                             Clear All
                           </button>
-                          <div className="px-3 py-1 bg-slate-880 text-[9px] font-black text-slate-400 rounded uppercase tracking-widest">
+                          <div className="px-3 py-1 bg-slate-800 text-[9px] font-black text-slate-400 rounded uppercase tracking-widest">
                             {items.length} LINE ENTRIES
                           </div>
                         </div>
@@ -1097,13 +1125,13 @@ Matched Items: ${JSON.stringify((prefillData.items || []).map((i: any) => ({ nam
                   <table className="w-full border-collapse">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200">
-                        <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Registry ID</th>
-                        <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Date Authorized</th>
-                        <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Intake Description</th>
-                        <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Authorized By</th>
-                        <th className="px-6 py-4 text-right text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Value (RM)</th>
-                        <th className="px-6 py-4 text-center text-[11px] font-bold text-slate-500 uppercase tracking-wider">Penilaian Prestasi</th>
-                        <th className="px-6 py-4 text-right text-[11px] font-bold text-slate-500 uppercase tracking-wider">Actions</th>
+                        <th className="px-3.5 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Registry ID</th>
+                        <th className="px-3.5 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Date Authorized</th>
+                        <th className="px-3.5 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Intake Description</th>
+                        <th className="px-3.5 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Authorized By</th>
+                        <th className="px-3.5 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Value (RM)</th>
+                        <th className="px-3.5 py-3 text-center text-[10px] font-bold text-slate-500 uppercase tracking-wider">Penilaian Prestasi</th>
+                        <th className="px-3.5 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -1114,7 +1142,7 @@ Matched Items: ${JSON.stringify((prefillData.items || []).map((i: any) => ({ nam
                         return (
                           <React.Fragment key={gr.id}>
                             <tr className="hover:bg-slate-50/50 transition-all border-b border-slate-100 last:border-0 group">
-                              <td className="px-6 py-5 align-top">
+                              <td className="px-3.5 py-4 align-top">
                                 <div className="space-y-1">
                                   <p className="text-[13px] font-bold text-indigo-600 leading-tight">{gr.gr_number}</p>
                                   <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">DO NO: {gr.delivery_note_number || 'N/A'}</p>
@@ -1136,14 +1164,14 @@ Matched Items: ${JSON.stringify((prefillData.items || []).map((i: any) => ({ nam
                                   ) : null}
                                 </div>
                               </td>
-                              <td className="px-6 py-5 align-top">
+                              <td className="px-3.5 py-4 align-top">
                                 <div className="flex items-center gap-2 text-slate-600">
                                   <IconClock className="w-3.5 h-3.5 text-slate-300" />
                                   <span className="text-[12px] font-medium">{formatDateTime(gr.receipt_date).date}</span>
                                 </div>
                               </td>
-                              <td className="px-6 py-5 align-top">
-                                <div className="flex flex-col divide-y divide-slate-100 min-w-[300px]">
+                              <td className="px-3.5 py-4 align-top">
+                                <div className="flex flex-col divide-y divide-slate-100 min-w-[180px]">
                                   {gr.items?.map((item: any) => (
                                     <div key={item.id} className="py-3 first:pt-0 last:pb-0">
                                       <div className="flex items-center justify-between gap-4">
@@ -1171,7 +1199,7 @@ Matched Items: ${JSON.stringify((prefillData.items || []).map((i: any) => ({ nam
                                   ))}
                                 </div>
                               </td>
-                              <td className="px-6 py-5 align-top">
+                              <td className="px-3.5 py-4 align-top">
                                 <div className="flex flex-col gap-1.5">
                                   <div className="flex items-center gap-2">
                                     <div className="w-7 h-7 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-600 uppercase">
@@ -1182,7 +1210,7 @@ Matched Items: ${JSON.stringify((prefillData.items || []).map((i: any) => ({ nam
                                   <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-9">Authorized Officer</span>
                                 </div>
                               </td>
-                              <td className="px-6 py-5 align-top text-right">
+                              <td className="px-3.5 py-4 align-top text-right">
                                 <div className="flex flex-col items-end">
                                   <span className="text-[14px] font-bold text-slate-900 tracking-tight">
                                     RM {totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -1190,7 +1218,7 @@ Matched Items: ${JSON.stringify((prefillData.items || []).map((i: any) => ({ nam
                                   <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Audit Value</span>
                                 </div>
                               </td>
-                              <td className="px-6 py-5 align-top text-center">
+                              <td className="px-3.5 py-4 align-top text-center">
                                 {assessment ? (
                                   <div className="flex flex-col items-center">
                                     <span className={cn(
@@ -1229,7 +1257,7 @@ Matched Items: ${JSON.stringify((prefillData.items || []).map((i: any) => ({ nam
                                   </div>
                                 )}
                               </td>
-                              <td className="px-6 py-5 align-top">
+                              <td className="px-3.5 py-4 align-top">
                                 <div className="flex justify-end gap-2">
                                     <button
                                       onClick={() => {

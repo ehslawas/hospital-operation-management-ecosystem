@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import { supabase } from '@/services/supabase'
 import { 
   SupplierLPOBreakdown, 
@@ -105,6 +105,8 @@ export async function generateProcurementReport(
       .eq('hospital_id', hospitalId)
       .gte('order_date', dateFrom)
       .lte('order_date', dateTo)
+      .not('po_number', 'ilike', 'SQ-%')
+      .not('po_number', 'ilike', 'INV-%')
 
     // 2. LPOs
     const lpoPromise = supabase

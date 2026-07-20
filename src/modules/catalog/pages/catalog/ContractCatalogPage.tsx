@@ -516,6 +516,7 @@ export const ContractCatalogPage: React.FC = () => {
         unit_price: formData.unit_price || null,
         status: formData.status || 'active',
         document_url: formData.document_url || null,
+        item_code: formData.item_code?.trim() || null,
         sync_hash: syncHash,
         last_synced_at: new Date().toISOString(),
         metadata: updatedMetadata,
@@ -1190,6 +1191,7 @@ const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, onClose, 
     unit_price: undefined,
     status: 'active',
     document_url: '',
+    item_code: '',
   })
   const [isSaving, setIsSaving] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
@@ -1207,6 +1209,7 @@ const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, onClose, 
         unit_price: contract.unit_price,
         status: contract.status || 'active',
         document_url: contract.document_url || '',
+        item_code: contract.item_code || '',
       })
     } else {
       setFormData({
@@ -1218,6 +1221,7 @@ const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, onClose, 
         unit_price: undefined,
         status: 'active',
         document_url: '',
+        item_code: '',
       })
     }
     setErrors({})
@@ -1333,6 +1337,17 @@ const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, onClose, 
                       placeholder="e.g. Paracetamol 500mg Tablet"
                       error={errors.contract_name}
                       required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                      Item Code / Drug Code
+                    </label>
+                    <Input
+                      value={formData.item_code || ''}
+                      onChange={e => setFormData({ ...formData, item_code: e.target.value })}
+                      placeholder="e.g. A10AB01 or SKU code"
                     />
                   </div>
 
