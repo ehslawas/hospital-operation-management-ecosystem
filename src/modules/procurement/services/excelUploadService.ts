@@ -360,6 +360,25 @@ export async function parseSupplierExcel(
   })
 }
 
+export function generateLpoVariants(raw: string): string[] {
+  if (!raw) return []
+  let clean = raw.toUpperCase().trim().replace(/[^A-Z0-9]/g, '')
+  clean = clean.replace(/^C[O0]/, 'CO').replace(/^P[O0]/, 'PO')
+
+  const variants = new Set<string>([raw, clean, clean.replace(/O/g, '0'), clean.replace(/0/g, 'O')])
+  const match = clean.match(/^([A-Z]+\d{2})0*(\d+)$/)
+  if (match) {
+    const prefix = match[1]
+    const seq = match[2]
+    for (let zeros = 4; zeros <= 14; zeros++) {
+      const padded = prefix + '0'.repeat(zeros) + seq
+      variants.add(padded)
+      variants.add(padded.replace(/O/g, '0'))
+    }
+  }
+  return Array.from(variants)
+}
+
 /**
  * Match parsed Excel rows to DB Purchase Orders and Items (BATCH OPTIMIZED to prevent loading hangs)
  */
@@ -381,20 +400,14 @@ export async function matchExcelToDatabase(
     rowsByLPO.set(key, list)
   })
 
-  // Gather all unique search keys from the Excel rows (fuzzy matching PO/LPO columns)
+  // Gather all unique search keys from the Excel rows (fuzzy matching PO/LPO columns & zero padding variants)
   const uniqueSearchKeys = new Set<string>()
   parsed.rows.forEach(row => {
     if (row.lpoNumber) {
-      const key = row.lpoNumber.toUpperCase().trim()
-      uniqueSearchKeys.add(key)
-      uniqueSearchKeys.add(key.replace(/O/g, '0'))
-      uniqueSearchKeys.add(key.replace(/0/g, 'O'))
+      generateLpoVariants(row.lpoNumber).forEach(v => uniqueSearchKeys.add(v))
     }
     if (row.altLpoNumber) {
-      const key = row.altLpoNumber.toUpperCase().trim()
-      uniqueSearchKeys.add(key)
-      uniqueSearchKeys.add(key.replace(/O/g, '0'))
-      uniqueSearchKeys.add(key.replace(/0/g, 'O'))
+      generateLpoVariants(row.altLpoNumber).forEach(v => uniqueSearchKeys.add(v))
     }
   })
 
@@ -441,9 +454,7 @@ export async function matchExcelToDatabase(
   if (lposList) {
     lposList.forEach(l => {
       const dbLpo = l.lpo_number.toUpperCase().trim()
-      lpoMap.set(dbLpo, l)
-      lpoMap.set(dbLpo.replace(/O/g, '0'), l)
-      lpoMap.set(dbLpo.replace(/0/g, 'O'), l)
+      generateLpoVariants(dbLpo).forEach(v => lpoMap.set(v, l))
       lpoIds.push(l.id)
     })
   }
@@ -503,13 +514,20 @@ export async function matchExcelToDatabase(
 
     let lpoData = lpoMap.get(lpoKey)
     if (!lpoData) {
-      lpoData = lpoMap.get(lpoKey.replace(/O/g, '0')) || lpoMap.get(lpoKey.replace(/0/g, 'O'))
+      const variants = generateLpoVariants(lpoKey)
+      for (const v of variants) {
+        lpoData = lpoMap.get(v)
+        if (lpoData) break
+      }
     }
     if (!lpoData) {
       for (const row of excelRows) {
         if (row.altLpoNumber) {
-          const altKey = row.altLpoNumber.toUpperCase().trim()
-          lpoData = lpoMap.get(altKey) || lpoMap.get(altKey.replace(/O/g, '0')) || lpoMap.get(altKey.replace(/0/g, 'O'))
+          const variants = generateLpoVariants(row.altLpoNumber)
+          for (const v of variants) {
+            lpoData = lpoMap.get(v)
+            if (lpoData) break
+          }
           if (lpoData) break
         }
       }
@@ -628,6 +646,27 @@ export async function matchExcelToDatabase(
         const potentialItems = poItems.filter(pi => pi.quantity_ordered === row.quantity)
         if (potentialItems.length === 1) {
           matchedPoItem = potentialItems[0]
+        }
+      }
+
+      // 6th Fallback: If only 1 remaining unassigned PO item exists for this PO, match it automatically
+      // ONLY if there is token overlap (prevents matching Salbutamol to Budesonide)
+      if (!matchedPoItem) {
+        const assignedPoItemIds = new Set(matchedItems.map(mi => mi.poItemId))
+        const remainingPoItems = poItems.filter(pi => !assignedPoItemIds.has(pi.id))
+        if (remainingPoItems.length === 1) {
+          const remName = cleanString(remainingPoItems[0].item_name).toLowerCase()
+          const remCode = cleanString(remainingPoItems[0].item_code).toLowerCase()
+          const rowName = cleanString(row.itemDescription).toLowerCase()
+          const rowCode = cleanString(row.itemCode).toLowerCase()
+          
+          const rowTokens = rowName.split(/\s+/).filter(t => t.length > 2)
+          const hasTokenMatch = rowTokens.some(t => remName.includes(t) || remCode.includes(t)) ||
+            (rowCode && remCode && rowCode.includes(remCode))
+            
+          if (hasTokenMatch || !rowName) {
+            matchedPoItem = remainingPoItems[0]
+          }
         }
       }
 

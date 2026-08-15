@@ -1,0 +1,32 @@
+[
+  {
+    "id": "af0bb9b9-7771-4275-bf6d-c6ff282fd4f7",
+    "workflow_name": "Purchase Order",
+    "action_type_id": "8c9f77d4-34e7-47f0-9c7e-1d80c5068522",
+    "description": "Purchase Order Approval except Pathology and Admin",
+    "is_active": true,
+    "created_at": "2026-01-20T07:16:52.016355+00:00",
+    "updated_at": "2026-01-20T07:16:52.016355+00:00",
+    "created_by": null
+  },
+  {
+    "id": "f8b34f63-9abe-49d5-a72b-ec3310543be9",
+    "workflow_name": "Pathology Purchase Order",
+    "action_type_id": "8c9f77d4-34e7-47f0-9c7e-1d80c5068522",
+    "description": "Pathology Purchase Order Approval",
+    "is_active": true,
+    "created_at": "2026-01-20T07:44:11.60156+00:00",
+    "updated_at": "2026-01-20T07:44:11.60156+00:00",
+    "created_by": null
+  },
+  {
+    "id": "248804b6-fbb5-4640-b127-60562d59eb7c",
+    "workflow_name": "Admin Purchase Order Approval",
+    "action_type_id": "ffb18431-62cf-40ba-8fea-d7fcea686a54",
+    "description": "Hospital Administrator purchase orders require approval from designated admin approver",
+    "is_active": true,
+    "created_at": "2026-01-28T17:04:42.664414+00:00",
+    "updated_at": "2026-01-28T17:04:42.664414+00:00",
+    "created_by": null
+  }
+]

@@ -1,0 +1,992 @@
+[
+  {
+    "id": "b3f7550f-af55-446d-b6ab-a3d0cada95be",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "0de8ef32-f95e-4bfa-ad7c-64b477d8b3c4",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "38ffa1d1-68e0-4637-b88c-0a1ab8f79512",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "200656bf-c796-476b-bb81-e6979389f53a",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "ad4b5917-45ec-44df-bc29-5147a64c4f35",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "2d0fdd54-6253-44a4-b811-b8f5c5bdef7c",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "10fd90f2-c185-430a-942a-73a011c5790c",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "31445df2-2f4d-45ba-a85f-ef11201cfd73",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "9f3e79e5-b306-4b12-8d0c-a949f3a6c926",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "36c8d413-7d9c-40eb-bbdd-d57a904d8921",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "1d4a04ee-7107-4eeb-a862-a28c7a1c0e07",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "46501376-67f6-48db-8887-36e051f22061",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "1f172c29-18fc-4def-9e1b-fd84b1bc952c",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "4c446960-b828-4ba6-8160-9374180fbdc5",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "39328e06-56c4-414a-b092-69000f6b7089",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "4f727c4e-b904-45c6-a2a4-9f5dd37d6608",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "cb347713-8317-447b-b4fa-ad9b88c50baa",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "5c4a539a-fad6-43c4-aa74-0bed99b24df4",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "dee0901b-a647-4ae5-ab87-a8c5a3f0681f",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "5cf02ded-9990-4c1f-8dd3-c59734cde120",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "be121eb3-fdc4-41bc-b9d8-d19441c6678e",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "601e06ac-0838-417b-8c03-3db4e92769eb",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "e7d31633-0430-4fbc-91aa-09333e108ee4",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "607147c7-1493-4de1-82fc-2270863c6bd7",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "382ed2aa-e11c-4940-b6d3-a436a2e9af26",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "7bfa028d-b287-4f2e-ae65-d308d7674dcc",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "723b1a41-5d91-4729-b149-c56e076ee575",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "818d6ebc-5fc7-488e-a2c5-edaded475831",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "37abd8eb-7ec5-4fbb-936b-54de09767d85",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "85d64c54-0084-4b29-ae19-dfd3f70a57c0",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "14f9fe73-f27b-4754-99ae-a8f39b795730",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "93813003-cd9a-44ce-97e5-68cd9a11a57a",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "959e152e-f63e-4558-a470-bec38f0169b6",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "a22a8d2f-131c-4ab2-bcec-ea4798f115ab",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "bd8e78bc-e15f-406e-86d4-71c20331430e",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "a556d137-9c54-48bb-a75d-8f3a556eca7a",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "c5e33af7-49e4-4a3b-89ab-d876362a259b",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "a5f746f4-836d-4299-8c22-9838a19e5db4",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "c0f56ece-2e5a-43ac-bd26-c30ac6cc70d6",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "c829d332-fd03-42a2-828e-e4c9f85edfd3",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "0de98ba7-b401-4143-b5c6-53b8cb6b8cdb",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "cbd453fe-109f-446e-a7fc-3890cafade45",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "35423cd7-dd58-46b8-8467-bf465b63a0bc",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "cfd27978-11ad-4641-8339-af887c110d08",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "1b52f91b-3887-44b3-9d81-320ec479b83c",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "d098872a-7d4b-4872-9b3f-e085a210a42c",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "ea0f96ae-ba2b-44bb-9434-843970201339",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "d0c65b08-6feb-4a54-ba35-1b7aa4e0c1e1",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "45f72164-d284-4f51-a819-8eb1d3fd909f",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "dcf269eb-9979-4da7-b86c-c14f1ee0bee9",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "c3fa3c36-dbf8-4b3e-890b-aba25e7912ae",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "de0638c6-0f33-4597-893d-5254f4ee5752",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "831bb277-1135-48fe-a721-c26d99eee904",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "ecfc6df7-c427-49a1-865f-58c2979bedee",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "7e35d72c-d77e-489b-9c77-3dd1b367299e",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "ee938c69-f634-4c9f-b6cc-4bb745899945",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "9a57ec0b-2219-4a90-8c34-ae74afc0b8cc",
+    "role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "permission_id": "fd67832f-a4f6-4401-95d0-bb8d8a000beb",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-14T03:46:24.694415+00:00",
+    "created_at": "2026-01-14T03:46:24.694415+00:00",
+    "updated_at": "2026-01-14T03:46:24.694415+00:00"
+  },
+  {
+    "id": "0e445d5a-0251-48f8-96fa-127afa163353",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "0de8ef32-f95e-4bfa-ad7c-64b477d8b3c4",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "64d8e5e2-cad9-4066-81de-33f6be8585ef",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "200656bf-c796-476b-bb81-e6979389f53a",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "c6498b14-fe8d-47ce-a787-42f0bccb519d",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "2d0fdd54-6253-44a4-b811-b8f5c5bdef7c",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "68629ecb-92b0-4801-bf8d-e9451fa8f4c8",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "31445df2-2f4d-45ba-a85f-ef11201cfd73",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "0bb0f865-2d69-4abb-904e-ffe900634c06",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "36c8d413-7d9c-40eb-bbdd-d57a904d8921",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "9b8aabe0-ea1b-41b9-9056-afe552c4720e",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "46501376-67f6-48db-8887-36e051f22061",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "7f1f9ae9-8a80-4e8e-a542-8a91cbf094e7",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "4c446960-b828-4ba6-8160-9374180fbdc5",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "3d18996c-dd38-4fb2-b825-258311fc580c",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "4f727c4e-b904-45c6-a2a4-9f5dd37d6608",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "5b8686a4-4031-4fd3-90bd-5fe0b67c3c30",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "5c4a539a-fad6-43c4-aa74-0bed99b24df4",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "524654e9-b5ab-46ae-be9d-b4926122a010",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "5cf02ded-9990-4c1f-8dd3-c59734cde120",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "9d855879-1007-44ff-bcc1-075b97d66ca9",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "601e06ac-0838-417b-8c03-3db4e92769eb",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "8e162f12-655d-41f8-a205-cce416fe4da0",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "607147c7-1493-4de1-82fc-2270863c6bd7",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "2b03263b-585c-45fb-8ae0-aa394a93abd2",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "7bfa028d-b287-4f2e-ae65-d308d7674dcc",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "0f1c3743-3241-447c-ac90-a0d481ef810a",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "818d6ebc-5fc7-488e-a2c5-edaded475831",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "942a09b8-dfd0-4ef9-97b3-95bda6907340",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "85d64c54-0084-4b29-ae19-dfd3f70a57c0",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "032ade30-5064-494a-982b-1f01ea2677c0",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "93813003-cd9a-44ce-97e5-68cd9a11a57a",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "7f1c237e-fab8-4fe3-b666-db76aebb6595",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "a22a8d2f-131c-4ab2-bcec-ea4798f115ab",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "0dc325ae-78b2-48c2-8725-3ce880d791fc",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "a556d137-9c54-48bb-a75d-8f3a556eca7a",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "bd2316c9-424a-486e-90c3-ca998b374860",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "a5f746f4-836d-4299-8c22-9838a19e5db4",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "f599d76e-f8c1-4460-8a71-8b7c016d52f1",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "c829d332-fd03-42a2-828e-e4c9f85edfd3",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "e1201e2e-d493-4f9a-857e-b0322e380a84",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "cbd453fe-109f-446e-a7fc-3890cafade45",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "acee698a-a400-42e4-843f-9e496b12b3ec",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "cfd27978-11ad-4641-8339-af887c110d08",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "bf3ff005-8f6e-4281-b524-1f74b3ea867c",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "d098872a-7d4b-4872-9b3f-e085a210a42c",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "bf968933-1dea-4901-b024-8adaa16c2b37",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "d0c65b08-6feb-4a54-ba35-1b7aa4e0c1e1",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "cb378840-cb62-4df5-a6e9-995351a60f73",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "dcf269eb-9979-4da7-b86c-c14f1ee0bee9",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "2eab14ed-9193-48be-aa5a-979d2734cf29",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "de0638c6-0f33-4597-893d-5254f4ee5752",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "2270702f-52f6-489f-99df-9b56ef1c53af",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "ecfc6df7-c427-49a1-865f-58c2979bedee",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "dd2d329f-a62e-4f66-9a53-82ebadff858d",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "ee938c69-f634-4c9f-b6cc-4bb745899945",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "63c244a3-1816-4cdb-8f0e-a85bf156ee5b",
+    "role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "permission_id": "fd67832f-a4f6-4401-95d0-bb8d8a000beb",
+    "granted_by": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "granted_at": "2026-01-18T03:32:42.434092+00:00",
+    "created_at": "2026-01-18T03:32:42.434092+00:00",
+    "updated_at": "2026-01-18T03:32:42.434092+00:00"
+  },
+  {
+    "id": "a4a9fdce-8dea-4300-9819-90761b6fdf74",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "0882d9c9-dd49-44a7-b719-33e48926d461",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "2f779016-b0f1-4ccd-a784-5124a7631465",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "0de8ef32-f95e-4bfa-ad7c-64b477d8b3c4",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "671d9d57-31bf-4066-92da-023818e63a3e",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "2d0fdd54-6253-44a4-b811-b8f5c5bdef7c",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "32eb64f8-ec93-4306-a6de-6ef9ed43f158",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "4c446960-b828-4ba6-8160-9374180fbdc5",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "692d74cb-7265-4c3b-823c-e0123cb278da",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "601e06ac-0838-417b-8c03-3db4e92769eb",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "706d894b-e5e2-4df1-b2d3-f95dc3f2c01b",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "607147c7-1493-4de1-82fc-2270863c6bd7",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "7c43170f-b37e-49ce-b75d-8f99f9a2902d",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "85db7c26-44cf-489b-ac1c-2c231cf1f71e",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "1427fba4-66c4-4c55-b02e-e58b94f314c1",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "a556d137-9c54-48bb-a75d-8f3a556eca7a",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "4660c88a-1190-4a88-ab3f-38a211288dc5",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "d0c65b08-6feb-4a54-ba35-1b7aa4e0c1e1",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "0c7bab27-4b4d-40ce-98f4-542f59e18d98",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "ecfc6df7-c427-49a1-865f-58c2979bedee",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "76f2c141-3884-4437-b7f8-1c8f1dd9d342",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "ee938c69-f634-4c9f-b6cc-4bb745899945",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "47417cf7-8d79-4d9a-b8c2-2ddca7417bb5",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "5b3e3af4-d8ce-4954-969f-c7543ad30026",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "2098f49a-b77d-4664-a5c4-3726a01699da",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "ee086e8a-0ebf-4365-9394-668fb6df3c54",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "704bfd6c-64ac-461b-97fa-92a8bddb5479",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "e16503d4-c924-4cb1-8858-d675127aaab1",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "3f8ac3b4-1e82-45c9-8941-721303fad254",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "e48c0692-c633-43eb-a2e5-36b7ddae6e50",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "f3ea567e-bdcd-47a4-82d2-d453f339c31c",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "c6ce6299-7c95-40b1-a47f-94d354eee17d",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "b4217bcf-99bf-4c85-b5d4-310f23d79f4e",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "bb8e8c10-0592-4052-a959-33e163a319fb",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "288a39a5-86d9-4604-888a-7210236302d8",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "8cabab2a-5149-47c7-b9ac-6887c6962666",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "07944bfe-0d6d-431c-91e3-5a464efad3a4",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "727d13ad-3470-4fdf-97a4-b3425e60e74a",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "93439be5-5088-4990-9cc3-44ebaff88479",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "ec1d83b1-d2fe-4611-8f33-58ec1fa30534",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "7920c219-2a3c-47a4-9df2-9583c43240e6",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "9145decd-b1e9-4551-8605-d8ba1fa7157b",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "b0ee9cc5-18e2-4cb0-9230-14bac059c153",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "abd35ad1-d11c-4219-b82c-47fd0956fca5",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "9d288171-3431-4e96-a653-bb0f9ffa13a0",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "9f8951fb-a20e-4819-83ce-c46dedf66eea",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "010b9c74-8880-4f98-9349-2c1f58a97787",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "9c446da9-d5c8-4037-9528-8bd4aecec206",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "00540f91-dc42-4c27-809f-29cd5282c1ed",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "12e396c2-0d90-4f56-8f38-c143e23c5cdc",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "36bc88a3-40d1-48cf-8f5b-2c2c9d1a9be3",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "bd074ce4-070a-4fb8-8ff3-dabc6a534a7f",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "e6c325e0-639c-4ee5-89af-c5cbc870c864",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "66e770f8-c558-461c-8ef7-81c49671ba83",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "3a92a45c-cb0c-499f-8199-d3aecbffb719",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "57f2d7aa-2f18-4e3c-8b95-7add78ccd85e",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "5feac5f5-aa76-466d-b345-257f4ab3e5a6",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "c5d1ac8c-06f5-4f12-9dcd-6ccdf03699b2",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "3cd0a7ec-510d-46ca-a7e9-820d7038066a",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "d1bb2e38-0412-4968-8dd3-e0367aa715e3",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "24e1a5b9-cc07-4c5b-ad57-b514186bdc74",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "596fdb2f-897e-4aa1-9ba9-f5044edef8dc",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "0a26e755-c6ff-4e76-b35d-10057c30d1dd",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "86abea61-a3fc-48f4-95ca-bc31b806d592",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "3b92108a-5a30-4e11-b7d6-29055afee326",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "85d64c54-0084-4b29-ae19-dfd3f70a57c0",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "8bf67041-87cd-430c-a956-f43f4f8489b5",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "de0638c6-0f33-4597-893d-5254f4ee5752",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "3cf83a43-b70d-46e0-b16b-925e1f03631a",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "818d6ebc-5fc7-488e-a2c5-edaded475831",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "25c66887-d68c-4b68-bfad-c2dc18ba05a1",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "fd67832f-a4f6-4401-95d0-bb8d8a000beb",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "edc77b36-d857-4c47-8bd9-9e9e1a8917d1",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "dcf269eb-9979-4da7-b86c-c14f1ee0bee9",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "46e342fc-5ccb-474f-a0ac-3e46d2c0a497",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "36c8d413-7d9c-40eb-bbdd-d57a904d8921",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "287337cc-75ef-4f4d-8a27-22f59be2daa0",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "a22a8d2f-131c-4ab2-bcec-ea4798f115ab",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "772562c8-3e2f-4879-8f93-a52832e57733",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "93813003-cd9a-44ce-97e5-68cd9a11a57a",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "dfe814f4-1b1f-401f-ac6d-f9896be87123",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "4f727c4e-b904-45c6-a2a4-9f5dd37d6608",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "800ac02b-1daf-42bd-8fe7-745d89ccfdda",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "5c4a539a-fad6-43c4-aa74-0bed99b24df4",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "91625fb1-643f-4ab1-beba-b3738d15390e",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "cbd453fe-109f-446e-a7fc-3890cafade45",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "725d5196-5da3-4dd9-adb8-94dacac594f4",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "46501376-67f6-48db-8887-36e051f22061",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "297ec693-32fb-4dfb-8815-a739d83d96bb",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "200656bf-c796-476b-bb81-e6979389f53a",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "d60c81fc-c8e9-4189-adaa-523e4ba58236",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "cfd27978-11ad-4641-8339-af887c110d08",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "6b370965-6555-4d76-a441-78025205e483",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "a5f746f4-836d-4299-8c22-9838a19e5db4",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "4edb1649-3029-49c3-ab61-dd3e540c37d8",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "5cf02ded-9990-4c1f-8dd3-c59734cde120",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "ba69924c-cd49-4933-8d80-c3736d7e9672",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "d098872a-7d4b-4872-9b3f-e085a210a42c",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "7606ba94-ef2c-47b6-ad88-a044ec46a9fa",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "7bfa028d-b287-4f2e-ae65-d308d7674dcc",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "bd5383a9-e754-4eb5-b9a0-d2cd5f8e4679",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "31445df2-2f4d-45ba-a85f-ef11201cfd73",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  },
+  {
+    "id": "c6dd5d6a-8927-4d7d-adab-99286e667e1e",
+    "role_id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "permission_id": "c829d332-fd03-42a2-828e-e4c9f85edfd3",
+    "granted_by": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "granted_at": "2026-08-11T04:36:56.518246+00:00",
+    "created_at": "2026-08-11T04:36:56.518246+00:00",
+    "updated_at": "2026-08-11T04:36:56.518246+00:00"
+  }
+]

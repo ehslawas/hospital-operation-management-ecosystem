@@ -970,7 +970,7 @@ const TransporterMyRequestsPage: React.FC = () => {
               placeholder="Contoh: Pesakit dibenarkan pulang wad / Temujanji ditunda..."
               value={cancelReason}
               onChange={(e) => setCancelReason(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-rose-500 transition-colors"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-rose-500 focus:bg-white transition-colors font-medium shadow-xs"
               required
             />
 
@@ -1011,7 +1011,7 @@ const TransporterMyRequestsPage: React.FC = () => {
               placeholder="Contoh: Pertukaran tarikh temujanji / Pertukaran jantina pesakit..."
               value={editReason}
               onChange={(e) => setEditReason(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-amber-500 transition-colors"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-amber-500 focus:bg-white transition-colors font-medium shadow-xs"
               required
             />
 

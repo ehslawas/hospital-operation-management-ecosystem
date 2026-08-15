@@ -61,7 +61,7 @@ import {
 } from '@/services/pharmacy/warrantService'
 import { getDrugCatalog } from '@/services/pharmacy/drugCatalogService'
 import { getNonDrugCatalog } from '@/services/pharmacy/nonDrugCatalogService'
-import { cn, formatCurrency } from '@/lib/utils'
+import { cn, formatCurrency, isContractExpired } from '@/lib/utils'
 import type { 
   PurchaseOrderWithRelations, 
   Supplier, 
@@ -71,6 +71,17 @@ import type {
   NonDrug 
 } from '@/types/pharmacy'
 import { getPharmacyPOSignatures, type PharmacyPOSignatures } from '@/services/pharmacy/pharmacySettingsService'
+
+type CatalogSource =
+  | { mode: 'appl'; vote: 'appl' }
+  | { mode: 'cc';   vote: 'cc'   }
+  | { mode: 'free'               }
+
+function deriveCatalogSource(voteCode?: string): CatalogSource {
+  if (voteCode === '990102') return { mode: 'appl', vote: 'appl' }
+  if (voteCode === '080702') return { mode: 'cc',   vote: 'cc'   }
+  return { mode: 'free' }
+}
 
 // Constants
 const VOTE_CODES = [
@@ -114,6 +125,10 @@ interface POItem {
   packaging_description: string
   item_name?: string
   item_code?: string
+  supplier_name?: string
+  contract_number?: string
+  lead_time_days?: number | string
+  contract_end_date?: string
 }
 
 export const PurchaseOrderCreatePage: React.FC = () => {
@@ -310,7 +325,7 @@ export const PurchaseOrderCreatePage: React.FC = () => {
 
                     const { data: stdData } = await supabase
                       .from(table)
-                      .select(`${nameCol}, ${codeCol}`)
+                      .select(`*, supplier:suppliers(*)`)
                       .eq('id', item.item_id)
                       .maybeSingle()
                     
@@ -318,7 +333,11 @@ export const PurchaseOrderCreatePage: React.FC = () => {
                       return {
                         ...item,
                         item_name: stdData[nameCol] || item.item_name,
-                        item_code: stdData[codeCol] || item.item_code
+                        item_code: stdData[codeCol] || item.item_code,
+                        supplier_name: stdData.cc_supplier_name || stdData.supplier?.company_name || item.supplier_name || '',
+                        contract_number: stdData.cc_contract_number || item.contract_number || '',
+                        lead_time_days: stdData.lead_time_days || item.lead_time_days || '',
+                        contract_end_date: stdData.cc_contract_end_date || item.contract_end_date || '',
                       }
                     }
 
@@ -357,7 +376,7 @@ export const PurchaseOrderCreatePage: React.FC = () => {
                     // 4. Try Contract Catalog
                     const { data: contractData } = await supabase
                       .from('contracts')
-                      .select('contract_name, item_code')
+                      .select('*')
                       .eq('id', item.item_id)
                       .maybeSingle()
 
@@ -365,7 +384,11 @@ export const PurchaseOrderCreatePage: React.FC = () => {
                       return {
                         ...item,
                         item_name: contractData.contract_name || item.item_name,
-                        item_code: contractData.item_code || item.item_code
+                        item_code: contractData.item_code || item.item_code,
+                        supplier_name: contractData.supplier_name || item.supplier_name || '',
+                        contract_number: contractData.contract_number || item.contract_number || '',
+                        lead_time_days: contractData.lead_time_days || contractData.delivery_timeframe || item.lead_time_days || '',
+                        contract_end_date: contractData.contract_end_date || contractData.contract_expiry || item.contract_end_date || '',
                       }
                     }
                   } catch (err) {
@@ -500,76 +523,207 @@ export const PurchaseOrderCreatePage: React.FC = () => {
 
     const loadItems = async () => {
       try {
-        const [drugsRes, nonDrugsRes] = await Promise.all([
-          getDrugCatalog(hospitalId, { search: itemSearch, status: 'active' }, 1, 50),
-          getNonDrugCatalog(hospitalId, { search: itemSearch, status: 'active' }, 1, 50),
-        ])
+        const src = deriveCatalogSource(formData.vote_code)
+        const combinedItems: Array<(Drug | NonDrug) & { item_type: 'drug' | 'non_drug' }> = []
 
-        const combinedItems: Array<Drug | NonDrug & { item_type: 'drug' | 'non_drug' }> = []
-        
-        if (drugsRes.data) {
-          drugsRes.data.data.forEach((drug) => {
-            combinedItems.push({ ...drug, item_type: 'drug' } as Drug & { item_type: 'drug' })
-          })
-        }
-        
-        if (nonDrugsRes.data) {
-          nonDrugsRes.data.data.forEach((nonDrug) => {
-            combinedItems.push({ ...nonDrug, item_type: 'non_drug' } as NonDrug & { item_type: 'non_drug' })
-          })
-        }
+        if (formData.po_type === 'sq') {
+          // Invite Quotation (SQ): Make exception to search all active items across drugs, non-drugs, and contracts
+          const [drugsRes, nonDrugsRes] = await Promise.all([
+            getDrugCatalog(hospitalId, { search: itemSearch, status: 'active' }, 1, 50),
+            getNonDrugCatalog(hospitalId, { search: itemSearch, status: 'active' }, 1, 50),
+          ])
 
-        // Also fetch from contracts table to ensure items defined in contract catalog are searchable
-        const { data: contractsRes } = await supabase
-          .from('contracts')
-          .select('*')
-          .eq('hospital_id', hospitalId)
-          .eq('status', 'active')
-          .or(`contract_name.ilike.%${itemSearch}%,item_code.ilike.%${itemSearch}%,contract_number.ilike.%${itemSearch}%`)
-          .limit(50)
+          if (drugsRes.data) {
+            drugsRes.data.data.forEach((drug) => {
+              combinedItems.push({ ...drug, item_type: 'drug' } as Drug & { item_type: 'drug' })
+            })
+          }
+          if (nonDrugsRes.data) {
+            nonDrugsRes.data.data.forEach((nonDrug) => {
+              combinedItems.push({ ...nonDrug, item_type: 'non_drug' } as NonDrug & { item_type: 'non_drug' })
+            })
+          }
 
-        if (contractsRes) {
-          contractsRes.forEach((contract) => {
-            const alreadyExists = combinedItems.some(
-              (existing) => 
-                (existing.item_code && contract.item_code && existing.item_code.toLowerCase() === contract.item_code.toLowerCase()) ||
-                (existing.drug_code && contract.item_code && existing.drug_code.toLowerCase() === contract.item_code.toLowerCase()) ||
-                (('drug_name' in existing && existing.drug_name.toLowerCase() === contract.contract_name.toLowerCase()) ||
-                 ('item_name' in existing && existing.item_name.toLowerCase() === contract.contract_name.toLowerCase()))
-            )
-            if (!alreadyExists) {
-              const isNonDrug = contract.contract_type === 'non_drug' || 
-                                contract.contract_type === 'non-drug' || 
-                                contract.contract_type?.toLowerCase().includes('non')
-              
-              // Find matching master item from drugs or non-drugs in the list to resolve the code
-              const matchingMasterItem = combinedItems.find(
-                (m) => m.item_type === (isNonDrug ? 'non_drug' : 'drug') && 
-                       (('drug_name' in m && m.drug_name === contract.contract_name) ||
-                        ('item_name' in m && m.item_name === contract.contract_name))
-              );
-              const resolvedMasterCode = matchingMasterItem 
-                ? ('drug_code' in matchingMasterItem ? (matchingMasterItem as any).drug_code : (matchingMasterItem as any).item_code) 
-                : '';
+          // Also search contracts table for SQ mode
+          const { data: contractsRes } = await supabase
+            .from('contracts')
+            .select('*')
+            .eq('hospital_id', hospitalId)
+            .eq('status', 'active')
+            .or(`contract_name.ilike.%${itemSearch}%,item_code.ilike.%${itemSearch}%,contract_number.ilike.%${itemSearch}%`)
+            .limit(50)
 
-              combinedItems.push({
-                id: contract.id,
-                item_type: isNonDrug ? 'non_drug' : 'drug',
-                drug_name: contract.contract_name,
-                item_name: contract.contract_name,
-                drug_code: contract.item_code || resolvedMasterCode || '',
-                item_code: contract.item_code || resolvedMasterCode || '',
-                price: contract.unit_price || 0,
-                packaging_description: contract.metadata?.packaging_description || contract.sst_rate || '',
-                category: 'Contract Catalog',
-                supplier_id: contract.supplier_id,
-              } as any)
-            }
-          })
+          if (contractsRes) {
+            contractsRes.forEach((contract) => {
+              const alreadyExists = combinedItems.some(
+                (existing) => 
+                  (existing.item_code && contract.item_code && existing.item_code.toLowerCase() === contract.item_code.toLowerCase()) ||
+                  (existing.drug_code && contract.item_code && existing.drug_code.toLowerCase() === contract.item_code.toLowerCase()) ||
+                  (('drug_name' in existing && existing.drug_name.toLowerCase() === contract.contract_name.toLowerCase()) ||
+                   ('item_name' in existing && existing.item_name.toLowerCase() === contract.contract_name.toLowerCase()))
+              )
+              if (!alreadyExists) {
+                const isNonDrug = contract.contract_type === 'non_drug' || 
+                                  contract.contract_type === 'non-drug' || 
+                                  contract.contract_type?.toLowerCase().includes('non')
+                
+                combinedItems.push({
+                  id: contract.id,
+                  item_type: isNonDrug ? 'non_drug' : 'drug',
+                  drug_name: contract.contract_name,
+                  item_name: contract.contract_name,
+                  drug_code: contract.item_code || '',
+                  item_code: contract.item_code || '',
+                  price: contract.unit_price || 0,
+                  packaging_description: contract.metadata?.packaging_description || contract.sst_rate || '',
+                  category: 'Contract Catalog',
+                  supplier_id: contract.supplier_id,
+                } as any)
+              }
+            })
+          }
+        } else if (src.mode === 'appl') {
+          // Vote code 990102 - APPL: Strictly use APPL list from MyInventory drug & non-drug catalog
+          const [drugsRes, nonDrugsRes] = await Promise.all([
+            getDrugCatalog(hospitalId, { search: itemSearch, procurement_vote: 'appl', status: 'active' }, 1, 50),
+            getNonDrugCatalog(hospitalId, { search: itemSearch, procurement_vote: 'appl', status: 'active' }, 1, 50),
+          ])
+          if (drugsRes.data) {
+            drugsRes.data.data.forEach((drug) => {
+              combinedItems.push({ ...drug, item_type: 'drug' } as Drug & { item_type: 'drug' })
+            })
+          }
+          if (nonDrugsRes.data) {
+            nonDrugsRes.data.data.forEach((nonDrug) => {
+              combinedItems.push({ ...nonDrug, item_type: 'non_drug' } as NonDrug & { item_type: 'non_drug' })
+            })
+          }
+        } else if (src.mode === 'cc') {
+          // Vote code 080702 - CC: Allow finding any item in database catalog (drugs + non-drugs) regardless of contract table, plus contract items
+          const [drugsRes, nonDrugsRes] = await Promise.all([
+            getDrugCatalog(hospitalId, { search: itemSearch, status: 'active' }, 1, 50),
+            getNonDrugCatalog(hospitalId, { search: itemSearch, status: 'active' }, 1, 50),
+          ])
+
+          if (drugsRes.data) {
+            drugsRes.data.data.forEach((drug) => {
+              combinedItems.push({ ...drug, item_type: 'drug' } as Drug & { item_type: 'drug' })
+            })
+          }
+          if (nonDrugsRes.data) {
+            nonDrugsRes.data.data.forEach((nonDrug) => {
+              combinedItems.push({ ...nonDrug, item_type: 'non_drug' } as NonDrug & { item_type: 'non_drug' })
+            })
+          }
+
+          // Also search contracts table for CC items under contract
+          const { data: contractsRes } = await supabase
+            .from('contracts')
+            .select('*')
+            .eq('hospital_id', hospitalId)
+            .eq('status', 'active')
+            .or(`contract_name.ilike.%${itemSearch}%,item_code.ilike.%${itemSearch}%,contract_number.ilike.%${itemSearch}%`)
+            .limit(50)
+
+          if (contractsRes) {
+            contractsRes.forEach((contract) => {
+              const alreadyExists = combinedItems.some(
+                (existing) => 
+                  (existing.item_code && contract.item_code && existing.item_code.toLowerCase() === contract.item_code.toLowerCase()) ||
+                  (existing.drug_code && contract.item_code && existing.drug_code.toLowerCase() === contract.item_code.toLowerCase()) ||
+                  (('drug_name' in existing && existing.drug_name.toLowerCase() === contract.contract_name.toLowerCase()) ||
+                   ('item_name' in existing && existing.item_name.toLowerCase() === contract.contract_name.toLowerCase()))
+              )
+              if (!alreadyExists) {
+                const isNonDrug = contract.contract_type === 'non_drug' || 
+                                  contract.contract_type === 'non-drug' || 
+                                  contract.contract_type?.toLowerCase().includes('non')
+                
+                combinedItems.push({
+                  id: contract.id,
+                  item_type: isNonDrug ? 'non_drug' : 'drug',
+                  drug_name: contract.contract_name,
+                  item_name: contract.contract_name,
+                  drug_code: contract.item_code || '',
+                  item_code: contract.item_code || '',
+                  price: contract.unit_price || 0,
+                  packaging_description: contract.metadata?.packaging_description || contract.sst_rate || '',
+                  category: 'Contract Catalog',
+                  supplier_id: contract.supplier_id,
+                } as any)
+              }
+            })
+          }
+        } else {
+          // Unrestricted / Free mode (e.g. Vote Code 'other') - leave intact & untouched
+          const [drugsRes, nonDrugsRes] = await Promise.all([
+            getDrugCatalog(hospitalId, { search: itemSearch, status: 'active' }, 1, 50),
+            getNonDrugCatalog(hospitalId, { search: itemSearch, status: 'active' }, 1, 50),
+          ])
+
+          if (drugsRes.data) {
+            drugsRes.data.data.forEach((drug) => {
+              combinedItems.push({ ...drug, item_type: 'drug' } as Drug & { item_type: 'drug' })
+            })
+          }
+          
+          if (nonDrugsRes.data) {
+            nonDrugsRes.data.data.forEach((nonDrug) => {
+              combinedItems.push({ ...nonDrug, item_type: 'non_drug' } as NonDrug & { item_type: 'non_drug' })
+            })
+          }
+
+          // Also fetch from contracts table to ensure items defined in contract catalog are searchable
+          const { data: contractsRes } = await supabase
+            .from('contracts')
+            .select('*')
+            .eq('hospital_id', hospitalId)
+            .eq('status', 'active')
+            .or(`contract_name.ilike.%${itemSearch}%,item_code.ilike.%${itemSearch}%,contract_number.ilike.%${itemSearch}%`)
+            .limit(50)
+
+          if (contractsRes) {
+            contractsRes.forEach((contract) => {
+              const alreadyExists = combinedItems.some(
+                (existing) => 
+                  (existing.item_code && contract.item_code && existing.item_code.toLowerCase() === contract.item_code.toLowerCase()) ||
+                  (existing.drug_code && contract.item_code && existing.drug_code.toLowerCase() === contract.item_code.toLowerCase()) ||
+                  (('drug_name' in existing && existing.drug_name.toLowerCase() === contract.contract_name.toLowerCase()) ||
+                   ('item_name' in existing && existing.item_name.toLowerCase() === contract.contract_name.toLowerCase()))
+              )
+              if (!alreadyExists) {
+                const isNonDrug = contract.contract_type === 'non_drug' || 
+                                  contract.contract_type === 'non-drug' || 
+                                  contract.contract_type?.toLowerCase().includes('non')
+                
+                const matchingMasterItem = combinedItems.find(
+                  (m) => m.item_type === (isNonDrug ? 'non_drug' : 'drug') && 
+                         (('drug_name' in m && m.drug_name === contract.contract_name) ||
+                          ('item_name' in m && m.item_name === contract.contract_name))
+                );
+                const resolvedMasterCode = matchingMasterItem 
+                  ? ('drug_code' in matchingMasterItem ? (matchingMasterItem as any).drug_code : (matchingMasterItem as any).item_code) 
+                  : '';
+
+                combinedItems.push({
+                  id: contract.id,
+                  item_type: isNonDrug ? 'non_drug' : 'drug',
+                  drug_name: contract.contract_name,
+                  item_name: contract.contract_name,
+                  drug_code: contract.item_code || resolvedMasterCode || '',
+                  item_code: contract.item_code || resolvedMasterCode || '',
+                  price: contract.unit_price || 0,
+                  packaging_description: contract.metadata?.packaging_description || contract.sst_rate || '',
+                  category: 'Contract Catalog',
+                  supplier_id: contract.supplier_id,
+                } as any)
+              }
+            })
+          }
         }
 
         setAllItems(combinedItems)
-        setShowSuggestions(combinedItems.length > 0)
+        setShowSuggestions(true)
       } catch (error) {
         console.error('Error loading items:', error)
       }
@@ -580,7 +734,7 @@ export const PurchaseOrderCreatePage: React.FC = () => {
     }, 300)
 
     return () => clearTimeout(timeout)
-  }, [itemSearch, hospitalId])
+  }, [itemSearch, hospitalId, formData.vote_code])
 
   // Close suggestions when clicking outside
   useEffect(() => {
@@ -696,12 +850,16 @@ export const PurchaseOrderCreatePage: React.FC = () => {
             }
 
             if (matched) {
-              // Always fill the contract number when a match is found — no vote_code restriction
-              if (!matchedContractNo) {
+              const refDate = formData.order_date || new Date().toISOString();
+              const expired = isContractExpired(matched, refDate);
+              // Always fill the contract number when a match is found and contract is NOT expired
+              if (!expired && !matchedContractNo) {
                 matchedContractNo = matched.contract_number || '';
               }
+
               // If unit price is 0, or matches default catalog price but differs from contract price, autofill it
-              if (matched.unit_price && (itemPrice === 0 || Math.abs(itemPrice - Number(matched.unit_price)) > 0.001)) {
+              // Only auto-fill price if currently zero (not set). In edit mode or when price is already entered, preserve the PO price.
+              if (matched.unit_price && itemPrice === 0) {
                 itemsUpdated = true;
                 return {
                   ...item,
@@ -730,11 +888,40 @@ export const PurchaseOrderCreatePage: React.FC = () => {
     void autoFillContracts()
   }, [formData.supplier_id, formData.vote_code, formData.items?.map(it => `${it.item_id}_${it.unit_price}`).join(','), hospitalId])
 
+  // Keep header KKM Contract No in sync with item contract number
+  useEffect(() => {
+    if (!formData.kkm_contract_number && formData.items && formData.items.length > 0) {
+      const activeItemWithContract = formData.items.find(it => {
+        const cNo = it.contract_number || (it as any).cc_contract_number;
+        const refDate = formData.order_date || new Date().toISOString();
+        return cNo && !isContractExpired(it, refDate);
+      });
+      if (activeItemWithContract) {
+        const firstContractNo = activeItemWithContract.contract_number || (activeItemWithContract as any).cc_contract_number || '';
+        setFormData(prev => ({
+          ...prev,
+          kkm_contract_number: firstContractNo
+        }));
+      }
+    }
+  }, [formData.items, formData.vote_code, formData.kkm_contract_number, formData.order_date])
+
+
   // No mock items: user will search and add real catalog items only
 
   const handleInputChange = (field: keyof PurchaseOrderFormData, value: any) => {
     setFormData((prev) => {
+      if (field === 'vote_code' && prev.vote_code && prev.vote_code !== value && prev.items && prev.items.length > 0) {
+        const confirmClear = window.confirm('Menukar Kod Vote akan mengosongkan senarai item kerana setiap Kod Vote menguatkuasakan katalog MyInventory yang berbeza. Teruskan?')
+        if (!confirmClear) {
+          return prev
+        }
+      }
+
       const newData = { ...prev, [field]: value };
+      if (field === 'vote_code' && prev.vote_code && prev.vote_code !== value && prev.items && prev.items.length > 0) {
+        newData.items = []
+      }
       
       // 1. Auto-select Pharmaniaga for APPL (990102)
       if (field === 'vote_code' && value === '990102') {
@@ -751,6 +938,16 @@ export const PurchaseOrderCreatePage: React.FC = () => {
         newData.department = 'pharmacy';
         newData.category = 'drug';
         newData.vote_activity = '27401';
+      }
+
+      // Auto fill KKM contract number if first item has contract
+      if (field === 'vote_code' && value === '080702') {
+        if (!newData.kkm_contract_number) {
+          const firstItem = newData.items?.[0]
+          if (firstItem?.contract_number) {
+            newData.kkm_contract_number = firstItem.contract_number
+          }
+        }
       }
 
       // 2. Auto-lock Category, Vote Code, and Activity for specific departments (Wards)
@@ -801,6 +998,26 @@ export const PurchaseOrderCreatePage: React.FC = () => {
       return
     }
 
+    const itemCodeStr = ('drug_code' in item ? item.drug_code : item.item_code) || '';
+    const isCc = formData.vote_code === '080702' || (item as any).procurement_vote === 'cc';
+    
+    const supplierName = (item as any).cc_supplier_name || (item as any).supplier?.company_name || (item as any).supplier_name || (item as any).supplier?.name || '';
+    const rawContractNo = (item as any).cc_contract_number || (item as any).kkm_contract_number || (item as any).contract_number || (item as any).supplier?.contract_number || '';
+    const contractStart = (item as any).cc_contract_start_date || (item as any).contract_start_date || '';
+    const contractEnd = (item as any).cc_contract_end_date || (item as any).contract_expiry || (item as any).contract_end_date || (item as any).expiry_date || '';
+    const contractStatus = (item as any).cc_contract_status || (item as any).contract_status || '';
+    const leadTime = (item as any).lead_time_days || (item as any).delivery_timeframe || (item as any).lead_time || '';
+
+    const refDate = formData.order_date || new Date().toISOString();
+    const itemIsExpired = isContractExpired({
+      contract_end_date: contractEnd,
+      cc_contract_end_date: contractEnd,
+      cc_contract_status: contractStatus,
+      contract_status: contractStatus
+    }, refDate);
+
+    const activeContractNo = itemIsExpired ? '' : rawContractNo;
+
     const newItem: POItem = {
       item_type: item.item_type,
       item_id: item.id,
@@ -808,13 +1025,40 @@ export const PurchaseOrderCreatePage: React.FC = () => {
       unit_price: item.price ? Number(item.price) : 0,
       packaging_description: item.packaging_description || '',
       item_name: 'drug_name' in item ? item.drug_name : item.item_name,
-      item_code: 'drug_code' in item ? item.drug_code : item.item_code,
+      item_code: itemCodeStr,
+      supplier_name: supplierName,
+      contract_number: activeContractNo,
+      cc_contract_start_date: contractStart,
+      cc_contract_end_date: contractEnd,
+      cc_contract_status: contractStatus,
+      lead_time_days: leadTime,
+      contract_end_date: contractEnd,
     }
 
-    setFormData((prev) => ({
-      ...prev,
-      items: [...(prev.items || []), newItem],
-    }))
+    setFormData((prev: any) => {
+      const updated = {
+        ...prev,
+        items: [...(prev.items || []), newItem],
+        kkm_contract_number: activeContractNo || prev.kkm_contract_number,
+      }
+
+
+      if (supplierName) {
+        const cleanName = (s: string) => s ? s.toLowerCase().replace(/[^a-z0-9]/g, '').replace(/sdn\s*bhd/gi, '').replace(/sdn/gi, '').replace(/bhd/gi, '').trim() : '';
+        const targetClean = cleanName(supplierName);
+        const matchedSupplier = suppliers.find(s => {
+          const sClean = cleanName(s.company_name);
+          return sClean.includes(targetClean) || targetClean.includes(sClean) || (targetClean.includes('ally') && sClean.includes('ally'));
+        });
+
+        if (matchedSupplier) {
+          updated.supplier_id = matchedSupplier.id;
+          updated.supplier_ids = [matchedSupplier.id];
+        }
+      }
+
+      return updated
+    })
 
     // Check if the item has an active contract in the database and auto-fill PO details
     const code = 'drug_code' in item ? item.drug_code : item.item_code;
@@ -882,9 +1126,10 @@ export const PurchaseOrderCreatePage: React.FC = () => {
           if (matched) {
             setFormData(prev => {
               const updated = { ...prev };
+              const cNo = matched.contract_number || prev.kkm_contract_number || resolvedContractNo;
               
-              if (!updated.kkm_contract_number && matched.contract_number) {
-                updated.kkm_contract_number = matched.contract_number;
+              if (!updated.kkm_contract_number && cNo) {
+                updated.kkm_contract_number = cNo;
               }
               if ((!updated.supplier_id || updated.supplier_id === 'other') && matched.supplier_id) {
                 updated.supplier_id = matched.supplier_id;
@@ -899,7 +1144,11 @@ export const PurchaseOrderCreatePage: React.FC = () => {
                     return {
                       ...it,
                       unit_price: matched.unit_price ? Number(matched.unit_price) : it.unit_price,
-                      packaging_description: matched.unit || it.packaging_description
+                      packaging_description: matched.unit || it.packaging_description,
+                      supplier_name: matched.supplier_name || it.supplier_name || resolvedSupplierName,
+                      contract_number: matched.contract_number || it.contract_number || resolvedContractNo,
+                      lead_time_days: matched.lead_time_days || matched.delivery_timeframe || it.lead_time_days || resolvedLeadTime,
+                      contract_end_date: matched.contract_end_date || matched.contract_expiry || it.contract_end_date || resolvedContractEnd
                     };
                   }
                   return it;
@@ -1025,7 +1274,7 @@ export const PurchaseOrderCreatePage: React.FC = () => {
                 item_id: catalogItem.id,
                 quantity: 1,
                 unit_price: contract.unit_price ? Number(contract.unit_price) : (catalogItem.price ? Number(catalogItem.price) : 0),
-                packaging_description: contract.unit || catalogItem.packaging_description || '',
+                packaging_description: catalogItem.unit_of_measure || contract.unit || catalogItem.packaging_description || '',
                 item_name: 'drug_name' in catalogItem ? catalogItem.drug_name : catalogItem.item_name,
                 item_code: 'drug_code' in catalogItem ? catalogItem.drug_code : catalogItem.item_code,
               };
@@ -1248,6 +1497,7 @@ export const PurchaseOrderCreatePage: React.FC = () => {
         manual_vote_activity: formData.manual_vote_activity,
         manual_category: formData.manual_category,
         manual_department: formData.manual_department,
+        kkm_contract_number: formData.kkm_contract_number,
         items: formData.items.map((item: any) => ({
           item_type: item.item_type,
           item_id: item.item_id,
@@ -1256,6 +1506,9 @@ export const PurchaseOrderCreatePage: React.FC = () => {
           quantity: item.quantity,
           unit_price: item.unit_price,
           packaging_description: item.packaging_description,
+          contract_number: item.contract_number || item.cc_contract_number || formData.kkm_contract_number,
+          lead_time_days: item.lead_time_days || item.lead_time,
+          contract_end_date: item.contract_end_date || item.cc_contract_end_date,
         })),
         modification_reason: formData.modification_reason,
       } as any
@@ -1706,9 +1959,9 @@ export const PurchaseOrderCreatePage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* KKM Contract No - Only for CC/DP (080702) */}
+                  {/* KKM Contract No - Only for CC/DP (080702) and not for SQ */}
                   <AnimatePresence>
-                    {formData.vote_code === '080702' && (
+                    {formData.vote_code === '080702' && formData.po_type !== 'sq' && (
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
@@ -1726,16 +1979,18 @@ export const PurchaseOrderCreatePage: React.FC = () => {
                     )}
                   </AnimatePresence>
 
-                  {/* Inv / SQ Number */}
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">Inv / SQ Number</label>
-                    <Input
-                      placeholder="e.g. INV-12345 or SQ-67890"
-                      value={formData.inv_sq_number || ''}
-                      onChange={(e) => handleInputChange('inv_sq_number', e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 focus:border-indigo-500 focus:ring-0 outline-none transition-all hover:border-slate-300"
-                    />
-                  </div>
+                  {/* Inv / SQ Number - Not for SQ */}
+                  {formData.po_type !== 'sq' && (
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">Inv / SQ Number</label>
+                      <Input
+                        placeholder="e.g. INV-12345 or SQ-67890"
+                        value={formData.inv_sq_number || ''}
+                        onChange={(e) => handleInputChange('inv_sq_number', e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 focus:border-indigo-500 focus:ring-0 outline-none transition-all hover:border-slate-300"
+                      />
+                    </div>
+                  )}
 
                   {/* Category & Department */}
                   <div className="space-y-3">
@@ -1983,14 +2238,20 @@ export const PurchaseOrderCreatePage: React.FC = () => {
                           className="absolute z-50 w-full mt-3 bg-white border border-slate-200 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] overflow-hidden max-h-[400px] overflow-y-auto"
                         >
                           <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Search Results</span>
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                              Search Results {formData.vote_code === '990102' ? '(APPL Catalog)' : formData.vote_code === '080702' ? '(CC Catalog)' : ''}
+                            </span>
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{allItems.length} found</span>
                           </div>
                           {allItems.map((item) => (
                             <button
                               key={`${item.item_type}-${item.id}`}
                               type="button"
-                              onClick={() => addItem(item)}
+                              onClick={() => {
+                                addItem(item)
+                                setItemSearch('')
+                                setShowSuggestions(false)
+                              }}
                               className="w-full text-left px-5 py-4 hover:bg-indigo-50/30 border-b border-slate-100 last:border-b-0 flex items-center justify-between group transition-all"
                             >
                               <div className="flex items-start gap-4">
@@ -1998,9 +2259,20 @@ export const PurchaseOrderCreatePage: React.FC = () => {
                                   {item.item_type === 'drug' ? <IconActivity className="w-5 h-5" /> : <IconPackage className="w-5 h-5" />}
                                 </div>
                                 <div className="flex flex-col">
-                                  <span className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
-                                    {'drug_name' in item ? item.drug_name : item.item_name}
-                                  </span>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                                      {'drug_name' in item ? item.drug_name : item.item_name}
+                                    </span>
+                                    {((item as any).procurement_vote === 'cc' || (item as any).category === 'Contract Catalog' || (item as any).kkm_contract_number || (item as any).contract_number) ? (
+                                      <span className="px-2 py-0.5 text-[9px] font-black rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200/60 uppercase tracking-wider">
+                                        CC Contract
+                                      </span>
+                                    ) : (
+                                      <span className="px-2 py-0.5 text-[9px] font-semibold rounded-md bg-slate-100 text-slate-600 border border-slate-200/60 uppercase tracking-wider">
+                                        Non-Contract
+                                      </span>
+                                    )}
+                                  </div>
                                   <div className="flex items-center gap-2 mt-1">
                                     <span className="text-[10px] font-bold text-slate-400 font-mono tracking-tighter">
                                       {('drug_code' in item ? item.drug_code : item.item_code)}
@@ -2025,6 +2297,49 @@ export const PurchaseOrderCreatePage: React.FC = () => {
                               </div>
                             </button>
                           ))}
+                        </motion.div>
+                      )}
+
+                      {showSuggestions && allItems.length === 0 && itemSearch.trim().length > 0 && (
+                        <motion.div 
+                          initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                          className="absolute z-50 w-full mt-3 bg-white border border-amber-200 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] overflow-hidden p-6 text-center"
+                        >
+                          <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center mx-auto mb-3 text-amber-600">
+                            <IconAlertCircle className="w-6 h-6 text-amber-600" />
+                          </div>
+                          <h4 className="text-sm font-bold text-slate-900 mb-1">
+                            Item Tidak Wujud Dalam Katalog MyInventory {formData.vote_code === '990102' ? '(APPL)' : formData.vote_code === '080702' ? '(CC)' : ''}
+                          </h4>
+                          <p className="text-xs text-slate-600 max-w-md mx-auto mb-4 leading-relaxed">
+                            Ubat/Item <span className="font-semibold text-slate-900">"{itemSearch}"</span> tidak ditemui dalam senarai {formData.vote_code === '990102' ? 'APPL' : formData.vote_code === '080702' ? 'CC' : 'Katalog'} MyInventory. Sila tambah ubat/item ini secara manual ke dalam katalog di modul <span className="font-bold text-teal-700">MyInventory</span> terlebih dahulu.
+                          </p>
+                          <div className="flex items-center justify-center gap-3">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowSuggestions(false)}
+                              className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50"
+                            >
+                              Tutup
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => {
+                                setShowSuggestions(false)
+                                navigate('/inventory/drug-inventory', { 
+                                  state: { filter: formData.vote_code === '990102' ? 'appl' : formData.vote_code === '080702' ? 'cc' : 'all' } 
+                                })
+                              }}
+                              className="rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-bold shadow-md hover:from-teal-700 hover:to-emerald-700"
+                            >
+                              Buka MyInventory →
+                            </Button>
+                          </div>
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -2145,6 +2460,42 @@ export const PurchaseOrderCreatePage: React.FC = () => {
                                     {item.item_type}
                                   </span>
                                 </div>
+
+                                {/* CC Item Contract Details Card - Only show if real contract details exist and not in SQ mode */}
+                                {formData.po_type !== 'sq' && (item.contract_number || (item as any).cc_contract_number || item.supplier_name || (item as any).cc_supplier_name) && (
+                                  <div className="mt-3 p-3 bg-slate-50/90 border border-slate-200/80 rounded-xl grid grid-cols-2 sm:grid-cols-5 gap-3 text-[10px] w-full">
+                                    <div>
+                                      <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Nama Pembekal</span>
+                                      <span className="font-bold text-slate-800 truncate block" title={item.supplier_name || (item as any).cc_supplier_name || suppliers.find(s => s.id === formData.supplier_id)?.company_name || '-'}>
+                                        {item.supplier_name || (item as any).cc_supplier_name || suppliers.find(s => s.id === formData.supplier_id)?.company_name || '-'}
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-0.5">No. Kontrak</span>
+                                      <span className="inline-block font-mono font-bold text-indigo-700 bg-indigo-50 border border-indigo-100/80 px-2 py-0.5 rounded text-[10px] truncate max-w-full" title={item.contract_number || (item as any).cc_contract_number || formData.kkm_contract_number || '-'}>
+                                        {item.contract_number || (item as any).cc_contract_number || formData.kkm_contract_number || '-'}
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Tarikh Mula</span>
+                                      <span className="font-bold text-slate-800 block">
+                                        {(item as any).cc_contract_start_date || (item as any).contract_start_date || '-'}
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Tarikh Tamat</span>
+                                      <span className="font-bold text-slate-800 block">
+                                        {item.contract_end_date || (item as any).cc_contract_end_date || '-'}
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Status Kontrak</span>
+                                      <span className="inline-block font-bold text-sky-700 bg-sky-50 border border-sky-100 px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wider">
+                                        {(item as any).cc_contract_status || '-'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                               <button
                                 type="button"

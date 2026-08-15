@@ -2083,7 +2083,7 @@ const TransporterRequestFormPage: React.FC = () => {
                     placeholder="Masukkan sebarang keperluan tambahan (contoh: Perlu kerusi roda, peti ais ubat, dll)"
                     value={catatanKhas}
                     onChange={(e) => setCatatanKhas(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-600 transition-colors"
+                    className="w-full bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-600 focus:bg-white transition-colors font-medium shadow-xs"
                   />
                 </div>
               </div>
@@ -2137,7 +2137,7 @@ const TransporterRequestFormPage: React.FC = () => {
                     <select
                       value={doktorPerujukNama}
                       onChange={(e) => setDoktorPerujukNama(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-600 focus:bg-white transition-colors"
+                      className="w-full bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-600 focus:bg-white transition-colors font-medium shadow-xs"
                       required
                     >
                       <option value="">Sila Pilih Doktor Perujuk</option>
@@ -2169,7 +2169,7 @@ const TransporterRequestFormPage: React.FC = () => {
                       placeholder="Contoh: Pesakit dirujuk ke Hospital Limbang untuk rawatan pakar kecemasan."
                       value={crossborderCatatan}
                       onChange={(e) => setCrossborderCatatan(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-600 transition-colors"
+                      className="w-full bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-600 focus:bg-white transition-colors font-medium shadow-xs"
                     />
                   </div>
                 </div>

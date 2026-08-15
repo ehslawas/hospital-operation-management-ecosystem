@@ -5,10 +5,12 @@
   "type": "module",
   "description": "Hospital Operation Management Ecosystem (HOME) - A comprehensive hospital management system",
   "scripts": {
+    "predev": "powershell -NoProfile -Command \"$ErrorActionPreference='SilentlyContinue'; $conn = Get-NetTCPConnection -LocalPort 3000; if ($conn) { $pids = $conn | Select-Object -ExpandProperty OwningProcess -Unique; $pids | ForEach-Object { Stop-Process -Id $_ -Force; Write-Host \"[predev] Killed zombie process PID $_  on port 3000\" } } else { Write-Host '[predev] Port 3000 is free. Starting fresh...' }\"",
     "dev": "vite",
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "killport": "powershell -NoProfile -Command \"$ErrorActionPreference='SilentlyContinue'; $conn = Get-NetTCPConnection -LocalPort 3000; if ($conn) { $pids = $conn | Select-Object -ExpandProperty OwningProcess -Unique; $pids | ForEach-Object { Stop-Process -Id $_ -Force; Write-Host \"Killed PID $_ on port 3000\" } } else { Write-Host 'Port 3000 already free' }\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.2",
@@ -23,6 +25,7 @@
     "lucide-react": "^0.303.0",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^4.10.38",
+    "qrcode": "^1.5.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.49.2",
@@ -36,6 +39,7 @@
   },
   "devDependencies": {
     "@types/pdfjs-dist": "^2.10.377",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
     "@typescript-eslint/eslint-plugin": "^6.14.0",

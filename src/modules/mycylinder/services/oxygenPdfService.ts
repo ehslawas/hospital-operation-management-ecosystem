@@ -1,7 +1,8 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import type { OxygenReceptionRecord } from '@/types/pharmacy'
+import { drawHospitalHeader } from '@/lib/pdfHeader'
 
 // Helper to convert image URL to base64
 const getBase64ImageFromUrl = async (imageUrl: string): Promise<string | null> => {
@@ -55,6 +56,8 @@ interface OxygenPdfOptions {
   supplierPhone?: string
   balanceBefore?: number | null
   balanceAfter?: number | null
+  /** Per-cylinder-size loan rates keyed by size code, e.g. { '101-N': 15, '101-F': 13.1 } */
+  loanRates?: Record<string, number>
 }
 
 /**
@@ -73,7 +76,17 @@ export async function generateOxygenPoPdf(options: OxygenPdfOptions): Promise<Bl
     supplierAddress = 'Lot 1525, Block 3 Piasau Industrial Estate, MCLD 98008 Miri Sarawak Bumi Kenyalang',
     supplierPhone = '+60-3-7803-4567',
     balanceAfter = null,
+    loanRates = {},
   } = options
+
+  const isLinde = (supplierName || '').toLowerCase().includes('linde')
+  const defaultLoanFallback = isLinde ? 18.36 : 15.00
+
+  // Helper: get loan rate for a size code
+  const getLoanRateForSize = (sizeCode: string): number => {
+    const normalized = sizeCode.replace(/^P/, '')
+    return loanRates[sizeCode] ?? loanRates[normalized] ?? defaultLoanFallback
+  }
 
   const doc = new jsPDF('p', 'mm', 'a4')
   const logoBase64 = await getBase64ImageFromUrl('/512px-Jata_MalaysiaV2.svg.png')
@@ -119,14 +132,15 @@ export async function generateOxygenPoPdf(options: OxygenPdfOptions): Promise<Bl
   }
 
   const blocks: PoBlock[] = []
-  const loanRate = 18.36
 
-  // 1. Group Refills by Size (each size refill gets its own LPO - all received cylinders are refilled!)
+  // 1. Group Refills by Size (filter out explicit loan items, or group all refills)
+  const refillItems = items.filter(itm => !itm.is_loan)
   const refillGroups: Record<string, { quantity: number; unitPrice: number }[]> = {}
   
-  items.forEach(itm => {
+  const targetItems = refillItems.length > 0 ? refillItems : items
+  targetItems.forEach(itm => {
     const size = itm.size_code === '101-F' ? 'P101-F' : itm.size_code
-    const refillPrice = itm.is_loan ? (itm.unit_price - loanRate) : itm.unit_price
+    const refillPrice = itm.unit_price > 30 ? itm.unit_price : 250.00
     
     if (!refillGroups[size]) refillGroups[size] = []
     refillGroups[size].push({
@@ -156,18 +170,31 @@ export async function generateOxygenPoPdf(options: OxygenPdfOptions): Promise<Bl
     })
   })
 
-  // 2. Consolidate ALL Loan items of all sizes into a single Consolidated Loan LPO
-  const loanItems = items.filter(itm => itm.is_loan)
-  if (loanItems.length > 0) {
-    const consolidatedLoanItems = loanItems.map(itm => {
-      const size = itm.size_code === '101-F' ? 'P101-F' : itm.size_code
-      return {
-        ...itm,
-        size_code: size,
-        unit_price: loanRate,
-        total_price: loanRate * itm.quantity
-      }
-    })
+  // 2. Build Loan PO block for loan items AND loan cylinder sizes (101-N, 101-F)
+  const loanMap: Record<string, number> = {}
+  
+  items.forEach(itm => {
+    const rawSize = itm.size_code
+    const isLoanCylinderSize = rawSize.startsWith('101-') || rawSize === '101-N' || rawSize === '101-F'
+    if (itm.is_loan || isLoanCylinderSize) {
+      const displaySize = rawSize === '101-F' ? 'P101-F' : rawSize
+      loanMap[displaySize] = (loanMap[displaySize] || 0) + itm.quantity
+    }
+  })
+
+  const consolidatedLoanItems = Object.keys(loanMap).map(sizeCode => {
+    const itemLoanRate = getLoanRateForSize(sizeCode)
+    const qty = loanMap[sizeCode]
+    return {
+      size_code: sizeCode,
+      is_loan: true,
+      quantity: qty,
+      unit_price: itemLoanRate,
+      total_price: itemLoanRate * qty
+    }
+  })
+
+  if (consolidatedLoanItems.length > 0) {
     const totalPrice = consolidatedLoanItems.reduce((sum, itm) => sum + itm.total_price, 0)
     blocks.push({
       type: 'loan',
@@ -204,34 +231,7 @@ export async function generateOxygenPoPdf(options: OxygenPdfOptions): Promise<Bl
     // --- PAGE 1: PO DETAILS ---
     renderFrame()
 
-    // 1. Logo
-    if (logoBase64) {
-      doc.addImage(logoBase64, 'PNG', margin + 5, 15, 22.5, 18)
-    }
-
-    // 2. Thick vertical bar next to logo
-    doc.setFillColor(31, 41, 55)
-    doc.rect(margin + 30.5, 15, 0.8, 18, 'F')
-
-    // 3. Ministry header
-    doc.setFont('times', 'bold')
-    doc.setFontSize(14)
-    doc.setTextColor(31, 41, 55)
-    doc.text('KEMENTERIAN KESIHATAN', pageWidth / 2, 19, { align: 'center' })
-    doc.setFontSize(12)
-    doc.text('MINISTRY OF HEALTH', pageWidth / 2, 24, { align: 'center' })
-    doc.text('MALAYSIA', pageWidth / 2, 29, { align: 'center' })
-    doc.setFontSize(10.5)
-    doc.text(hospitalName, pageWidth / 2, 35, { align: 'center' })
-
-    // 4. Thick vertical bar far right
-    doc.setFillColor(31, 41, 55)
-    doc.rect(pageWidth - margin - 7, 15, 0.8, 18, 'F')
-
-    // 5. Horizontal divider
-    doc.setLineWidth(0.8)
-    doc.setDrawColor(31, 41, 55)
-    doc.line(margin + 5, 39, pageWidth - margin - 5, 39)
+    await drawHospitalHeader(doc, { margin: margin + 5, startY: 10, logoBase64 })
 
     // 6. Document Titles
     doc.setFont('times', 'bold')
@@ -263,9 +263,11 @@ export async function generateOxygenPoPdf(options: OxygenPdfOptions): Promise<Bl
       doc.text(label1.toUpperCase(), col1, y + 3.0)
 
       doc.setFont('times', 'bold')
-      doc.setFontSize(9.5)
+      doc.setFontSize(val1 && val1.length > 35 ? 7.5 : 9.5)
       doc.setTextColor(17, 24, 39)
-      doc.text(val1, col1, y + 7.2)
+      const maxCol1Width = label2 ? (pageWidth / 2 - margin - 10) : (contentWidth - 10)
+      const val1Lines = doc.splitTextToSize(val1 || '-', maxCol1Width)
+      doc.text(val1Lines[0] || '', col1, y + 7.2)
 
       if (label2 && val2) {
         // Col 2
@@ -275,19 +277,25 @@ export async function generateOxygenPoPdf(options: OxygenPdfOptions): Promise<Bl
         doc.text(label2.toUpperCase(), col2, y + 3.0)
 
         doc.setFont('times', 'bold')
-        doc.setFontSize(9.5)
+        doc.setFontSize(val2 && val2.length > 35 ? 7.5 : 9.5)
         doc.setTextColor(17, 24, 39)
-        doc.text(val2, col2, y + 7.2)
+        const maxCol2Width = pageWidth - col2 - margin - 5
+        const val2Lines = doc.splitTextToSize(val2 || '-', maxCol2Width)
+        doc.text(val2Lines[0] || '', col2, y + 7.2)
       }
     }
 
     // Rows
-    const poNo = `PO-O2-${reception.delivery_order_no.substring(0, 6).toUpperCase()}`
-    const formattedDate = new Date(reception.reception_date).toLocaleDateString('ms-MY', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    }).toUpperCase()
+    const firstDo = (reception.delivery_order_no || '').split(/[\s/]+/)[0] || 'REC'
+    const poNo = `PO-O2-${firstDo.substring(0, 8).toUpperCase()}`
+    const isValidDate = !isNaN(new Date(reception.reception_date).getTime())
+    const formattedDate = isValidDate
+      ? new Date(reception.reception_date).toLocaleDateString('ms-MY', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        }).toUpperCase()
+      : String(reception.reception_date || '').toUpperCase()
 
     drawGridRow(gridY, 'NO. REKOD PENERIMAAN / REC NO.', poNo, 'JABATAN / DEPARTMENT', 'FARMASI LOGISTIK')
     gridY += rowHeight
@@ -298,7 +306,7 @@ export async function generateOxygenPoPdf(options: OxygenPdfOptions): Promise<Bl
     drawGridRow(gridY, 'AKTIVITI UNDI / VOTE ACTIVITY', reception.vote_activity, 'KATEGORI / CATEGORY', 'OKSIGEN PERUBATAN (MEDICAL OXYGEN)')
     gridY += rowHeight
 
-    drawGridRow(gridY, 'DELIVERY ORDER NO.', reception.delivery_order_no, 'SALES ORDER NO.', reception.sales_order_no)
+    drawGridRow(gridY, 'DELIVERY ORDER NO.', reception.delivery_order_no, 'SALES ORDER NO.', reception.sales_order_no || '-')
     gridY += rowHeight
 
     gridY += 5
@@ -697,45 +705,69 @@ export async function generateOxygenReceptionReportPdf(options: OxygenPdfOptions
 
   renderFrame()
 
-  // 1. Header logo and titles
+  // 1. Government Standard Letterhead (matching crossborderPdfService.ts)
   if (logoBase64) {
-    doc.addImage(logoBase64, 'PNG', margin + 5, 15, 22.5, 18)
+    try {
+      doc.addImage(logoBase64, 'PNG', margin + 3, 14, 22, 18)
+    } catch (e) {
+      console.error('Failed to draw logo on letterhead:', e)
+    }
   }
-  doc.setFillColor(31, 41, 55)
-  doc.rect(margin + 30.5, 15, 0.8, 18, 'F')
 
+  // Address & Department Block - Left-aligned next to Jata Negara
+  const textX = margin + 28
   doc.setFont('times', 'bold')
-  doc.setFontSize(14)
-  doc.setTextColor(31, 41, 55)
-  doc.text('KEMENTERIAN KESIHATAN MALAYSIA', pageWidth / 2, 19, { align: 'center' })
-  doc.setFontSize(12)
-  doc.text(hospitalName, pageWidth / 2, 24, { align: 'center' })
-  doc.setFontSize(10.5)
-  doc.text('LAPORAN PENERIMAAN & PEMERIKSAAN BEKALAN OKSIGEN', pageWidth / 2, 29, { align: 'center' })
-  doc.setFont('times', 'italic')
-  doc.text('Oxygen Reception, Verification, and Inspection Audit Report', pageWidth / 2, 33, { align: 'center' })
+  doc.setFontSize(11)
+  doc.setTextColor(17, 24, 39)
+  doc.text('KEMENTERIAN KESIHATAN MALAYSIA', textX, 18)
+  doc.setFontSize(12.5)
+  doc.text((hospitalName || 'HOSPITAL LAWAS').toUpperCase(), textX, 23)
+  doc.setFont('times', 'normal')
+  doc.setFontSize(9.5)
+  doc.text('Jalan Hospital, 98850 Lawas, Sarawak, Malaysia', textX, 27.5)
+  doc.text('Tel: 085 283 781  E-mel: hosp_lawas@moh.gov.my', textX, 31.5)
 
+  // Double Horizontal Rules (Thick 0.6pt + Thin 0.2pt)
   doc.setLineWidth(0.6)
-  doc.setDrawColor(31, 41, 55)
-  doc.line(margin + 5, 37, pageWidth - margin - 5, 37)
+  doc.setDrawColor(0, 0, 0)
+  doc.line(margin + 3, 35.5, pageWidth - margin - 3, 35.5)
+  doc.setLineWidth(0.2)
+  doc.line(margin + 3, 36.7, pageWidth - margin - 3, 36.7)
+
+  // Report Title (Centered below letterhead)
+  doc.setFont('times', 'bold')
+  doc.setFontSize(11)
+  doc.setTextColor(17, 24, 39)
+  doc.text('LAPORAN PENERIMAAN & PEMERIKSAAN BEKALAN OKSIGEN', pageWidth / 2, 43.5, { align: 'center' })
+  doc.setFont('times', 'italic')
+  doc.setFontSize(9.5)
+  doc.text('Oxygen Reception, Verification, and Inspection Audit Report', pageWidth / 2, 48, { align: 'center' })
 
   // 2. DO Details grid
-  let y = 43
+  let y = 54
   doc.setFont('times', 'bold')
   doc.setFontSize(9.5)
   doc.setTextColor(17, 24, 39)
   doc.text('A. RUJUKAN DOKUMEN / DOCUMENTATION REFERENCE', margin + 5, y)
   y += 5
 
+  const isValidReportDate = !isNaN(new Date(reception.reception_date).getTime())
+  const formattedReportDate = isValidReportDate
+    ? new Date(reception.reception_date).toLocaleDateString('en-MY')
+    : String(reception.reception_date || '-')
+  const firstDoReport = (reception.delivery_order_no || '').split(/[\s/]+/)[0] || 'REC'
+
   doc.setFont('times', 'normal')
   doc.setFontSize(9)
-  doc.text(`No. Rekod Penerimaan: PO-O2-${reception.delivery_order_no.substring(0, 6).toUpperCase()}`, margin + 8, y)
-  doc.text(`Tarikh Penerimaan: ${new Date(reception.reception_date).toLocaleDateString('en-MY')}`, pageWidth / 2 + 5, y)
+  doc.text(`No. Rekod Penerimaan: PO-O2-${firstDoReport.substring(0, 8).toUpperCase()}`, margin + 8, y)
+  doc.text(`Tarikh Penerimaan: ${formattedReportDate}`, pageWidth / 2 + 5, y)
   y += 5
-  doc.text(`No. Delivery Order (DO): ${reception.delivery_order_no}`, margin + 8, y)
-  doc.text(`No. Sales Order (SO): ${reception.sales_order_no}`, pageWidth / 2 + 5, y)
+  
+  const doLines = doc.splitTextToSize(`No. Delivery Order (DO): ${reception.delivery_order_no || '-'}`, pageWidth / 2 - 12)
+  doc.text(doLines[0] || '', margin + 8, y)
+  doc.text(`No. Sales Order (SO): ${reception.sales_order_no || '-'}`, pageWidth / 2 + 5, y)
   y += 5
-  doc.text(`Kategori Belanjawan: Oksigen Perubatan (Vote: ${reception.vote_code} / ${reception.vote_activity})`, margin + 8, y)
+  doc.text(`Kategori Belanjawan: Oksigen Perubatan (Vote: ${reception.vote_code || '080702'} / ${reception.vote_activity || '27402'})`, margin + 8, y)
 
   y += 10
 
@@ -747,14 +779,20 @@ export async function generateOxygenReceptionReportPdf(options: OxygenPdfOptions
   const tableData: any[] = []
   let bil = 1
   let totalLoanQty = 0
-  const loanRate = 18.36
+  const loanRates = options.loanRates || {}
+  const isLindeReport = (options.supplierName || '').toLowerCase().includes('linde')
+  const defaultLoanFallbackReport = isLindeReport ? 18.36 : 15.00
+  const getLoanRate = (sizeCode: string): number => {
+    const normalized = sizeCode.replace(/^P/, '')
+    return loanRates[sizeCode] ?? loanRates[normalized] ?? defaultLoanFallbackReport
+  }
 
   // Pre-process items to group standard refill quantities by physical size code
   const refillGroup: Record<string, { size_code: string; quantity: number; unit_price: number }> = {}
 
   items.forEach((itm) => {
     const displaySizeCode = itm.size_code === '101-F' ? 'P101-F' : itm.size_code
-    const refillPrice = itm.is_loan ? (itm.unit_price - loanRate) : itm.unit_price
+    const refillPrice = itm.unit_price
 
     if (itm.is_loan) {
       totalLoanQty += itm.quantity
@@ -786,14 +824,18 @@ export async function generateOxygenReceptionReportPdf(options: OxygenPdfOptions
   })
 
   // Append a single combined loan row at the end if applicable
+  // Use weighted average loan rate if multiple sizes, or first loan item's rate
   if (totalLoanQty > 0) {
+    const loanItems = items.filter(i => i.is_loan)
+    const totalLoanCost = loanItems.reduce((sum, itm) => sum + getLoanRate(itm.size_code) * itm.quantity, 0)
+    const avgLoanRate = totalLoanQty > 0 ? totalLoanCost / totalLoanQty : 18.36
     tableData.push([
       bil++,
       '-',
       'Cylinder Loan',
       totalLoanQty,
-      `RM ${loanRate.toFixed(2)}`,
-      `RM ${(loanRate * totalLoanQty).toFixed(2)}`,
+      `RM ${avgLoanRate.toFixed(2)}`,
+      `RM ${totalLoanCost.toFixed(2)}`,
       'DITERIMA / ACCEPTED'
     ])
   }

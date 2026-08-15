@@ -370,10 +370,10 @@ const AlbumDetailPage: React.FC = () => {
           const photo = photos.find(p => p.id === isDeleting)
           if (photo) handleDeletePhoto(photo.id, (photo as any).storage_path)
         }}
-        title="Padam Gambar?"
-        message="Adakah anda pasti mahu memadam gambar ini? Tindakan ini tidak boleh diundur."
+        title="Delete Photo?"
+        message="Are you sure you want to delete this photo? This action cannot be undone."
         variant="danger"
-        confirmText="Padam"
+        confirmText="Delete"
       />
     </div>
   )

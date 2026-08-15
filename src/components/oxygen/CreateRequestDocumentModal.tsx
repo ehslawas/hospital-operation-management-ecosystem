@@ -47,13 +47,17 @@ export const CreateRequestDocumentModal: React.FC<CreateRequestDocumentModalProp
         .eq('status', 'active');
       if (err) throw err;
       if (data) {
-        setSuppliers(data);
+        const filtered = data.filter(s => {
+          const name = (s.company_name || '').toLowerCase();
+          return name.includes('linde') || name.includes('borneo indah');
+        });
+        setSuppliers(filtered);
         // Find Linde Eox to set as default
-        const defaultSupplier = data.find(s => s.company_name.toLowerCase().includes('linde'));
+        const defaultSupplier = filtered.find(s => s.company_name.toLowerCase().includes('linde'));
         if (defaultSupplier) {
           setSelectedSupplierId(defaultSupplier.id);
-        } else if (data.length > 0) {
-          setSelectedSupplierId(data[0].id);
+        } else if (filtered.length > 0) {
+          setSelectedSupplierId(filtered[0].id);
         }
       }
     } catch (err) {
@@ -167,13 +171,13 @@ export const CreateRequestDocumentModal: React.FC<CreateRequestDocumentModalProp
           {/* Supplier and Date */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Pembekal</label>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Supplier</label>
               <select
                 value={selectedSupplierId}
                 onChange={(e) => setSelectedSupplierId(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
               >
-                <option value="">-- Pilih Pembekal --</option>
+                <option value="">-- Select Supplier --</option>
                 {suppliers.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.company_name}
@@ -183,7 +187,7 @@ export const CreateRequestDocumentModal: React.FC<CreateRequestDocumentModalProp
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tarikh Pesanan</label>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Order Date</label>
               <input
                 type="date"
                 value={requestedDate}

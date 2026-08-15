@@ -1,0 +1,68 @@
+[
+  {
+    "id": "05b38e34-4462-421d-bcfb-4ee55df45331",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Main Freezer",
+    "type": "freezer",
+    "min_limit": 2,
+    "max_limit": 8,
+    "is_active": true,
+    "created_at": "2026-01-19T05:41:28.461548+00:00",
+    "updated_at": "2026-01-19T05:41:28.461548+00:00"
+  },
+  {
+    "id": "b7a92344-c254-4582-9dba-c3cd3cdc9378",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Top Loading",
+    "type": "freezer",
+    "min_limit": 2,
+    "max_limit": 8,
+    "is_active": true,
+    "created_at": "2026-01-19T05:41:42.589881+00:00",
+    "updated_at": "2026-01-19T05:41:42.589881+00:00"
+  },
+  {
+    "id": "4a47bdb7-4107-416a-8d81-7bcc4e14d904",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Farmasi Logistik",
+    "type": "room",
+    "min_limit": 18,
+    "max_limit": 25,
+    "is_active": true,
+    "created_at": "2026-01-20T02:08:22.63774+00:00",
+    "updated_at": "2026-01-20T02:08:22.63774+00:00"
+  },
+  {
+    "id": "0217d4f0-ff97-465c-9aef-d3b58450eab8",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Satelite Pharmacy",
+    "type": "chiller",
+    "min_limit": 2,
+    "max_limit": 8,
+    "is_active": false,
+    "created_at": "2026-04-02T15:16:46.838848+00:00",
+    "updated_at": "2026-04-02T15:16:46.838848+00:00"
+  },
+  {
+    "id": "0f034c5f-7ae4-42c0-b9bc-1cf61c8df67b",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Satelite Pharmacy Fridgee",
+    "type": "chiller",
+    "min_limit": 2,
+    "max_limit": 8,
+    "is_active": true,
+    "created_at": "2026-04-02T15:17:46.128187+00:00",
+    "updated_at": "2026-04-02T15:17:46.128187+00:00"
+  },
+  {
+    "id": "0db979ac-7a9a-4a6b-b31e-fc83ceb199c3",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Satelite Pharmacy",
+    "type": "room",
+    "min_limit": 18,
+    "max_limit": 25,
+    "is_active": true,
+    "created_at": "2026-04-02T15:18:38.192081+00:00",
+    "updated_at": "2026-04-02T15:18:38.192081+00:00"
+  }
+]

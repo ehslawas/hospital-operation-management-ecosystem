@@ -247,14 +247,17 @@ export const CylinderDispatchPrintView: React.FC<CylinderDispatchPrintViewProps>
             <div class="watermark"></div>
 
             <!-- Header Info -->
-            <table style="width: 100%; margin-bottom: 15px; border-collapse: collapse;">
+            <table style="width: 100%; margin-bottom: 12px; border-collapse: collapse;">
               <tr>
-                <td style="width: 8%; vertical-align: middle;">
-                  <img src="${logoUrl}" alt="Jata Negara" style="width: 50px; height: auto;" onerror="this.style.display='none'" />
+                <td style="width: 6%; vertical-align: top;">
+                  <img src="${logoUrl}" alt="Jata Negara" style="width: 48px; height: auto;" onerror="this.style.display='none'" />
                 </td>
-                <td style="width: 50%; vertical-align: middle; padding-left: 10px;">
-                  <div style="font-size: 15px; font-weight: 800; letter-spacing: 0.5px;">HOSPITAL LAWAS</div>
-                  <div style="font-size: 9px; font-weight: 700; color: #222; margin-top: 2px; text-transform: uppercase;">KEMENTERIAN KESIHATAN MALAYSIA</div>
+                <td style="width: 52%; vertical-align: top; padding-left: 10px; font-family: 'Inter', Arial, sans-serif;">
+                  <div style="font-size: 14px; font-weight: 800; color: #1e293b; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 2px;">HOSPITAL LAWAS</div>
+                  <div style="font-size: 10px; font-weight: 500; color: #475569; line-height: 1.3;">Jalan Hospital, 98850 Lawas, Sarawak, Malaysia.</div>
+                  <div style="font-size: 9px; font-weight: 500; color: #475569; margin-top: 2px;">
+                    <strong style="color: #334155; font-weight: 700;">Telefon:</strong> 085-283781 &bull; <strong style="color: #334155; font-weight: 700;">Faks:</strong> 085-285993 &bull; <strong style="color: #334155; font-weight: 700;">Email:</strong> hosp_lawas@moh.gov.my
+                  </div>
                 </td>
                 <td style="width: 42%; text-align: right; vertical-align: top;">
                   <div style="font-size: 8px; font-weight: bold; letter-spacing: 0.5px; margin-bottom: 4px; color: #333;">SALINAN PEMESAN (REQUESTER)</div>

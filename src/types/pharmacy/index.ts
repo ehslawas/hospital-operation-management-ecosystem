@@ -39,6 +39,8 @@ export type StockTransactionType =
   | 'adjust_out'
   | 'return'
   | 'dispose'
+  | 'check_found'
+  | 'bring_forward'
 
 export type POStatus = 
   | 'draft'
@@ -251,6 +253,11 @@ export interface Drug extends BaseEntity {
   price?: number
   packaging_description?: string
   item_sub_class?: string
+  cc_contract_number?: string
+  cc_contract_start_date?: string
+  cc_contract_end_date?: string
+  cc_contract_status?: string
+  cc_supplier_name?: string
 }
 
 export interface DrugWithRelations extends Drug {
@@ -285,6 +292,11 @@ export interface NonDrug extends BaseEntity {
   procurement_vote?: 'appl' | 'cc' | 'dp' | 'lp'
   price?: number
   packaging_description?: string
+  cc_contract_number?: string
+  cc_contract_start_date?: string
+  cc_contract_end_date?: string
+  cc_contract_status?: string
+  cc_supplier_name?: string
 }
 
 export interface NonDrugWithRelations extends NonDrug {
@@ -387,6 +399,7 @@ export interface StockLevelSummary {
   item_code: string
   item_name: string
   unit_of_measure: string
+  packaging_description?: string
   min_stock: number
   max_stock?: number
   reorder_level?: number
@@ -395,6 +408,28 @@ export interface StockLevelSummary {
   reserved_stock: number
   status: 'in_stock' | 'low_stock' | 'critical' | 'out_of_stock'
   last_movement_date?: string
+  procurement_vote?: string
+  sheet_source?: string
+  is_appl?: boolean
+  procurement_scheme?: string
+  location?: string | null
+  facility_inventory_id?: string
+}
+
+export interface MovementSummary {
+  currentBalance: number
+  totalReceived: number
+  totalIssued: number
+  deptCount: number
+  lastReceiptDate: string | null
+  lastIssueDate: string | null
+}
+
+export interface DeptBreakdownRow {
+  location_id: string
+  location_name: string
+  total_issued: number
+  percentage: number
 }
 
 export interface ExpiryItem {
@@ -421,6 +456,42 @@ export interface SlowMovingItem {
   days_since_movement: number
   unit_value: number
   total_value: number
+}
+
+export type ReportPeriod = 'monthly' | 'quarterly' | 'half-yearly' | 'yearly'
+
+export interface InventoryReportRow {
+  item_id: string
+  item_code: string
+  item_name: string
+  item_type: 'drug' | 'non_drug'
+  procurement_vote?: string
+  unit_price: number
+  opening_qty: number
+  opening_value: number
+  receipt_qty: number
+  receipt_value: number
+  transfer_in_qty: number
+  transfer_in_value: number
+  issue_qty: number
+  issue_value: number
+  transfer_out_qty: number
+  transfer_out_value: number
+  return_qty: number
+  return_value: number
+  adjustment_qty: number
+  adjustment_value: number
+  closing_qty: number
+  closing_value: number
+}
+
+export interface InventoryReportFilter {
+  period: ReportPeriod
+  year: number
+  subPeriod: number // month (1-12), quarter (1-4), half (1-2)
+  item_type?: 'all' | 'drug' | 'non_drug'
+  procurement_vote?: 'all' | 'appl' | 'cc' | 'dp' | 'lp'
+  search?: string
 }
 
 // =====================================================
@@ -494,7 +565,10 @@ export interface OxygenPricingConfig extends BaseEntity {
   hospital_id: string | null
   cylinder_size_code: string
   refill_price: number
+  loan_rate?: number | null
   effective_from: string
+  supplier_id?: string | null
+  supplier_name?: string | null
 }
 
 export interface OxygenSystemSettings extends BaseEntity {
@@ -513,6 +587,7 @@ export interface OxygenReceptionRecord extends BaseEntity {
   vote_code: string
   vote_activity: string
   status: 'completed' | 'pending_invoice' | 'outstanding_po'
+  supplier_name?: string | null
   created_by?: string
   ids?: string[]
 }
@@ -1848,6 +1923,7 @@ export interface InventoryFilter {
   status?: ItemStatus | 'all'
   stock_status?: 'in_stock' | 'low_stock' | 'critical' | 'out_of_stock' | 'all'
   is_controlled?: boolean
+  procurement_vote?: string
 }
 
 export interface ExpiryFilter {
@@ -2018,4 +2094,125 @@ export interface CylinderMaintenanceWithRelations extends CylinderMaintenance {
     cylinder?: OxygenCylinderWithRelations | null
   })[]
 }
+
+// =====================================================
+// STORE LOCATION MANAGEMENT TYPES
+// =====================================================
+
+export type StoreLocationType = 'drug' | 'non_drug' | 'both'
+export type StorageCondition = 'ambient' | 'cold_2_8c' | 'controlled' | 'frozen'
+
+export interface StoreLocation extends BaseEntity {
+  hospital_id: string
+  store_name: string
+  department?: string
+  cabinet_rack: string
+  shelf_level: string
+  location_code: string
+  location_type: StoreLocationType
+  storage_condition: StorageCondition
+  description?: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface StoreLocationFormData {
+  store_name: string
+  department?: string
+  cabinet_rack: string
+  shelf_level: string
+  location_code?: string
+  location_type: StoreLocationType
+  storage_condition: StorageCondition
+  description?: string
+  is_active: boolean
+}
+
+export interface StoreLocationWithOccupancy extends StoreLocation {
+  drug_items_count: number
+  non_drug_items_count: number
+  total_items_count: number
+  formatted_location: string // e.g. "Liquid Store > Cabinet A > Level 1"
+}
+
+// =====================================================
+// INDENT & DISTRIBUTION TYPES
+// =====================================================
+
+export type IndentStatus = 'draft' | 'pending' | 'approved' | 'rejected' | 'issued' | 'completed' | 'cancelled'
+export type IndentPriority = 'low' | 'normal' | 'high' | 'urgent'
+export type IndentItemType = 'drug' | 'non_drug'
+
+export interface IndentEntitlement {
+  id: string
+  hospital_id: string
+  department_id: string
+  item_type: IndentItemType
+  item_id: string
+  item_code?: string
+  item_name: string
+  max_qty_per_request?: number
+  is_active: boolean
+  created_by?: string
+  created_at: string
+  updated_at: string
+  department?: { department_name: string }
+}
+
+export interface IndentRequestItem {
+  id: string
+  indent_request_id: string
+  item_type: IndentItemType
+  item_id: string
+  item_code?: string
+  item_name: string
+  unit?: string
+  qty_requested: number
+  qty_approved?: number
+  qty_issued?: number
+  batch_number?: string
+  expiry_date?: string
+  notes?: string
+}
+
+export interface IndentRequest {
+  id: string
+  indent_number: string
+  hospital_id: string
+  requesting_department_id: string
+  requested_by: string
+  request_date: string
+  required_date?: string
+  status: IndentStatus
+  priority: IndentPriority
+  notes?: string
+  approved_by?: string
+  approved_at?: string
+  issued_by?: string
+  issued_at?: string
+  received_by?: string
+  received_at?: string
+  rejection_reason?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface IndentRequestWithRelations extends IndentRequest {
+  items?: IndentRequestItem[]
+  requesting_department?: { id?: string; department_name: string }
+  requester?: { full_name: string }
+  approver?: { full_name: string }
+}
+
+export interface IndentFilter {
+  search?: string
+  status?: IndentStatus | 'all'
+  priority?: IndentPriority | 'all'
+  department_id?: string
+  date_from?: string
+  date_to?: string
+}
+
+
 

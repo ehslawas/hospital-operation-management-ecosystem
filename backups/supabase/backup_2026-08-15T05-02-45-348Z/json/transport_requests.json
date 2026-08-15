@@ -1,0 +1,677 @@
+[
+  {
+    "id": "75fbc303-57c0-45c0-9496-2cbbfd7eb243",
+    "no_rujukan": "TRN-2026-00002",
+    "jenis_permohonan": "ambulance",
+    "tujuan_permohonan": "CT Scan to other government facility",
+    "destinasi": "Hospital Beaufort",
+    "tarikh_masa_diperlukan": "2026-07-20T00:00:00+00:00",
+    "unit_pemohon": "General ward",
+    "pengiring": "nurse",
+    "bawa_pesakit": true,
+    "nama_pesakit": "test 12345",
+    "rn_pesakit": "rn -123/2026",
+    "jantina_pesakit": "Perempuan",
+    "diagnosis_pesakit": "sakit kepala",
+    "telefon_pesakit": "011111111111",
+    "catatan_khas": null,
+    "oksigen_diperlukan": true,
+    "status_semasa": "rejected",
+    "sebab_tolak": "tiada harapan",
+    "pemohon_id": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "pemandu_id": "4971a384-29c4-40a6-ae1e-d14d9daa0dce",
+    "pelulus_id": "4971a384-29c4-40a6-ae1e-d14d9daa0dce",
+    "kenderaan_id": "4b1839f1-4282-4d7c-92d0-7fecfd16a18c",
+    "driver_accepted_at": "2026-07-17T00:07:03.642+00:00",
+    "approved_at": null,
+    "trip_started_at": null,
+    "trip_completed_at": null,
+    "cancelled_at": null,
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "created_at": "2026-07-16T08:11:21.604039+00:00",
+    "updated_at": "2026-07-17T00:08:23.463832+00:00",
+    "pengiring_list": [
+      {
+        "job": "nurse",
+        "name": "fatimah"
+      }
+    ],
+    "jenis_oksigen": "face mask",
+    "mesin_diperlukan": [
+      "vital sign monitor"
+    ],
+    "medical_officer_referring": {
+      "name": "sara",
+      "department": "General ward"
+    },
+    "nama_pemohon": "faezah",
+    "patient_mobility": "walking",
+    "tarikh_masa_sehingga": null,
+    "pemandu_diperlukan": true,
+    "senarai_penumpang": null,
+    "is_crossborder": false,
+    "crossborder_data": null
+  },
+  {
+    "id": "a1eabfe3-1736-49fb-b6bc-32e1df5fa28d",
+    "no_rujukan": "TRN-2026-00001",
+    "jenis_permohonan": "ambulance",
+    "tujuan_permohonan": "Refer Patient to other government facility",
+    "destinasi": "Hospital Limbang",
+    "tarikh_masa_diperlukan": "2026-07-16T09:47:00+00:00",
+    "unit_pemohon": "General ward",
+    "pengiring": "nurse",
+    "bawa_pesakit": true,
+    "nama_pesakit": "test123",
+    "rn_pesakit": "RN-1234/2026",
+    "jantina_pesakit": "Lelaki",
+    "diagnosis_pesakit": "unstable angina",
+    "telefon_pesakit": "011112345678",
+    "catatan_khas": null,
+    "oksigen_diperlukan": true,
+    "status_semasa": "driver_rejected",
+    "sebab_tolak": "gearbox",
+    "pemohon_id": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "pemandu_id": "4971a384-29c4-40a6-ae1e-d14d9daa0dce",
+    "pelulus_id": null,
+    "kenderaan_id": "4b1839f1-4282-4d7c-92d0-7fecfd16a18c",
+    "driver_accepted_at": null,
+    "approved_at": null,
+    "trip_started_at": null,
+    "trip_completed_at": null,
+    "cancelled_at": null,
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "created_at": "2026-07-16T07:47:06.85824+00:00",
+    "updated_at": "2026-07-17T00:29:27.268111+00:00",
+    "pengiring_list": [
+      {
+        "job": "nurse",
+        "name": "fatimah"
+      }
+    ],
+    "jenis_oksigen": "Nasal prong",
+    "mesin_diperlukan": [
+      "vital sign monitor"
+    ],
+    "medical_officer_referring": {
+      "name": "jason",
+      "department": "Emergency & Trauma"
+    },
+    "nama_pemohon": "AMRI AMIT",
+    "patient_mobility": "stretcher",
+    "tarikh_masa_sehingga": null,
+    "pemandu_diperlukan": true,
+    "senarai_penumpang": null,
+    "is_crossborder": false,
+    "crossborder_data": null
+  },
+  {
+    "id": "11374a62-10eb-427a-b2bf-07d14079ee13",
+    "no_rujukan": "TRN-2026-00006",
+    "jenis_permohonan": "sg",
+    "tujuan_permohonan": "mengambil ubat mata",
+    "destinasi": "Hospital Miri",
+    "tarikh_masa_diperlukan": "2026-07-25T00:00:00+00:00",
+    "unit_pemohon": "Pharmacy logistic",
+    "pengiring": null,
+    "bawa_pesakit": false,
+    "nama_pesakit": null,
+    "rn_pesakit": null,
+    "jantina_pesakit": null,
+    "diagnosis_pesakit": null,
+    "telefon_pesakit": null,
+    "catatan_khas": null,
+    "oksigen_diperlukan": false,
+    "status_semasa": "approved",
+    "sebab_tolak": null,
+    "pemohon_id": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "pemandu_id": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "pelulus_id": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "kenderaan_id": "14dec4ac-a2f7-4832-b323-25c9ab430db2",
+    "driver_accepted_at": "2026-07-17T01:19:46.034+00:00",
+    "approved_at": "2026-07-17T01:19:53.89+00:00",
+    "trip_started_at": null,
+    "trip_completed_at": null,
+    "cancelled_at": null,
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "created_at": "2026-07-17T01:19:28.642927+00:00",
+    "updated_at": "2026-07-17T01:20:12.191178+00:00",
+    "pengiring_list": [],
+    "jenis_oksigen": null,
+    "mesin_diperlukan": null,
+    "medical_officer_referring": null,
+    "nama_pemohon": "AMRI AMIT",
+    "patient_mobility": null,
+    "tarikh_masa_sehingga": "2026-07-25T09:00:00+00:00",
+    "pemandu_diperlukan": false,
+    "senarai_penumpang": [
+      {
+        "name": "saidin"
+      },
+      {
+        "name": "enung"
+      }
+    ],
+    "is_crossborder": false,
+    "crossborder_data": null
+  },
+  {
+    "id": "8a3ecc75-6747-41ed-b5a1-0430bbb7e680",
+    "no_rujukan": "TRN-2026-00003",
+    "jenis_permohonan": "ambulance",
+    "tujuan_permohonan": "CT Scan to other government facility",
+    "destinasi": "Hospital Beaufort",
+    "tarikh_masa_diperlukan": "2026-07-17T12:45:00+00:00",
+    "unit_pemohon": "General ward",
+    "pengiring": "nurse",
+    "bawa_pesakit": true,
+    "nama_pesakit": "Timot 1234",
+    "rn_pesakit": "Rn-1234/2026",
+    "jantina_pesakit": "Lelaki",
+    "diagnosis_pesakit": "Sakit hati",
+    "telefon_pesakit": "0111111111",
+    "catatan_khas": null,
+    "oksigen_diperlukan": false,
+    "status_semasa": "completed",
+    "sebab_tolak": null,
+    "pemohon_id": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "pemandu_id": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "pelulus_id": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "kenderaan_id": "4b1839f1-4282-4d7c-92d0-7fecfd16a18c",
+    "driver_accepted_at": "2026-07-16T09:57:21.472+00:00",
+    "approved_at": "2026-07-16T11:12:28.768+00:00",
+    "trip_started_at": "2026-07-17T01:26:00.51+00:00",
+    "trip_completed_at": "2026-07-17T01:27:02.186+00:00",
+    "cancelled_at": null,
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "created_at": "2026-07-16T08:48:04.420071+00:00",
+    "updated_at": "2026-07-17T01:27:20.475623+00:00",
+    "pengiring_list": [
+      {
+        "job": "nurse",
+        "name": "Nisa"
+      }
+    ],
+    "jenis_oksigen": null,
+    "mesin_diperlukan": [
+      "vital sign monitor",
+      "oxygen tank"
+    ],
+    "medical_officer_referring": {
+      "name": "Jason",
+      "department": "General ward"
+    },
+    "nama_pemohon": "Fatimah",
+    "patient_mobility": "stretcher",
+    "tarikh_masa_sehingga": null,
+    "pemandu_diperlukan": true,
+    "senarai_penumpang": null,
+    "is_crossborder": false,
+    "crossborder_data": null
+  },
+  {
+    "id": "117397d8-a963-4d07-adbe-cb7c9d4e2ac9",
+    "no_rujukan": "TRN-2026-00007",
+    "jenis_permohonan": "ambulance",
+    "tujuan_permohonan": "CT Scan to other government facility",
+    "destinasi": "Hospital Beaufort",
+    "tarikh_masa_diperlukan": "2026-07-21T18:45:00+00:00",
+    "unit_pemohon": "General ward",
+    "pengiring": "nurse",
+    "bawa_pesakit": true,
+    "nama_pesakit": "mr k",
+    "rn_pesakit": "rn-1234-abc",
+    "jantina_pesakit": "Lelaki",
+    "diagnosis_pesakit": "sakit kepala",
+    "telefon_pesakit": "0111111111",
+    "catatan_khas": null,
+    "oksigen_diperlukan": false,
+    "status_semasa": "approved",
+    "sebab_tolak": null,
+    "pemohon_id": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "pemandu_id": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "pelulus_id": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "kenderaan_id": "4b1839f1-4282-4d7c-92d0-7fecfd16a18c",
+    "driver_accepted_at": "2026-07-19T03:44:12.355+00:00",
+    "approved_at": "2026-07-19T03:44:26.247+00:00",
+    "trip_started_at": null,
+    "trip_completed_at": null,
+    "cancelled_at": null,
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "created_at": "2026-07-19T03:44:11.022055+00:00",
+    "updated_at": "2026-07-19T03:44:45.350383+00:00",
+    "pengiring_list": [
+      {
+        "job": "nurse",
+        "name": "fatimah"
+      }
+    ],
+    "jenis_oksigen": null,
+    "mesin_diperlukan": [
+      "oxygen tank",
+      "vital sign monitor"
+    ],
+    "medical_officer_referring": {
+      "name": "DR AMIR",
+      "department": "Emergency & Trauma"
+    },
+    "nama_pemohon": "AMRI AMIT",
+    "patient_mobility": "wheelchair",
+    "tarikh_masa_sehingga": null,
+    "pemandu_diperlukan": true,
+    "senarai_penumpang": null,
+    "is_crossborder": false,
+    "crossborder_data": null
+  },
+  {
+    "id": "eb42493c-d2b7-4381-9675-0db8c3bdecff",
+    "no_rujukan": "TRN-2026-00004",
+    "jenis_permohonan": "ambulance",
+    "tujuan_permohonan": "Refer Patient to other government facility",
+    "destinasi": "Hospital Limbang",
+    "tarikh_masa_diperlukan": "2026-07-18T02:01:00+00:00",
+    "unit_pemohon": "Emergency & Trauma",
+    "pengiring": "medical_officer",
+    "bawa_pesakit": true,
+    "nama_pesakit": "Mr.z",
+    "rn_pesakit": "111",
+    "jantina_pesakit": "Lelaki",
+    "diagnosis_pesakit": "xxxxx",
+    "telefon_pesakit": "01234567",
+    "catatan_khas": "intubated patient",
+    "oksigen_diperlukan": true,
+    "status_semasa": "submitted",
+    "sebab_tolak": "tiada tayar",
+    "pemohon_id": "4971a384-29c4-40a6-ae1e-d14d9daa0dce",
+    "pemandu_id": null,
+    "pelulus_id": null,
+    "kenderaan_id": null,
+    "driver_accepted_at": null,
+    "approved_at": null,
+    "trip_started_at": null,
+    "trip_completed_at": null,
+    "cancelled_at": null,
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "created_at": "2026-07-17T00:01:24.971669+00:00",
+    "updated_at": "2026-08-13T03:41:46.572073+00:00",
+    "pengiring_list": [
+      {
+        "job": "medical_officer",
+        "name": "Mr.Y"
+      }
+    ],
+    "jenis_oksigen": "high flow mask",
+    "mesin_diperlukan": [
+      "oxygen tank",
+      "portable suction",
+      "others ( defib)"
+    ],
+    "medical_officer_referring": {
+      "name": "Dr.X",
+      "department": "Emergency & Trauma"
+    },
+    "nama_pemohon": "Shamsury Mohamad majidi",
+    "patient_mobility": "stretcher",
+    "tarikh_masa_sehingga": null,
+    "pemandu_diperlukan": true,
+    "senarai_penumpang": null,
+    "is_crossborder": false,
+    "crossborder_data": null
+  },
+  {
+    "id": "8cc73c93-c69d-4009-a0a8-31ec22343128",
+    "no_rujukan": "TRN-2026-00010",
+    "jenis_permohonan": "ambulance",
+    "tujuan_permohonan": "Refer Patient to other government facility",
+    "destinasi": "Hospital Miri",
+    "tarikh_masa_diperlukan": "2026-07-21T04:30:00+00:00",
+    "unit_pemohon": "Emergency & Trauma",
+    "pengiring": null,
+    "bawa_pesakit": true,
+    "nama_pesakit": "FRE",
+    "rn_pesakit": "34",
+    "jantina_pesakit": "Lelaki",
+    "diagnosis_pesakit": "fed",
+    "telefon_pesakit": "",
+    "catatan_khas": null,
+    "oksigen_diperlukan": true,
+    "status_semasa": "submitted",
+    "sebab_tolak": null,
+    "pemohon_id": "4fda3041-a6a7-4b14-abbe-95f0be7d8167",
+    "pemandu_id": null,
+    "pelulus_id": null,
+    "kenderaan_id": null,
+    "driver_accepted_at": null,
+    "approved_at": null,
+    "trip_started_at": null,
+    "trip_completed_at": null,
+    "cancelled_at": null,
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "created_at": "2026-07-21T00:06:10.042794+00:00",
+    "updated_at": "2026-08-13T03:44:02.686894+00:00",
+    "pengiring_list": [],
+    "jenis_oksigen": "Nasal prong",
+    "mesin_diperlukan": [
+      "others (dd)"
+    ],
+    "medical_officer_referring": {
+      "name": "DR CLARA",
+      "department": "Emergency & Trauma"
+    },
+    "nama_pemohon": "FREDERICK JAMES",
+    "patient_mobility": "walking",
+    "tarikh_masa_sehingga": null,
+    "pemandu_diperlukan": true,
+    "senarai_penumpang": null,
+    "is_crossborder": true,
+    "crossborder_data": {
+      "catatan": "",
+      "patients": [
+        {
+          "nama": "FRE",
+          "urutan": 1,
+          "jantina": "Lelaki",
+          "no_dokumen": "34",
+          "warganegara": "Warganegara Malaysia",
+          "tarikh_lahir": "2026-07-22",
+          "jenis_dokumen": "IC"
+        }
+      ],
+      "kkm_escorts": [],
+      "pengarah_nama": "DR DOUGLAS CHU KIN SOON (Pengarah Hospital Lawas)",
+      "waris_escorts": [],
+      "tempat_berlepas": "Hospital Lawas",
+      "border_control_post": "1. Pos Kawalan Malaysia (Keluar) Kompleks ICQS Mengkalap (Lawas)\n2. Pos Kawalan Brunei (Masuk) Pos Kawalan Labu (Temburong)\n3. Pos Kawalan Brunei (Keluar) Pos Kawalan Ujong Jalan (Temburong)\n4. Pos Kawalan Malaysia (Masuk) Kompleks ICQS Pandaruan (Limbang)\n5. Pos Kawalan Malaysia (Keluar) Kompleks ICQS Tedungan (Limbang)\n6. Pos Kawalan Brunei (Masuk) Pos Kawalan Kuala Lurah\n7. Pos Kawalan Brunei (Keluar) Pos Kawalan Sungai Tujuh (Kuala Belait)\n8. Pos Kawalan Malaysia (Masuk) Kompleks ICQS Sungai Tujuh (Miri)",
+      "doktor_perujuk_nama": "DR JASON",
+      "surat_kebenaran_ref": "TF/HL/MW ( 34 ) 2026"
+    }
+  },
+  {
+    "id": "e9f5ee6c-6e2a-42bf-91a8-9151481e7ccd",
+    "no_rujukan": "TRN-2026-00005",
+    "jenis_permohonan": "ambulance",
+    "tujuan_permohonan": "Refer Patient to other government facility",
+    "destinasi": "Hospital Limbang",
+    "tarikh_masa_diperlukan": "2026-07-17T16:30:00+00:00",
+    "unit_pemohon": "Emergency & Trauma",
+    "pengiring": "nurse",
+    "bawa_pesakit": true,
+    "nama_pesakit": "sss",
+    "rn_pesakit": "sss",
+    "jantina_pesakit": "Lelaki",
+    "diagnosis_pesakit": "sss",
+    "telefon_pesakit": "11",
+    "catatan_khas": null,
+    "oksigen_diperlukan": true,
+    "status_semasa": "cancelled",
+    "sebab_tolak": "terbatal",
+    "pemohon_id": "4971a384-29c4-40a6-ae1e-d14d9daa0dce",
+    "pemandu_id": "4971a384-29c4-40a6-ae1e-d14d9daa0dce",
+    "pelulus_id": "4971a384-29c4-40a6-ae1e-d14d9daa0dce",
+    "kenderaan_id": "4b1839f1-4282-4d7c-92d0-7fecfd16a18c",
+    "driver_accepted_at": "2026-07-17T00:30:05.84+00:00",
+    "approved_at": "2026-07-17T00:30:30.35+00:00",
+    "trip_started_at": null,
+    "trip_completed_at": null,
+    "cancelled_at": "2026-08-13T03:44:51.15+00:00",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "created_at": "2026-07-17T00:28:24.304705+00:00",
+    "updated_at": "2026-08-13T03:44:52.291343+00:00",
+    "pengiring_list": [
+      {
+        "job": "nurse",
+        "name": "xxx"
+      }
+    ],
+    "jenis_oksigen": "high flow mask",
+    "mesin_diperlukan": [
+      "oxygen tank",
+      "portable suction",
+      "Syringe pump",
+      "others (ccc)"
+    ],
+    "medical_officer_referring": {
+      "name": "drx",
+      "department": "Emergency & Trauma"
+    },
+    "nama_pemohon": "Shamsury Mohamad majidi",
+    "patient_mobility": "stretcher",
+    "tarikh_masa_sehingga": null,
+    "pemandu_diperlukan": true,
+    "senarai_penumpang": null,
+    "is_crossborder": false,
+    "crossborder_data": null
+  },
+  {
+    "id": "056baf63-4e38-4341-a94b-8b715594b57e",
+    "no_rujukan": "TRN-2026-00008",
+    "jenis_permohonan": "ambulance",
+    "tujuan_permohonan": "Refer Patient to other government facility",
+    "destinasi": "Hospital Miri",
+    "tarikh_masa_diperlukan": "2026-07-20T00:12:00+00:00",
+    "unit_pemohon": "General ward",
+    "pengiring": "nurse",
+    "bawa_pesakit": true,
+    "nama_pesakit": "MR Y",
+    "rn_pesakit": "999999999999",
+    "jantina_pesakit": "Lelaki",
+    "diagnosis_pesakit": "sakit kepala",
+    "telefon_pesakit": "01111111111111111",
+    "catatan_khas": null,
+    "oksigen_diperlukan": true,
+    "status_semasa": "approved",
+    "sebab_tolak": null,
+    "pemohon_id": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "pemandu_id": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "pelulus_id": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "kenderaan_id": "4b1839f1-4282-4d7c-92d0-7fecfd16a18c",
+    "driver_accepted_at": "2026-07-19T05:24:42.447+00:00",
+    "approved_at": "2026-07-19T05:24:53.311+00:00",
+    "trip_started_at": null,
+    "trip_completed_at": null,
+    "cancelled_at": null,
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "created_at": "2026-07-19T05:24:42.48003+00:00",
+    "updated_at": "2026-07-19T05:25:12.354105+00:00",
+    "pengiring_list": [
+      {
+        "job": "nurse",
+        "name": "FATIMAH"
+      },
+      {
+        "job": "medical_officer",
+        "name": "DR JASON"
+      }
+    ],
+    "jenis_oksigen": "face mask",
+    "mesin_diperlukan": [
+      "oxygen tank",
+      "vital sign monitor"
+    ],
+    "medical_officer_referring": {
+      "name": "DR AMIR",
+      "department": "Emergency & Trauma"
+    },
+    "nama_pemohon": "faezah",
+    "patient_mobility": "wheelchair",
+    "tarikh_masa_sehingga": null,
+    "pemandu_diperlukan": true,
+    "senarai_penumpang": null,
+    "is_crossborder": true,
+    "crossborder_data": {
+      "catatan": "",
+      "patients": [
+        {
+          "nama": "MR Y",
+          "urutan": 1,
+          "jantina": "Lelaki",
+          "no_dokumen": "999999999999",
+          "warganegara": "Warganegara Malaysia",
+          "tarikh_lahir": "1985-01-31",
+          "jenis_dokumen": "IC"
+        }
+      ],
+      "kkm_escorts": [
+        {
+          "nama": "FATIMAH",
+          "jawatan": "nurse",
+          "no_dokumen": "9999999999999",
+          "jenis_dokumen": "IC"
+        },
+        {
+          "nama": "DR JASON",
+          "jawatan": "medical_officer",
+          "no_dokumen": "9999999999999",
+          "jenis_dokumen": "IC"
+        }
+      ],
+      "pengarah_nama": "DR DOUGLAS CHU KIN SOON (Pengarah Hospital Lawas)",
+      "waris_escorts": [
+        {
+          "nama": "MS Y",
+          "hubungan": "Isteri",
+          "no_dokumen": "99999999999999",
+          "jenis_dokumen": "IC"
+        }
+      ],
+      "tempat_berlepas": "Hospital Lawas",
+      "border_control_post": "1. Pos Kawalan Malaysia (Keluar) Kompleks ICQS Mengkalap (Lawas)\n2. Pos Kawalan Brunei (Masuk) Pos Kawalan Labu (Temburong)\n3. Pos Kawalan Brunei (Keluar) Pos Kawalan Ujong Jalan (Temburong)\n4. Pos Kawalan Malaysia (Masuk) Kompleks ICQS Pandaruan (Limbang)\n5. Pos Kawalan Malaysia (Keluar) Kompleks ICQS Tedungan (Limbang)\n6. Pos Kawalan Brunei (Masuk) Pos Kawalan Kuala Lurah\n7. Pos Kawalan Brunei (Keluar) Pos Kawalan Sungai Tujuh (Kuala Belait)\n8. Pos Kawalan Malaysia (Masuk) Kompleks ICQS Sungai Tujuh (Miri)",
+      "doktor_perujuk_nama": "DR AMIR",
+      "surat_kebenaran_ref": "TF/HL/MW ( 32 ) 2026"
+    }
+  },
+  {
+    "id": "3756b019-833d-4e4d-802b-e58bdd695d93",
+    "no_rujukan": "TRN-2026-00009",
+    "jenis_permohonan": "ambulance",
+    "tujuan_permohonan": "Refer Patient to other government facility",
+    "destinasi": "Hospital Miri",
+    "tarikh_masa_diperlukan": "2026-07-21T00:23:00+00:00",
+    "unit_pemohon": "General ward",
+    "pengiring": "nurse",
+    "bawa_pesakit": true,
+    "nama_pesakit": "MR Y",
+    "rn_pesakit": "JSADFSAKJFSAD",
+    "jantina_pesakit": "Lelaki",
+    "diagnosis_pesakit": "sakit kepala",
+    "telefon_pesakit": "011111111111",
+    "catatan_khas": null,
+    "oksigen_diperlukan": true,
+    "status_semasa": "approved",
+    "sebab_tolak": null,
+    "pemohon_id": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "pemandu_id": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "pelulus_id": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "kenderaan_id": "4b1839f1-4282-4d7c-92d0-7fecfd16a18c",
+    "driver_accepted_at": "2026-07-20T10:19:56.107+00:00",
+    "approved_at": "2026-07-20T10:20:02.386+00:00",
+    "trip_started_at": null,
+    "trip_completed_at": null,
+    "cancelled_at": null,
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "created_at": "2026-07-20T10:19:29.494404+00:00",
+    "updated_at": "2026-07-20T10:20:02.570644+00:00",
+    "pengiring_list": [
+      {
+        "job": "nurse",
+        "name": "PRISCA"
+      },
+      {
+        "job": "medical_officer",
+        "name": "DR VOON"
+      }
+    ],
+    "jenis_oksigen": "face mask",
+    "mesin_diperlukan": [
+      "oxygen tank",
+      "vital sign monitor"
+    ],
+    "medical_officer_referring": {
+      "name": "DR CLARA",
+      "department": "General ward"
+    },
+    "nama_pemohon": "Fatimah",
+    "patient_mobility": "wheelchair",
+    "tarikh_masa_sehingga": null,
+    "pemandu_diperlukan": true,
+    "senarai_penumpang": null,
+    "is_crossborder": true,
+    "crossborder_data": {
+      "catatan": "",
+      "patients": [
+        {
+          "nama": "MR Y",
+          "urutan": 1,
+          "jantina": "Lelaki",
+          "no_dokumen": "JSADFSAKJFSAD",
+          "warganegara": "Warganegara Malaysia",
+          "tarikh_lahir": "2007-01-01",
+          "jenis_dokumen": "PASSPORT"
+        }
+      ],
+      "kkm_escorts": [
+        {
+          "nama": "PRISCA",
+          "jawatan": "nurse",
+          "no_dokumen": "ABC 1234",
+          "jenis_dokumen": "PASSPORT"
+        },
+        {
+          "nama": "DR VOON",
+          "jawatan": "medical_officer",
+          "no_dokumen": "45654654",
+          "jenis_dokumen": "PASSPORT"
+        }
+      ],
+      "pengarah_nama": "DR DOUGLAS CHU KIN SOON (Pengarah Hospital Lawas)",
+      "waris_escorts": [],
+      "tempat_berlepas": "Hospital Lawas",
+      "border_control_post": "1. Pos Kawalan Malaysia (Keluar) Kompleks ICQS Mengkalap (Lawas)\n2. Pos Kawalan Brunei (Masuk) Pos Kawalan Labu (Temburong)\n3. Pos Kawalan Brunei (Keluar) Pos Kawalan Ujong Jalan (Temburong)\n4. Pos Kawalan Malaysia (Masuk) Kompleks ICQS Pandaruan (Limbang)\n5. Pos Kawalan Malaysia (Keluar) Kompleks ICQS Tedungan (Limbang)\n6. Pos Kawalan Brunei (Masuk) Pos Kawalan Kuala Lurah\n7. Pos Kawalan Brunei (Keluar) Pos Kawalan Sungai Tujuh (Kuala Belait)\n8. Pos Kawalan Malaysia (Masuk) Kompleks ICQS Sungai Tujuh (Miri)",
+      "doktor_perujuk_nama": "DR AMIR",
+      "surat_kebenaran_ref": "TF/HL/MW ( 5 ) 2026"
+    }
+  },
+  {
+    "id": "2085dc96-fcaf-475b-8241-60bd55762083",
+    "no_rujukan": "TRN-2026-00011",
+    "jenis_permohonan": "sg",
+    "tujuan_permohonan": "kursus",
+    "destinasi": "Hospital Queen Elizabeth I (HQE I)",
+    "tarikh_masa_diperlukan": "2026-08-17T05:47:00+00:00",
+    "unit_pemohon": "Emergency & Trauma",
+    "pengiring": null,
+    "bawa_pesakit": false,
+    "nama_pesakit": null,
+    "rn_pesakit": null,
+    "jantina_pesakit": null,
+    "diagnosis_pesakit": null,
+    "telefon_pesakit": null,
+    "catatan_khas": null,
+    "oksigen_diperlukan": false,
+    "status_semasa": "driver_accepted",
+    "sebab_tolak": null,
+    "pemohon_id": "4971a384-29c4-40a6-ae1e-d14d9daa0dce",
+    "pemandu_id": "4971a384-29c4-40a6-ae1e-d14d9daa0dce",
+    "pelulus_id": null,
+    "kenderaan_id": "14dec4ac-a2f7-4832-b323-25c9ab430db2",
+    "driver_accepted_at": "2026-08-13T03:48:07.536+00:00",
+    "approved_at": null,
+    "trip_started_at": null,
+    "trip_completed_at": null,
+    "cancelled_at": null,
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "created_at": "2026-08-13T03:46:42.976726+00:00",
+    "updated_at": "2026-08-13T03:48:08.681345+00:00",
+    "pengiring_list": [],
+    "jenis_oksigen": null,
+    "mesin_diperlukan": null,
+    "medical_officer_referring": null,
+    "nama_pemohon": "Shamsury Mohamad majidi",
+    "patient_mobility": null,
+    "tarikh_masa_sehingga": "2026-08-19T07:50:00+00:00",
+    "pemandu_diperlukan": false,
+    "senarai_penumpang": [],
+    "is_crossborder": false,
+    "crossborder_data": null
+  }
+]

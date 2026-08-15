@@ -156,13 +156,21 @@ export async function generateTransferFormPDF(transfer: CrossborderTransfer): Pr
   if (showP2) headers.push('PATIENT 2');
   if (showP3) headers.push('PATIENT 3');
 
+  const getDocNoWithExpiry = (p: any) => {
+    if (!p) return '';
+    if (p.jenis_dokumen === 'PASSPORT' && p.passport_expiry) {
+      return `${p.no_dokumen} (EXP: ${getFormattedDate(p.passport_expiry)})`;
+    }
+    return p.no_dokumen || '';
+  };
+
   const patientTableBody = [
     ['NAME:', p1?.nama || ''],
     ['GENDER:', p1?.jantina || ''],
     ['DOB:', p1 ? getFormattedDate(p1.tarikh_lahir) : ''],
     ['NATIONALITY:', p1?.warganegara || ''],
     ['TYPE OF TRAVEL DOCUMENTS:', p1?.jenis_dokumen || ''],
-    ['NO:', p1?.no_dokumen || '']
+    ['NO:', getDocNoWithExpiry(p1)]
   ];
 
   if (showP2) {
@@ -171,7 +179,7 @@ export async function generateTransferFormPDF(transfer: CrossborderTransfer): Pr
     patientTableBody[2].push(p2 ? getFormattedDate(p2.tarikh_lahir) : '');
     patientTableBody[3].push(p2?.warganegara || '');
     patientTableBody[4].push(p2?.jenis_dokumen || '');
-    patientTableBody[5].push(p2?.no_dokumen || '');
+    patientTableBody[5].push(getDocNoWithExpiry(p2));
   }
 
   if (showP3) {
@@ -180,7 +188,7 @@ export async function generateTransferFormPDF(transfer: CrossborderTransfer): Pr
     patientTableBody[2].push(p3 ? getFormattedDate(p3.tarikh_lahir) : '');
     patientTableBody[3].push(p3?.warganegara || '');
     patientTableBody[4].push(p3?.jenis_dokumen || '');
-    patientTableBody[5].push(p3?.no_dokumen || '');
+    patientTableBody[5].push(getDocNoWithExpiry(p3));
   }
 
   const numPatientCols = 1 + (showP2 ? 1 : 0) + (showP3 ? 1 : 0);
@@ -237,9 +245,17 @@ export async function generateTransferFormPDF(transfer: CrossborderTransfer): Pr
   doc.text('3. DRIVER DETAILS', margin, y);
   y += 2.0;
 
+  const getDriverPassportWithExpiry = () => {
+    const passport = (transfer as any).pemandu_passport;
+    const expiry = (transfer as any).pemandu_passport_expiry;
+    if (!passport) return 'N/A';
+    if (expiry) return `${passport} (EXP: ${getFormattedDate(expiry)})`;
+    return passport;
+  };
+
   const driverBody = [
     ['DRIVER NAME:', (transfer as any).pemandu_nama || 'N/A'],
-    ['PASSPORT NO:', (transfer as any).pemandu_passport || 'N/A']
+    ['PASSPORT NO:', getDriverPassportWithExpiry()]
   ];
 
   autoTable(doc, {
@@ -263,8 +279,14 @@ export async function generateTransferFormPDF(transfer: CrossborderTransfer): Pr
   y += 2.0;
 
   const patientEscorts = (transfer.escorts || []).filter(e => e.jenis_pengiring === 'patient_escort');
+  const getEscortNoWithExpiry = (e: any) => {
+    if (e.jenis_dokumen === 'PASSPORT' && e.passport_expiry) {
+      return `${e.no_dokumen} (EXP: ${getFormattedDate(e.passport_expiry)})`;
+    }
+    return e.no_dokumen;
+  };
   const escortTableData = patientEscorts.length > 0 
-    ? patientEscorts.map((e, idx) => [idx + 1, e.nama, e.jenis_dokumen, e.no_dokumen, e.hubungan || ''])
+    ? patientEscorts.map((e, idx) => [idx + 1, e.nama, e.jenis_dokumen, getEscortNoWithExpiry(e), e.hubungan || ''])
     : [['-', 'TIADA PENGIRING WARIS / NO PATIENT ESCORT RECORDED', '-', '-', '-']];
 
   autoTable(doc, {
@@ -294,7 +316,7 @@ export async function generateTransferFormPDF(transfer: CrossborderTransfer): Pr
 
   const medicalEscorts = (transfer.escorts || []).filter(e => e.jenis_pengiring === 'medical_escort');
   const medicalTableData = medicalEscorts.length > 0
-    ? medicalEscorts.map((e, idx) => [idx + 1, e.nama, e.jenis_dokumen, e.no_dokumen, e.jawatan || ''])
+    ? medicalEscorts.map((e, idx) => [idx + 1, e.nama, e.jenis_dokumen, getEscortNoWithExpiry(e), e.jawatan || ''])
     : [['-', 'TIADA PENGIRING PERUBATAN / NO MEDICAL ESCORT RECORDED', '-', '-', '-']];
 
   autoTable(doc, {
@@ -394,7 +416,7 @@ export async function generatePermissionLetterPDF(transfer: CrossborderTransfer)
   doc.setFont('times', 'normal');
   doc.setFontSize(9.5);
   doc.text('Jalan Hospital, 98850 Lawas, Sarawak, Malaysia', margin + 26, y + 13.5);
-  doc.text('Tel: 085 283 781  E-mel: hospitallawas@moh.gov.my', margin + 26, y + 17.5);
+  doc.text('Tel: 085 283 781  E-mel: hosp_lawas@moh.gov.my', margin + 26, y + 17.5);
 
   y += 22;
 

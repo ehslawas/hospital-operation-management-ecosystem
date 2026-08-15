@@ -1,0 +1,434 @@
+[
+  {
+    "id": "a70fb740-4025-4c35-bdca-95d077b94009",
+    "tarikh_masa": "2026-07-09T01:51:24.541538+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "fd8d2e84-c24a-4618-a655-f254a93405ff",
+    "tarikh_masa": "2026-07-09T02:36:46.759898+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "4131f650-d74b-440d-9ea6-50fbe315cb19",
+    "tarikh_masa": "2026-07-09T03:28:55.365954+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "663d528c-6e27-45de-9c41-847cd4abc1e3",
+    "tarikh_masa": "2026-07-09T03:28:58.779798+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "cc3bd30a-a490-42d7-b3cc-5e947991c2c7",
+    "tarikh_masa": "2026-07-09T03:29:02.361682+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "6c536288-a5ec-40a6-b35e-780f426a0ca2",
+    "tarikh_masa": "2026-07-09T03:29:02.924726+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "cfc7c259-8458-4974-8c56-5c3140b063ec",
+    "tarikh_masa": "2026-07-09T03:29:03.079328+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "5794e978-e006-4b98-b052-aa7cd6ebe8e4",
+    "tarikh_masa": "2026-07-09T03:29:03.277352+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "01d71cc1-22a5-4fbc-9f0a-91a9ba741dae",
+    "tarikh_masa": "2026-07-09T03:29:03.426675+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "635c4e4a-360f-4dd5-a955-7854800380c6",
+    "tarikh_masa": "2026-07-09T03:29:03.601496+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "e52e1a56-dddb-405a-8edb-397fa1771f2f",
+    "tarikh_masa": "2026-07-09T03:29:03.75259+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "a21960c2-e334-47d6-84b8-fe8ae1ac27b7",
+    "tarikh_masa": "2026-07-09T03:29:03.933997+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "b97a2fab-ed5a-40fc-b281-44e9a5fa0c63",
+    "tarikh_masa": "2026-07-09T03:42:29.392093+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "3d732c89-4308-463a-873b-26c498b8705a",
+    "tarikh_masa": "2026-07-09T03:42:33.733056+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "1716ee37-6a1f-44cc-8031-63f2478e411a",
+    "tarikh_masa": "2026-07-09T03:42:34.300527+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "b8009190-6f60-432e-8413-660d4c5ffee7",
+    "tarikh_masa": "2026-07-09T03:42:34.302131+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "85ae7682-eb39-4246-8621-dec36dcb8df2",
+    "tarikh_masa": "2026-07-09T03:42:34.482339+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "f3d2f5c6-f5c0-4d51-ab0f-b6bc53dea555",
+    "tarikh_masa": "2026-07-09T03:42:34.643512+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "9495a345-5e9b-4cc9-a7e4-310492cafb73",
+    "tarikh_masa": "2026-07-09T03:42:35.282388+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "f91c59f4-e950-480a-b8cc-b072d3f66371",
+    "tarikh_masa": "2026-07-09T03:42:35.282388+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "bc91bbff-f8b6-4128-b47b-a16c2fc3bf6f",
+    "tarikh_masa": "2026-07-09T03:42:35.312617+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "4b320010-b409-49ed-827a-ba00b9e011a2",
+    "tarikh_masa": "2026-07-09T03:42:35.622298+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "bc0e5290-645d-402e-869f-9d005fe6e181",
+    "tarikh_masa": "2026-07-09T03:42:35.639542+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "81cdf4fb-7bfd-4efc-be02-2c7a58f526ec",
+    "tarikh_masa": "2026-07-09T03:42:35.806932+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "af0a069d-6415-4992-922b-96cfb656dd7c",
+    "tarikh_masa": "2026-07-09T03:42:36.13297+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "27584c0a-eee1-4c43-b07b-1aae82281d25",
+    "tarikh_masa": "2026-07-09T03:42:48.924189+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "ab104224-f473-460e-979e-1bd78679c30a",
+    "tarikh_masa": "2026-07-09T04:44:44.751178+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "5066248e-62a2-4010-aa0d-ac5a0e852965",
+    "tarikh_masa": "2026-07-09T04:44:45.063801+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "9d604cac-6e01-46cf-bc21-1e461251461c",
+    "tarikh_masa": "2026-07-09T04:44:45.202556+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "aba605d9-f440-49cc-85fc-892dbf0a3b0d",
+    "tarikh_masa": "2026-07-09T04:44:45.489909+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "8386c412-e3e2-4a71-ba00-8f262910100e",
+    "tarikh_masa": "2026-07-09T04:44:45.585708+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "2c385eee-82d6-4d97-be9a-8f764a917037",
+    "tarikh_masa": "2026-07-09T04:47:16.763208+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "b854b716-7d68-43e7-b33c-bab2c8f40085",
+    "tarikh_masa": "2026-07-10T07:59:19.169551+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "64ccc4de-4a85-4127-a78e-495f46aae604",
+    "tarikh_masa": "2026-07-10T07:59:43.005572+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "5b5f16a7-3e30-43c4-ba55-6944e6539372",
+    "tarikh_masa": "2026-07-10T10:43:45.782648+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "900238f1-6d0a-4189-847e-8f1638789bb4",
+    "tarikh_masa": "2026-07-14T07:12:28.975878+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "2166d759-f2fe-43ea-af13-31579be20311",
+    "tarikh_masa": "2026-07-15T00:51:31.840972+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "ea076f44-381f-415c-8c00-9e9ef8575d26",
+    "tarikh_masa": "2026-07-16T07:59:38.106598+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "11788ed1-8b96-40cd-990e-9d6ebacc853c",
+    "tarikh_masa": "2026-07-30T01:48:24.762936+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "14409b78-ee6d-431a-8466-bd1601c219ee",
+    "tarikh_masa": "2026-07-30T03:47:17.745204+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "JOANNES MARVIN ANAK SUBAH",
+    "dicatat_oleh": "6f1a598a-4728-4360-90d0-846f499a422f",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "eb799f8c-5567-4959-905a-6e2fb9809e9b",
+    "tarikh_masa": "2026-07-30T03:47:50.480271+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "JOANNES MARVIN ANAK SUBAH",
+    "dicatat_oleh": "6f1a598a-4728-4360-90d0-846f499a422f",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "6045611b-3a56-4b99-af42-992c32078318",
+    "tarikh_masa": "2026-07-30T04:19:45.534602+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "ed31b9a2-45d1-4bb9-b123-9450114065da",
+    "tarikh_masa": "2026-07-30T07:37:40.980366+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "78aeb464-ab91-4432-bc6b-fbba1cdb03b4",
+    "tarikh_masa": "2026-07-31T06:10:40.348052+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "b9c0bcda-2efa-4eb3-91b2-792430377953",
+    "tarikh_masa": "2026-07-31T20:21:01.487577+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "1d8aff31-b045-450d-8808-67a91d83c5e1",
+    "tarikh_masa": "2026-08-06T06:52:34.041903+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "f5ab2d76-3ab6-4274-aa1b-5fe6fdaa2119",
+    "tarikh_masa": "2026-08-14T06:58:48.476046+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "System Administrator",
+    "dicatat_oleh": "d2967f42-41f1-4bea-80fc-eeed0959723e",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  },
+  {
+    "id": "6dee23d4-480e-4edd-a679-09212aadb91f",
+    "tarikh_masa": "2026-08-14T08:25:06.915589+00:00",
+    "destination_url": "http://10.191.105.190:8080/iphis/login.zul;jsessionid=48a6aa512832d6dda17c6e544ea0",
+    "destination_name": "Official PHiS Portal",
+    "petugas_nama": "AMRI AMIT",
+    "dicatat_oleh": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904"
+  }
+]

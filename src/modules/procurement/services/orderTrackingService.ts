@@ -1,8 +1,9 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { formatDate } from '@/lib/utils'
 import { supabase, isSupabaseConfigured } from '@/services/supabase'
+import { drawHospitalHeader } from '@/lib/pdfHeader'
 import { addDays, parseISO, format, isValid, differenceInDays } from 'date-fns'
 import type { ApiResponse, PaginatedResponse } from '@/types'
 import type { 
@@ -739,25 +740,8 @@ export async function sendReminder(
     const pageWidth = 210
     const contentWidth = pageWidth - (margin * 2)
     
-    // Header
-    if (logoBase64) {
-      doc.addImage(logoBase64, 'PNG', margin, 10, 25, 20)
-    }
-    
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(12)
-    doc.setTextColor(30, 41, 59)
-    doc.text("JABATAN KESIHATAN NEGERI SARAWAK", 50, 18)
-    doc.text("HOSPITAL LAWAS", 50, 24)
-    
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(9)
-    doc.setTextColor(100)
-    doc.text(`${lpoInfo.hospitalAddress || 'Jalan Hospital, 98850 Lawas, Sarawak'} â€¢ Tel: ${lpoInfo.hospitalPhone || '085-283781'}`, 50, 30)
-    
-    doc.setDrawColor(30, 41, 59)
-    doc.setLineWidth(0.5)
-    doc.line(margin, 32, pageWidth - margin, 32)
+    // Header (Official Hospital Lawas Letterhead)
+    await drawHospitalHeader(doc, { margin, startY: 10, logoBase64 })
     
     // To Section
     let currentY = 42
@@ -957,13 +941,14 @@ export async function sendReminder(
     })
     
     // Bottom Section
-    let finalY = (doc as any).lastAutoTable.finalY + 10
+    let finalY = (doc as any).lastAutoTable.finalY + 8
     
-    // Check if we have enough vertical space for closing text and signature block (approx 110-120mm needed)
-    // Page height is 297mm (A4). If finalY is beyond 165mm, push the entire closing block to a new page.
-    if (finalY > 165) {
+    // Check if we have enough vertical space for closing text and signature block (~70mm needed)
+    // Page height is 297mm (A4). Only add new page if table ends below 220mm.
+    if (finalY > 220) {
       doc.addPage()
-      finalY = 25
+      await drawHospitalHeader(doc, { margin, startY: 10, logoBase64 })
+      finalY = 42
     }
     
     doc.setFontSize(10)
@@ -974,34 +959,34 @@ export async function sendReminder(
     const splitClosing1 = doc.splitTextToSize(closingText1, contentWidth)
     doc.text(splitClosing1, margin, finalY)
     
-    finalY += (splitClosing1.length * 6) + 1
+    finalY += (splitClosing1.length * 5) + 1
     const closingText2 = `3. Pihak kami amat menghargai sekiranya pihak tuan/puan dapat memberikan perhatian segera berhubung perkara ini.`
     const splitClosing2 = doc.splitTextToSize(closingText2, contentWidth)
     doc.text(splitClosing2, margin, finalY)
     
-    finalY += (splitClosing2.length * 6) + 3
+    finalY += (splitClosing2.length * 5) + 2
     doc.text("Kerjasama pihak tuan/puan didahului dengan ucapan terima kasih.", margin, finalY)
     
-    finalY += 10
+    finalY += 8
     doc.setFont('helvetica', 'bold')
     doc.text("\"MALAYSIA MADANI\"", margin, finalY)
-    finalY += 6
+    finalY += 5
     doc.text("\"BERKHIDMAT UNTUK NEGARA\"", margin, finalY)
     
-    finalY += 10
+    finalY += 8
     doc.setFont('helvetica', 'normal')
     doc.text("Saya yang menjalankan amanah,", margin, finalY)
     
-    finalY += 32
+    finalY += 20
     doc.setFont('helvetica', 'bold')
     doc.text(`( ${userName?.toUpperCase() || 'TAN YUAN ZHANG'} )`, margin, finalY)
     
-    finalY += 6
+    finalY += 5
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
     doc.text(userDesignation || 'Pegawai Farmasi UF 12', margin, finalY)
     
-    finalY += 5
+    finalY += 4
     doc.text(`Farmasi Logistik ${lpoInfo.hospitalName || 'Hospital Lawas'}`, margin, finalY)
     
     console.log('Generating PDF outputs...')
@@ -1127,125 +1112,157 @@ export async function recalculateOverdueStatus(
 
     const today = new Date().toISOString().split('T')[0]
 
-    // 1. Synchronize expected_delivery_date of tracking items with their underlying LPO or PO expected delivery dates
-    const { data: allTrackingItems, error: trackError } = await supabase
-      .from('pharmacy_order_tracking')
-      .select(`
-        id,
-        lpo_id,
-        expected_delivery_date,
-        order_placed_date,
-        lpo:pharmacy_lpo(
-          expected_delivery_date,
-          document_date,
-          po:pharmacy_purchase_orders(
-            expected_delivery_date,
-            order_date
-          )
-        )
-      `)
-      .eq('hospital_id', hospitalId);
+    // ─── PHASE 0 (ULTRA-FAST BATCH): Per-item sync of delivered status ─────────
+    if (onProgress) onProgress('Phase 0: Cross-matching delivered items from GR and Credit Notes...')
+    try {
+      const { data: staleItems } = await supabase
+        .from('pharmacy_order_tracking')
+        .select('id, lpo_id, item_id, item_code, item_name, status, is_overdue')
+        .eq('hospital_id', hospitalId)
+        .in('status', ['pending', 'overdue'])
 
-    if (!trackError && allTrackingItems) {
-      const total = allTrackingItems.length;
-      let count = 0;
-      for (const item of allTrackingItems) {
-        count++;
-        if (onProgress && count % 5 === 0) {
-          onProgress(`Syncing ETAs (${count}/${total})...`);
+      if (staleItems && staleItems.length > 0) {
+        const lpoIds = [...new Set(staleItems.map(i => i.lpo_id))]
+
+        // Bulk 1: LPOs
+        const { data: lpos } = await supabase
+          .from('pharmacy_lpo')
+          .select('id, po_id')
+          .in('id', lpoIds)
+
+        const lpoToPoMap = new Map(lpos?.map(l => [l.id, l.po_id]) || [])
+        const poIds = [...new Set(lpos?.map(l => l.po_id).filter(Boolean) || [])]
+
+        // Bulk 2: PO Items
+        const { data: allPoItems } = await supabase
+          .from('pharmacy_purchase_order_items')
+          .select('id, po_id, item_id, item_code, item_name, quantity_ordered, quantity_received')
+          .in('po_id', poIds)
+
+        const poItemsByPo = new Map<string, any[]>()
+        allPoItems?.forEach(pi => {
+          if (!poItemsByPo.has(pi.po_id)) poItemsByPo.set(pi.po_id, [])
+          poItemsByPo.get(pi.po_id)!.push(pi)
+        })
+
+        // Bulk 3: Credit Notes
+        const { data: creditNotes } = await supabase
+          .from('pharmacy_credit_notes')
+          .select('id, po_id')
+          .in('po_id', poIds)
+
+        const cnMap = new Map<string, number>()
+        if (creditNotes && creditNotes.length > 0) {
+          const cnIds = creditNotes.map(c => c.id)
+          const { data: cnItems } = await supabase
+            .from('pharmacy_credit_note_items')
+            .select('cn_id, po_item_id, item_id, quantity')
+            .in('cn_id', cnIds)
+
+          const cnToPoMap = new Map(creditNotes.map(c => [c.id, c.po_id]))
+          cnItems?.forEach(cn => {
+            const poId = cnToPoMap.get(cn.cn_id)
+            if (poId) {
+              const key1 = `${poId}_${cn.po_item_id}`
+              const key2 = `${poId}_${cn.item_id}`
+              if (cn.po_item_id) cnMap.set(key1, (cnMap.get(key1) || 0) + (cn.quantity || 0))
+              if (cn.item_id) cnMap.set(key2, (cnMap.get(key2) || 0) + (cn.quantity || 0))
+            }
+          })
         }
-        const lpo = item.lpo as any;
-        if (!lpo) continue;
-        const po = lpo.po as any;
-        
-        // Calculate the correct ETA
-        const baseDateStr = item.order_placed_date || 
-          (po?.order_date && lpo?.document_date
-            ? (new Date(po.order_date) < new Date(lpo.document_date) ? po.order_date : lpo.document_date)
-            : (po?.order_date || lpo?.document_date || new Date().toISOString().split('T')[0]));
-        
-        let calculatedEta = baseDateStr;
-        try {
-          const floorDate = '2026-04-20';
-          const finalBaseDate = baseDateStr < floorDate ? floorDate : baseDateStr;
-          const parsedBaseDate = parseISO(finalBaseDate);
-          if (isValid(parsedBaseDate)) {
-            calculatedEta = format(addDays(parsedBaseDate, 21), 'yyyy-MM-dd');
-          }
-        } catch (e) {}
 
-        const correctEta = lpo.expected_delivery_date || po?.expected_delivery_date || calculatedEta;
-        
-        if (correctEta && item.expected_delivery_date !== correctEta) {
-          console.log(`[SYNC ETA] Updating item ${item.id} expected_delivery_date from ${item.expected_delivery_date} to ${correctEta}`);
+        // Bulk 4: Goods Receipts dates
+        const { data: grs } = await supabase
+          .from('pharmacy_goods_receipts')
+          .select('po_id, receipt_date')
+          .in('po_id', poIds)
+          .order('receipt_date', { ascending: false })
+
+        const latestGrMap = new Map<string, string>()
+        grs?.forEach(g => {
+          if (!latestGrMap.has(g.po_id)) latestGrMap.set(g.po_id, g.receipt_date)
+        })
+
+        const deliveredIds: string[] = []
+        const partialIds: string[] = []
+        let sampleReceiptDate = today
+
+        for (const item of staleItems) {
+          const poId = lpoToPoMap.get(item.lpo_id)
+          if (!poId) continue
+
+          const poItems = poItemsByPo.get(poId) || []
+          const matchedPoItem = poItems.find(pi => 
+            pi.item_id === item.item_id ||
+            pi.id === item.item_id ||
+            (pi.item_code && item.item_code && pi.item_code.trim().toUpperCase() === item.item_code.trim().toUpperCase()) ||
+            (pi.item_name && item.item_name && pi.item_name.trim().toLowerCase() === item.item_name.trim().toLowerCase())
+          )
+
+          if (matchedPoItem) {
+            const qtyReceived = matchedPoItem.quantity_received || 0
+            const cnKey1 = `${poId}_${matchedPoItem.id}`
+            const cnKey2 = `${poId}_${matchedPoItem.item_id}`
+            const qtyCredited = cnMap.get(cnKey1) || cnMap.get(cnKey2) || 0
+            const totalFulfilled = qtyReceived + qtyCredited
+
+            if (totalFulfilled >= (matchedPoItem.quantity_ordered || 0) && (matchedPoItem.quantity_ordered || 0) > 0) {
+              const receiptDate = latestGrMap.get(poId) || today
+              sampleReceiptDate = receiptDate
+              deliveredIds.push(item.id)
+            } else if (totalFulfilled > 0 && item.is_overdue) {
+              partialIds.push(item.id)
+            }
+          }
+        }
+
+        if (deliveredIds.length > 0) {
+          if (onProgress) onProgress(`Phase 0: Marking ${deliveredIds.length} items as delivered...`)
           await supabase
             .from('pharmacy_order_tracking')
-            .update({ 
-              expected_delivery_date: correctEta,
+            .update({
+              status: 'delivered',
+              is_overdue: false,
+              days_overdue: 0,
+              actual_delivery_date: sampleReceiptDate,
+              tarikh_serahan: new Date(sampleReceiptDate).toISOString(),
               updated_at: new Date().toISOString()
             })
-            .eq('id', item.id);
+            .in('id', deliveredIds)
+        }
+
+        if (partialIds.length > 0) {
+          await supabase
+            .from('pharmacy_order_tracking')
+            .update({ is_overdue: false, updated_at: new Date().toISOString() })
+            .in('id', partialIds)
         }
       }
+    } catch (phase0Err) {
+      console.error('[recalculateOverdueStatus] Phase 0 error:', phase0Err)
     }
 
-    // Find items that are pending but past their ETA
-    const { data: itemsToUpdate, error: fetchError } = await supabase
+    // ─── STEP 1: Promote past due pending items to overdue (BULK) ─────────────
+    if (onProgress) onProgress('Step 1: Checking overdue delivery dates...')
+    const { data: pastDuePending } = await supabase
       .from('pharmacy_order_tracking')
       .select('id, expected_delivery_date')
       .eq('hospital_id', hospitalId)
       .eq('status', 'pending')
       .lt('expected_delivery_date', today)
 
-    if (fetchError) throw fetchError
-
-    if (itemsToUpdate && itemsToUpdate.length > 0) {
-      const total = itemsToUpdate.length;
-      let count = 0;
-      // Update each item with its specific days_overdue
-      for (const item of itemsToUpdate) {
-        count++;
-        if (onProgress && count % 5 === 0) {
-          onProgress(`Updating Overdue (${count}/${total})...`);
-        }
-        const daysDiff = Math.max(0, differenceInDays(new Date(today), parseISO(item.expected_delivery_date)))
-        
-        await supabase
-          .from('pharmacy_order_tracking')
-          .update({ 
-            status: 'overdue',
-            is_overdue: true,
-            days_overdue: daysDiff,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', item.id)
-      }
-    }
-
-    // Also refresh days_overdue for items already marked as overdue
-    const { data: currentOverdue } = await supabase
-      .from('pharmacy_order_tracking')
-      .select('id, expected_delivery_date')
-      .eq('hospital_id', hospitalId)
-      .eq('status', 'overdue')
-
-    if (currentOverdue && currentOverdue.length > 0) {
-      const total = currentOverdue.length;
-      let count = 0;
-      for (const item of currentOverdue) {
-        count++;
-        if (onProgress && count % 5 === 0) {
-          onProgress(`Refreshing Overdue (${count}/${total})...`);
-        }
-        const daysDiff = Math.max(0, differenceInDays(new Date(today), parseISO(item.expected_delivery_date)))
-        await supabase
-          .from('pharmacy_order_tracking')
-          .update({ 
-            days_overdue: daysDiff,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', item.id)
-      }
+    if (pastDuePending && pastDuePending.length > 0) {
+      if (onProgress) onProgress(`Step 1: Updating ${pastDuePending.length} overdue items...`)
+      const idsToMarkOverdue = pastDuePending.map(i => i.id)
+      await supabase
+        .from('pharmacy_order_tracking')
+        .update({
+          status: 'overdue',
+          is_overdue: true,
+          days_overdue: 1,
+          updated_at: new Date().toISOString()
+        })
+        .in('id', idsToMarkOverdue)
     }
 
     return { data: true, error: null }

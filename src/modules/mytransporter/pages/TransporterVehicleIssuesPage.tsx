@@ -380,7 +380,7 @@ const TransporterVehicleIssuesPage: React.FC = () => {
               placeholder="Contoh: Brek pad telah diganti di bengkel Toyota rasmi..."
               value={resolutionNotes}
               onChange={(e) => setResolutionNotes(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-emerald-500 transition-colors"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-emerald-500 focus:bg-white transition-colors font-medium shadow-xs"
               required
             />
 
@@ -422,7 +422,7 @@ const TransporterVehicleIssuesPage: React.FC = () => {
                 <select
                   value={reportVehicleId}
                   onChange={(e) => setReportVehicleId(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm outline-none focus:border-rose-500 transition-colors"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm text-slate-900 outline-none focus:border-rose-500 focus:bg-white transition-colors font-medium shadow-xs"
                 >
                   <option value="">-- Sila Pilih Kenderaan --</option>
                   {vehicles.map((v) => (
@@ -448,7 +448,7 @@ const TransporterVehicleIssuesPage: React.FC = () => {
                 <select
                   value={reportPriority}
                   onChange={(e) => setReportPriority(e.target.value as any)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm outline-none focus:border-rose-500 transition-colors"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm text-slate-900 outline-none focus:border-rose-500 focus:bg-white transition-colors font-medium shadow-xs"
                 >
                   <option value="low">Rendah (Low)</option>
                   <option value="medium">Sederhana (Medium)</option>
@@ -463,7 +463,7 @@ const TransporterVehicleIssuesPage: React.FC = () => {
                   placeholder="Terangkan masalah atau kerosakan secara terperinci..."
                   value={reportDesc}
                   onChange={(e) => setReportDesc(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-rose-500 transition-colors"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-rose-500 focus:bg-white transition-colors font-medium shadow-xs"
                 />
               </div>
 

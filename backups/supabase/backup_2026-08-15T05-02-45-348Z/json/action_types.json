@@ -1,0 +1,138 @@
+[
+  {
+    "id": "8c9f77d4-34e7-47f0-9c7e-1d80c5068522",
+    "type_name": "Purchase Order",
+    "type_code": "purchase_order",
+    "description": "Purchase order creation and approval",
+    "created_at": "2026-01-18T06:59:21.687455+00:00",
+    "module": "pharmacy"
+  },
+  {
+    "id": "b70f68c2-bf74-4250-9958-ed5abd1f38dd",
+    "type_name": "Prescription",
+    "type_code": "prescription",
+    "description": "Medication prescription approval",
+    "created_at": "2026-01-18T06:59:21.687455+00:00",
+    "module": "pharmacy"
+  },
+  {
+    "id": "71b5186f-061e-48a2-b0b2-8a0247464d73",
+    "type_name": "Patient Discharge",
+    "type_code": "patient_discharge",
+    "description": "Patient discharge approval",
+    "created_at": "2026-01-18T06:59:21.687455+00:00",
+    "module": "pharmacy"
+  },
+  {
+    "id": "ce15862a-a3ff-4876-b598-0f8da96237e9",
+    "type_name": "Stock Adjustment",
+    "type_code": "stock_adjustment",
+    "description": "Large stock adjustment approval",
+    "created_at": "2026-01-18T06:59:21.687455+00:00",
+    "module": "pharmacy"
+  },
+  {
+    "id": "f3a8bf7a-1042-4acc-8256-4d7dc0ce04cd",
+    "type_name": "Purchase Order Creation",
+    "type_code": "purchase_order_create",
+    "description": "Approval required when creating a new standard Purchase Order",
+    "created_at": "2026-01-19T12:50:04.351373+00:00",
+    "module": "pharmacy"
+  },
+  {
+    "id": "daf0751f-45cb-4aae-b48c-f172efb95522",
+    "type_name": "High Value Purchase Order",
+    "type_code": "purchase_order_high_value",
+    "description": "Additional approval for POs exceeding RM 5,000",
+    "created_at": "2026-01-19T12:50:04.351373+00:00",
+    "module": "pharmacy"
+  },
+  {
+    "id": "4fe796ab-5ff1-4427-8a08-b9f2b0e07e03",
+    "type_name": "Local Purchase Order (LPO)",
+    "type_code": "lpo_create",
+    "description": "Approval for Local Purchase Orders",
+    "created_at": "2026-01-19T12:50:04.351373+00:00",
+    "module": "pharmacy"
+  },
+  {
+    "id": "2677de29-2e53-44ef-a42b-befa5a6788cb",
+    "type_name": "Oxygen Cylinder Issuance",
+    "type_code": "oxygen_cylinder_issue",
+    "description": "Approval to issue oxygen cylinders to departments",
+    "created_at": "2026-01-19T12:50:04.351373+00:00",
+    "module": "pharmacy"
+  },
+  {
+    "id": "fafffcec-f8fb-4e6c-8267-25555dcb6090",
+    "type_name": "Department Drug Request",
+    "type_code": "drug_request_approve",
+    "description": "Approval for drug requests from other departments",
+    "created_at": "2026-01-19T12:50:04.351373+00:00",
+    "module": "pharmacy"
+  },
+  {
+    "id": "1aa0ebd5-98a2-4b8c-b016-3328dc6f05eb",
+    "type_name": "Supplier Return",
+    "type_code": "supplier_return",
+    "description": "Approval to return items to suppliers",
+    "created_at": "2026-01-19T12:50:04.351373+00:00",
+    "module": "pharmacy"
+  },
+  {
+    "id": "1efffbde-a035-45ae-a74d-22c45ad7d08b",
+    "type_name": "Publish Memo",
+    "type_code": "memo_publish",
+    "description": "Approval to publish a new hospital-wide memo",
+    "created_at": "2026-01-19T12:50:04.351373+00:00",
+    "module": "admin"
+  },
+  {
+    "id": "534dc49a-7126-47e4-9ff9-6b993f80d89b",
+    "type_name": "Access Request",
+    "type_code": "access_request_approve",
+    "description": "Approval for new user system access requests",
+    "created_at": "2026-01-19T12:50:04.351373+00:00",
+    "module": "admin"
+  },
+  {
+    "id": "c5961ccd-b7a1-4c0a-b2c2-8ef1a15c19ca",
+    "type_name": "Sensitive Data Access",
+    "type_code": "sensitive_data_access",
+    "description": "Approval to view sensitive patient or financial data",
+    "created_at": "2026-01-19T12:50:04.351373+00:00",
+    "module": "admin"
+  },
+  {
+    "id": "69dae364-e837-4d0c-8433-f170a644794b",
+    "type_name": "User Role Change",
+    "type_code": "user_role_change",
+    "description": "Approval to modify a users system role",
+    "created_at": "2026-01-19T12:50:04.351373+00:00",
+    "module": "admin"
+  },
+  {
+    "id": "ffb18431-62cf-40ba-8fea-d7fcea686a54",
+    "type_name": "Admin PO Submit",
+    "type_code": "admin_po_submit",
+    "description": "Submit admin purchase order for approval",
+    "created_at": "2026-01-28T17:04:42.664414+00:00",
+    "module": "admin_operations"
+  },
+  {
+    "id": "5c5b56ac-3367-426a-ab3d-b8823c60d660",
+    "type_name": "Admin PO Approve",
+    "type_code": "admin_po_approve",
+    "description": "Approve admin purchase order",
+    "created_at": "2026-01-28T17:04:42.664414+00:00",
+    "module": "admin_operations"
+  },
+  {
+    "id": "279ed2f7-1d18-4495-bdf0-bc5e927690ff",
+    "type_name": "Admin Warrant Create",
+    "type_code": "admin_warrant_create",
+    "description": "Create admin warrant allocation",
+    "created_at": "2026-01-28T17:04:42.664414+00:00",
+    "module": "admin_operations"
+  }
+]

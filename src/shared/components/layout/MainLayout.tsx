@@ -31,7 +31,7 @@ export const MainLayout: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
       {/* Header - Full width at top */}
       <Header />
 
@@ -39,8 +39,8 @@ export const MainLayout: React.FC = () => {
       <Sidebar />
 
       {/* Main Content - Padded to the left on desktop for the static sidebar */}
-      <div className="flex-1 flex flex-col lg:pl-[280px] pt-20 sm:pt-28 min-h-screen">
-        <main className="flex-1 overflow-auto p-4 md:p-6 bg-slate-50/50">
+      <div className="flex-1 flex flex-col lg:pl-[280px] pt-16 sm:pt-20 lg:pt-24 min-h-screen">
+        <main className="flex-1 overflow-auto p-4 md:p-6 bg-slate-950 text-slate-100">
           <Outlet />
         </main>
       </div>

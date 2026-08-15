@@ -1,0 +1,38 @@
+[
+  {
+    "id": "986e6b71-7a24-4e8a-985d-5e80382c6e49",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "code": "020200",
+    "label": "Pengurusan Hospital",
+    "description": "Hospital Management operational expenses",
+    "budget_type": "warrant",
+    "is_active": true,
+    "created_at": "2026-02-04T06:22:17.206429+00:00",
+    "updated_at": "2026-02-04T06:22:17.206429+00:00",
+    "created_by": null
+  },
+  {
+    "id": "9f5961b6-b7c8-4ff7-a127-defde3c6d186",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "code": "022300",
+    "label": "Dietetik Dan Sajian",
+    "description": "Dietetics and Food Service expenses",
+    "budget_type": "warrant",
+    "is_active": true,
+    "created_at": "2026-02-04T06:22:17.206429+00:00",
+    "updated_at": "2026-02-04T06:22:17.206429+00:00",
+    "created_by": null
+  },
+  {
+    "id": "998cd36f-ec9e-4a0e-b4d5-137a70bf682d",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "code": "P42",
+    "label": "Pembangunan",
+    "description": "Development Program",
+    "budget_type": "pembangunan",
+    "is_active": true,
+    "created_at": "2026-02-04T06:22:17.206429+00:00",
+    "updated_at": "2026-02-04T06:22:17.206429+00:00",
+    "created_by": null
+  }
+]

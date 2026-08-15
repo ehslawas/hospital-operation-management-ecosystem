@@ -561,15 +561,20 @@ export async function getPendingPOsForLPO(hospitalId: string): Promise<ApiRespon
 /**
  * Check if an LPO number already exists in the hospital
  */
-export async function checkDuplicateLPO(hospitalId: string, lpoNumber: string): Promise<ApiResponse<{ isDuplicate: boolean, existingPoNumber?: string }>> {
+export async function checkDuplicateLPO(hospitalId: string, lpoNumber: string, excludePoId?: string): Promise<ApiResponse<{ isDuplicate: boolean, existingPoNumber?: string }>> {
   try {
     if (isSupabaseConfigured()) {
-      const { data, error } = await supabase
+      let query = supabase
         .from('pharmacy_lpo')
         .select('lpo_number, po_id, pharmacy_purchase_orders!pharmacy_lpo_po_id_fkey(po_number)')
         .eq('hospital_id', hospitalId)
         .eq('lpo_number', lpoNumber)
-        .maybeSingle()
+
+      if (excludePoId) {
+        query = query.neq('po_id', excludePoId)
+      }
+
+      const { data, error } = await query.maybeSingle()
 
       if (error) throw error
 

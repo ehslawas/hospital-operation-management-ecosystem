@@ -292,7 +292,7 @@ export const LPOListPage: React.FC = () => {
     
     try {
       // Duplicate Check
-      const dupRes = await checkDuplicateLPO(hospitalId, uploadData.lpo_number)
+      const dupRes = await checkDuplicateLPO(hospitalId, uploadData.lpo_number, uploadTargetPO)
       if (dupRes.data?.isDuplicate) {
         throw new Error(`Duplicate LPO: This number is already linked to ${dupRes.data.existingPoNumber}`)
       }
@@ -1541,27 +1541,47 @@ export const LPOListPage: React.FC = () => {
                       
                       {activeTab === 'approved' && (
                         <td className="px-6 py-4 text-right">
-                          {order.lpo_status === 'sent' ? (
+                          <div className="flex items-center justify-end gap-2">
+                            {order.lpo_status === 'sent' ? (
+                              <button
+                                disabled={!order.document_url}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleVerifyLPO(order.lpo_id!);
+                                }}
+                                className={cn(
+                                  "inline-flex items-center gap-1.5 px-3 py-1.5 font-medium text-sm rounded-lg transition-colors border shadow-sm",
+                                  (!order.document_url)
+                                    ? "bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed" 
+                                    : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-emerald-200"
+                                )}
+                                title={!order.document_url ? "Missing LPO document" : "Verify LPO"}
+                              >
+                                <IconCheck className="w-4 h-4" />
+                                Verify
+                              </button>
+                            ) : (
+                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-1">Verified</span>
+                            )}
                             <button
-                              disabled={!order.document_url}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleVerifyLPO(order.lpo_id!);
+                                setUploadTargetPO(order.po_id);
+                                setUploadData({
+                                  lpo_number: order.lpo_number || '',
+                                  document_date: order.document_date || new Date().toISOString().split('T')[0],
+                                  document_file: undefined,
+                                  expected_delivery_date: undefined
+                                });
+                                setIsUploadModalOpen(true);
                               }}
-                              className={cn(
-                                "inline-flex items-center gap-1.5 px-3 py-1.5 font-medium text-sm rounded-lg transition-colors border shadow-sm",
-                                (!order.document_url)
-                                  ? "bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed" 
-                                  : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-emerald-200"
-                              )}
-                              title={!order.document_url ? "Missing LPO document" : "Verify LPO"}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 rounded-lg border border-slate-200 transition-colors shadow-xs"
+                              title="Upload new LPO PDF or change LPO document"
                             >
-                              <IconCheck className="w-4 h-4" />
-                              Verify
+                              <IconUpload className="w-3.5 h-3.5" />
+                              Change LPO
                             </button>
-                          ) : (
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">Verified</span>
-                          )}
+                          </div>
                         </td>
                       )}
                       

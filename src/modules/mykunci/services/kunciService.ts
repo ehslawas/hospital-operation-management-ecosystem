@@ -649,3 +649,73 @@ export const addKunciAudit = async (
     return { data: null, error: error?.message || 'Failed to record audit entry' };
   }
 };
+
+export const getKunciByKod = async (kodKunci: string): Promise<ApiResponse<KunciDaftar>> => {
+  if (!isSupabaseConfigured()) {
+    const list = getMockData<KunciDaftar[]>('kunci_daftar', []);
+    const key = list.find((k) => k.kod_kunci.toUpperCase() === kodKunci.toUpperCase());
+    if (!key) return { data: null, error: 'Key not found' };
+    return { data: key, error: null };
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('kunci_daftar')
+      .select(`
+        *,
+        department:departments(*),
+        penjaga:users!penjaga_id(*)
+      `)
+      .eq('kod_kunci', kodKunci.toUpperCase())
+      .single();
+
+    if (error) throw error;
+    return { data: data as KunciDaftar, error: null };
+  } catch (error: any) {
+    console.error('getKunciByKod error:', error);
+    return { data: null, error: error?.message || 'Failed to fetch key details by code' };
+  }
+};
+
+export const getActiveLogByKunciId = async (kunciId: string): Promise<ApiResponse<KunciLog>> => {
+  if (!isSupabaseConfigured()) {
+    const logs = getMockData<KunciLog[]>('kunci_log', []);
+    const activeLog = logs.find((l) => l.kunci_id === kunciId && !l.tarikh_masa_pulang);
+    if (!activeLog) return { data: null, error: 'No active checkout log found' };
+    
+    const keys = getMockData<KunciDaftar[]>('kunci_daftar', []);
+    const keyObj = keys.find(k => k.id === activeLog.kunci_id);
+    return { 
+      data: {
+        ...activeLog,
+        kunci: keyObj
+      }, 
+      error: null 
+    };
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('kunci_log')
+      .select(`
+        *,
+        kunci:kunci_daftar(
+          *,
+          department:departments(*)
+        ),
+        peminjam:users!peminjam_id(*),
+        pegawai_penyerah:users!pegawai_penyerah_id(*),
+        pegawai_saksi:users!pegawai_saksi_id(*),
+        pegawai_penerima:users!pegawai_penerima_id(*)
+      `)
+      .eq('kunci_id', kunciId)
+      .is('tarikh_masa_pulang', null)
+      .single();
+
+    if (error) throw error;
+    return { data: data as KunciLog, error: null };
+  } catch (error: any) {
+    console.error('getActiveLogByKunciId error:', error);
+    return { data: null, error: error?.message || 'Failed to fetch active key log' };
+  }
+};

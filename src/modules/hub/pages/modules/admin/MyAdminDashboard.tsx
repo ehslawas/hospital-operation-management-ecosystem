@@ -8,9 +8,12 @@ import {
   UserCheck,
   Users,
   Building2,
-  Lock
+  Lock,
+  Settings
 } from 'lucide-react'
 import { ROUTES } from '@/lib/constants'
+import { useAuthStore } from '@/stores/authStore'
+import { Button } from '@/components/ui'
 
 // Sub-components import
 import { AdminOverviewTab } from './AdminOverviewTab'
@@ -22,6 +25,8 @@ import { AdminRbacTab } from './AdminRbacTab'
 export const MyAdminDashboard: React.FC = () => {
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<string>('overview')
+
+  const { user } = useAuthStore()
 
   const tabs = [
     { id: 'overview', label: 'Ringkasan', icon: Activity },
@@ -71,10 +76,23 @@ export const MyAdminDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Dynamic decorative logo/badge */}
-        <div className="flex items-center gap-3 px-4 py-2 bg-slate-900/60 border border-white/5 rounded-xl self-start md:self-auto backdrop-blur-md">
-          <span className="w-2.5 h-2.5 rounded-full bg-teal-500 animate-pulse" />
-          <span className="text-xs font-semibold text-slate-300 font-mono">KKM SECURITY ACTIVE</span>
+        {/* Action controls & Dynamic decorative logo/badge */}
+        <div className="flex flex-wrap items-center gap-3 self-start md:self-auto">
+          {user?.role?.role_code === 'system_admin' && (
+            <Button
+              onClick={() => navigate(ROUTES.ADMIN_MODULES)}
+              variant="outline"
+              size="sm"
+              className="border-teal-500/30 hover:border-teal-500 text-teal-400 hover:text-teal-300 bg-teal-500/5 hover:bg-teal-500/10 flex items-center gap-2"
+            >
+              <Settings className="w-4 h-4 text-teal-400" />
+              <span>System Admin Console</span>
+            </Button>
+          )}
+          <div className="flex items-center gap-3 px-4 py-2 bg-slate-900/60 border border-white/5 rounded-xl backdrop-blur-md">
+            <span className="w-2.5 h-2.5 rounded-full bg-teal-500 animate-pulse" />
+            <span className="text-xs font-semibold text-slate-300 font-mono">KKM SECURITY ACTIVE</span>
+          </div>
         </div>
       </div>
 

@@ -1,0 +1,252 @@
+[
+  {
+    "id": "13f572f1-2bb4-44ac-a5d7-cc79628bd836",
+    "role_name": "System Administrator",
+    "role_code": "system_admin",
+    "description": "Full system access across all hospitals",
+    "is_system_role": true,
+    "hospital_id": null,
+    "created_at": "2026-01-06T09:55:17.326709+00:00",
+    "updated_at": "2026-01-18T12:36:37.787179+00:00"
+  },
+  {
+    "id": "47813ac3-1c82-487c-8598-ec3e14ee66c9",
+    "role_name": "Hospital System Administrator",
+    "role_code": "hospital_admin",
+    "description": "Full access to a specific hospital system and management functions.",
+    "is_system_role": true,
+    "hospital_id": null,
+    "created_at": "2026-01-06T11:24:11.555502+00:00",
+    "updated_at": "2026-01-18T12:36:37.787179+00:00"
+  },
+  {
+    "id": "280dca07-06df-4729-bed4-e2e7dfa6a23a",
+    "role_name": "Hospital Administrator",
+    "role_code": "hospital_administrator",
+    "description": "Pegawai Tadbir managing non-clinical hospital operations and resources.",
+    "is_system_role": true,
+    "hospital_id": null,
+    "created_at": "2026-01-17T16:59:29.178253+00:00",
+    "updated_at": "2026-01-18T12:36:37.787179+00:00"
+  },
+  {
+    "id": "6d27610a-4da5-494d-999d-fe348722e0b0",
+    "role_name": "Hospital Driver",
+    "role_code": "hospital_driver",
+    "description": "Pemandu responsible for transportation of patients and official hospital logistics.",
+    "is_system_role": true,
+    "hospital_id": null,
+    "created_at": "2026-01-17T16:59:29.178253+00:00",
+    "updated_at": "2026-01-18T12:36:37.787179+00:00"
+  },
+  {
+    "id": "41ebd933-4aab-46a7-9a8d-b9970f7d98df",
+    "role_name": "General Service Assistant",
+    "role_code": "general_service_assistant",
+    "description": "Pembantu Perawatan Kesihatan (PPK) providing general support and patient handling.",
+    "is_system_role": true,
+    "hospital_id": null,
+    "created_at": "2026-01-17T16:59:29.178253+00:00",
+    "updated_at": "2026-01-18T12:36:37.787179+00:00"
+  },
+  {
+    "id": "740bf4cb-db38-423b-b47e-e6ca9654877c",
+    "role_name": "Radiographer",
+    "role_code": "radiographer",
+    "description": "Juru X-Ray performing diagnostic imaging and radiology services.",
+    "is_system_role": true,
+    "hospital_id": null,
+    "created_at": "2026-01-17T16:59:29.178253+00:00",
+    "updated_at": "2026-01-18T12:36:37.787179+00:00"
+  },
+  {
+    "id": "2b99ecc2-63cf-4d2c-8f8d-b3c603d40e05",
+    "role_name": "Pathologist",
+    "role_code": "pathologist",
+    "description": "Pakar Patologi specializing in laboratory medicine and disease diagnosis.",
+    "is_system_role": true,
+    "hospital_id": null,
+    "created_at": "2026-01-14T03:17:01.47982+00:00",
+    "updated_at": "2026-01-18T12:36:37.787179+00:00"
+  },
+  {
+    "id": "482c4550-1e2d-434c-add0-1f00752839cc",
+    "role_name": "Procurement Officer",
+    "role_code": "procurement_officer",
+    "description": "Manages purchasing and procurement",
+    "is_system_role": false,
+    "hospital_id": null,
+    "created_at": "2026-01-18T08:15:40.158905+00:00",
+    "updated_at": "2026-01-18T08:15:40.158905+00:00"
+  },
+  {
+    "id": "2d164e61-19d5-4c63-9c45-a7a4c4d84b8f",
+    "role_name": "Inventory Manager",
+    "role_code": "inventory_manager",
+    "description": "Manages stock and inventory control",
+    "is_system_role": false,
+    "hospital_id": null,
+    "created_at": "2026-01-18T08:15:40.158905+00:00",
+    "updated_at": "2026-01-18T08:15:40.158905+00:00"
+  },
+  {
+    "id": "531a2727-466c-4ab6-96de-a1cb49f0bdf4",
+    "role_name": "Budget Officer",
+    "role_code": "budget_officer",
+    "description": "Manages department budget and warrants",
+    "is_system_role": false,
+    "hospital_id": null,
+    "created_at": "2026-01-18T08:15:40.158905+00:00",
+    "updated_at": "2026-01-18T08:15:40.158905+00:00"
+  },
+  {
+    "id": "8aed1a8a-4202-47ea-9078-624fd291a0c2",
+    "role_name": "Department Head",
+    "role_code": "department_head",
+    "description": "Head of Department (Approval Role)",
+    "is_system_role": false,
+    "hospital_id": null,
+    "created_at": "2026-01-18T08:15:40.158905+00:00",
+    "updated_at": "2026-01-18T08:15:40.158905+00:00"
+  },
+  {
+    "id": "f1040cec-8a4e-419d-a0fc-252a103bcb93",
+    "role_name": "Pharmacy Manager",
+    "role_code": "pharmacy_manager",
+    "description": "Full access to pharmacy modules",
+    "is_system_role": false,
+    "hospital_id": null,
+    "created_at": "2026-01-18T08:15:40.158905+00:00",
+    "updated_at": "2026-01-18T08:15:40.158905+00:00"
+  },
+  {
+    "id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "role_name": "Assistant Pharmacist",
+    "role_code": "assistant_pharmacist",
+    "description": "Penolong Pegawai Farmasi (PPF) assisting in pharmacy operations and dispensing.",
+    "is_system_role": true,
+    "hospital_id": null,
+    "created_at": "2026-01-14T03:17:01.47982+00:00",
+    "updated_at": "2026-01-18T16:43:23.990961+00:00"
+  },
+  {
+    "id": "31fbc74a-67c1-4460-bd0d-d47c2b01d914",
+    "role_name": "Pharmacy Staff",
+    "role_code": "pharmacy_staff",
+    "description": "General pharmacy staff access",
+    "is_system_role": false,
+    "hospital_id": null,
+    "created_at": "2026-01-18T08:15:59.598727+00:00",
+    "updated_at": "2026-01-18T08:15:59.598727+00:00"
+  },
+  {
+    "id": "4043edfe-16ad-4596-8521-fe29bb76b86b",
+    "role_name": "Senior Assistant Medical Officer",
+    "role_code": "senior_assistant_medical_officer",
+    "description": "Senior Penolong Pegawai Perubatan (PPP) with advanced clinical and supervisory duties.",
+    "is_system_role": true,
+    "hospital_id": null,
+    "created_at": "2026-01-17T17:18:37.117832+00:00",
+    "updated_at": "2026-01-18T12:36:37.787179+00:00"
+  },
+  {
+    "id": "236ef5f6-cc70-4517-909c-803a39cf9539",
+    "role_name": "Pharmacist",
+    "role_code": "pharmacist",
+    "description": "Pegawai Farmasi responsible for medication management and clinical pharmacy.",
+    "is_system_role": true,
+    "hospital_id": null,
+    "created_at": "2026-01-07T00:06:51.582802+00:00",
+    "updated_at": "2026-01-18T12:36:37.787179+00:00"
+  },
+  {
+    "id": "1fa0ef02-c1c8-4bb1-862b-ceddcd853e86",
+    "role_name": "Sister",
+    "role_code": "sister",
+    "description": "Ketua Jururawat (Nursing Sister) in charge of ward management and clinical supervision.",
+    "is_system_role": true,
+    "hospital_id": null,
+    "created_at": "2026-01-14T03:17:01.47982+00:00",
+    "updated_at": "2026-01-18T12:36:37.787179+00:00"
+  },
+  {
+    "id": "cc45d72f-3c2a-48e6-9360-9b1cc8d0c0e0",
+    "role_name": "Nurse",
+    "role_code": "nurse",
+    "description": "Jururawat providing direct patient care and clinical assistance.",
+    "is_system_role": true,
+    "hospital_id": null,
+    "created_at": "2026-01-07T00:06:51.582802+00:00",
+    "updated_at": "2026-01-18T12:36:37.787179+00:00"
+  },
+  {
+    "id": "ad98841a-0f17-4da7-af2c-842e190958b6",
+    "role_name": "Occupational Therapist",
+    "role_code": "occupational_therapist",
+    "description": "Jurupulih Perubatan Kerja providing functional rehabilitation and therapy.",
+    "is_system_role": true,
+    "hospital_id": null,
+    "created_at": "2026-01-17T16:59:29.178253+00:00",
+    "updated_at": "2026-01-18T12:36:37.787179+00:00"
+  },
+  {
+    "id": "e82ba204-bb98-45c1-ae4a-6283ff30d14c",
+    "role_name": "Hospital Director",
+    "role_code": "hospital_director",
+    "description": "Pengarah Hospital responsible for overall clinical and administrative governance.",
+    "is_system_role": true,
+    "hospital_id": null,
+    "created_at": "2026-01-17T16:59:29.178253+00:00",
+    "updated_at": "2026-01-18T12:36:37.787179+00:00"
+  },
+  {
+    "id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "role_name": "Medical Laboratory Technologist",
+    "role_code": "medical_lab_technician",
+    "description": "Juruteknologi Makmal Perubatan (JTMP) conducting laboratory tests and analysis.",
+    "is_system_role": true,
+    "hospital_id": null,
+    "created_at": "2026-01-17T16:59:29.178253+00:00",
+    "updated_at": "2026-01-18T12:36:37.787179+00:00"
+  },
+  {
+    "id": "49fa2b9d-0933-4d1b-8d3d-a8a03aa05088",
+    "role_name": "Physiotherapist",
+    "role_code": "physiotherapist",
+    "description": "Fisioterapis providing physical rehabilitation and therapy services.",
+    "is_system_role": true,
+    "hospital_id": null,
+    "created_at": "2026-01-17T16:59:29.178253+00:00",
+    "updated_at": "2026-01-18T12:36:37.787179+00:00"
+  },
+  {
+    "id": "6257a1e0-d5a1-41fa-a894-bfaba0d025b3",
+    "role_name": "Medical Officer",
+    "role_code": "medical_officer",
+    "description": "Qualified medical practitioner providing clinical care and diagnosis.",
+    "is_system_role": true,
+    "hospital_id": null,
+    "created_at": "2026-01-14T03:17:01.47982+00:00",
+    "updated_at": "2026-01-18T12:36:37.787179+00:00"
+  },
+  {
+    "id": "1efa5f72-f04e-4e3c-be9a-005556bf058e",
+    "role_name": "Assistant Medical Officer",
+    "role_code": "assistant_medical_officer",
+    "description": "Penolong Pegawai Perubatan (PPP) providing clinical support and emergency care.",
+    "is_system_role": true,
+    "hospital_id": null,
+    "created_at": "2026-01-14T03:17:01.47982+00:00",
+    "updated_at": "2026-01-18T12:36:37.787179+00:00"
+  },
+  {
+    "id": "85e14b44-ab1d-479a-9f6f-7b3da670441a",
+    "role_name": "Matron",
+    "role_code": "matron",
+    "description": "Senior nursing administrator overseeing nursing services and standards.",
+    "is_system_role": true,
+    "hospital_id": null,
+    "created_at": "2026-01-14T03:17:01.47982+00:00",
+    "updated_at": "2026-01-18T12:36:37.787179+00:00"
+  }
+]

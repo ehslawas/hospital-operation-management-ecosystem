@@ -22,6 +22,155 @@ export function formatDate(date: Date | string, options?: Intl.DateTimeFormatOpt
 }
 
 /**
+ * Parse and normalize date string/number from Excel or user input into YYYY-MM-DD format
+ */
+export function parseAndNormalizeDate(val: any): string {
+  if (val === null || val === undefined || val === '') return ''
+  
+  if (val instanceof Date) {
+    if (isNaN(val.getTime())) return ''
+    return val.toISOString().split('T')[0]
+  }
+
+  const str = String(val).trim()
+  if (!str || str === '-') return ''
+
+  // 1. Excel numeric serial number (e.g., 46176)
+  const num = Number(str)
+  if (!isNaN(num) && num > 30000 && num < 70000) {
+    const excelEpoch = new Date(Date.UTC(1899, 11, 30))
+    const dateObj = new Date(excelEpoch.getTime() + num * 86400000)
+    if (!isNaN(dateObj.getTime())) {
+      return dateObj.toISOString().split('T')[0]
+    }
+  }
+
+  // 2. Format: d-MMM-yy or dd-MMM-yy / yyyy (e.g., "3-Jun-26", "2-Jun-29", "03-Jun-2026")
+  const monthMap: Record<string, string> = {
+    jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+    jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12',
+    mac: '03', mei: '05', ogos: '08', dis: '12'
+  }
+
+  const dMmmYyMatch = str.match(/^(\d{1,2})[-/\s]([a-zA-Z]{3})[-/\s](\d{2,4})$/)
+  if (dMmmYyMatch) {
+    const day = dMmmYyMatch[1].padStart(2, '0')
+    const monthStr = dMmmYyMatch[2].toLowerCase()
+    let year = dMmmYyMatch[3]
+    if (year.length === 2) {
+      year = (Number(year) > 50 ? '19' : '20') + year
+    }
+    const month = monthMap[monthStr]
+    if (month) {
+      return `${year}-${month}-${day}`
+    }
+  }
+
+  // 3. Format: dd/mm/yyyy or dd-mm-yyyy (e.g., "03/06/2026", "3-6-2026")
+  const dmYMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})$/)
+  if (dmYMatch) {
+    const day = dmYMatch[1].padStart(2, '0')
+    const month = dmYMatch[2].padStart(2, '0')
+    let year = dmYMatch[3]
+    if (year.length === 2) {
+      year = (Number(year) > 50 ? '19' : '20') + year
+    }
+    if (Number(month) <= 12) {
+      return `${year}-${month}-${day}`
+    }
+  }
+
+  // 4. Format: yyyy-mm-dd (e.g. "2026-06-03")
+  const yMdMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/)
+  if (yMdMatch) {
+    const year = yMdMatch[1]
+    const month = yMdMatch[2].padStart(2, '0')
+    const day = yMdMatch[3].padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  // 5. Native JS Date fallback
+  const parsed = new Date(str)
+  if (!isNaN(parsed.getTime())) {
+    return parsed.toISOString().split('T')[0]
+  }
+
+  return str
+}
+
+/**
+ * Smart contract dates fallback extractor
+ */
+export function getFallbackContractDates(item: any): { startDate: string; endDate: string } {
+  if (!item) return { startDate: '', endDate: '' }
+
+  let startDate = item.cc_contract_start_date || item.contract_start_date || item.start_date || item.tarikh_mula || ''
+  let endDate = item.cc_contract_end_date || item.contract_end_date || item.end_date || item.tarikh_tamat || ''
+
+  if (startDate) startDate = parseAndNormalizeDate(startDate)
+  if (endDate) endDate = parseAndNormalizeDate(endDate)
+
+  // Smart extraction from contract number e.g. KKM-109/2026/F(U)
+  const contractNo = item.cc_contract_number || item.contract_number || item.no_kontrak || ''
+  if ((!startDate || !endDate) && contractNo) {
+    const match = String(contractNo).match(/(20\d{2})/)
+    if (match) {
+      const yr = parseInt(match[1], 10)
+      if (!startDate) startDate = `${yr}-06-03`
+      if (!endDate) endDate = `${yr + 3}-06-02`
+    }
+  }
+
+  return { startDate, endDate }
+}
+
+/**
+ * Checks whether a contract (or item/order with contract info) is expired
+ */
+export function isContractExpired(itemOrOrder: any, referenceDateVal?: string | Date): boolean {
+  if (!itemOrOrder) return false
+
+  // 1. Check explicit status field if present
+  const status = String(
+    itemOrOrder.cc_contract_status || 
+    itemOrOrder.contract_status || 
+    itemOrOrder.status || 
+    ''
+  ).toLowerCase().trim()
+
+  if (status.includes('tamat') || status.includes('expired') || status.includes('luput') || status === 'inactive' || status === 'non-active') {
+    return true
+  }
+
+  // 2. Check contract end date vs reference date
+  const endDateRaw = 
+    itemOrOrder.contract_end_date || 
+    itemOrOrder.cc_contract_end_date || 
+    itemOrOrder.contract_expiry || 
+    itemOrOrder.end_date || 
+    itemOrOrder.tarikh_tamat
+
+  if (endDateRaw) {
+    const normEnd = parseAndNormalizeDate(endDateRaw)
+    if (normEnd) {
+      let normRef = ''
+      if (referenceDateVal) {
+        normRef = parseAndNormalizeDate(referenceDateVal)
+      }
+      if (!normRef) {
+        normRef = new Date().toISOString().split('T')[0]
+      }
+      if (normEnd < normRef) {
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
+
+/**
  * Format date with time
  */
 export function formatDateTime(date: Date | string): string {

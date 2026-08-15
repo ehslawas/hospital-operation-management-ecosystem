@@ -106,14 +106,7 @@ export default function OrderTrackingPage() {
 
   // Load data
   useEffect(() => {
-    const load = async () => {
-      // On first mount or hospital change, recalculate
-      if (hospitalId && page === 1 && statusFilter === 'all' && categoryFilter === 'all' && !searchTerm) {
-        await recalculateOverdueStatus(hospitalId)
-      }
-      fetchData()
-    }
-    load()
+    fetchData()
   }, [hospitalId, page, statusFilter, categoryFilter])
 
   // Fetch data

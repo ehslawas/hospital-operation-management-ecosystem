@@ -1,0 +1,41 @@
+[
+  {
+    "id": "8f75e57f-f3cb-4b35-839d-0c10086b62ce",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "program_code": "020200",
+    "objek_code": "29000",
+    "group_name": "Perkhidmatan Makanan & Minuman Group",
+    "group_code": "makanan_020200_29000",
+    "description": "Shared budget for food services including catering and preparation",
+    "fiscal_year": 2026,
+    "allocated_amount": 260900,
+    "created_at": "2026-02-04T16:28:56.85585+00:00",
+    "updated_at": "2026-02-04T16:28:56.85585+00:00"
+  },
+  {
+    "id": "63db70a5-828a-4eed-abc9-0458ffb45ce8",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "program_code": "020200",
+    "objek_code": "29000",
+    "group_name": "Perkhidmatan Percetakan Group",
+    "group_code": "percetakan_020200_29000",
+    "description": "Shared budget for printing",
+    "fiscal_year": 2026,
+    "allocated_amount": 50000,
+    "created_at": "2026-02-04T16:38:07.984058+00:00",
+    "updated_at": "2026-02-04T16:38:07.984058+00:00"
+  },
+  {
+    "id": "28ab1423-1765-469d-96a2-e76e15d619e6",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "program_code": "020200",
+    "objek_code": "27000",
+    "group_name": "Bekalan Am Group",
+    "group_code": "bekalan_020200_27000",
+    "description": "Shared budget for general office and maintenance supplies",
+    "fiscal_year": 2026,
+    "allocated_amount": 150000,
+    "created_at": "2026-02-04T16:28:56.85585+00:00",
+    "updated_at": "2026-02-04T16:28:56.85585+00:00"
+  }
+]

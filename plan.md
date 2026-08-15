@@ -1,225 +1,117 @@
-# Implementation Plan - Cylinder Maintenance Module
+# Modern Enterprise Level Cylinder Movement Tracking Implementation Plan
 
-This document outlines the architecture, database schema, API service layer, routing configuration, and UI designs required to add a new **Cylinder Maintenance** sub-module to the **Medical Oxygen** module.
-
-This feature behaves like a purchase order (PO) in the MyWarrant module but is specialized for requesting maintenance tasks (valve replacement, painting, hydrostatic testing, general maintenance) on medical oxygen cylinders.
+This document outlines the detailed architectural and visual design implementation plan to upgrade the **Medical Oxygen & Gas Cylinder Movement Tracking Interface** (**Available**, **In Use / Used**, **Empty**, **Returned**).
 
 ---
 
-## 1. Architectural Overview
+## Executive Summary & Design Vision
 
-The diagram below illustrates how user actions on the sidebar propagate through the application routing layer down to the React components, services, and the Supabase database.
-
-### 1.1 Application Flow Diagram
-
-```
-+-----------------------------------+
-|            Sidebar.tsx            |
-| (Sidebar Link Clicked / triggered)|
-+-----------------+-----------------+
-                  |
-                  v
-+-----------------+-----------------+
-|            routes.tsx             |
-| (Path: /pharmacy/oxygen/maint)   |
-+-----------------+-----------------+
-                  |
-                  v
-+-----------------+-----------------+
-|     CylinderMaintenancePage       |
-|  (Lists, Creates, Details View)   |
-+--------+-----------------+--------+
-         |                 |
-         v                 v
-+--------+--------+  +-----+--------+
-|  Create Form    |  | Details Modal|
-|  & Cylinder     |  | & Status     |
-|  Selector       |  | Updates      |
-+--------+--------+  +-----+--------+
-         |                 |
-         +--------+--------+
-                  |
-                  v
-+-----------------+-----------------+
-|   cylinderMaintenanceService.ts   |
-| (Selects, Inserts, Status updates)|
-+-----------------+-----------------+
-                  |
-                  v
-+-----------------+-----------------+
-|         Supabase Client           |
-| (Triggers RLS & performs queries) |
-+-----------------+-----------------+
-                  |
-                  v
-+-----------------+-----------------+
-|      PostgreSQL Database          |
-|  (New Maintenance SQL Tables)     |
-+-----------------------------------+
-```
+As a Senior Google Design Lead, this upgrade transforms the current store balance cards and cylinder inventory tracking system into an enterprise-grade telemetry workspace. The design combines **Google Material 3 Expressive**, **Linear Method**, and **Stripe Dashboard** aesthetics to deliver high-density data clarity, fluid micro-interactions, and instant visual state recognition for hospital pharmacy storekeepers and logistics managers.
 
 ---
 
-## 2. Database Design & Relationships
+## Core Movement State Taxonomy
 
-To represent maintenance orders (similar to purchase orders) and the list of cylinders assigned to each, we will create two new tables in Supabase:
+Every medical gas cylinder transitions through a strict four-stage movement lifecycle:
 
-1. `pharmacy_oxygen_cylinder_maintenance`: Parent table representing the maintenance request document/PO.
-2. `pharmacy_oxygen_cylinder_maintenance_items`: Child table mapping specific cylinders to specific maintenance types and individual costs.
+| Movement State | Color Token | Visual Element | Operational Context |
+| :--- | :--- | :--- | :--- |
+| **🟢 Available** | `Emerald-500` / `#10b981` | Heartbeat pulse badge + soft glow | Full pressure cylinders in Central Pharmacy Store, ready for immediate ward dispatch. |
+| **🔵 In Use (Used)** | `Blue-600` / `#2563eb` | Cobalt active telemetry ring | Cylinders deployed in Wards, Emergency Department, or ICU connected to patient care. |
+| **🟡 Empty** | `Amber-500` / `#f59e0b` | Warning alert dot | Depleted cylinders collected in the store empty-holding zone awaiting supplier return. |
+| **🟣 Returned** | `Indigo-500` / `#6366f1` | Slate indigo quiet badge | Cylinders transferred back to gas supplier (Linde Malaysia) for refill & PO reconciliation. |
 
-### 2.1 Entity Relationship Diagram (ERD)
+---
+
+## Outsource Benchmarking & UX Innovations
+
+Following research across industrial telemetry dashboards (AWS IoT SiteWise, Samsara Asset Telemetry, Linde Gas Logistics):
+
+1. **Card Architecture (`StoreBalanceGrid.tsx`)**:
+   - Elevated glassmorphic card container (`bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl`).
+   - Accent Top Header gradient bar based on cylinder contract type (Private vs Loan).
+   - Type title (e.g. `P101 - D (0.5m³)`), valve connection type tag (`Pin Index (PI)` vs `Bullnose (BN)`), and ownership badge.
+   - **4-Quadrant Metric Matrix**: High-contrast, tabular-numeric counters (`tabular-nums`) for Available, In Use, Empty, and Returned.
+   - **Dynamic Stock Distribution Progress Bar**: Multi-segment horizontal bar displaying exact percentages, total counts, and interactive hover tooltips.
+   - **Quick Action Hover Toolbar**: 
+     - ⚡ *Quick Issue to Ward*
+     - ⚡ *Mark as Depleted (Empty)*
+     - ⚡ *Generate Supplier Return*
+
+2. **Filter & Telemetry Toolbar**:
+   - Interactive search input by cylinder code/name.
+   - Pill filter controls: All Types, Pin Index (PI), Bullnose (BN), Loan Cylinders, Low Stock Warnings.
+   - View Switcher: Store Grid View (Cards), Linear Inventory Table, and Real-time Store Ledger.
+
+---
+
+## Technical Architecture & Flow
 
 ```
-+-------------------------------------------+
-|    pharmacy_oxygen_cylinder_inventory     |
-+-------------------------------------------+
-| id (UUID, PK)                             |
-| serial_number (VARCHAR)                   |
-| status (OxygenCylinderStatus)             |
-| hospital_id (UUID, FK)                    |
-+---------------------+---------------------+
-                      |
-                      | 1
-                      |
-                      | N (REFERENCES cylinder_id)
-                      v
-+-------------------------------------------+
-| pharmacy_oxygen_cylinder_maintenance_items|
-+-------------------------------------------+
-| id (UUID, PK)                             |
-| maintenance_id (UUID, FK) ----------------+
-| cylinder_id (UUID, FK)                    | |
-| maintenance_type (VARCHAR)                | |
-| cost (DECIMAL)                            | |
-| notes (TEXT)                              | |
-+-------------------------------------------+ |
-                                              |
-                        +---------------------+
-                        | N (REFERENCES maintenance_id)
-                        v 1
-+-------------------------------------------+
-|   pharmacy_oxygen_cylinder_maintenance    |
-+-------------------------------------------+
-| id (UUID, PK)                             |
-| maintenance_no (VARCHAR, UNIQUE)          |
-| supplier_id (UUID, FK) -----------------------> [suppliers] (existing)
-| status (VARCHAR)                          |
-| requested_by (UUID, FK) ----------------------> [users] (existing)
-| total_cost (DECIMAL)                      |
-| budget_source (VARCHAR: APPL / CC / LP)   |
-| justification (TEXT)                      |
-| created_at (TIMESTAMP)                    |
-+-------------------------------------------+
++-----------------------------------------------------------------------------------+
+|                            CYLINDER RECEPTION (Linde / PO)                         |
++-----------------------------------------+-----------------------------------------+
+                                          |
+                                          v
+                              +-----------------------+
+                              |     🟢 AVAILABLE      |
+                              |   (Central Store)     |
+                              +-----------+-----------+
+                                          |
+                     +--------------------+--------------------+
+                     | Quick Dispatch / Issue                   | Scan Ward Issue
+                     v                                         v
+         +-----------------------+                 +-----------------------+
+         |      🔵 IN USE        |                 |      🔵 IN USE        |
+         |  (Emergency Dept)     |                 |   (ICU / Wards)       |
+         +-----------+-----------+                 +-----------+-----------+
+                     |                                         |
+                     +--------------------+--------------------+
+                                          | Depleted / Empty
+                                          v
+                              +-----------------------+
+                              |       🟡 EMPTY        |
+                              |   (Collection Area)   |
+                              +-----------+-----------+
+                                          |
+                                          | Supplier Return Doc
+                                          v
+                              +-----------------------+
+                              |      🟣 RETURNED      |
+                              | (Gas Supplier / Linde)|
+                              +-----------------------+
 ```
 
 ---
 
-## 3. User Interface (UI) Mockup
+## Proposed File Changes
 
-The user interface will be created using **Vercel/Linear design guidelines** and will consist of three tabs:
+### 1. Store Balance Grid Component
 
-* **Active Requests**: List of all ongoing cylinder maintenance purchase orders.
-* **Create Request**: Form to submit a new cylinder maintenance request.
-* **Maintenance History**: List of completed or cancelled orders.
+#### [MODIFY] [StoreBalanceGrid.tsx](file:///c:/Users/60113/Downloads/My%20Home/hospital-operation-management-ecosystem/src/components/oxygen/StoreBalanceGrid.tsx)
+- Upgrade card grid to include filtering, 4-quadrant state counts with high-contrast semantic styling, multi-segment progress distribution visualizer, and quick action shortcuts.
 
-### 3.1 UI Layout Structure
+### 2. Cylinder KPI Cards Header
 
-```
-+------------------------------------------------------------------------------------------+
-|  Medical Oxygen > Cylinder Maintenance                                                   |
-+------------------------------------------------------------------------------------------+
-|  [Tab: Active Requests]  [Tab: Create Request]  [Tab: Maintenance History]               |
-+------------------------------------------------------------------------------------------+
-|  +------------------------------------------------------------------------------------+  |
-|  | Filters: [Search Maint No / Supplier...]   Status: [ All | Pending | Completed... ]|  |
-|  +------------------------------------------------------------------------------------+  |
-|  | REQ NO      | SUPPLIER      | STATUS     | REQ DATE   | COST (RM)   | ACTIONS      |  |
-|  |-------------|---------------|------------|------------|-------------|--------------|  |
-|  | MNT-26-001  | Air Liquide   | Completed  | 10-Jul-26  |    450.00   | [View] [PDF] |  |
-|  | MNT-26-002  | Linde Gas     | In Progress| 15-Jul-26  |    780.00   | [View]       |  |
-|  | MNT-26-003  | Gas Malaysia  | Draft      | 17-Jul-26  |      0.00   | [Edit]       |  |
-|  +------------------------------------------------------------------------------------+  |
-|  | Pagination: < 1 2 3 >                                       Showing 1-3 of 3 items |  |
-|  +------------------------------------------------------------------------------------+  |
-+------------------------------------------------------------------------------------------+
-```
+#### [MODIFY] [CylinderKpiCards.tsx](file:///c:/Users/60113/Downloads/My%20Home/hospital-operation-management-ecosystem/src/components/oxygen/CylinderKpiCards.tsx)
+- Redesign metric summary panel with Google Material 3 typography, tabular numbers, and movement velocity metrics.
 
-### 3.2 Add Maintenance Request Form
+### 3. Oxygen Dashboard Page Integration
 
-```
-+------------------------------------------------------------------------------------------+
-|  Create Cylinder Maintenance Order                                                       |
-+------------------------------------------------------------------------------------------+
-|  1. GENERAL DETAILS                                                                      |
-|  Supplier: [ Linde Gas Malaysia v ]     Budget Source: [ CC Allocation (Contract) v ]    |
-|  Justification: [ Painting and valve replacements for safety audits 2026.              ] |
-|                                                                                          |
-|  2. SELECTED CYLINDERS FOR MAINTENANCE                                                   |
-|  +------------------------------------------------------------------------------------+  |
-|  | CYLINDER SERIAL | SIZE / TYPE   | MAINTENANCE TYPE            | ESTIMATED COST (RM) |  |
-|  |-----------------|---------------|-----------------------------|---------------------|  |
-|  | CYL-OX-90211    | 10L / B       | [ Replacing Valve        v ]| [ 150.00          ] |  |
-|  | CYL-OX-88402    | 47L / K       | [ Painting               v ]| [  80.00          ] |  |
-|  | CYL-OX-71288    | 10L / B       | [ General Maintenance    v ]| [  50.00          ] |  |
-|  +------------------------------------------------------------------------------------+  |
-|  | (+ Add Cylinder from Inventory)                                                      |  |
-|  +------------------------------------------------------------------------------------+  |
-|  |                                                 TOTAL COST ESTIMATED: RM 280.00       |  |
-|  +------------------------------------------------------------------------------------+  |
-|  [ Save as Draft ]                                                [ Submit for Approval ]|
-+------------------------------------------------------------------------------------------+
-```
+#### [MODIFY] [OxygenDashboardPage.tsx](file:///c:/Users/60113/Downloads/My%20Home/hospital-operation-management-ecosystem/src/modules/mycylinder/pages/oxygen/OxygenDashboardPage.tsx)
+- Wire search, filter pill states, and modal action handlers to `StoreBalanceGrid`.
 
 ---
 
-## 4. Proposed Code Changes
+## Verification Plan
 
-### 4.1 Database Migration
-#### [NEW] [058_create_cylinder_maintenance_tables.sql](file:///c:/Users/60113/Downloads/My%20Home/hospital-operation-management-ecosystem/supabase/migrations/058_create_cylinder_maintenance_tables.sql)
-Creates SQL schemas, RLS policies, triggers for updating timestamps, and indexes.
-
-### 4.2 Sidebar Menu Link
-#### [MODIFY] [Sidebar.tsx](file:///c:/Users/60113/Downloads/My%20Home/hospital-operation-management-ecosystem/src/shared/components/layout/Sidebar.tsx)
-- Import `Wrench` icon from `lucide-react`.
-- Add `Cylinder Maintenance` nav item under the `Medical Oxygen` children array.
-
-### 4.3 Route Definitions & Router Setup
-#### [MODIFY] [routes.ts](file:///c:/Users/60113/Downloads/My%20Home/hospital-operation-management-ecosystem/src/shared/constants/routes.ts)
-- Add constant: `PHARMACY_OXYGEN_MAINTENANCE: '/pharmacy/oxygen/maintenance'`.
-
-#### [MODIFY] [routes.tsx](file:///c:/Users/60113/Downloads/My%20Home/hospital-operation-management-ecosystem/src/routes/routes.tsx)
-- Lazy import the new `CylinderMaintenancePage`.
-- Define path `'pharmacy/oxygen/maintenance'` and wrap with `ProtectedRoute` for pharmacy roles.
-
-### 4.4 Types & Interfaces
-#### [MODIFY] [index.ts (types/pharmacy)](file:///c:/Users/60113/Downloads/My%20Home/hospital-operation-management-ecosystem/src/types/pharmacy/index.ts)
-- Define TypeScript types for maintenance: `CylinderMaintenance`, `CylinderMaintenanceItem`, `CylinderMaintenanceWithRelations`.
-
-### 4.5 Data & API Service Layer
-#### [NEW] [cylinderMaintenanceService.ts](file:///c:/Users/60113/Downloads/My%20Home/hospital-operation-management-ecosystem/src/modules/mycylinder/services/cylinderMaintenanceService.ts)
-Service functions for CRUD operations:
-- `getCylinderMaintenanceRequests(hospitalId)`
-- `getCylinderMaintenanceDetails(id)`
-- `createCylinderMaintenanceRequest(data)`
-- `updateCylinderMaintenanceRequest(id, data)`
-- `updateCylinderMaintenanceStatus(id, status)`
-
-### 4.6 Page View Component
-#### [NEW] [CylinderMaintenancePage.tsx](file:///c:/Users/60113/Downloads/My%20Home/hospital-operation-management-ecosystem/src/modules/mycylinder/pages/oxygen/CylinderMaintenancePage.tsx)
-Renders tabs for listing, creating, and viewing cylinder maintenance requests. It links to cylinder inventory to allow picking specific cylinders and updating their statuses.
-
----
-
-## 5. Verification Plan
-
-### Automated Verification
-- Run TypeScript syntax checking:
-  `npm run build`
-- Run local unit tests (if any) to ensure routing and component rendering are functional.
+### Automated Build Verification
+```bash
+npx tsc --noEmit
+npm run build
+```
 
 ### Manual Verification
-- Log in as an **Assistant Pharmacist** or other valid pharmacy role.
-- Verify that **Cylinder Maintenance** is listed under the **Medical Oxygen** navigation section in the sidebar.
-- Click it, verify redirection to `/pharmacy/oxygen/maintenance`.
-- Create a test maintenance draft, select cylinders, verify total cost matches the individual item cost sums.
-- Change status to verify cylinders status updates to `'maintenance'` inside `Cylinder Inventory`.
+1. Access `/pharmacy/oxygen/cylinders` -> Click **Overview Store Grid**.
+2. Verify card visual hierarchy, 4 movement state quadrants (Available, In Use, Empty, Returned), progress bar distribution, and search filter responsiveness.
+3. Test quick action modal triggers.

@@ -1,0 +1,20 @@
+[
+  {
+    "id": "5ae43c0f-dfd3-449d-af21-36f2ce8964c6",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "supplier_code": "",
+    "company_name": "Colta Business Solutions ",
+    "address": "No. 1635, Jln Datu Pg Hj Matusin,\nLawas 98850, Sarawak",
+    "contact_person": "",
+    "contact_person_phone": "",
+    "email": "",
+    "status": "active",
+    "account_document_url": null,
+    "mof_certificate_url": null,
+    "bumiputera_certificate_url": null,
+    "created_by": null,
+    "created_at": "2026-02-04T05:13:38.927865+00:00",
+    "updated_at": "2026-02-04T05:13:38.927865+00:00",
+    "notes": ""
+  }
+]

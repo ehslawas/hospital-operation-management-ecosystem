@@ -1,0 +1,112 @@
+[
+  {
+    "id": "1f499f2b-e62f-4f7d-bb1d-468aeee158ea",
+    "unit_code": "EA",
+    "unit_name": "Each",
+    "unit_type": "quantity",
+    "base_unit_id": null,
+    "conversion_factor": null,
+    "is_active": true,
+    "created_at": "2026-01-17T15:07:47.237731+00:00"
+  },
+  {
+    "id": "5ff88a8e-f378-4d63-bd74-08183ec99259",
+    "unit_code": "BOX",
+    "unit_name": "Box",
+    "unit_type": "pack",
+    "base_unit_id": null,
+    "conversion_factor": null,
+    "is_active": true,
+    "created_at": "2026-01-17T15:07:47.237731+00:00"
+  },
+  {
+    "id": "ae84c35d-d55d-43c9-8d38-bb93d753c135",
+    "unit_code": "BTL",
+    "unit_name": "Bottle",
+    "unit_type": "quantity",
+    "base_unit_id": null,
+    "conversion_factor": null,
+    "is_active": true,
+    "created_at": "2026-01-17T15:07:47.237731+00:00"
+  },
+  {
+    "id": "4c0577e8-599d-4933-a526-7597dbc77053",
+    "unit_code": "TAB",
+    "unit_name": "Tablet",
+    "unit_type": "quantity",
+    "base_unit_id": null,
+    "conversion_factor": null,
+    "is_active": true,
+    "created_at": "2026-01-17T15:07:47.237731+00:00"
+  },
+  {
+    "id": "eac63d8e-4a0d-4221-8e69-61d4c8428d68",
+    "unit_code": "CAP",
+    "unit_name": "Capsule",
+    "unit_type": "quantity",
+    "base_unit_id": null,
+    "conversion_factor": null,
+    "is_active": true,
+    "created_at": "2026-01-17T15:07:47.237731+00:00"
+  },
+  {
+    "id": "8156cb21-6f74-464e-9faa-d5a40a284d0e",
+    "unit_code": "KIT",
+    "unit_name": "Kit",
+    "unit_type": "pack",
+    "base_unit_id": null,
+    "conversion_factor": null,
+    "is_active": true,
+    "created_at": "2026-01-17T15:07:47.237731+00:00"
+  },
+  {
+    "id": "071e4419-90d6-4226-8220-251d2132d14f",
+    "unit_code": "ML",
+    "unit_name": "Milliliter",
+    "unit_type": "volume",
+    "base_unit_id": null,
+    "conversion_factor": null,
+    "is_active": true,
+    "created_at": "2026-01-17T15:07:47.237731+00:00"
+  },
+  {
+    "id": "ff85b789-8bbf-4492-9f6a-c26d362e747d",
+    "unit_code": "L",
+    "unit_name": "Liter",
+    "unit_type": "volume",
+    "base_unit_id": null,
+    "conversion_factor": null,
+    "is_active": true,
+    "created_at": "2026-01-17T15:07:47.237731+00:00"
+  },
+  {
+    "id": "95c41fa2-bf82-4396-9c34-dd94713cae37",
+    "unit_code": "MG",
+    "unit_name": "Milligram",
+    "unit_type": "weight",
+    "base_unit_id": null,
+    "conversion_factor": null,
+    "is_active": true,
+    "created_at": "2026-01-17T15:07:47.237731+00:00"
+  },
+  {
+    "id": "a1e2fe6a-e1c9-43b5-95bd-954ee5f2d871",
+    "unit_code": "G",
+    "unit_name": "Gram",
+    "unit_type": "weight",
+    "base_unit_id": null,
+    "conversion_factor": null,
+    "is_active": true,
+    "created_at": "2026-01-17T15:07:47.237731+00:00"
+  },
+  {
+    "id": "66618e24-336a-48ab-8b8f-e956aee7c5ee",
+    "unit_code": "KG",
+    "unit_name": "Kilogram",
+    "unit_type": "weight",
+    "base_unit_id": null,
+    "conversion_factor": null,
+    "is_active": true,
+    "created_at": "2026-01-17T15:07:47.237731+00:00"
+  }
+]

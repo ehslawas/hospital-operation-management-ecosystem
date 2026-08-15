@@ -1017,8 +1017,8 @@ IMPORTANT:
     })
 
     // Filter out invalid items with strict validation
-    const invalidItemCodes = ['APPL', 'CC', 'DP', 'LP', 'Contract', 'ITEM CODE', 'ITEM_CODE', 'item code', 'item_code']
-    const invalidItemNames = ['each', 'Pack of', 'Contract', 'NON-DRUG NAME', 'NON_DRUG_NAME', 'non-drug name', 'non_drug_name']
+    const invalidItemCodes = ['ITEM CODE', 'ITEM_CODE', 'item code', 'item_code']
+    const invalidItemNames = ['each', 'Pack of', 'NON-DRUG NAME', 'NON_DRUG_NAME', 'non-drug name', 'non_drug_name']
     
     const validItems = items.filter((item) => {
       // Check required fields exist
@@ -1049,8 +1049,7 @@ IMPORTANT:
       if (invalidItemNames.some(invalid => nameStr.toLowerCase().includes(invalid.toLowerCase()))) {
         // Check if it's exactly the invalid name or starts with it
         if (nameStr.toLowerCase() === 'each' || 
-            nameStr.toLowerCase().startsWith('pack of') ||
-            nameStr.toLowerCase() === 'contract') {
+            nameStr.toLowerCase().startsWith('pack of')) {
           return false
         }
       }
@@ -1084,8 +1083,8 @@ IMPORTANT:
         const codeStr = code ? String(code).trim() : ''
         const nameStr = name ? String(name).trim() : ''
         
-        const invalidCodes = ['APPL', 'CC', 'DP', 'LP', 'Contract', 'ITEM CODE', 'ITEM_CODE']
-        const invalidNames = ['each', 'Pack of', 'Contract']
+        const invalidCodes = ['ITEM CODE', 'ITEM_CODE']
+        const invalidNames = ['each', 'Pack of']
         
         return !code || !name || 
                invalidCodes.some(inv => codeStr.toUpperCase() === inv.toUpperCase()) ||

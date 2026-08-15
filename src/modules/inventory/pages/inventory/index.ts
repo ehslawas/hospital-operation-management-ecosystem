@@ -1,7 +1,12 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 export { InventoryOverviewPage } from './InventoryOverviewPage'
 export { DrugInventoryPage } from './DrugInventoryPage'
 export { NonDrugInventoryPage } from './NonDrugInventoryPage'
 export { NearExpiryPage } from './NearExpiryPage'
 export { SlowMovingPage } from './SlowMovingPage'
-
+export { InventoryReportPage } from './InventoryReportPage'
+export { StockMovementScannerPage } from './StockMovementScannerPage'
+export { KewPs4LedgerPage } from './KewPs4LedgerPage'
+export { APPLInventoryPage } from './APPLInventoryPage'
+export { FacilityDrugInventoryPage } from './FacilityDrugInventoryPage'
+export { FacilityNonDrugInventoryPage } from './FacilityNonDrugInventoryPage'

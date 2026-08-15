@@ -1,0 +1,98 @@
+[
+  {
+    "id": "a8385a43-0185-48ab-9c16-ff3a49204003",
+    "lokasi_id": "fe954fa2-9dae-48f8-b3a6-7db14f30ca65",
+    "unit_id": "SHU-003",
+    "nama_unit": "Satelit Refrigerator 1",
+    "jenis_unit": "refrigerator",
+    "nota": null,
+    "status": "active",
+    "created_by": null,
+    "created_at": "2026-06-22T06:55:17.171408+00:00",
+    "updated_at": "2026-06-22T06:55:17.171408+00:00"
+  },
+  {
+    "id": "a8385a43-0185-48ab-9c16-ff3a49204004",
+    "lokasi_id": "62558364-e63b-4992-9729-15ed9c73b149",
+    "unit_id": "SHU-004",
+    "nama_unit": "Ward Refrigerator 1",
+    "jenis_unit": "refrigerator",
+    "nota": null,
+    "status": "active",
+    "created_by": null,
+    "created_at": "2026-06-22T06:55:17.171408+00:00",
+    "updated_at": "2026-06-22T06:55:17.171408+00:00"
+  },
+  {
+    "id": "a8385a43-0185-48ab-9c16-ff3a49204001",
+    "lokasi_id": "bc4853bb-4e92-485f-bbfa-739af3c36369",
+    "unit_id": "SHU-001",
+    "nama_unit": "Main Freezer",
+    "jenis_unit": "freezer",
+    "nota": null,
+    "status": "active",
+    "created_by": null,
+    "created_at": "2026-06-22T06:55:17.171408+00:00",
+    "updated_at": "2026-07-07T08:16:49.414906+00:00"
+  },
+  {
+    "id": "a8385a43-0185-48ab-9c16-ff3a49204002",
+    "lokasi_id": "bc4853bb-4e92-485f-bbfa-739af3c36369",
+    "unit_id": "SHU-002",
+    "nama_unit": "Top Loading",
+    "jenis_unit": "refrigerator",
+    "nota": null,
+    "status": "active",
+    "created_by": null,
+    "created_at": "2026-06-22T06:55:17.171408+00:00",
+    "updated_at": "2026-07-07T08:34:22.265053+00:00"
+  },
+  {
+    "id": "baf7ad36-0435-4abe-86b6-8e3a3d85b10e",
+    "lokasi_id": "bc4853bb-4e92-485f-bbfa-739af3c36369",
+    "unit_id": "SUHU-WP6052",
+    "nama_unit": "Room Temperature",
+    "jenis_unit": "ambient",
+    "nota": null,
+    "status": "active",
+    "created_by": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "created_at": "2026-07-07T08:36:11.320485+00:00",
+    "updated_at": "2026-07-07T08:36:11.320485+00:00"
+  },
+  {
+    "id": "2906e578-ae45-4b33-9b9c-710d6cbe9970",
+    "lokasi_id": "fe954fa2-9dae-48f8-b3a6-7db14f30ca65",
+    "unit_id": "SUHU-X5OAYT",
+    "nama_unit": "Satelite Pharmacy Fridge",
+    "jenis_unit": "refrigerator",
+    "nota": null,
+    "status": "inactive",
+    "created_by": "38af6719-4ac7-4f08-a38a-b98907ebccbd",
+    "created_at": "2026-07-08T07:01:19.179426+00:00",
+    "updated_at": "2026-07-08T07:04:49.10089+00:00"
+  },
+  {
+    "id": "2b9b14d5-f4ba-4001-aada-0b7b85969510",
+    "lokasi_id": "fe954fa2-9dae-48f8-b3a6-7db14f30ca65",
+    "unit_id": "SUHU-JKN52B",
+    "nama_unit": "Freezer",
+    "jenis_unit": "refrigerator",
+    "nota": null,
+    "status": "inactive",
+    "created_by": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "created_at": "2026-07-07T08:39:10.383664+00:00",
+    "updated_at": "2026-07-08T07:05:00.953549+00:00"
+  },
+  {
+    "id": "9747eb7e-a7a7-4f20-afc5-bcf178040716",
+    "lokasi_id": "fe954fa2-9dae-48f8-b3a6-7db14f30ca65",
+    "unit_id": "SUHU-1F9JUO",
+    "nama_unit": "Satelite Pharmacy Room",
+    "jenis_unit": "ambient",
+    "nota": null,
+    "status": "active",
+    "created_by": "38af6719-4ac7-4f08-a38a-b98907ebccbd",
+    "created_at": "2026-07-08T07:09:12.303899+00:00",
+    "updated_at": "2026-07-08T07:09:12.303899+00:00"
+  }
+]

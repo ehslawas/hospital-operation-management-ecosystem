@@ -34,7 +34,8 @@ import {
   getReadings, 
   logTemperature, 
   annotateReading,
-  calculateReadingStatus 
+  calculateReadingStatus,
+  getDefaultThresholds
 } from '@/modules/mysuhu/services/suhuService'
 import { downloadPdfReport } from '@/modules/mysuhu/services/suhuReportService'
 import type { UnitPemantauanWithRelations, BacaanSuhuWithRelations } from '@/types/mysuhu'
@@ -117,12 +118,14 @@ export const UnitDetailPage: React.FC = () => {
     return rDate >= dateStart && rDate <= dateEnd
   })
 
+  const defaults = getDefaultThresholds(unit?.jenis_unit)
+
   // Format readings for charting
   const chartData = filteredReadings.map(r => ({
     timeStr: format(new Date(r.tarikh_masa), 'dd/MM HH:mm'),
     temp: r.suhu,
-    minLimit: r.ambang?.min_suhu ?? unit?.active_threshold?.min_suhu ?? 0,
-    maxLimit: r.ambang?.max_suhu ?? unit?.active_threshold?.max_suhu ?? 0,
+    minLimit: r.ambang?.min_suhu ?? unit?.active_threshold?.min_suhu ?? defaults.min_suhu,
+    maxLimit: r.ambang?.max_suhu ?? unit?.active_threshold?.max_suhu ?? defaults.max_suhu,
     rawReading: r
   }))
 
@@ -132,8 +135,8 @@ export const UnitDetailPage: React.FC = () => {
     if (!logTemp || isNaN(Number(logTemp))) return
     
     const tempNum = Number(logTemp)
-    const minSuhu = unit?.active_threshold?.min_suhu ?? 0
-    const maxSuhu = unit?.active_threshold?.max_suhu ?? 0
+    const minSuhu = unit?.active_threshold?.min_suhu ?? defaults.min_suhu
+    const maxSuhu = unit?.active_threshold?.max_suhu ?? defaults.max_suhu
     
     const status = calculateReadingStatus(tempNum, minSuhu, maxSuhu)
     
@@ -243,8 +246,9 @@ export const UnitDetailPage: React.FC = () => {
     )
   }
 
-  const minLimit = unit.active_threshold?.min_suhu ?? 0
-  const maxLimit = unit.active_threshold?.max_suhu ?? 0
+  const unitDefaults = getDefaultThresholds(unit.jenis_unit)
+  const minLimit = unit.active_threshold?.min_suhu ?? unitDefaults.min_suhu
+  const maxLimit = unit.active_threshold?.max_suhu ?? unitDefaults.max_suhu
 
   return (
     <div className="w-full space-y-6">

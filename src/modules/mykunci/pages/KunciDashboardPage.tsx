@@ -13,7 +13,8 @@ import {
   Calendar,
   AlertCircle,
   Building,
-  ChevronRight
+  ChevronRight,
+  QrCode
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useToast } from '@/stores/toastStore'
@@ -36,6 +37,7 @@ import {
   Modal,
   FileUpload
 } from '@/components/ui'
+import { ScanKunciMovementModal } from '@/components/kunci/ScanKunciMovementModal'
 
 // Mock list of departments matching database seed values
 const MOCK_DEPARTMENTS = [
@@ -82,6 +84,9 @@ export const KunciDashboardPage: React.FC = () => {
   const [remarks, setRemarks] = useState('')
   const [returnPhoto, setReturnPhoto] = useState<File | null>(null)
   const [returnDateTime, setReturnDateTime] = useState('')
+
+  // Scan movement modal state
+  const [scanModalOpen, setScanModalOpen] = useState(false)
 
   const loadData = async () => {
     setLoading(true)
@@ -295,6 +300,13 @@ export const KunciDashboardPage: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button 
+            onClick={() => setScanModalOpen(true)}
+            className="border-amber-500 hover:bg-amber-50 text-amber-600 rounded-2xl border shadow-sm font-bold flex items-center gap-2 px-5 py-2.5 transition-all text-sm"
+          >
+            <QrCode className="w-5 h-5" />
+            Imbas QR Kunci
+          </Button>
           <Button 
             onClick={() => setCheckoutModalOpen(true)}
             className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-2xl shadow-md hover:shadow-lg font-bold flex items-center gap-2 px-5 py-2.5 transition-all text-sm"
@@ -782,6 +794,13 @@ export const KunciDashboardPage: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {/* SCAN QR MOVEMENT MODAL */}
+      <ScanKunciMovementModal
+        isOpen={scanModalOpen}
+        onClose={() => setScanModalOpen(false)}
+        onSuccess={loadData}
+      />
     </div>
   )
 }

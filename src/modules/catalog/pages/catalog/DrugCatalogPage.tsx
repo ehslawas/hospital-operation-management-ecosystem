@@ -1,11 +1,11 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react'
 import { motion } from 'framer-motion'
-import { Search, Plus, Download, X, Edit, Trash2, Filter, FileUp, ChevronRight, Sparkles, Pill, TrendingUp } from 'lucide-react'
+import { Search, Plus, Download, X, Edit, Trash2, Filter, FileUp, ChevronRight, Sparkles, Pill, TrendingUp, CheckCircle, XCircle, CheckSquare, Square } from 'lucide-react'
 import { Button, Input, Select, Badge, Table, Pagination, Modal, LoadingOverlay, Spinner } from '@/components/ui'
 import { useToastStore } from '@/stores/toastStore'
 import { useAuthStore } from '@/stores/authStore'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, parseAndNormalizeDate, getFallbackContractDates } from '@/lib/utils'
 import {
   getDrugCatalogKPIs,
   getDrugCatalog,
@@ -15,6 +15,7 @@ import {
   deleteDrug,
   exportDrugCatalog,
   batchImportDrugs,
+  batchUpdateDrugStatus,
   type DrugCatalogFilter,
 } from '@/services/pharmacy/drugCatalogService'
 import { getDrugCategories } from '@/services/pharmacy/inventoryService'
@@ -99,35 +100,43 @@ const DrugFormModal: React.FC<DrugFormModalProps> = ({
     storage_conditions: '',
     packaging_description: '',
     item_sub_class: '',
+    cc_contract_number: '',
+    cc_contract_start_date: '',
+    cc_contract_end_date: '',
+    cc_contract_status: 'active',
   })
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
     if (drug) {
       setFormData({
-        drug_code: drug.drug_code,
-        drug_name: drug.drug_name,
-        generic_name: drug.generic_name,
-        brand_name: drug.brand_name,
-        dosage_form: drug.dosage_form,
-        strength: drug.strength,
-        unit_of_measure: drug.unit_of_measure,
+        drug_code: drug.drug_code || '',
+        drug_name: drug.drug_name || '',
+        generic_name: drug.generic_name || '',
+        brand_name: drug.brand_name || '',
+        dosage_form: drug.dosage_form || 'tablet',
+        strength: drug.strength || '',
+        unit_of_measure: drug.unit_of_measure || 'tablet',
         category_id: drug.category_id || '',
         supplier_id: drug.supplier_id || '',
         procurement_vote: drug.procurement_vote,
         sku: drug.sku || '',
         pku: drug.pku || '',
         price: drug.price || 0,
-        status: drug.status,
-        min_stock_level: drug.min_stock_level,
-        max_stock_level: drug.max_stock_level,
-        reorder_level: drug.reorder_level,
-        lead_time_days: drug.lead_time_days,
-        is_controlled: drug.is_controlled,
-        requires_prescription: drug.requires_prescription,
-        storage_conditions: drug.storage_conditions,
+        status: drug.status || 'active',
+        min_stock_level: drug.min_stock_level || 0,
+        max_stock_level: drug.max_stock_level || 0,
+        reorder_level: drug.reorder_level || 0,
+        lead_time_days: drug.lead_time_days || 7,
+        is_controlled: drug.is_controlled || false,
+        requires_prescription: drug.requires_prescription || false,
+        storage_conditions: drug.storage_conditions || '',
         packaging_description: (drug as any).packaging_description || '',
         item_sub_class: (drug as any).item_sub_class || '',
+        cc_contract_number: (drug as any).cc_contract_number || '',
+        cc_contract_start_date: (drug as any).cc_contract_start_date || '',
+        cc_contract_end_date: (drug as any).cc_contract_end_date || '',
+        cc_contract_status: (drug as any).cc_contract_status || 'active',
       })
     } else {
       setFormData({
@@ -154,6 +163,10 @@ const DrugFormModal: React.FC<DrugFormModalProps> = ({
         storage_conditions: '',
         packaging_description: '',
         item_sub_class: '',
+        cc_contract_number: '',
+        cc_contract_start_date: '',
+        cc_contract_end_date: '',
+        cc_contract_status: 'active',
       })
     }
   }, [drug, isOpen])
@@ -316,6 +329,51 @@ const DrugFormModal: React.FC<DrugFormModalProps> = ({
                 step="0.01"
                 value={formData.price || 0}
                 onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Contract Information Section */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">
+            Contract Details
+          </h3>
+          <div className="grid grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Contract Number</label>
+              <Input
+                value={(formData as any).cc_contract_number || ''}
+                onChange={(e) => setFormData({ ...formData, cc_contract_number: e.target.value })}
+                placeholder="e.g. KK/SUM/2024/001"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Contract Status</label>
+              <Select
+                value={(formData as any).cc_contract_status || 'active'}
+                onChange={(e) => setFormData({ ...formData, cc_contract_status: e.target.value })}
+              >
+                <option value="active">Active</option>
+                <option value="pending">Pending</option>
+                <option value="expired">Expired</option>
+                <option value="terminated">Terminated</option>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Contract Start Date</label>
+              <Input
+                type="date"
+                value={(formData as any).cc_contract_start_date || ''}
+                onChange={(e) => setFormData({ ...formData, cc_contract_start_date: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Contract End Date</label>
+              <Input
+                type="date"
+                value={(formData as any).cc_contract_end_date || ''}
+                onChange={(e) => setFormData({ ...formData, cc_contract_end_date: e.target.value })}
               />
             </div>
           </div>
@@ -515,6 +573,63 @@ export const DrugCatalogPage: React.FC = () => {
   const [showImportModal, setShowImportModal] = useState(false)
   const [selectedDrug, setSelectedDrug] = useState<DrugWithRelations | null>(null)
   const [isExporting, setIsExporting] = useState(false)
+
+  // Multi-Selection & Bulk Status Actions
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false)
+
+  const handleSelectAll = useCallback(() => {
+    if (selectedIds.length === sortedDrugs.length && sortedDrugs.length > 0) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds(sortedDrugs.map((d) => d.id))
+    }
+  }, [sortedDrugs, selectedIds])
+
+  const handleSelectRow = useCallback((id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    )
+  }, [])
+
+  const handleToggleSingleStatus = async (drug: DrugWithRelations) => {
+    const nextStatus = drug.status === 'active' ? 'inactive' : 'active'
+    try {
+      const result = await updateDrug(drug.id, { status: nextStatus })
+      if (result.error) {
+        showError('Error', result.error)
+        return
+      }
+      showSuccess('Success', `Drug status updated to ${nextStatus}`)
+      await loadDrugs()
+      await loadKPIs()
+    } catch (error) {
+      showError('Error', 'Failed to update drug status')
+    }
+  }
+
+  const handleBulkStatusChange = async (targetStatus: 'active' | 'inactive') => {
+    if (selectedIds.length === 0) return
+    setIsBulkUpdating(true)
+    try {
+      const result = await batchUpdateDrugStatus(selectedIds, targetStatus)
+      if (result.error) {
+        showError('Error', result.error)
+        return
+      }
+      showSuccess(
+        'Success',
+        `Successfully ${targetStatus === 'active' ? 'activated' : 'deactivated'} ${result.data?.successCount || selectedIds.length} drug(s)`
+      )
+      setSelectedIds([])
+      await loadDrugs()
+      await loadKPIs()
+    } catch (error) {
+      showError('Error', 'Failed to bulk update status')
+    } finally {
+      setIsBulkUpdating(false)
+    }
+  }
 
   // Load initial data
   useEffect(() => {
@@ -779,6 +894,9 @@ export const DrugCatalogPage: React.FC = () => {
   const drugImportFields = [
     { key: 'drug_code', label: 'Drug/Non-Drug Code', required: true, type: 'string' as const },
     { key: 'drug_name', label: 'Drug/Non-Drug Name', required: true, type: 'string' as const },
+    { key: 'cc_contract_number', label: 'Contract Number / CC No', required: false, type: 'string' as const },
+    { key: 'cc_contract_start_date', label: 'Contract Start Date', required: false, type: 'string' as const },
+    { key: 'cc_contract_end_date', label: 'Contract End Date', required: false, type: 'string' as const },
     { key: 'item_sub_class', label: 'Item Sub Class', required: false, type: 'string' as const },
     { key: 'category_id', label: 'Drug Category', required: false, type: 'select' as const },
     { key: 'packaging_description', label: 'Packaging Description', required: false, type: 'string' as const },
@@ -789,7 +907,7 @@ export const DrugCatalogPage: React.FC = () => {
     { key: 'supplier_id', label: 'Supplier', required: false, type: 'select' as const },
     { key: 'status', label: 'Status', required: false, type: 'select' as const },
     { key: 'generic_name', label: 'Generic Name', required: false, type: 'string' as const },
-    { key: 'brand_name', label: 'Brand Name', required: false, type: 'string' as const },
+    { key: 'brand_name', label: 'Brand Name / Manufacturer', required: false, type: 'string' as const },
     { key: 'dosage_form', label: 'Dosage Form', required: false, type: 'select' as const },
     { key: 'strength', label: 'Strength', required: false, type: 'string' as const },
     { key: 'unit_of_measure', label: 'Unit of Measure', required: false, type: 'string' as const },
@@ -867,8 +985,31 @@ export const DrugCatalogPage: React.FC = () => {
 
   const columns = [
     {
+      key: 'select',
+      label: (
+        <input
+          type="checkbox"
+          checked={sortedDrugs.length > 0 && selectedIds.length === sortedDrugs.length}
+          onChange={handleSelectAll}
+          className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 cursor-pointer"
+        />
+      ),
+      sortable: false,
+      render: (_value: unknown, drug: DrugWithRelations) => (
+        <input
+          type="checkbox"
+          checked={selectedIds.includes(drug.id)}
+          onChange={(e) => {
+            e.stopPropagation()
+            handleSelectRow(drug.id)
+          }}
+          className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 cursor-pointer"
+        />
+      ),
+    },
+    {
       key: 'drug_code',
-      label: 'DRUG/NON-DRUG CODE',
+      label: 'DRUG CODE',
       sortable: true,
     },
     {
@@ -914,8 +1055,49 @@ export const DrugCatalogPage: React.FC = () => {
       render: (_value: unknown, drug: DrugWithRelations) => (drug.procurement_vote?.toUpperCase() || '-'),
     },
     {
+      key: 'cc_contract_number',
+      label: 'NO. KONTRAK',
+      sortable: true,
+      render: (_value: unknown, drug: DrugWithRelations) => (drug as any).cc_contract_number || '-',
+    },
+    {
+      key: 'cc_contract_start_date',
+      label: 'TARIKH MULA',
+      sortable: true,
+      render: (_value: unknown, drug: DrugWithRelations) => {
+        const { startDate } = getFallbackContractDates(drug)
+        if (!startDate) return '-'
+        return new Date(startDate).toLocaleDateString('ms-MY', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      },
+    },
+    {
+      key: 'cc_contract_end_date',
+      label: 'TARIKH TAMAT',
+      sortable: true,
+      render: (_value: unknown, drug: DrugWithRelations) => {
+        const { endDate } = getFallbackContractDates(drug)
+        if (!endDate) return '-'
+        return new Date(endDate).toLocaleDateString('ms-MY', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      },
+    },
+    {
+      key: 'cc_contract_status',
+      label: 'STATUS KONTRAK',
+      sortable: true,
+      render: (_value: unknown, drug: DrugWithRelations) => {
+        const { startDate, endDate } = getFallbackContractDates(drug)
+        if (!startDate || !endDate) return '-'
+        const start = new Date(startDate)
+        const end = new Date(endDate)
+        const today = new Date()
+        if (today >= start && today <= end) return 'Aktif'
+        if (today > end) return 'Tamat'
+        return 'Belum Mula'
+      },
+    },
+    {
       key: 'price',
-      label: 'UNIT PRICE(RM)',
+      label: 'UNIT PRICE (RM)',
       sortable: true,
       render: (_value: unknown, drug: DrugWithRelations) => formatCurrency(drug.price || 0),
     },
@@ -924,6 +1106,31 @@ export const DrugCatalogPage: React.FC = () => {
       label: 'SUPPLIER',
       sortable: true,
       render: (_value: unknown, drug: DrugWithRelations) => drug.supplier?.supplier_name || '-',
+    },
+    {
+      key: 'status',
+      label: 'STATUS',
+      sortable: true,
+      render: (_value: unknown, drug: DrugWithRelations) => {
+        const isAct = drug.status === 'active'
+        return (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              handleToggleSingleStatus(drug)
+            }}
+            title={isAct ? 'Click to deactivate' : 'Click to activate'}
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold transition-all shadow-sm ${
+              isAct
+                ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+                : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
+            }`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${isAct ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+            {isAct ? 'Active' : 'Inactive'}
+          </button>
+        )
+      },
     },
     {
       key: 'actions',
@@ -939,6 +1146,7 @@ export const DrugCatalogPage: React.FC = () => {
               setSelectedDrug(drug)
               setShowEditModal(true)
             }}
+            title="Edit drug details"
           >
             <Edit className="w-4 h-4" />
           </Button>
@@ -950,6 +1158,7 @@ export const DrugCatalogPage: React.FC = () => {
               setSelectedDrug(drug)
               setShowDeleteModal(true)
             }}
+            title="Delete drug"
           >
             <Trash2 className="w-4 h-4 text-red-600" />
           </Button>
@@ -1199,6 +1408,47 @@ export const DrugCatalogPage: React.FC = () => {
             </div>
           </div>
 
+          {/* Sticky/Floating Bulk Action Bar */}
+          {selectedIds.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-slate-900 text-white p-4 rounded-2xl shadow-xl flex flex-wrap items-center justify-between gap-4 mb-4 border border-slate-800"
+            >
+              <div className="flex items-center gap-3">
+                <span className="bg-indigo-600 text-white px-3 py-1 rounded-full text-xs font-extrabold tracking-wide">
+                  {selectedIds.length} Selected
+                </span>
+                <span className="text-xs text-slate-300 font-medium hidden sm:inline">
+                  Select multi-drug action to activate or deactivate
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleBulkStatusChange('active')}
+                  disabled={isBulkUpdating}
+                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Activate Selected ({selectedIds.length})
+                </button>
+                <button
+                  onClick={() => handleBulkStatusChange('inactive')}
+                  disabled={isBulkUpdating}
+                  className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <XCircle className="w-4 h-4" />
+                  Deactivate Selected ({selectedIds.length})
+                </button>
+                <button
+                  onClick={() => setSelectedIds([])}
+                  className="px-3 py-1.5 text-slate-400 hover:text-white rounded-xl text-xs font-bold transition-all"
+                >
+                  Clear Selection
+                </button>
+              </div>
+            </motion.div>
+          )}
 
           <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden mb-6">
             <Table

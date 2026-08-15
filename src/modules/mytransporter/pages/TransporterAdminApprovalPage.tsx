@@ -796,7 +796,7 @@ const TransporterAdminApprovalPage: React.FC = () => {
               placeholder="Contoh: Tiada kelulusan ketua unit / Butiran pesakit tidak sah..."
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-rose-500 transition-colors"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-rose-500 focus:bg-white transition-colors font-medium shadow-xs"
               required
             />
 

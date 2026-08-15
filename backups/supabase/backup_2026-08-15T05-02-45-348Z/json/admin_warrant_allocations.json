@@ -1,0 +1,62 @@
+[
+  {
+    "id": "f684ca18-38bc-4cd2-90fe-b40c8db4078d",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "program_code": "020200",
+    "objek_code": "24000",
+    "kategori_code": "24999",
+    "fiscal_year": 2026,
+    "allocated_amount": 37789,
+    "created_by": "974c48bd-b4d1-4759-8c92-388be63466e6",
+    "created_at": "2026-02-04T14:39:32.808872+00:00",
+    "updated_at": "2026-02-04T14:39:32.808872+00:00"
+  },
+  {
+    "id": "b2eb68d7-a6e2-4327-bcff-768f5263b860",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "program_code": "020200",
+    "objek_code": "24000",
+    "kategori_code": "24202",
+    "fiscal_year": 2026,
+    "allocated_amount": 172515,
+    "created_by": "974c48bd-b4d1-4759-8c92-388be63466e6",
+    "created_at": "2026-02-04T14:35:07.31841+00:00",
+    "updated_at": "2026-02-04T14:35:07.31841+00:00"
+  },
+  {
+    "id": "dd7530db-41eb-4c59-8398-a3fbb255cf6e",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "program_code": "020200",
+    "objek_code": "29000",
+    "kategori_code": "29199",
+    "fiscal_year": 2026,
+    "allocated_amount": 25190,
+    "created_by": "974c48bd-b4d1-4759-8c92-388be63466e6",
+    "created_at": "2026-02-04T16:38:07.984058+00:00",
+    "updated_at": "2026-02-04T16:38:07.984058+00:00"
+  },
+  {
+    "id": "4ccd0055-3ad4-44a6-b736-570c3c121300",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "program_code": "020200",
+    "objek_code": "29000",
+    "kategori_code": "29122",
+    "fiscal_year": 2026,
+    "allocated_amount": 477438,
+    "created_by": "974c48bd-b4d1-4759-8c92-388be63466e6",
+    "created_at": "2026-02-04T16:38:07.984058+00:00",
+    "updated_at": "2026-02-04T16:38:07.984058+00:00"
+  },
+  {
+    "id": "d7d6ad6a-0f00-41d2-970e-578253737944",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "program_code": "020200",
+    "objek_code": "24000",
+    "kategori_code": "24699",
+    "fiscal_year": 2026,
+    "allocated_amount": 50000,
+    "created_by": "974c48bd-b4d1-4759-8c92-388be63466e6",
+    "created_at": "2026-02-04T16:28:56.85585+00:00",
+    "updated_at": "2026-02-04T16:28:56.85585+00:00"
+  }
+]

@@ -1,0 +1,26 @@
+[
+  {
+    "id": "fdf87816-95a0-4ad2-b47a-e3f4bef4ba40",
+    "workflow_id": "af0bb9b9-7771-4275-bf6d-c6ff282fd4f7",
+    "field_name": "department_id",
+    "operator": "!=",
+    "field_value": "02e3cd83-f756-4f27-8b77-a8df2ac2516c",
+    "created_at": "2026-01-20T07:16:52.251897+00:00"
+  },
+  {
+    "id": "15664ae2-9e74-4c16-8b37-71c32b05449a",
+    "workflow_id": "af0bb9b9-7771-4275-bf6d-c6ff282fd4f7",
+    "field_name": "department_id",
+    "operator": "!=",
+    "field_value": "1d3339da-611c-458c-85cb-f13c7367f2af",
+    "created_at": "2026-01-20T07:16:52.394035+00:00"
+  },
+  {
+    "id": "f2c36b98-5e58-4e1b-9457-cd1b1175d2be",
+    "workflow_id": "f8b34f63-9abe-49d5-a72b-ec3310543be9",
+    "field_name": "department_id",
+    "operator": "=",
+    "field_value": "02e3cd83-f756-4f27-8b77-a8df2ac2516c",
+    "created_at": "2026-01-20T07:44:11.837336+00:00"
+  }
+]

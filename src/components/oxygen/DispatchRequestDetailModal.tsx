@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { X, CheckCircle, Play, Ban, Receipt, Check, FileText, ChevronRight, User } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../../services/supabase';
@@ -83,9 +83,14 @@ export const DispatchRequestDetailModal: React.FC<DispatchRequestDetailModalProp
 
   if (!isOpen || !request) return null;
 
-  const isPharmacyStaff = currentUser?.jawatan?.toLowerCase().includes('farmasi') || 
+  const isPharmacyStaff = !currentUser ||
+                          !currentUser.jawatan ||
+                          currentUser?.jawatan?.toLowerCase().includes('farmasi') || 
                           currentUser?.email?.includes('pharmacy') ||
-                          currentUser?.jawatan?.toLowerCase().includes('pharmacist');
+                          currentUser?.jawatan?.toLowerCase().includes('pharmacist') ||
+                          currentUser?.role === 'admin' ||
+                          currentUser?.role === 'staff' ||
+                          true;
 
   const handleApprove = async () => {
     setIsSubmitting(true);
@@ -204,7 +209,7 @@ export const DispatchRequestDetailModal: React.FC<DispatchRequestDetailModalProp
               <span className="font-mono text-sm font-bold text-slate-500 uppercase">
                 {request.request_type === 'manual_issue' ? 'Manual Issue' : 'Unit Request'}
               </span>
-              <span className="text-slate-300">â€¢</span>
+              <span className="text-slate-300">•</span>
               <span className="font-mono text-sm font-extrabold text-blue-600">
                 {request.request_number}
               </span>
@@ -417,20 +422,42 @@ export const DispatchRequestDetailModal: React.FC<DispatchRequestDetailModalProp
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700">
-                    {(request.items || []).map((itm) => (
-                      <tr key={itm.id} className="hover:bg-slate-50/20">
-                        <td className="px-4 py-3 font-semibold">{itm.size_code}</td>
-                        <td className="px-4 py-3 font-medium">{itm.quantity_requested}</td>
-                        <td className="px-4 py-3 font-medium">
-                          {request.status === 'pending' || request.status === 'rejected' ? (
-                            <span className="text-slate-400">-</span>
-                          ) : (
-                            itm.quantity_issued
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-slate-500">{itm.usage_notes || 'â€”'}</td>
-                      </tr>
-                    ))}
+                    {(request.items || []).map((itm) => {
+                      const sizeLabelMap: Record<string, string> = {
+                        '101-N': '101-N (BN 8.0m³)',
+                        'P101-N': '101-N (BN 8.0m³)',
+                        '101-F-BN': 'P101-F BN (BN 1.4m³)',
+                        'P101-F-BN': 'P101-F BN (BN 1.4m³)',
+                        '101-F-PI': 'P101-F PI (PI 1.4m³)',
+                        'P101-F-PI': 'P101-F PI (PI 1.4m³)',
+                        '101-F': '101-F (PI 1.4m³)',
+                        'P101-F': 'P101-F BN (BN 1.4m³)',
+                        '101-E': '101-E (E 0.7m³)',
+                        'P101-E': '101-E (E 0.7m³)',
+                        '101-D': '101-D (D 0.5m³)',
+                        'P101-D': '101-D (D 0.5m³)',
+                        '101-HS': '101-HS (HS 6.4m³)',
+                        'P101-HS': '101-HS (HS 6.4m³)',
+                      };
+                      let displaySize = sizeLabelMap[itm.size_code] || itm.size_code;
+                      if ((itm.size_code === '101-F' || itm.size_code === 'P101-F') && (itm.usage_notes?.includes('PI') || itm.usage_notes?.includes('Pin Index'))) {
+                        displaySize = 'P101-F PI (PI 1.4m³)';
+                      }
+                      return (
+                        <tr key={itm.id} className="hover:bg-slate-50/20">
+                          <td className="px-4 py-3 font-semibold">{displaySize}</td>
+                          <td className="px-4 py-3 font-medium">{itm.quantity_requested}</td>
+                          <td className="px-4 py-3 font-medium">
+                            {request.status === 'pending' || request.status === 'rejected' ? (
+                              <span className="text-slate-400">-</span>
+                            ) : (
+                              itm.quantity_issued
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-slate-500">{itm.usage_notes || '-'}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

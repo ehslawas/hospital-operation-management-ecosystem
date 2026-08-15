@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import React, { useState } from 'react';
 import { X, Plus, Trash2, ShieldAlert, FileText, User as UserIcon } from 'lucide-react';
 import type { User } from '@/types';
@@ -23,11 +23,12 @@ interface ItemRow {
 }
 
 const CYLINDER_SIZES = [
-  { code: '101-N', label: 'BN (8.0m³)' },
-  { code: '101-F', label: 'PI (1.4m³)' },
-  { code: '101-E', label: 'E (0.7m³)' },
-  { code: '101-D', label: 'D (0.5m³)' },
-  { code: '101-HS', label: 'HS (6.4m³)' },
+  { code: '101-F-BN', label: 'P101-F BN — Bullnose (BN 1.4m³)' },
+  { code: '101-F', label: 'P101-F PI — Pin Index (PI 1.4m³)' },
+  { code: '101-N', label: '101-N — Bullnose (BN 8.0m³)' },
+  { code: '101-E', label: '101-E — Pin Index (E 0.7m³)' },
+  { code: '101-D', label: '101-D — Pin Index (D 0.5m³)' },
+  { code: '101-HS', label: '101-HS — High Size (HS 6.4m³)' },
 ];
 
 export const UnitRequestModal: React.FC<UnitRequestModalProps> = ({
@@ -42,7 +43,7 @@ export const UnitRequestModal: React.FC<UnitRequestModalProps> = ({
   const [priority, setPriority] = useState<'normal' | 'urgent' | 'emergency'>('normal');
   const [remarks, setRemarks] = useState('');
   const [items, setItems] = useState<ItemRow[]>([
-    { size_code: '101-N', quantity: 1, usage_notes: '' },
+    { size_code: '101-F-BN', quantity: 1, usage_notes: '' },
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -181,25 +182,34 @@ export const UnitRequestModal: React.FC<UnitRequestModalProps> = ({
                   required
                 >
                   <option value="">Select Department...</option>
-                  {departments
-                    .filter(dept => {
-                      const name = dept.department_name.toLowerCase();
-                      const keywords = [
-                        'paediatric', 'paed',
-                        'maternity', 'bersalin',
-                        'emergency', 'trauma', 'kecemasan',
-                        'general ward', 'wad am',
-                        'haemodialysis', 'hemodialysis', 'hemodialisis', 'dialisis',
-                        'radiology', 'radiografi', 'radiography', 'x-ray',
-                        'operation theater', 'operation theatre', 'dewan bedah', 'ot'
-                      ];
-                      return keywords.some(keyword => name.includes(keyword));
-                    })
-                    .map((dept) => (
+                  {(() => {
+                    const ALLOWED_CLINICAL = [
+                      'Emergency and trauma',
+                      'General ward',
+                      'Paediatric ward',
+                      'Maternity ward',
+                      'Operation Theater',
+                      'Radiology and radiography',
+                      'Nephrology'
+                    ];
+
+                    // Match database department objects against allowed list
+                    const matched = departments.filter(d => {
+                      const name = (d.department_name || '').toLowerCase().trim();
+                      return ALLOWED_CLINICAL.some(a => a.toLowerCase() === name || name.includes(a.toLowerCase().split(' ')[0]));
+                    });
+
+                    // If DB departments list has matches, display them; otherwise render the exact 7 clinical options
+                    const listToRender = matched.length > 0
+                      ? matched
+                      : ALLOWED_CLINICAL.map((name, idx) => ({ id: `dept-auto-${idx}`, department_name: name }));
+
+                    return listToRender.map((dept) => (
                       <option key={dept.id} value={dept.id}>
                         {dept.department_name}
                       </option>
-                    ))}
+                    ));
+                  })()}
                 </select>
                 <div className="absolute right-3.5 top-3 sm:top-3.5 pointer-events-none text-slate-400">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>

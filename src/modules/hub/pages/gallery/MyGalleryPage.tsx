@@ -258,9 +258,9 @@ const MyGalleryPage: React.FC = () => {
           </div>
           
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-400 ml-1">Keterangan (Pilihan)</label>
+            <label className="text-sm font-semibold text-slate-400 ml-1">Description (Optional)</label>
             <textarea 
-              placeholder="Sedikit info tentang album ini..."
+              placeholder="Brief description about this album..."
               value={newAlbumDesc}
               onChange={(e) => setNewAlbumDesc(e.target.value)}
               className="w-full min-h-[120px] px-4 py-3 bg-slate-900/50 border border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all resize-none placeholder:text-slate-600"
@@ -274,7 +274,7 @@ const MyGalleryPage: React.FC = () => {
               onClick={() => setIsCreateModalOpen(false)}
               className="border-slate-800 text-slate-400 hover:bg-slate-900 hover:text-white rounded-xl px-6"
             >
-              Batal
+              Cancel
             </Button>
             <Button 
               type="submit" 
@@ -284,9 +284,9 @@ const MyGalleryPage: React.FC = () => {
               {isCreating ? (
                 <div className="flex items-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Mencipta...</span>
+                  <span>Creating...</span>
                 </div>
-              ) : 'Simpan Album'}
+              ) : 'Save Album'}
             </Button>
           </div>
         </form>

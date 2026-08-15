@@ -604,11 +604,11 @@ export async function getPurchaseOrderById(
         // Only hit contracts if we are missing end_date or delivery_period
         if (!order.supplier.contract_end_date || !order.supplier.delivery_period) {
           try {
+            const cleanNo = effectiveContractNo.trim();
             const { data: contractData } = await supabase
               .from('contracts')
-              .select('end_date, delivery_period')
-              .eq('contract_number', effectiveContractNo)
-              .eq('status', 'active')
+              .select('end_date, delivery_period, metadata')
+              .ilike('contract_number', `%${cleanNo}%`)
               .limit(1)
               .maybeSingle()
 
@@ -617,7 +617,7 @@ export async function getPurchaseOrderById(
                 order.supplier.contract_end_date = contractData.end_date;
               }
               if (!order.supplier.delivery_period) {
-                order.supplier.delivery_period = contractData.delivery_period;
+                order.supplier.delivery_period = contractData.delivery_period || contractData.metadata?.['tempoh serahan'];
               }
             }
           } catch (_err) {

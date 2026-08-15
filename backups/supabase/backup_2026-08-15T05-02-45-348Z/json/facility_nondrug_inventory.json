@@ -1,0 +1,90 @@
+[
+  {
+    "id": "e8bd458d-7dcd-4da5-9d65-5338361cfe48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "nondrug_id": "d83906e6-52fb-43d9-810e-a27f44461728",
+    "facility_stock": 0,
+    "min_buffer_level": 10,
+    "notes": null,
+    "added_at": "2026-08-03T01:29:24.047726+00:00",
+    "updated_at": "2026-08-03T01:31:01.270723+00:00",
+    "location": null
+  },
+  {
+    "id": "95120761-e512-4dc9-baff-71e528e87c47",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "nondrug_id": "135995cf-fad2-42e7-afc8-699698dc38b4",
+    "facility_stock": 0,
+    "min_buffer_level": 10,
+    "notes": null,
+    "added_at": "2026-08-03T01:29:24.047726+00:00",
+    "updated_at": "2026-08-03T01:31:01.270723+00:00",
+    "location": null
+  },
+  {
+    "id": "80179818-043f-4f1d-805a-7009fe5626c0",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "nondrug_id": "33e14db6-cd18-4475-9bea-9c5cca772820",
+    "facility_stock": 0,
+    "min_buffer_level": 10,
+    "notes": null,
+    "added_at": "2026-08-03T01:29:24.047726+00:00",
+    "updated_at": "2026-08-03T01:31:01.270723+00:00",
+    "location": null
+  },
+  {
+    "id": "20515f2b-da59-4be0-a706-e883f5e74ab3",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "nondrug_id": "855e4bb8-51a6-4948-8072-484fa49b90f0",
+    "facility_stock": 0,
+    "min_buffer_level": 10,
+    "notes": null,
+    "added_at": "2026-08-03T01:29:24.047726+00:00",
+    "updated_at": "2026-08-03T01:31:01.270723+00:00",
+    "location": null
+  },
+  {
+    "id": "81f7fc41-3bfc-4547-93c0-ce15e803858d",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "nondrug_id": "c2edfb06-2631-48f9-86f5-886ebf4100e0",
+    "facility_stock": 0,
+    "min_buffer_level": 10,
+    "notes": null,
+    "added_at": "2026-08-03T01:29:24.047726+00:00",
+    "updated_at": "2026-08-03T01:31:01.270723+00:00",
+    "location": null
+  },
+  {
+    "id": "5d4ad07d-e480-4e53-a1a1-2e52932676ad",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "nondrug_id": "c29b99c7-e440-4c3a-ab08-d42c504c2104",
+    "facility_stock": 0,
+    "min_buffer_level": 20,
+    "notes": null,
+    "added_at": "2026-08-06T00:25:13.662391+00:00",
+    "updated_at": "2026-08-06T00:25:13.662391+00:00",
+    "location": ""
+  },
+  {
+    "id": "11b677da-3467-4d85-b866-82281a039dda",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "nondrug_id": "bda282b3-e40a-4a63-adf4-cffda99781f5",
+    "facility_stock": 0,
+    "min_buffer_level": 20,
+    "notes": null,
+    "added_at": "2026-08-06T00:25:13.662391+00:00",
+    "updated_at": "2026-08-06T00:25:13.662391+00:00",
+    "location": ""
+  },
+  {
+    "id": "a96b05db-1efe-4807-aee6-15e7b54648a3",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "nondrug_id": "dcc6f146-65d3-4c67-936e-c8b9ee5f2b20",
+    "facility_stock": 0,
+    "min_buffer_level": 20,
+    "notes": null,
+    "added_at": "2026-08-11T06:31:56.642944+00:00",
+    "updated_at": "2026-08-11T06:31:56.642944+00:00",
+    "location": ""
+  }
+]

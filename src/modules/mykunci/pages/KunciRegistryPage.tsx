@@ -11,7 +11,8 @@ import {
   Lock, 
   ShieldCheck, 
   AlertCircle,
-  Eye
+  Eye,
+  QrCode
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useToast } from '@/stores/toastStore'
@@ -31,6 +32,7 @@ import {
   Badge, 
   Modal 
 } from '@/components/ui'
+import QRCode from 'qrcode'
 
 // Mock list of departments matching database seed values
 const MOCK_DEPARTMENTS = [
@@ -59,6 +61,11 @@ export const KunciRegistryPage: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editingKeyId, setEditingKeyId] = useState('')
+
+  // QR Code display states
+  const [qrModalOpen, setQrModalOpen] = useState(false)
+  const [selectedQrKey, setSelectedQrKey] = useState<KunciDaftar | null>(null)
+  const [qrDataUrl, setQrDataUrl] = useState('')
 
   // Form states
   const [kodKunci, setKodKunci] = useState('')
@@ -180,6 +187,123 @@ export const KunciRegistryPage: React.FC = () => {
     } catch (err: any) {
       toast.error(`Gagal memadam: ${err.message}`)
     }
+  }
+
+  const handleOpenQrModal = async (key: KunciDaftar) => {
+    setSelectedQrKey(key)
+    try {
+      // Generate a client-side offline-safe QR code containing the kod_kunci
+      const url = await QRCode.toDataURL(key.kod_kunci, {
+        width: 256,
+        margin: 2,
+        color: {
+          dark: '#0f172a', // Slate 900
+          light: '#ffffff'
+        }
+      })
+      setQrDataUrl(url)
+      setQrModalOpen(true)
+    } catch (err) {
+      console.error('Failed to generate QR Code', err)
+      toast.error('Gagal menghasilkan QR Code')
+    }
+  }
+
+  const handlePrintQr = () => {
+    if (!selectedQrKey || !qrDataUrl) return
+    
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) {
+      toast.error('Popup blocker menghalang tindakan cetak!')
+      return
+    }
+
+    const deptName = MOCK_DEPARTMENTS.find(d => d.id === selectedQrKey.department_id)?.department_name || 'Lain-lain'
+    const securityLabel = selectedQrKey.tahap_kawalan === 'high' ? '⚠️ KAWALAN TINGGI (DDA)' : 'KAWALAN AM'
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Cetak Label Kunci - ${selectedQrKey.kod_kunci}</title>
+        <style>
+          @page {
+            size: 80mm 50mm;
+            margin: 0;
+          }
+          body {
+            font-family: monospace;
+            margin: 0;
+            padding: 3mm;
+            width: 80mm;
+            height: 50mm;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            background: white;
+            color: black;
+          }
+          .title {
+            font-size: 8px;
+            font-weight: bold;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px dashed black;
+            width: 100%;
+            padding-bottom: 2px;
+          }
+          .code {
+            font-size: 11px;
+            font-weight: bold;
+            margin-top: 2px;
+            margin-bottom: 2px;
+            font-family: monospace;
+          }
+          .qr-img {
+            width: 22mm;
+            height: 22mm;
+            margin-bottom: 2px;
+          }
+          .meta {
+            font-size: 7px;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            line-height: 1.2;
+          }
+          .security {
+            font-size: 6px;
+            font-weight: bold;
+            margin-top: 2px;
+            text-transform: uppercase;
+            border-top: 1px dashed black;
+            width: 100%;
+            padding-top: 2px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="title">HOSPITAL LAWAS - MYKUNCI</div>
+        <div class="code">${selectedQrKey.kod_kunci}</div>
+        <img class="qr-img" src="${qrDataUrl}" />
+        <div class="meta"><b>${selectedQrKey.nama_kunci}</b></div>
+        <div class="meta">Jabatan: ${deptName} | Lokasi: ${selectedQrKey.lokasi_fizikal}</div>
+        <div class="security">${securityLabel}</div>
+        <script>
+          window.onload = function() {
+            window.print();
+            setTimeout(function() { window.close(); }, 500);
+          };
+        </script>
+      </body>
+      </html>
+    `)
+    printWindow.document.close()
   }
 
   // Filter keys list based on UI values
@@ -367,6 +491,15 @@ export const KunciRegistryPage: React.FC = () => {
                           {getStatusBadge(key.status)}
                         </td>
                         <td className="p-4 text-right space-x-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleOpenQrModal(key)}
+                            className="text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 p-1"
+                            title="Papar/Cetak QR Code"
+                          >
+                            <QrCode className="w-4 h-4" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -568,6 +701,63 @@ export const KunciRegistryPage: React.FC = () => {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* QR CODE MODAL */}
+      <Modal
+        isOpen={qrModalOpen}
+        onClose={() => setQrModalOpen(false)}
+        title="Label QR Code Anak Kunci"
+        size="md"
+      >
+        {selectedQrKey && (
+          <div className="space-y-6 pt-2 pb-1 text-slate-800">
+            <div className="flex flex-col items-center justify-center p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 font-mono">Hospital Lawas - MyKunci</span>
+              <span className="text-sm font-bold font-mono border border-slate-300 px-3 py-1 bg-white rounded-lg shadow-sm mb-4">
+                {selectedQrKey.kod_kunci}
+              </span>
+              
+              {qrDataUrl ? (
+                <div className="p-3 bg-white border border-slate-200 rounded-2xl shadow-md">
+                  <img src={qrDataUrl} alt={`QR Code for ${selectedQrKey.kod_kunci}`} className="w-48 h-48 select-none" />
+                </div>
+              ) : (
+                <div className="w-48 h-48 bg-slate-200/50 rounded-2xl flex items-center justify-center text-slate-400 text-xs">
+                  Generating QR...
+                </div>
+              )}
+              
+              <span className="text-xs font-bold text-slate-800 mt-4 max-w-full truncate">
+                {selectedQrKey.nama_kunci}
+              </span>
+              <span className="text-[11px] text-slate-500 font-semibold mt-1">
+                Lokasi: {selectedQrKey.lokasi_fizikal}
+              </span>
+            </div>
+
+            <div className="p-4 bg-amber-50/50 border border-amber-100/70 rounded-2xl text-[11px] text-amber-700 leading-relaxed font-semibold">
+              💡 Label ini boleh ditampal pada tag anak kunci fizikal. Gunakan butang di bawah untuk mencetak label sticker bersaiz 80mm x 50mm untuk dilekatkan pada kunci/peti.
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <Button
+                type="button"
+                onClick={() => setQrModalOpen(false)}
+                className="border-slate-200 text-slate-500 hover:bg-slate-50 px-4 py-2 border rounded-xl"
+              >
+                Tutup
+              </Button>
+              <Button
+                type="button"
+                onClick={handlePrintQr}
+                className="bg-amber-500 hover:bg-amber-600 text-white font-bold px-5 py-2 rounded-xl shadow-soft flex items-center gap-1.5"
+              >
+                Cetak Label Kunci
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   )

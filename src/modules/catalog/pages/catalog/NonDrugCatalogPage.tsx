@@ -1,11 +1,11 @@
 // @ts-nocheck
 import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react'
 import { motion } from 'framer-motion'
-import { Search, Plus, Download, X, Edit, Trash2, Filter, FileUp, ChevronRight, Sparkles, Package, TrendingUp } from 'lucide-react'
+import { Search, Plus, Download, X, Edit, Trash2, Filter, FileUp, ChevronRight, Sparkles, Package, TrendingUp, CheckCircle, XCircle, CheckSquare, Square } from 'lucide-react'
 import { Button, Input, Select, Badge, Table, Pagination, Modal, LoadingOverlay, Spinner } from '@/components/ui'
 import { useToastStore } from '@/stores/toastStore'
 import { useAuthStore } from '@/stores/authStore'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, parseAndNormalizeDate, getFallbackContractDates } from '@/lib/utils'
 import {
   getNonDrugCatalogKPIs,
   getNonDrugCatalog,
@@ -15,6 +15,7 @@ import {
   deleteNonDrug,
   exportNonDrugCatalog,
   batchImportNonDrugs,
+  batchUpdateNonDrugStatus,
   type NonDrugCatalogFilter,
 } from '@/services/pharmacy/nonDrugCatalogService'
 import { getNonDrugCategories } from '@/services/pharmacy/inventoryService'
@@ -91,26 +92,34 @@ const NonDrugFormModal: React.FC<NonDrugFormModalProps> = ({
     reorder_level: 0,
     unit_of_measure: 'unit',
     packaging_description: '',
+    cc_contract_number: '',
+    cc_contract_start_date: '',
+    cc_contract_end_date: '',
+    cc_contract_status: 'active',
   })
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
     if (nonDrug) {
       setFormData({
-        item_code: nonDrug.item_code,
-        item_name: nonDrug.item_name,
+        item_code: nonDrug.item_code || '',
+        item_name: nonDrug.item_name || '',
         category_id: nonDrug.category_id || '',
         supplier_id: nonDrug.supplier_id || '',
         procurement_vote: nonDrug.procurement_vote,
         sku: nonDrug.sku || '',
         pku: nonDrug.pku || '',
         price: nonDrug.price || 0,
-        status: nonDrug.status,
-        min_stock_level: nonDrug.min_stock_level,
-        max_stock_level: nonDrug.max_stock_level,
-        reorder_level: nonDrug.reorder_level,
-        unit_of_measure: nonDrug.unit_of_measure,
+        status: nonDrug.status || 'active',
+        min_stock_level: nonDrug.min_stock_level || 0,
+        max_stock_level: nonDrug.max_stock_level || 0,
+        reorder_level: nonDrug.reorder_level || 0,
+        unit_of_measure: nonDrug.unit_of_measure || 'unit',
         packaging_description: (nonDrug as any).packaging_description || '',
+        cc_contract_number: (nonDrug as any).cc_contract_number || '',
+        cc_contract_start_date: (nonDrug as any).cc_contract_start_date || '',
+        cc_contract_end_date: (nonDrug as any).cc_contract_end_date || '',
+        cc_contract_status: (nonDrug as any).cc_contract_status || 'active',
       })
     } else {
       setFormData({
@@ -128,6 +137,10 @@ const NonDrugFormModal: React.FC<NonDrugFormModalProps> = ({
         reorder_level: 0,
         unit_of_measure: 'unit',
         packaging_description: '',
+        cc_contract_number: '',
+        cc_contract_start_date: '',
+        cc_contract_end_date: '',
+        cc_contract_status: 'active',
       })
     }
   }, [nonDrug, isOpen])
@@ -272,6 +285,51 @@ const NonDrugFormModal: React.FC<NonDrugFormModalProps> = ({
           </div>
         </div>
 
+        {/* Contract Information Section */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">
+            Contract Details
+          </h3>
+          <div className="grid grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Contract Number</label>
+              <Input
+                value={(formData as any).cc_contract_number || ''}
+                onChange={(e) => setFormData({ ...formData, cc_contract_number: e.target.value })}
+                placeholder="e.g. KK/SUM/2024/001"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Contract Status</label>
+              <Select
+                value={(formData as any).cc_contract_status || 'active'}
+                onChange={(e) => setFormData({ ...formData, cc_contract_status: e.target.value })}
+              >
+                <option value="active">Active</option>
+                <option value="pending">Pending</option>
+                <option value="expired">Expired</option>
+                <option value="terminated">Terminated</option>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Contract Start Date</label>
+              <Input
+                type="date"
+                value={(formData as any).cc_contract_start_date || ''}
+                onChange={(e) => setFormData({ ...formData, cc_contract_start_date: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Contract End Date</label>
+              <Input
+                type="date"
+                value={(formData as any).cc_contract_end_date || ''}
+                onChange={(e) => setFormData({ ...formData, cc_contract_end_date: e.target.value })}
+              />
+            </div>
+          </div>
+        </div>
+
         {/* Stock Management Section */}
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">
@@ -359,6 +417,63 @@ export const NonDrugCatalogPage: React.FC = () => {
   const [showImportModal, setShowImportModal] = useState(false)
   const [selectedNonDrug, setSelectedNonDrug] = useState<NonDrugWithRelations | null>(null)
   const [isExporting, setIsExporting] = useState(false)
+
+  // Multi-Selection & Bulk Status Actions
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false)
+
+  const handleSelectAll = useCallback(() => {
+    if (selectedIds.length === sortedNonDrugs.length && sortedNonDrugs.length > 0) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds(sortedNonDrugs.map((item) => item.id))
+    }
+  }, [sortedNonDrugs, selectedIds])
+
+  const handleSelectRow = useCallback((id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    )
+  }, [])
+
+  const handleToggleSingleStatus = async (item: NonDrugWithRelations) => {
+    const nextStatus = item.status === 'active' ? 'inactive' : 'active'
+    try {
+      const result = await updateNonDrug(item.id, { status: nextStatus })
+      if (result.error) {
+        showError('Error', result.error)
+        return
+      }
+      showSuccess('Success', `Non-drug status updated to ${nextStatus}`)
+      await loadNonDrugs()
+      await loadKPIs()
+    } catch (error) {
+      showError('Error', 'Failed to update non-drug status')
+    }
+  }
+
+  const handleBulkStatusChange = async (targetStatus: 'active' | 'inactive') => {
+    if (selectedIds.length === 0) return
+    setIsBulkUpdating(true)
+    try {
+      const result = await batchUpdateNonDrugStatus(selectedIds, targetStatus)
+      if (result.error) {
+        showError('Error', result.error)
+        return
+      }
+      showSuccess(
+        'Success',
+        `Successfully ${targetStatus === 'active' ? 'activated' : 'deactivated'} ${result.data?.successCount || selectedIds.length} item(s)`
+      )
+      setSelectedIds([])
+      await loadNonDrugs()
+      await loadKPIs()
+    } catch (error) {
+      showError('Error', 'Failed to bulk update status')
+    } finally {
+      setIsBulkUpdating(false)
+    }
+  }
 
   // Load initial data
   useEffect(() => {
@@ -654,6 +769,9 @@ export const NonDrugCatalogPage: React.FC = () => {
   const nonDrugImportFields = [
     { key: 'item_code', label: 'Non-Drug Code', required: true, type: 'string' as const },
     { key: 'item_name', label: 'Non-Drug Name', required: true, type: 'string' as const },
+    { key: 'cc_contract_number', label: 'Contract Number / CC No', required: false, type: 'string' as const },
+    { key: 'cc_contract_start_date', label: 'Contract Start Date', required: false, type: 'string' as const },
+    { key: 'cc_contract_end_date', label: 'Contract End Date', required: false, type: 'string' as const },
     { key: 'category_id', label: 'Item Category', required: false, type: 'select' as const },
     { key: 'packaging_description', label: 'Packaging Description', required: false, type: 'string' as const },
     { key: 'sku', label: 'SKU', required: false, type: 'string' as const },
@@ -735,6 +853,29 @@ export const NonDrugCatalogPage: React.FC = () => {
 
   const columns = [
     {
+      key: 'select',
+      label: (
+        <input
+          type="checkbox"
+          checked={sortedNonDrugs.length > 0 && selectedIds.length === sortedNonDrugs.length}
+          onChange={handleSelectAll}
+          className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 cursor-pointer"
+        />
+      ),
+      sortable: false,
+      render: (_value: unknown, item: NonDrugWithRelations) => (
+        <input
+          type="checkbox"
+          checked={selectedIds.includes(item.id)}
+          onChange={(e) => {
+            e.stopPropagation()
+            handleSelectRow(item.id)
+          }}
+          className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 cursor-pointer"
+        />
+      ),
+    },
+    {
       key: 'item_code',
       label: 'NON-DRUG CODE',
       sortable: true,
@@ -781,6 +922,53 @@ export const NonDrugCatalogPage: React.FC = () => {
       render: (_value: unknown, item: NonDrugWithRelations) => (item.procurement_vote?.toUpperCase() || '-'),
     },
     {
+      key: 'cc_contract_number',
+      label: 'NO. KONTRAK',
+      sortable: true,
+      render: (_value: unknown, item: NonDrugWithRelations) => (item as any).cc_contract_number || '-',
+    },
+    {
+      key: 'cc_contract_start_date',
+      label: 'TARIKH MULA',
+      sortable: true,
+      render: (_value: unknown, item: NonDrugWithRelations) => {
+        const { startDate } = getFallbackContractDates(item)
+        if (!startDate) return '-'
+        return new Date(startDate).toLocaleDateString('ms-MY', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      },
+    },
+    {
+      key: 'cc_contract_end_date',
+      label: 'TARIKH TAMAT',
+      sortable: true,
+      render: (_value: unknown, item: NonDrugWithRelations) => {
+        const { endDate } = getFallbackContractDates(item)
+        if (!endDate) return '-'
+        return new Date(endDate).toLocaleDateString('ms-MY', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      },
+    },
+    {
+      key: 'cc_contract_status',
+      label: 'STATUS KONTRAK',
+      sortable: true,
+      render: (_value: unknown, item: NonDrugWithRelations) => {
+        const { startDate, endDate } = getFallbackContractDates(item)
+        if (!startDate || !endDate) return '-'
+        const start = new Date(startDate)
+        const end = new Date(endDate)
+        const today = new Date()
+        if (today >= start && today <= end) return 'Aktif'
+        if (today > end) return 'Tamat'
+        return 'Belum Mula'
+      },
+    },
+    {
+      key: 'price',
+      label: 'UNIT PRICE (RM)',
+      sortable: true,
+      render: (_value: unknown, item: NonDrugWithRelations) => formatCurrency(item.price || 0),
+    },
+    {
       key: 'supplier',
       label: 'SUPPLIER',
       sortable: true,
@@ -791,22 +979,25 @@ export const NonDrugCatalogPage: React.FC = () => {
       label: 'STATUS',
       sortable: true,
       render: (_value: unknown, item: NonDrugWithRelations) => {
-        const statusColors = {
-          active: 'success',
-          inactive: 'warning',
-        } as const
+        const isAct = item.status === 'active'
         return (
-          <Badge variant={statusColors[item.status] || 'default'} size="sm">
-            {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-          </Badge>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              handleToggleSingleStatus(item)
+            }}
+            title={isAct ? 'Click to deactivate' : 'Click to activate'}
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold transition-all shadow-sm ${
+              isAct
+                ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+                : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
+            }`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${isAct ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+            {isAct ? 'Active' : 'Inactive'}
+          </button>
         )
       },
-    },
-    {
-      key: 'price',
-      label: 'UNIT PRICE(RM)',
-      sortable: true,
-      render: (_value: unknown, item: NonDrugWithRelations) => formatCurrency(item.price || 0),
     },
     {
       key: 'actions',
@@ -822,6 +1013,7 @@ export const NonDrugCatalogPage: React.FC = () => {
               setSelectedNonDrug(item)
               setShowEditModal(true)
             }}
+            title="Edit item details"
           >
             <Edit className="w-4 h-4" />
           </Button>
@@ -833,6 +1025,7 @@ export const NonDrugCatalogPage: React.FC = () => {
               setSelectedNonDrug(item)
               setShowDeleteModal(true)
             }}
+            title="Delete item"
           >
             <Trash2 className="w-4 h-4 text-red-600" />
           </Button>
@@ -1087,6 +1280,48 @@ export const NonDrugCatalogPage: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {/* Sticky/Floating Bulk Action Bar */}
+          {selectedIds.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-slate-900 text-white p-4 rounded-2xl shadow-xl flex flex-wrap items-center justify-between gap-4 mb-4 border border-slate-800"
+            >
+              <div className="flex items-center gap-3">
+                <span className="bg-indigo-600 text-white px-3 py-1 rounded-full text-xs font-extrabold tracking-wide">
+                  {selectedIds.length} Selected
+                </span>
+                <span className="text-xs text-slate-300 font-medium hidden sm:inline">
+                  Select multi-item action to activate or deactivate
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleBulkStatusChange('active')}
+                  disabled={isBulkUpdating}
+                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Activate Selected ({selectedIds.length})
+                </button>
+                <button
+                  onClick={() => handleBulkStatusChange('inactive')}
+                  disabled={isBulkUpdating}
+                  className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <XCircle className="w-4 h-4" />
+                  Deactivate Selected ({selectedIds.length})
+                </button>
+                <button
+                  onClick={() => setSelectedIds([])}
+                  className="px-3 py-1.5 text-slate-400 hover:text-white rounded-xl text-xs font-bold transition-all"
+                >
+                  Clear Selection
+                </button>
+              </div>
+            </motion.div>
+          )}
 
           <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden mb-6">
             <Table

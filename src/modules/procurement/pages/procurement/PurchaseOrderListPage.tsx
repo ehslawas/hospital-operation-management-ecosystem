@@ -418,9 +418,13 @@ export const PurchaseOrderListPage: React.FC = () => {
                     className="w-full bg-white border border-slate-200 text-slate-700 text-sm rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all shadow-sm h-11 font-bold cursor-pointer"
                   >
                     <option value="all">All Statuses</option>
-                    <option value="approved">Approved</option>
-                    <option value="cancelled">Cancelled</option>
                     <option value="draft">Draft</option>
+                    <option value="pending_approval">Pending Approval</option>
+                    <option value="approved">Approved</option>
+                    <option value="sent">Sent to Supplier</option>
+                    <option value="partial_received">Partial Received</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
                   </select>
                 </div>
 

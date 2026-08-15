@@ -17,6 +17,50 @@ import { getDepartments } from '@/services/departmentService'
 import { getUsers } from '@/services/userService'
 import type { DepartmentWithRelations, UserWithRelations } from '@/types'
 
+const SOFTWARE_MODULE_CODES = new Set([
+  'system_porter',
+  'system_transporter',
+  'system_priviledging',
+  'system_tempahan',
+  'system_perhimpunan',
+  'system_kunci',
+  'system_cuti',
+  'pharmacy_logistics',
+  'pharmacy_formulari',
+  'billing',
+  'hr',
+  'asset',
+  'reports'
+])
+
+const isSoftwareModule = (code: string, name: string) => {
+  const normalizedCode = (code || '').toLowerCase().trim()
+  const normalizedName = (name || '').toLowerCase().trim()
+
+  if (SOFTWARE_MODULE_CODES.has(normalizedCode)) return true
+  if (normalizedCode.startsWith('system_')) return true
+  if (
+    [
+      'myporter',
+      'mypriviledging',
+      'mytempahan',
+      'mytransporter',
+      'mywarrant',
+      'myformulari',
+      'myperhimpunan',
+      'mykunci',
+      'mycuti',
+      'mysuhu',
+      'mymsds',
+      'myphis',
+      'mycrossborder',
+    ].some((m) => normalizedName.includes(m) || normalizedCode.includes(m))
+  )
+    return true
+
+  return false
+}
+
 export const AdminDepartmentsTab: React.FC = () => {
   const [departments, setDepartments] = useState<DepartmentWithRelations[]>([])
   const [allUsers, setAllUsers] = useState<UserWithRelations[]>([])
@@ -30,7 +74,7 @@ export const AdminDepartmentsTab: React.FC = () => {
     setIsLoading(true)
     try {
       const [deptsRes, usersRes] = await Promise.all([
-        getDepartments({ page: 1, pageSize: 100 }),
+        getDepartments({ page: 1, pageSize: 200 }),
         getUsers({ page: 1, pageSize: 200 }) // Load all users to client-side grouping
       ])
 
@@ -47,23 +91,57 @@ export const AdminDepartmentsTab: React.FC = () => {
     fetchData()
   }, [fetchData])
 
-  const getDeptMembersCount = (deptId: string) => {
-    return allUsers.filter((u) => u.department_id === deptId).length
-  }
+  // Filter out software modules and group duplicate hospital departments by normalized name
+  const deduplicatedDepts = React.useMemo(() => {
+    const deptMap = new Map<string, {
+      dept: DepartmentWithRelations
+      ids: Set<string>
+    }>()
 
-  const getDeptMembers = (deptId: string) => {
-    return allUsers.filter((u) => u.department_id === deptId)
+    // Exclude software system modules (MyPorter, MyPriviledging, MyTempahan, MyTransporter, MyWarrant, MyCuti, MyFormulari, MyKunci, MyPerhimpunan, etc.)
+    const realHospitalDepts = departments.filter((d) => !isSoftwareModule(d.department_code, d.department_name))
+
+    realHospitalDepts.forEach((d) => {
+      const key = (d.department_name || d.department_code).toLowerCase().trim()
+      if (!deptMap.has(key)) {
+        deptMap.set(key, {
+          dept: { ...d },
+          ids: new Set([d.id])
+        })
+      } else {
+        const existing = deptMap.get(key)!
+        existing.ids.add(d.id)
+
+        // Prefer detailed description and non-null HOD if present
+        if (!existing.dept.description || (d.description && d.description.length > (existing.dept.description?.length || 0))) {
+          existing.dept.description = d.description
+        }
+        if (!existing.dept.head_of_department && d.head_of_department) {
+          existing.dept.head_of_department = d.head_of_department
+        }
+      }
+    })
+
+    return Array.from(deptMap.values()).map(item => ({
+      dept: item.dept,
+      ids: Array.from(item.ids)
+    }))
+  }, [departments])
+
+  const getDeptMembers = (ids: string[]) => {
+    const idSet = new Set(ids)
+    return allUsers.filter((u) => u.department_id && idSet.has(u.department_id))
   }
 
   const toggleExpand = (deptId: string) => {
     setExpandedDeptId((prev) => (prev === deptId ? null : deptId))
   }
 
-  const filteredDepts = departments.filter(
-    (d) =>
-      d.department_name.toLowerCase().includes(search.toLowerCase()) ||
-      d.department_code.toLowerCase().includes(search.toLowerCase()) ||
-      (d.description && d.description.toLowerCase().includes(search.toLowerCase()))
+  const filteredDepts = deduplicatedDepts.filter(
+    ({ dept }) =>
+      dept.department_name.toLowerCase().includes(search.toLowerCase()) ||
+      dept.department_code.toLowerCase().includes(search.toLowerCase()) ||
+      (dept.description && dept.description.toLowerCase().includes(search.toLowerCase()))
   )
 
   const getStatusStyle = (status: string) => {
@@ -111,10 +189,10 @@ export const AdminDepartmentsTab: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredDepts.map((dept) => {
+          {filteredDepts.map(({ dept, ids }) => {
             const isExpanded = expandedDeptId === dept.id
-            const members = getDeptMembers(dept.id)
-            const count = getDeptMembersCount(dept.id)
+            const members = getDeptMembers(ids)
+            const count = members.length
 
             return (
               <motion.div

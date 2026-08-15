@@ -214,9 +214,7 @@ export default function GoodsReceivingForm({
         if (prefillData.receiptDate) setReceiptDate(prefillData.receiptDate)
         if (prefillData.deliveryNote) setDeliveryNote(prefillData.deliveryNote)
         if (prefillData.invoiceNumber) setInvoiceNumber(prefillData.invoiceNumber)
-        setNotes(`DEBUG PREFILL:
-Indices matched: ${JSON.stringify(prefillData.debugIndices || {}, null, 2)}
-Matched Items: ${JSON.stringify((prefillData.items || []).map((i: any) => ({ name: i.item_name, code: i.item_code, batch: i.batch_number, exp: i.expiry_date, qty: i.quantity_received })), null, 2)}`)
+        // Notes field intentionally left clean — debug info no longer written to production DB
       } else {
         // Auto-populate Delivery Order No. from LPO if available
         if (res.data?.lpo?.[0]?.lpo_number) {
@@ -508,6 +506,7 @@ Matched Items: ${JSON.stringify((prefillData.items || []).map((i: any) => ({ nam
       setError(res.error)
       setIsSubmitting(false)
     } else {
+      setIsSubmitting(false) // FIX: Always reset submit state, even on success
       onSuccess()
     }
   }
@@ -701,11 +700,6 @@ Matched Items: ${JSON.stringify((prefillData.items || []).map((i: any) => ({ nam
                               </p>
                             </div>
                           </div>
-                        </div>
-                        <div className="bg-slate-900 text-slate-100 p-3 rounded-lg text-[9px] font-mono whitespace-pre overflow-x-auto leading-tight shadow-sm max-h-[300px] overflow-y-auto">
-                          <div className="font-bold text-yellow-400 mb-1">DEBUG PREFILL SUMMARY:</div>
-                          <div>Indices matched: {JSON.stringify(prefillData.debugIndices || {}, null, 2)}</div>
-                          <div className="mt-2">Matched Items: {JSON.stringify((prefillData.items || []).map((i: any) => ({ name: i.item_name, code: i.item_code, batch: i.batch_number, exp: i.expiry_date, qty: i.quantity_received })), null, 2)}</div>
                         </div>
                       </div>
                     )}

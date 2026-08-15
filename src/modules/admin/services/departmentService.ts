@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import { supabase, isSupabaseConfigured } from '@/services/supabase'
 import { mockDepartments, mockHospitals, mockUsers } from '@/services/mockData'
 import type { Department, DepartmentWithRelations, PaginatedResponse, SortConfig } from '@/types'
@@ -368,6 +368,31 @@ export async function deleteDepartment(id: string): Promise<void> {
   }
 }
 
+const SOFTWARE_MODULE_KEYWORDS = [
+  'myporter',
+  'mypriviledging',
+  'mytempahan',
+  'mytransporter',
+  'mywarrant',
+  'myformulari',
+  'myperhimpunan',
+  'mykunci',
+  'mycuti',
+  'mysuhu',
+  'mymsds',
+  'myphis',
+  'mycrossborder',
+  'system_',
+]
+
+const isSoftwareModule = (code?: string, name?: string): boolean => {
+  const c = (code || '').toLowerCase().trim()
+  const n = (name || '').toLowerCase().trim()
+  if (SOFTWARE_MODULE_KEYWORDS.some((m) => c.includes(m) || n.includes(m))) return true
+  if (['billing', 'hr', 'asset', 'reports', 'driver_room', 'hospital_office', 'front_desk'].includes(c)) return true
+  return false
+}
+
 /**
  * Get departments by hospital ID (for dropdowns)
  */
@@ -385,16 +410,37 @@ export async function getDepartmentsByHospital(hospitalId: string): Promise<Depa
         console.error('Error fetching departments from Supabase:', error)
         throw new Error(error.message)
       }
-      return (data || []) as Department[]
+      const filtered = (data || []).filter(
+        (d: any) => !isSoftwareModule(d.department_code, d.department_name)
+      )
+      const seen = new Set<string>()
+      const deDuplicated: Department[] = []
+      for (const dept of filtered as Department[]) {
+        const norm = (dept.department_name || '').toLowerCase().trim()
+        if (!seen.has(norm)) {
+          seen.add(norm)
+          deDuplicated.push(dept)
+        }
+      }
+      return deDuplicated
     } else {
       await new Promise((resolve) => setTimeout(resolve, 200))
-      return mockDepartments
-        .filter((d) => d.hospital_id === hospitalId && d.status === 'active')
-        .sort((a, b) => a.department_name.localeCompare(b.department_name))
+      const filtered = mockDepartments.filter(
+        (d) => d.hospital_id === hospitalId && d.status === 'active' && !isSoftwareModule(d.department_code, d.department_name)
+      )
+      const seen = new Set<string>()
+      const deDuplicated: Department[] = []
+      for (const dept of filtered) {
+        const norm = (dept.department_name || '').toLowerCase().trim()
+        if (!seen.has(norm)) {
+          seen.add(norm)
+          deDuplicated.push(dept)
+        }
+      }
+      return deDuplicated.sort((a, b) => a.department_name.localeCompare(b.department_name))
     }
   } catch (error) {
     console.error('Error fetching departments:', error)
     throw error
   }
 }
-

@@ -1,9 +1,10 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { GoodsReceiptWithRelations } from '@/types/pharmacy'
 import { supabase } from '@/services/supabase'
+import { drawHospitalHeader } from '@/lib/pdfHeader'
 
 // Helper to convert image URL to base64
 const getBase64ImageFromUrlLocal = async (imageUrl: string): Promise<string | null> => {
@@ -141,22 +142,7 @@ export async function generateGoodsReceiptPdf(gr: GoodsReceiptWithRelations): Pr
   }
   
   // 1. Header
-  // Logo
-  const logoBase64 = await getBase64ImageFromUrlLocal('/512px-Jata_MalaysiaV2.svg.png')
-  if (logoBase64) {
-    doc.addImage(logoBase64, 'PNG', margin, 10, 22, 18)
-  }
-  
-  // Ministry & Hospital
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(10)
-  doc.setTextColor(0, 0, 0)
-  doc.text("KEMENTERIAN KESIHATAN MALAYSIA", margin + 25, 15)
-  doc.text(gr.hospital?.name?.toUpperCase() || 'HOSPITAL LAWAS', margin + 25, 20)
-  
-  doc.setDrawColor(0, 0, 0)
-  doc.setLineWidth(0.5)
-  doc.line(margin, 32, pageWidth - margin, 32)
+  await drawHospitalHeader(doc, { margin: 20, startY: 10 })
   
   // Title
   doc.setFontSize(16)

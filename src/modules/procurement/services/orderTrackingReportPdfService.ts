@@ -2,6 +2,7 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import type { ProcurementReportData } from '@/services/pharmacy/procurementReportService'
+import { drawHospitalHeader } from '@/lib/pdfHeader'
 
 // Helper to convert image URL to base64
 const getBase64ImageFromUrlLocal = async (imageUrl: string): Promise<string | null> => {
@@ -58,27 +59,8 @@ export async function generateETAReportPdf(data: ProcurementReportData): Promise
     };
 
     // --- Draw Header ---
-    const drawHeader = (title: string, showLogo = true) => {
-      if (showLogo && logoBase64) {
-        doc.addImage(logoBase64, 'PNG', (pageWidth - 25) / 2, 15, 25, 20)
-      }
-      
-      let y = showLogo ? 45 : 20
-      
-      doc.setFont('times', 'bold')
-      doc.setFontSize(13)
-      doc.setTextColor(31, 41, 55)
-      doc.text('KEMENTERIAN KESIHATAN MALAYSIA', pageWidth / 2, y, { align: 'center' })
-      y += 6
-      doc.setFontSize(11)
-      doc.text(data.metadata.hospitalName.toUpperCase(), pageWidth / 2, y, { align: 'center' })
-      y += 8
-      
-      // Divider
-      doc.setLineWidth(0.5)
-      doc.setDrawColor(31, 41, 55)
-      doc.line(margin, y, pageWidth - margin, y)
-      y += 8
+    const drawHeader = async (title: string, showLogo = true) => {
+      let y = await drawHospitalHeader(doc, { margin, startY: 10, logoBase64 })
       
       doc.setFont('times', 'bold')
       doc.setFontSize(14)
@@ -103,7 +85,7 @@ export async function generateETAReportPdf(data: ProcurementReportData): Promise
     }
 
     drawWatermark()
-    let y = drawHeader('LAPORAN STATUS PESANAN — MENGHAMPIRI TARIKH PENGHANTARAN\n(Order Status Report — Approaching ETA Date)')
+    let y = await drawHeader('LAPORAN STATUS PESANAN — MENGHAMPIRI TARIKH PENGHANTARAN\n(Order Status Report — Approaching ETA Date)')
     
     // Summary
     doc.setFont('times', 'bold')

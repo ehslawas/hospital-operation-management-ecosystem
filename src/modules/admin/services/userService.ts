@@ -1,11 +1,14 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import { supabase, isSupabaseConfigured } from '@/services/supabase'
 import { withService, paginateMockData } from '@/services/baseService'
 import { mockUsers, getRoleById, getDepartmentById, getHospitalById } from '@/services/mockData'
 import type { User, UserWithRelations, PaginatedResponse, FilterConfig, SortConfig } from '@/types'
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants'
-import { createAuthUser } from '@/services/authUserService'
+import { createAuthUser, adminResetUserPassword } from '@/services/authUserService'
 import { sendWelcomeEmail } from '@/services/emailService'
+
+export { adminResetUserPassword }
+
 
 export interface GetUsersParams {
   page?: number

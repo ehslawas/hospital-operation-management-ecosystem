@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { drawHospitalHeader } from '@/lib/pdfHeader'
 
 function formatPdfDate(d?: string) {
   if (!d) return ''
@@ -96,29 +97,7 @@ export async function generateCCPenaltyPdf(penalty: any): Promise<jsPDF> {
   const finalPenaltyAmount = Math.max(calculatedSum, penalty.selected_penalty_type === 'minimum' ? 200.00 : 0)
 
   // Page 1: Surat Tuntutan Bayaran Denda (Official Letter of Demand)
-  // Load and embed Jata Negara (Official Malaysian Coat of Arms)
-  const logoBase64 = await getBase64ImageFromUrlLocal('/512px-Jata_MalaysiaV2.svg.png')
-  if (logoBase64) {
-    doc.addImage(logoBase64, 'PNG', margin, 14, 20, 16)
-  }
-
-  // Header Typography (Times New Roman style)
-  doc.setFont('times', 'bold')
-  doc.setFontSize(12)
-  doc.setTextColor(15, 23, 42)
-  doc.text('KEMENTERIAN KESIHATAN MALAYSIA', margin + 24, 18)
-  doc.text('HOSPITAL LAWAS', margin + 24, 23)
-  
-  doc.setFont('times', 'normal')
-  doc.setFontSize(9.5)
-  doc.setTextColor(71, 85, 105)
-  doc.text('Jalan Hospital, 98850 Lawas, Sarawak, Malaysia', margin + 24, 27.5)
-  doc.text('Telefon: 085-283781  |  Faks: 085-283782', margin + 24, 32)
-
-  // Divider Line
-  doc.setDrawColor(71, 85, 105)
-  doc.setLineWidth(0.8)
-  doc.line(margin, 36, pageWidth - margin, 36)
+  await drawHospitalHeader(doc, { margin: 20, startY: 12 })
 
   // Metadata Block (Right aligned top, mathematically aligned)
   doc.setFont('times', 'normal')

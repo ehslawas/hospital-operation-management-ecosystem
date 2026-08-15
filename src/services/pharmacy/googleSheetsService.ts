@@ -225,6 +225,44 @@ export function parseContractRows(
     return []
   }
 
+  // --- Pre-scan: find contract-level "Tempoh Serahan" note ---
+  // KKM contract Excels often have the Tempoh Serahan as a merged-cell paragraph
+  // ABOVE (or below) the item table — not as a per-row column. We scan every
+  // cell in the entire sheet and capture the first one that looks like the
+  // delivery-period description text.
+  let contractLevelDeliveryPeriod: string | null = null
+  for (let ri = 0; ri < rows.length; ri++) {
+    for (let ci = 0; ci < (rows[ri] || []).length; ci++) {
+      const cellRaw = String(rows[ri][ci] || '').trim()
+      const cellLow = cellRaw.toLowerCase()
+      // The cell either IS the label+value (long sentence) or is the label
+      // with the value in the adjacent cell.
+      if (cellLow.includes('tempoh serahan')) {
+        if (cellRaw.length > 60) {
+          // Long cell — it's both label and value (merged-cell style)
+          contractLevelDeliveryPeriod = cellRaw
+          break
+        } else {
+          // Short label cell — value is in the next column(s) of the same row
+          for (let nci = ci + 1; nci < (rows[ri] || []).length; nci++) {
+            const nextVal = String(rows[ri][nci] || '').trim()
+            if (nextVal.length > 20) {
+              contractLevelDeliveryPeriod = nextVal
+              break
+            }
+          }
+          if (!contractLevelDeliveryPeriod && ci > 0) {
+            // Sometimes value is in the cell right before the label in wide merged layouts
+            const prevVal = String(rows[ri][ci - 1] || '').trim()
+            if (prevVal.length > 20) contractLevelDeliveryPeriod = prevVal
+          }
+          if (contractLevelDeliveryPeriod) break
+        }
+      }
+    }
+    if (contractLevelDeliveryPeriod) break
+  }
+
   // Find the actual header row by scoring the first 15 rows based on keyword matches
   let headerRowIndex = providedHeaderRowIndex
   if (headerRowIndex === 0) {
@@ -293,11 +331,14 @@ export function parseContractRows(
     h.includes('kod item') ||
     h === 'kod'
   )
-  const deliveryPeriodIdx = headers.findIndex(h => 
-    h.includes('delivery') || 
-    h.includes('tempoh') || 
-    h.includes('serahan') || 
-    h.includes('period')
+  // NOTE: Be specific here — 'tempoh' alone matches 'Tempoh Kontrak', 'Tarikh Mula Tempoh Kontrak', etc.
+  // Only match if 'serahan' is present, or BOTH 'delivery' + 'period'/'time'/'tempoh', or exact known headers.
+  const deliveryPeriodIdx = headers.findIndex(h =>
+    h.includes('serahan') ||
+    h === 'delivery period' ||
+    h === 'tempoh serahan' ||
+    (h.includes('delivery') && (h.includes('period') || h.includes('time') || h.includes('tempoh'))) ||
+    (h.includes('lead') && h.includes('time'))
   )
 
   const normalizedRows: any[][] = []
@@ -424,6 +465,11 @@ export function parseContractRows(
     }
     if (deliveryPeriodIdx >= 0 && row[deliveryPeriodIdx]) {
       contract.delivery_period = String(row[deliveryPeriodIdx]).trim()
+    }
+    // Apply contract-level delivery period (from merged-cell note section) to rows
+    // that didn't get one from the column scan above.
+    if (!contract.delivery_period && contractLevelDeliveryPeriod) {
+      contract.delivery_period = contractLevelDeliveryPeriod
     }
 
     // Store all other columns in metadata

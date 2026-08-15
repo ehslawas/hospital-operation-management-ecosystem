@@ -1,9 +1,9 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { Upload, X, FileSpreadsheet, CheckCircle2, AlertCircle, Loader2, Sparkles, FileImage, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/Modal'
-import { cn, calculateFileHash } from '@/lib/utils'
+import { cn, calculateFileHash, parseAndNormalizeDate } from '@/lib/utils'
 import { analyzeCatalogDocument, type DocumentExtractionResult } from '@/services/aiService'
 import { getNonDrugCategories, createOrGetNonDrugCategory, getDrugCategories, createOrGetDrugCategory } from '@/services/pharmacy/inventoryService'
 import { checkFileDuplicate, recordFileUpload, updateUploadRecord } from '@/services/pharmacy/uploadService'
@@ -187,6 +187,15 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
       }
       if (key.includes('packaging') && key.includes('description')) {
         patterns.push('packaging description', 'packaging_description', 'packaging', 'package description', 'pack description')
+      }
+      if (key.includes('contract') && key.includes('number')) {
+        patterns.push('contract number', 'cc_contract_number', 'contract_number', 'contract no', 'no. kontrak', 'nombor kontrak', 'cc no', 'cc number', 'kkm', 'contract')
+      }
+      if (key.includes('contract') && key.includes('start')) {
+        patterns.push('contract start', 'cc_contract_start_date', 'start date', 'start_date', 'tarikh mula', 'tarikh bermula', 'mula', 'approval date', 'lpo approval date', 'start', 'kontrak mula')
+      }
+      if (key.includes('contract') && key.includes('end')) {
+        patterns.push('contract end', 'cc_contract_end_date', 'end date', 'end_date', 'tarikh tamat', 'tamat', 'expiry date', 'expir', 'luput', 'end', 'kontrak tamat')
       }
       
       fieldPatterns[field.key] = patterns
@@ -445,12 +454,20 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
         console.log('Vision AI raw result:', result)
         
         // SECONDARY FILTER: Additional validation to ensure invalid items are filtered
-        const invalidCodes = ['APPL', 'CC', 'DP', 'LP', 'CONTRACT', 'ITEM CODE', 'ITEM_CODE', 'NON-DRUG NAME', 'SKU', 'PKU', 'CATEGORY', 'SUPPLIER', 'PROCUREMENT VOTE', 'STATUS', 'PRICE', 'ACTIONS']
-        const invalidNamePatterns = ['each', 'pack of', 'contract', 'non-drug name', 'item name', 'drug name']
+        const invalidCodes = ['ITEM CODE', 'ITEM_CODE', 'NON-DRUG NAME', 'DRUG NAME', 'SKU', 'PKU', 'CATEGORY', 'SUPPLIER', 'PROCUREMENT VOTE', 'STATUS', 'PRICE', 'ACTIONS']
+        const invalidNamePatterns = ['each', 'pack of', 'non-drug name', 'item name', 'drug name']
         
         const filteredItems = result.items.filter((item) => {
-          const code = catalogType === 'drug' ? item.drug_code : item.item_code
+          let code = catalogType === 'drug' ? item.drug_code : item.item_code
           const name = catalogType === 'drug' ? item.drug_name : item.item_name
+
+          if (!code && (item.cc_contract_number || (item as any).contract_number)) {
+            code = String(item.cc_contract_number || (item as any).contract_number).trim()
+            if (catalogType === 'drug') item.drug_code = code; else item.item_code = code;
+          } else if (!code && name) {
+            code = 'CC-' + String(name).trim().replace(/[^a-zA-Z0-9]/g, '').substring(0, 8).toUpperCase()
+            if (catalogType === 'drug') item.drug_code = code; else item.item_code = code;
+          }
           
           if (!code || !name) {
             console.log('Filtered out item (missing code/name):', item)
@@ -474,14 +491,14 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
             }
           }
           
-          // Code should be at least 3 characters and look like a product code
-          if (codeStr.length < 3) {
+          // Code should be at least 2 characters
+          if (codeStr.length < 2) {
             console.log('Filtered out item (code too short):', code, name)
             return false
           }
           
-          // Name should be at least 5 characters and be a real product name
-          if (nameStr.length < 5) {
+          // Name should be at least 3 characters and be a real product name
+          if (nameStr.length < 3) {
             console.log('Filtered out item (name too short):', code, name)
             return false
           }
@@ -814,12 +831,34 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                           // Empty category value - leave it empty
                           transformed[mapping.targetField] = ''
                         }
+                      } else if (mapping.targetField.includes('date') || mapping.targetField.includes('start') || mapping.targetField.includes('end')) {
+                        transformed[mapping.targetField] = parseAndNormalizeDate(value)
                       } else if (targetField?.type === 'number') {
                         transformed[mapping.targetField] = value ? parseFloat(String(value)) || 0 : 0
                       } else {
                         transformed[mapping.targetField] = value ? String(value).trim() : ''
                       }
                     }
+
+                    // Fallback date detection from raw row values if cc_contract_start_date or cc_contract_end_date is missing
+                    if (!transformed.cc_contract_start_date || !transformed.cc_contract_end_date) {
+                      const detectedDates: string[] = []
+                      Object.values(row).forEach(cellVal => {
+                        if (cellVal) {
+                          const norm = parseAndNormalizeDate(cellVal)
+                          if (norm && norm.length === 10 && norm.includes('-')) {
+                            detectedDates.push(norm)
+                          }
+                        }
+                      })
+                      if (detectedDates.length >= 2) {
+                        if (!transformed.cc_contract_start_date) transformed.cc_contract_start_date = detectedDates[0]
+                        if (!transformed.cc_contract_end_date) transformed.cc_contract_end_date = detectedDates[1]
+                      } else if (detectedDates.length === 1) {
+                        if (!transformed.cc_contract_start_date) transformed.cc_contract_start_date = detectedDates[0]
+                      }
+                    }
+
                     return transformed
                   })
                 
@@ -835,16 +874,32 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                     if (!hasData) return false
                     
                     // ADDITIONAL VALIDATION: Filter out invalid item codes and names
-                    const invalidCodes = ['APPL', 'CC', 'DP', 'LP', 'CONTRACT', 'ITEM CODE', 'ITEM_CODE', 'NON-DRUG NAME', 'DRUG NAME', 'SKU', 'PKU', 'CATEGORY', 'SUPPLIER', 'PROCUREMENT VOTE', 'STATUS', 'PRICE', 'ACTIONS']
-                    const invalidNamePatterns = ['each', 'pack of', 'contract', 'non-drug name', 'drug name', 'item name']
+                    const invalidCodes = ['ITEM CODE', 'ITEM_CODE', 'NON-DRUG NAME', 'DRUG NAME', 'SKU', 'PKU', 'CATEGORY', 'SUPPLIER', 'PROCUREMENT VOTE', 'STATUS', 'PRICE', 'ACTIONS']
+                    const invalidNamePatterns = ['each', 'pack of', 'non-drug name', 'drug name', 'item name']
                     
                     // Get the code and name fields based on catalog type
                     const codeField = catalogType === 'drug' ? 'drug_code' : 'item_code'
                     const nameField = catalogType === 'drug' ? 'drug_name' : 'item_name'
                     
-                    const code = transformed[codeField]
+                    let code = transformed[codeField]
                     const name = transformed[nameField]
                     
+                    // Auto-fallback code if code field is missing in Excel but contract number or item name exists
+                    if (!code || String(code).trim() === '') {
+                      if (transformed.cc_contract_number || transformed.contract_number) {
+                        code = String(transformed.cc_contract_number || transformed.contract_number).trim()
+                        transformed[codeField] = code
+                      } else if (name && String(name).trim() !== '') {
+                        code = 'CC-' + String(name).trim().replace(/[^a-zA-Z0-9]/g, '').substring(0, 8).toUpperCase()
+                        transformed[codeField] = code
+                      }
+                    }
+
+                    // Auto set procurement vote to CC if contract number is present
+                    if ((transformed.cc_contract_number || transformed.contract_number) && !transformed.procurement_vote) {
+                      transformed.procurement_vote = 'cc'
+                    }
+
                     // Filter out rows with missing required fields (code or name)
                     if (!code || !name || String(code).trim() === '' || String(name).trim() === '') {
                       return false // Skip rows with missing required fields
@@ -867,14 +922,14 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                       }
                     }
                     
-                    // Code should be at least 3 characters
-                    if (codeStr.length < 3) {
+                    // Code should be at least 2 characters
+                    if (codeStr.length < 2) {
                       console.log('Filtered out code too short:', code, name)
                       return false
                     }
                     
-                    // Name should be at least 5 characters
-                    if (nameStr.length < 5) {
+                    // Name should be at least 3 characters
+                    if (nameStr.length < 3) {
                       console.log('Filtered out name too short:', code, name)
                       return false
                     }

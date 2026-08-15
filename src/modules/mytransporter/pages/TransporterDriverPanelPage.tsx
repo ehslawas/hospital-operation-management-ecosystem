@@ -993,7 +993,7 @@ const TransporterDriverPanelPage: React.FC = () => {
                     placeholder="Sila jelaskan kerosakan/isu kenderaan secara terperinci untuk rujukan penyelenggaraan..."
                     value={remarks}
                     onChange={(e) => setRemarks(e.target.value)}
-                    className="w-full bg-slate-50 border border-rose-200 hover:border-rose-300 rounded-xl p-3 text-sm outline-none focus:border-rose-500 transition-colors"
+                    className="w-full bg-slate-50 border border-rose-200 hover:border-rose-300 rounded-xl p-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-rose-500 focus:bg-white transition-colors font-medium shadow-xs"
                     required
                   />
                 </div>
@@ -1039,7 +1039,7 @@ const TransporterDriverPanelPage: React.FC = () => {
               placeholder="Sila nyatakan sebab pembatalan (contoh: Mesyuarat ditangguhkan, kereta rosak, dll)..."
               value={cancelReason}
               onChange={(e) => setCancelReason(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-205 rounded-xl p-3 text-sm outline-none focus:border-red-500 transition-colors"
+              className="w-full bg-slate-50 border border-slate-205 rounded-xl p-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-red-500 focus:bg-white transition-colors font-medium shadow-xs"
               required
             />
 
@@ -1080,7 +1080,7 @@ const TransporterDriverPanelPage: React.FC = () => {
               placeholder="Contoh: Terlibat dengan permohonan lain / luar kawasan..."
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-rose-500 transition-colors"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-rose-500 focus:bg-white transition-colors font-medium shadow-xs"
               required
             />
 

@@ -101,7 +101,11 @@ export const SupplierReturnsSection: React.FC<SupplierReturnsSectionProps> = ({
           .select('id, company_name')
           .eq('status', 'active');
         if (data) {
-          setSuppliers(data);
+          const filteredSuppliers = data.filter(s => {
+            const name = (s.company_name || '').toLowerCase();
+            return name.includes('linde') || name.includes('borneo indah');
+          });
+          setSuppliers(filteredSuppliers);
         }
       } catch (err) {
         console.error('Error fetching suppliers:', err);

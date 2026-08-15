@@ -34,7 +34,8 @@ import {
   Key,
   Plane,
   Sparkles,
-  Pill
+  Pill,
+  FlaskConical
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { logout } from '@/services/authService'
@@ -43,218 +44,301 @@ import { supabase } from '@/services/supabase'
 import { AnimatePresence } from 'framer-motion'
 import { getUsers } from '@/services/userService'
 import { getAuditLogs } from '@/services/auditLogService'
+import { useLanguage } from '@/shared/contexts/LanguageContext'
+
+// Module styling map with non-purged static Tailwind classes
+const MODULE_STYLES: Record<string, { bg: string; border: string; iconColor: string; hoverBorder: string; glow: string }> = {
+  cyan: {
+    bg: 'bg-cyan-500/15',
+    border: 'border-cyan-400/50',
+    iconColor: 'text-cyan-400',
+    hoverBorder: 'group-hover:border-cyan-300',
+    glow: 'group-hover:shadow-[0_0_18px_rgba(34,211,238,0.4)]'
+  },
+  blue: {
+    bg: 'bg-blue-500/15',
+    border: 'border-blue-400/50',
+    iconColor: 'text-blue-400',
+    hoverBorder: 'group-hover:border-blue-300',
+    glow: 'group-hover:shadow-[0_0_18px_rgba(96,165,250,0.4)]'
+  },
+  emerald: {
+    bg: 'bg-emerald-500/15',
+    border: 'border-emerald-400/50',
+    iconColor: 'text-emerald-400',
+    hoverBorder: 'group-hover:border-emerald-300',
+    glow: 'group-hover:shadow-[0_0_18px_rgba(52,211,153,0.4)]'
+  },
+  purple: {
+    bg: 'bg-purple-500/15',
+    border: 'border-purple-400/50',
+    iconColor: 'text-purple-400',
+    hoverBorder: 'group-hover:border-purple-300',
+    glow: 'group-hover:shadow-[0_0_18px_rgba(192,132,252,0.4)]'
+  },
+  amber: {
+    bg: 'bg-amber-500/15',
+    border: 'border-amber-400/50',
+    iconColor: 'text-amber-400',
+    hoverBorder: 'group-hover:border-amber-300',
+    glow: 'group-hover:shadow-[0_0_18px_rgba(251,191,36,0.4)]'
+  },
+  rose: {
+    bg: 'bg-rose-500/15',
+    border: 'border-rose-400/50',
+    iconColor: 'text-rose-400',
+    hoverBorder: 'group-hover:border-rose-300',
+    glow: 'group-hover:shadow-[0_0_18px_rgba(251,113,133,0.4)]'
+  },
+  slate: {
+    bg: 'bg-slate-500/15',
+    border: 'border-slate-400/50',
+    iconColor: 'text-slate-300',
+    hoverBorder: 'group-hover:border-slate-300',
+    glow: 'group-hover:shadow-[0_0_18px_rgba(148,163,184,0.4)]'
+  },
+  yellow: {
+    bg: 'bg-yellow-500/15',
+    border: 'border-yellow-400/50',
+    iconColor: 'text-yellow-400',
+    hoverBorder: 'group-hover:border-yellow-300',
+    glow: 'group-hover:shadow-[0_0_18px_rgba(250,204,21,0.4)]'
+  },
+  pink: {
+    bg: 'bg-pink-500/15',
+    border: 'border-pink-400/50',
+    iconColor: 'text-pink-400',
+    hoverBorder: 'group-hover:border-pink-300',
+    glow: 'group-hover:shadow-[0_0_18px_rgba(244,114,182,0.4)]'
+  },
+  indigo: {
+    bg: 'bg-indigo-500/15',
+    border: 'border-indigo-400/50',
+    iconColor: 'text-indigo-400',
+    hoverBorder: 'group-hover:border-indigo-300',
+    glow: 'group-hover:shadow-[0_0_18px_rgba(129,140,248,0.4)]'
+  },
+  orange: {
+    bg: 'bg-orange-500/15',
+    border: 'border-orange-400/50',
+    iconColor: 'text-orange-400',
+    hoverBorder: 'group-hover:border-orange-300',
+    glow: 'group-hover:shadow-[0_0_18px_rgba(251,146,60,0.4)]'
+  },
+  violet: {
+    bg: 'bg-violet-500/15',
+    border: 'border-violet-400/50',
+    iconColor: 'text-violet-400',
+    hoverBorder: 'group-hover:border-violet-300',
+    glow: 'group-hover:shadow-[0_0_18px_rgba(167,139,250,0.4)]'
+  },
+  sky: {
+    bg: 'bg-sky-500/15',
+    border: 'border-sky-400/50',
+    iconColor: 'text-sky-400',
+    hoverBorder: 'group-hover:border-sky-300',
+    glow: 'group-hover:shadow-[0_0_18px_rgba(56,189,248,0.4)]'
+  },
+  lime: {
+    bg: 'bg-lime-500/15',
+    border: 'border-lime-400/50',
+    iconColor: 'text-lime-400',
+    hoverBorder: 'group-hover:border-lime-300',
+    glow: 'group-hover:shadow-[0_0_18px_rgba(163,230,53,0.4)]'
+  },
+  fuchsia: {
+    bg: 'bg-fuchsia-500/15',
+    border: 'border-fuchsia-400/50',
+    iconColor: 'text-fuchsia-400',
+    hoverBorder: 'group-hover:border-fuchsia-300',
+    glow: 'group-hover:shadow-[0_0_18px_rgba(232,121,249,0.4)]'
+  },
+  teal: {
+    bg: 'bg-teal-500/15',
+    border: 'border-teal-400/50',
+    iconColor: 'text-teal-400',
+    hoverBorder: 'group-hover:border-teal-300',
+    glow: 'group-hover:shadow-[0_0_18px_rgba(45,212,191,0.4)]'
+  }
+}
 
 // Module configuration
 const MODULES = [
   {
     id: 'cylinder',
     name: 'MyCylinder',
-    description: 'Silinder Oksigen',
+    description: 'Medical Oxygen Cylinders',
     icon: AirVent,
     path: ROUTES.PHARMACY_OXYGEN,
-    color: 'text-cyan-400',
-    bg: 'bg-cyan-400/10',
-    border: 'border-cyan-400/20'
+    colorKey: 'cyan'
   },
   {
     id: 'inventory',
     name: 'MyInventory',
-    description: 'Inventori Hospital',
+    description: 'Hospital Inventory',
     icon: Package,
     path: ROUTES.PHARMACY_INVENTORY,
-    color: 'text-blue-400',
-    bg: 'bg-blue-400/10',
-    border: 'border-blue-400/20'
+    colorKey: 'blue'
   },
   {
     id: 'warrant',
     name: 'MyWarrant',
-    description: 'Pengurusan Waran',
+    description: 'Warrant Management',
     icon: FileText,
     path: ROUTES.MYWARRANT_DASHBOARD,
-    color: 'text-emerald-400',
-    bg: 'bg-emerald-400/10',
-    border: 'border-emerald-400/20'
+    colorKey: 'emerald'
   },
   {
     id: 'surat',
     name: 'MySurat',
-    description: 'Surat Menyurat',
+    description: 'Official Correspondence',
     icon: Mail,
     path: ROUTES.HUB_SURAT,
-    color: 'text-purple-400',
-    bg: 'bg-purple-400/10',
-    border: 'border-purple-400/20'
+    colorKey: 'purple'
   },
   {
     id: 'borang',
     name: 'MyBorang',
-    description: 'Arkib Borang',
+    description: 'Form Archives & Templates',
     icon: ClipboardList,
     path: ROUTES.HUB_BORANG,
-    color: 'text-amber-400',
-    bg: 'bg-amber-400/10',
-    border: 'border-amber-400/20'
+    colorKey: 'amber'
   },
   {
     id: 'suhu',
     name: 'MySuhu',
-    description: 'Pemantauan Suhu',
+    description: 'Temperature Monitoring',
     icon: Thermometer,
     path: ROUTES.HUB_SUHU_DASHBOARD,
-    color: 'text-rose-400',
-    bg: 'bg-rose-400/10',
-    border: 'border-rose-400/20'
+    colorKey: 'rose'
   },
   {
     id: 'admin',
     name: 'MyAdmin',
-    description: 'Pentadbiran',
+    description: 'System Administration',
     icon: Shield,
     path: ROUTES.HUB_ADMIN,
-    color: 'text-slate-400',
-    bg: 'bg-slate-400/10',
-    border: 'border-slate-400/20'
+    colorKey: 'slate'
   },
   {
     id: 'perolehan',
     name: 'MyPerolehan',
-    description: 'Sistem Perolehan',
+    description: 'Procurement System',
     icon: ShoppingCart,
     path: ROUTES.PHARMACY_PROCUREMENT,
-    color: 'text-yellow-400',
-    bg: 'bg-yellow-400/10',
-    border: 'border-yellow-400/20'
+    colorKey: 'yellow'
   },
   {
     id: 'gallery',
     name: 'MyGallery',
-    description: 'Galeri Media',
+    description: 'Media Gallery',
     icon: Image,
     path: ROUTES.HUB_GALLERY,
-    color: 'text-pink-400',
-    bg: 'bg-pink-400/10',
-    border: 'border-pink-400/20'
+    colorKey: 'pink'
   },
   {
     id: 'memo',
     name: 'MyMemo',
-    description: 'Memo & Hebahan',
+    description: 'Memos & Announcements',
     icon: StickyNote,
     path: ROUTES.HUB_MEMO,
-    color: 'text-indigo-400',
-    bg: 'bg-indigo-400/10',
-    border: 'border-indigo-400/20'
+    colorKey: 'indigo'
   },
   {
     id: 'file',
     name: 'MyFile',
-    description: 'Pengurusan Fail',
+    description: 'Document & File Management',
     icon: Files,
     path: ROUTES.HUB_FILE,
-    color: 'text-orange-400',
-    bg: 'bg-orange-400/10',
-    border: 'border-orange-400/20'
+    colorKey: 'orange'
   },
   {
     id: 'formulari',
     name: 'MyFormulari',
-    description: 'Carian Formulari',
+    description: 'Drug Formulary Search',
     icon: Search,
     path: ROUTES.HUB_FORMULARI,
-    color: 'text-violet-400',
-    bg: 'bg-violet-400/10',
-    border: 'border-violet-400/20'
+    colorKey: 'violet'
   },
   {
     id: 'porter',
     name: 'MyPorter',
-    description: 'Sistem Porter',
+    description: 'Portering Services',
     icon: Truck,
     path: ROUTES.HUB_PORTER,
-    color: 'text-sky-400',
-    bg: 'bg-sky-400/10',
-    border: 'border-sky-400/20'
+    colorKey: 'sky'
   },
   {
     id: 'transporter',
     name: 'MyTransporter',
-    description: 'Sistem Transporter',
+    description: 'Vehicle Fleet Management',
     icon: Car,
     path: '/transporter',
-    color: 'text-blue-400',
-    bg: 'bg-blue-400/10',
-    border: 'border-blue-400/20'
+    colorKey: 'blue'
   },
   {
     id: 'priviledging',
     name: 'MyPriviledging',
-    description: 'Priviledging & Credentialing',
+    description: 'Clinical Privileges & Credentialing',
     icon: UserCheck,
     path: ROUTES.HUB_PRIVILEDGING,
-    color: 'text-lime-400',
-    bg: 'bg-lime-400/10',
-    border: 'border-lime-400/20'
+    colorKey: 'lime'
   },
   {
     id: 'tempahan',
     name: 'MyTempahan',
-    description: 'Sistem Tempahan',
+    description: 'Facility Booking System',
     icon: Calendar,
     path: ROUTES.HUB_TEMPAHAN,
-    color: 'text-fuchsia-400',
-    bg: 'bg-fuchsia-400/10',
-    border: 'border-fuchsia-400/20'
+    colorKey: 'fuchsia'
   },
   {
     id: 'perhimpunan',
     name: 'MyPerhimpunan',
-    description: 'Sistem Perhimpunan',
+    description: 'Assembly System',
     icon: Users,
     path: ROUTES.HUB_PERHIMPUNAN,
-    color: 'text-indigo-400',
-    bg: 'bg-indigo-400/10',
-    border: 'border-indigo-400/20'
+    colorKey: 'indigo'
   },
   {
     id: 'kunci',
     name: 'MyKunci',
-    description: 'Pengurusan Kunci',
+    description: 'Key Management System',
     icon: Key,
     path: '/kunci',
-    color: 'text-amber-500',
-    bg: 'bg-amber-500/10',
-    border: 'border-amber-500/20'
+    colorKey: 'amber'
   },
   {
     id: 'cuti',
     name: 'MyCuti',
-    description: 'Sistem Cuti',
+    description: 'Leave Management System',
     icon: Plane,
     path: ROUTES.HUB_CUTI,
-    color: 'text-emerald-500',
-    bg: 'bg-emerald-500/10',
-    border: 'border-emerald-500/20'
+    colorKey: 'emerald'
   },
   {
     id: 'timeoff',
     name: 'MyTimeOff',
-    description: 'Sistem Pengurusan Masa',
+    description: 'Time Management System',
     icon: Clock,
     path: ROUTES.HUB_TIMEOFF,
-    color: 'text-blue-500',
-    bg: 'bg-blue-500/10',
-    border: 'border-blue-500/20'
+    colorKey: 'blue'
   },
   {
     id: 'myphis',
     name: 'MyPHiS',
-    description: 'Sistem Maklumat Farmasi',
+    description: 'Pharmacy Information System',
     icon: Pill,
     path: ROUTES.HUB_MYPHIS,
-    color: 'text-teal-400',
-    bg: 'bg-teal-400/10',
-    border: 'border-teal-400/20'
+    colorKey: 'teal'
+  },
+  {
+    id: 'mymsds',
+    name: 'MyMSDS',
+    description: 'Material Safety Data Sheets',
+    icon: FlaskConical,
+    path: ROUTES.HUB_MYMSDS,
+    colorKey: 'emerald'
   }
 ]
 
@@ -312,6 +396,7 @@ const SystemStatsCounter = ({ data }: { data: StatsData }) => {
 export const ModuleHubPage: React.FC = () => {
   const navigate = useNavigate()
   const { user, logout: storeLogout } = useAuthStore()
+  const { language, t } = useLanguage()
   const [bgPhoto, setBgPhoto] = React.useState<string | null>(null)
   const [showSurpriseModal, setShowSurpriseModal] = React.useState(false)
   const [selectedModuleName, setSelectedModuleName] = React.useState('')
@@ -598,6 +683,8 @@ export const ModuleHubPage: React.FC = () => {
           <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-4">
             {MODULES.map((module, idx) => {
               const Icon = module.icon
+              const style = MODULE_STYLES[module.colorKey] || MODULE_STYLES.teal
+
               return (
                 <motion.button
                   key={module.id}
@@ -611,46 +698,50 @@ export const ModuleHubPage: React.FC = () => {
                       module.id === 'suhu' || 
                       module.id === 'admin' || 
                       module.id === 'myphis' || 
+                      module.id === 'mymsds' || 
                       module.id === 'kunci' ||
-                      module.id === 'transporter'
+                      module.id === 'transporter' ||
+                      module.id === 'inventory'
                     ) {
                       navigate(module.path)
                     } else {
-
                       setSelectedModuleName(module.name)
                       setShowSurpriseModal(true)
                     }
                   }}
-                  whileHover={{ scale: 1.02, y: -4 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="relative group flex flex-col sm:flex-row items-center sm:items-center justify-center sm:justify-start p-2 sm:p-3.5 transition-all text-center sm:text-left sm:bg-slate-900/60 sm:border sm:border-white/10 sm:hover:bg-slate-900/80 sm:hover:border-white/20 sm:rounded-xl sm:shadow-2xl"
+                  whileHover={{ scale: 1.04, y: -3 }}
+                  whileTap={{ scale: 0.92 }}
+                  className="relative group flex flex-col sm:flex-row items-center justify-center sm:justify-start p-2.5 sm:p-3.5 transition-all text-center sm:text-left sm:bg-slate-900/70 sm:backdrop-blur-xl sm:border sm:border-white/10 sm:hover:bg-slate-900/90 sm:hover:border-white/20 sm:rounded-2xl sm:shadow-2xl active:bg-slate-800/90 select-none touch-manipulation"
                 >
-                  {/* Mobile View: Icon Top */}
-                  <div className={`p-2 sm:p-2 rounded-2xl sm:rounded-lg sm:${module.bg} sm:${module.border} flex items-center justify-center transition-all duration-300 group-hover:scale-110 sm:group-hover:scale-100`}>
-                    <Icon className={`w-8 h-8 sm:w-5 sm:h-5 ${module.color} drop-shadow-[0_0_8px_rgba(20,184,166,0.3)]`} />
-                  </div>
+                  {/* Active Touch Burst Ring */}
+                  <div className="absolute inset-0 rounded-2xl border-2 border-teal-400/0 group-active:border-teal-400/60 group-active:bg-teal-400/10 group-active:scale-105 transition-all duration-150 pointer-events-none" />
 
-                  {/* Desktop Content: Name & Description */}
-                  <div className="flex-1 min-w-0 sm:ml-3">
-                    <h3 className="text-[10px] xs:text-[11px] sm:text-sm font-bold text-slate-200 sm:text-white tracking-tight group-hover:text-teal-400 transition-colors leading-tight mb-0 sm:mb-0.5 break-words max-w-full">
+                  {/* Framed Icon Box with Colored Border & Touch Spring */}
+                  <motion.div 
+                    whileTap={{ scale: 0.82, rotate: -6 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 15 }}
+                    className={`relative w-14 h-14 sm:w-11 sm:h-11 rounded-2xl sm:rounded-xl bg-slate-950/80 backdrop-blur-md border-2 ${style.border} ${style.bg} ${style.hoverBorder} ${style.glow} group-active:border-white group-active:bg-slate-900 group-active:shadow-[0_0_22px_rgba(255,255,255,0.7)] flex items-center justify-center shadow-lg shadow-black/40 transition-all duration-200 group-hover:scale-105 shrink-0`}
+                  >
+                    {/* Inner Touch Ripple Flash */}
+                    <span className="absolute inset-0 rounded-2xl sm:rounded-xl bg-white/25 opacity-0 group-active:opacity-100 group-active:scale-110 transition-all duration-150 pointer-events-none" />
+
+                    <Icon className={`w-7 h-7 sm:w-5 sm:h-5 ${style.iconColor} group-active:text-white group-active:scale-115 transition-transform duration-150 drop-shadow-[0_0_6px_rgba(255,255,255,0.15)]`} />
+                  </motion.div>
+
+                  {/* Module Name & Description */}
+                  <div className="flex-1 min-w-0 mt-2 sm:mt-0 sm:ml-3">
+                    <h3 className="text-[11px] xs:text-xs sm:text-sm font-bold text-slate-100 sm:text-white tracking-tight group-hover:text-teal-400 group-active:text-teal-300 transition-colors leading-tight mb-0 sm:mb-0.5 break-words max-w-full drop-shadow-sm">
                       {/* Mobile: Simple Name | Desktop: Full Name */}
                       <span className="sm:hidden">{module.name.replace('My', '')}</span>
-                      <span className="hidden sm:inline">{module.name}</span>
+                      <span className="hidden sm:inline">{t(`module.${module.id}`, module.name)}</span>
                     </h3>
-                    <p className="hidden sm:block text-[9px] text-slate-500 font-medium truncate">
-                      {module.description}
+                    <p className="hidden sm:block text-[9px] text-slate-400 font-medium truncate">
+                      {t(`module.${module.id}.desc`, module.description)}
                     </p>
                   </div>
 
                   {/* Desktop Only: Chevron */}
-                  <ChevronRight className="hidden sm:block w-3.5 h-3.5 text-slate-700 group-hover:text-teal-500 group-hover:translate-x-1 transition-all" />
-
-                  {/* Tooltip for desktop (fallback for very small screens if needed) */}
-                  <div className="absolute inset-0 z-20 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity hidden">
-                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-slate-800/90 backdrop-blur-md text-[10px] text-white rounded-lg whitespace-nowrap border border-white/10 shadow-2xl">
-                      {module.name}: {module.description}
-                    </div>
-                  </div>
+                  <ChevronRight className="hidden sm:block w-3.5 h-3.5 text-slate-700 group-hover:text-teal-500 group-hover:translate-x-1 group-active:translate-x-2 transition-all" />
                 </motion.button>
               )
             })}

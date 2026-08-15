@@ -31,6 +31,8 @@ import {
   Calendar,
   Wrench,
   Globe,
+  FlaskConical,
+  MapPin,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
@@ -38,6 +40,7 @@ import { useSidebar } from '@/stores/uiStore'
 import { Avatar } from '@/components/ui'
 import { APP_NAME, ROUTES, SYSTEM_ROLES } from '@/lib/constants'
 import { logout } from '@/services/authService'
+import { useLanguage } from '@/shared/contexts/LanguageContext'
 
 interface NavItem {
   label: string
@@ -45,7 +48,7 @@ interface NavItem {
   icon: React.ElementType
   roles?: string[]
   children?: NavItem[]
-  module?: 'admin' | 'pharmacy' | 'oxygen' | 'suhu' | 'myphis' | 'kunci' | 'transporter' | 'crossborder'
+  module?: 'admin' | 'pharmacy' | 'oxygen' | 'suhu' | 'myphis' | 'mymsds' | 'kunci' | 'transporter' | 'crossborder' | 'inventory'
 }
 
 // Helper to check if user has access to nav item
@@ -65,13 +68,15 @@ const hasAccess = (item: NavItem, userRole?: string): boolean => {
   */
 }
 
-const getActiveModule = (pathname: string, userRole?: string, locationState?: any): 'admin' | 'pharmacy' | 'oxygen' | 'suhu' | 'myphis' | 'kunci' | 'transporter' | 'crossborder' => {
+const getActiveModule = (pathname: string, userRole?: string, locationState?: any): 'admin' | 'pharmacy' | 'oxygen' | 'suhu' | 'myphis' | 'mymsds' | 'kunci' | 'transporter' | 'crossborder' | 'inventory' => {
   if (pathname.startsWith('/crossborder')) return 'crossborder'
   if (pathname.startsWith('/transporter')) return 'transporter'
   if (pathname.startsWith('/kunci')) return 'kunci'
+  if (pathname.startsWith('/hub/mymsds') || pathname.includes('/mymsds')) return 'mymsds'
   if (pathname.startsWith('/hub/myphis') || pathname.includes('/myphis')) return 'myphis'
   if (pathname.startsWith('/suhu')) return 'suhu'
   if (pathname.startsWith('/pharmacy/oxygen')) return 'oxygen'
+  if (pathname.startsWith('/pharmacy/inventory')) return 'inventory'
   if (pathname.startsWith('/pharmacy')) return 'pharmacy'
   if (pathname.startsWith('/admin')) return 'admin'
 
@@ -81,6 +86,7 @@ const getActiveModule = (pathname: string, userRole?: string, locationState?: an
     if (fromModuleCode === 'suhu') return 'suhu'
     if (fromModuleCode === 'oxygen' || fromModuleCode === 'cylinder') return 'oxygen'
     if (fromModuleCode === 'pharmacy_logistics' || fromModuleCode === 'pharmacy') return 'pharmacy'
+    if (fromModuleCode === 'inventory') return 'inventory'
     if (fromModuleCode === 'system_admin' || fromModuleCode === 'hospital_admin' || fromModuleCode === 'admin') return 'admin'
     if (fromModuleCode === 'myphis') return 'myphis'
     if (fromModuleCode === 'system_kunci' || fromModuleCode === 'kunci') return 'kunci'
@@ -231,16 +237,12 @@ const navigation: NavItem[] = [
   },
   {
     label: 'Catalog',
-    href: ROUTES.PHARMACY_CATALOG,
+    href: ROUTES.PHARMACY_SUPPLIER_CATALOG,
     icon: ClipboardList,
     roles: PHARMACY_ROLES,
     module: 'pharmacy',
     children: [
-      { label: 'Facility Catalog', href: ROUTES.PHARMACY_FACILITY_CATALOG, icon: Building2 },
-      // { label: 'Drug Catalog', href: ROUTES.PHARMACY_DRUG_CATALOG, icon: Package },
-      // { label: 'Non-Drug Catalog', href: ROUTES.PHARMACY_NON_DRUG_CATALOG, icon: Package },
       { label: 'Supplier Catalog', href: ROUTES.PHARMACY_SUPPLIER_CATALOG, icon: Truck },
-      { label: 'Contract Catalog', href: ROUTES.PHARMACY_CONTRACT_CATALOG, icon: FileText },
       { label: 'Hospital Facilities', href: ROUTES.PHARMACY_HOSPITAL_FACILITY, icon: Building2 },
       { label: 'Clinic Facilities', href: ROUTES.PHARMACY_CLINIC_FACILITY, icon: Building2 },
     ],
@@ -264,6 +266,73 @@ const navigation: NavItem[] = [
     module: 'pharmacy',
   },
   {
+    label: 'Dashboard',
+    href: ROUTES.PHARMACY_INVENTORY,
+    icon: LayoutDashboard,
+    roles: PHARMACY_ROLES,
+    module: 'inventory',
+  },
+  {
+    label: 'Inventory Catalog',
+    href: ROUTES.PHARMACY_DRUGS,
+    icon: Package,
+    roles: PHARMACY_ROLES,
+    module: 'inventory',
+    children: [
+      { label: 'Drug Inventory', href: ROUTES.PHARMACY_DRUGS, icon: Package },
+      { label: 'Non-Drug Inventory', href: ROUTES.PHARMACY_NON_DRUGS, icon: ClipboardList },
+    ],
+  },
+  {
+    label: 'Facility Inventory',
+    href: ROUTES.PHARMACY_FACILITY_DRUGS,
+    icon: Building2,
+    roles: PHARMACY_ROLES,
+    module: 'inventory',
+    children: [
+      { label: 'Drug', href: ROUTES.PHARMACY_FACILITY_DRUGS, icon: Package },
+      { label: 'Non-Drug', href: ROUTES.PHARMACY_FACILITY_NON_DRUGS, icon: ClipboardList },
+    ],
+  },
+  {
+    label: 'Store Location Management',
+    href: ROUTES.PHARMACY_STORE_LOCATIONS,
+    icon: MapPin,
+    roles: PHARMACY_ROLES,
+    module: 'inventory',
+  },
+  {
+    label: 'KEW.PS-4 Ledger',
+    href: ROUTES.PHARMACY_LEDGER,
+    icon: ScrollText,
+    roles: PHARMACY_ROLES,
+    module: 'inventory',
+  },
+  {
+    label: 'Distribution',
+    href: ROUTES.PHARMACY_DISTRIBUTION_INDENT,
+    icon: Truck,
+    roles: PHARMACY_ROLES,
+    module: 'inventory',
+    children: [
+      { label: 'Indent Requests', href: ROUTES.PHARMACY_DISTRIBUTION_INDENT, icon: ClipboardList },
+      { label: 'Issue Counter', href: ROUTES.PHARMACY_DISTRIBUTION_ISSUE, icon: Package },
+      { label: 'Indent Entitlement', href: ROUTES.PHARMACY_DISTRIBUTION_ENTITLEMENT, icon: Shield },
+    ],
+  },
+  {
+    label: 'Stock Analysis',
+    href: ROUTES.PHARMACY_NEAR_EXPIRY,
+    icon: AlertTriangle,
+    roles: PHARMACY_ROLES,
+    module: 'inventory',
+    children: [
+      { label: 'Near Expiry', href: ROUTES.PHARMACY_NEAR_EXPIRY, icon: AlertTriangle },
+      { label: 'Slow-Moving Items', href: ROUTES.PHARMACY_SLOW_MOVING, icon: BarChart3 },
+      { label: 'Inventory Report', href: ROUTES.PHARMACY_INVENTORY_REPORT, icon: FileText },
+    ],
+  },
+  {
     label: 'MySuhu',
     href: '/suhu/dashboard',
     icon: Thermometer,
@@ -284,16 +353,27 @@ const navigation: NavItem[] = [
     ],
   },
   {
+    label: 'MyMSDS',
+    href: '/hub/mymsds',
+    icon: FlaskConical,
+    module: 'mymsds',
+    children: [
+      { label: 'Dashboard', href: '/hub/mymsds', icon: LayoutDashboard },
+      { label: 'MSDS Directory', href: '/hub/mymsds', icon: ClipboardList },
+      { label: 'Emergency Procedures', href: '/hub/mymsds', icon: Shield },
+    ],
+  },
+  {
     label: 'MyKunci',
     href: '/kunci/dashboard',
     icon: Key,
     module: 'kunci',
     children: [
       { label: 'Dashboard', href: '/kunci/dashboard', icon: LayoutDashboard },
-      { label: 'Daftar Kunci', href: '/kunci/daftar', icon: ClipboardList },
-      { label: 'Log Pergerakan', href: '/kunci/log', icon: FileText },
-      { label: 'Verifikasi Bulanan', href: '/kunci/audit', icon: Shield },
-      { label: 'Polisi Kunci KKM', href: '/kunci/polisi', icon: ScrollText },
+      { label: 'Key Register', href: '/kunci/daftar', icon: ClipboardList },
+      { label: 'Movement Log', href: '/kunci/log', icon: FileText },
+      { label: 'Monthly Verification', href: '/kunci/audit', icon: Shield },
+      { label: 'MOH Key Policy', href: '/kunci/polisi', icon: ScrollText },
     ],
   },
   {
@@ -303,15 +383,15 @@ const navigation: NavItem[] = [
     module: 'transporter',
     children: [
       { label: 'Dashboard', href: '/transporter/dashboard', icon: LayoutDashboard },
-      { label: 'Permohonan Baru', href: '/transporter/requests/new', icon: FileText },
-      { label: 'Semak Slot SG', href: '/transporter/availability', icon: Calendar },
-      { label: 'Permohonan Saya', href: '/transporter/requests/my', icon: ClipboardList },
-      { label: 'Panel Pemandu', href: '/transporter/driver/panel', icon: Truck },
-      { label: 'Kelulusan Pentadbir', href: '/transporter/admin/approval', icon: Shield },
-      { label: 'Kenderaan Fleet', href: '/transporter/admin/vehicles', icon: Settings },
-      { label: 'Aduan Pemandu', href: '/transporter/admin/vehicles/issues', icon: AlertTriangle },
+      { label: 'New Request', href: '/transporter/requests/new', icon: FileText },
+      { label: 'Check SG Slot', href: '/transporter/availability', icon: Calendar },
+      { label: 'My Requests', href: '/transporter/requests/my', icon: ClipboardList },
+      { label: 'Driver Panel', href: '/transporter/driver/panel', icon: Truck },
+      { label: 'Admin Approvals', href: '/transporter/admin/approval', icon: Shield },
+      { label: 'Fleet Vehicles', href: '/transporter/admin/vehicles', icon: Settings },
+      { label: 'Driver Issues', href: '/transporter/admin/vehicles/issues', icon: AlertTriangle },
       { label: 'Mileage & Claims', href: '/transporter/admin/vehicles/movement', icon: BarChart3 },
-      { label: 'Penugasan Peranan', href: '/transporter/admin/roles', icon: Users },
+      { label: 'Role Assignments', href: '/transporter/admin/roles', icon: Users },
     ],
   },
   {
@@ -321,8 +401,8 @@ const navigation: NavItem[] = [
     module: 'crossborder',
     children: [
       { label: 'Dashboard', href: '/crossborder/dashboard', icon: LayoutDashboard },
-      { label: 'Permohonan Baru', href: '/crossborder/create', icon: FileText },
-      { label: 'Log Pergerakan', href: '/crossborder/log', icon: ClipboardList },
+      { label: 'New Permit Request', href: '/crossborder/create', icon: FileText },
+      { label: 'Movement Log', href: '/crossborder/log', icon: ClipboardList },
     ],
   },
 ]
@@ -332,6 +412,7 @@ export const Sidebar: React.FC = () => {
   const location = useLocation()
   const { user, logout: storeLogout } = useAuthStore()
   const { sidebarOpen, sidebarCollapsed, setSidebarOpen } = useSidebar()
+  const { language, t } = useLanguage()
   const [isMobile, setIsMobile] = useState(false)
 
   const userRole = user?.role?.role_code
@@ -405,14 +486,18 @@ export const Sidebar: React.FC = () => {
   // State to track expanded menu items
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
 
+  const fullPath = useMemo(() => location.pathname + location.search, [location.pathname, location.search])
+
   // Helper function to check if any child or nested child is active
   const hasActiveChild = React.useCallback((item: NavItem): boolean => {
     if (!item.children) return false
     return item.children.some((child) => {
-      const childIsActive = currentPath === child.href || currentPath.startsWith(child.href + '/')
+      const childIsActive = child.href.includes('?')
+        ? fullPath === child.href
+        : currentPath === child.href || currentPath.startsWith(child.href + '/')
       return childIsActive || hasActiveChild(child)
     })
-  }, [currentPath])
+  }, [currentPath, fullPath])
 
   // Auto-expand items with active children on mount and path change
   useEffect(() => {
@@ -453,7 +538,9 @@ export const Sidebar: React.FC = () => {
 
   const renderNavItem = React.useCallback((item: NavItem, depth = 0) => {
     const Icon = item.icon
-    const isActive = currentPath === item.href || currentPath.startsWith(item.href + '/')
+    const isActive = item.href.includes('?')
+      ? fullPath === item.href
+      : currentPath === item.href || (item.href !== '/' && currentPath.startsWith(item.href + '/'))
     const hasChildren = item.children && item.children.length > 0
     const expanded = hasChildren && isExpanded(item.href)
     const hasActive = hasActiveChild(item)
@@ -474,34 +561,150 @@ export const Sidebar: React.FC = () => {
       totalChildBadgeCount = transporterCounts.myRequests + transporterCounts.driverPanel + transporterCounts.adminApproval
     }
 
+    const getTranslatedLabel = (label: string): string => {
+      const map: Record<string, string> = {
+        'Dashboard': t('nav.dashboard', 'Dashboard'),
+        'Administration': t('nav.administration', 'Administration'),
+        'Monitoring': t('nav.search', 'Monitoring'),
+        'Financial': t('sidebar.mywarrant', 'Financial'),
+        'Medical Oxygen': language === 'ms' ? 'Oksigen Perubatan' : 'Medical Oxygen',
+        'Oxygen Dashboard': language === 'ms' ? 'Dashboard Oksigen' : 'Oxygen Dashboard',
+        'Cylinder Inventory': language === 'ms' ? 'Inventori Silinder' : 'Cylinder Inventory',
+        'Cylinder Request': language === 'ms' ? 'Permohonan Silinder' : 'Cylinder Request',
+        'QR Generator': language === 'ms' ? 'Jana Kod QR' : 'QR Generator',
+        'Stock Reconciliation': language === 'ms' ? 'Penyelarasan Stok' : 'Stock Reconciliation',
+        'Cylinder Report': language === 'ms' ? 'Laporan Silinder' : 'Cylinder Report',
+        'Cylinder Maintenance': language === 'ms' ? 'Penyelenggaraan Silinder' : 'Cylinder Maintenance',
+        'Supplier Catalog': language === 'ms' ? 'Katalog Pembekal' : 'Supplier Catalog',
+        'Hospital Facilities': language === 'ms' ? 'Fasiliti Hospital' : 'Hospital Facilities',
+        'Clinic Facilities': language === 'ms' ? 'Fasiliti Klinik' : 'Clinic Facilities',
+        'Procurement Reports': language === 'ms' ? 'Laporan Perolehan' : 'Procurement Reports',
+        'Financial Reports': language === 'ms' ? 'Laporan Kewangan' : 'Financial Reports',
+        'Drug Inventory': language === 'ms' ? 'Inventori Ubat' : 'Drug Inventory',
+        'Non-Drug Inventory': language === 'ms' ? 'Inventori Bukan Ubat' : 'Non-Drug Inventory',
+        'Drug': language === 'ms' ? 'Ubat' : 'Drug',
+        'Non-Drug': language === 'ms' ? 'Bukan Ubat' : 'Non-Drug',
+        'Near Expiry': language === 'ms' ? 'Hampir Luput' : 'Near Expiry',
+        'Slow-Moving Items': language === 'ms' ? 'Barangan Lambat Bergerak' : 'Slow-Moving Items',
+        'Inventory Report': language === 'ms' ? 'Laporan Inventori' : 'Inventory Report',
+        'Stock Analysis': language === 'ms' ? 'Analisis Stok' : 'Stock Analysis',
+        'Distribution': language === 'ms' ? 'Pengedaran (Inden Store)' : 'Distribution (Store Indent)',
+        'Indent Requests': language === 'ms' ? 'Permohonan Inden' : 'Indent Requests',
+        'Issue Counter': language === 'ms' ? 'Kaunter Pengeluaran' : 'Issue Counter',
+        'Indent Entitlement': language === 'ms' ? 'Kelayakan Inden Jabatan' : 'Indent Entitlement',
+        'Warrant': language === 'ms' ? 'Waran' : 'Warrant',
+        'APPL Allocation': language === 'ms' ? 'Peruntukan APPL' : 'APPL Allocation',
+        'CC Allocation': language === 'ms' ? 'Peruntukan CC' : 'CC Allocation',
+        'LP Allocation': language === 'ms' ? 'Peruntukan LP' : 'LP Allocation',
+        'Budget Forecasting': language === 'ms' ? 'Ramalan Belanjawan' : 'Budget Forecasting',
+        'Purchase Orders': language === 'ms' ? 'Pesanan Pembelian' : 'Purchase Orders',
+        'LPO': language === 'ms' ? 'LPO' : 'LPO',
+        'Order Tracking': language === 'ms' ? 'Penjejakan Pesanan' : 'Order Tracking',
+        'Received Item': language === 'ms' ? 'Penerimaan Barangan' : 'Received Item',
+        'Payment': language === 'ms' ? 'Pembayaran' : 'Payment',
+        'Credit Notes': language === 'ms' ? 'Nota Kredit' : 'Credit Notes',
+        'Penalty': language === 'ms' ? 'Denda & Penalti' : 'Penalty',
+        'LOU': language === 'ms' ? 'Surat Aku Janji (LOU)' : 'LOU',
+        'Supplier Performance': language === 'ms' ? 'Prestasi Pembekal' : 'Supplier Performance',
+        'Breach Log': language === 'ms' ? 'Log Pelanggaran Suhu' : 'Breach Log',
+        'Admin Setup': language === 'ms' ? 'Tetapan Pentadbir' : 'Admin Setup',
+        'Users': language === 'ms' ? 'Pengguna' : 'Users',
+        'Access Requests': language === 'ms' ? 'Permohonan Akses' : 'Access Requests',
+        'Memo Approval': language === 'ms' ? 'Kelulusan Memo' : 'Memo Approval',
+        'Sensitive Data Requests': language === 'ms' ? 'Permohonan Data Sensitif' : 'Sensitive Data Requests',
+        'Hospitals': language === 'ms' ? 'Hospital' : 'Hospitals',
+        'Clinics': language === 'ms' ? 'Klinik' : 'Clinics',
+        'Departments': language === 'ms' ? 'Jabatan' : 'Departments',
+        'Roles & Permissions': language === 'ms' ? 'Peranan & Kebenaran' : 'Roles & Permissions',
+        'System Health': language === 'ms' ? 'Kesihatan Sistem' : 'System Health',
+        'Backup Status': language === 'ms' ? 'Status Sandaran' : 'Backup Status',
+        'Backups': language === 'ms' ? 'Sandaran' : 'Backups',
+        'Alerts': language === 'ms' ? 'Amaran' : 'Alerts',
+        'Audit Logs': language === 'ms' ? 'Log Audit' : 'Audit Logs',
+        'Settings': language === 'ms' ? 'Tetapan' : 'Settings',
+      }
+      return map[label] || label
+    }
+
+    const itemLabel = getTranslatedLabel(item.label)
+
+    if (depth > 0) {
+      // Sub-item rendering with sleek tree dots & micro styling
+      return (
+        <motion.div
+          key={`${item.href}-${item.label}`}
+          whileHover={{ x: 3 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+        >
+          <NavLink
+            to={item.href}
+            onClick={() => {
+              if (isMobile) {
+                setSidebarOpen(false)
+              }
+            }}
+            className={({ isActive }) =>
+              cn(
+                'flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 group relative',
+                isActive
+                  ? 'text-teal-300 font-semibold bg-teal-500/10 border border-teal-500/20 shadow-[0_0_12px_rgba(20,184,166,0.12)]'
+                  : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/40 border border-transparent'
+              )
+            }
+          >
+            {({ isActive }) => (
+              <>
+                <span className={cn(
+                  "w-1.5 h-1.5 rounded-full transition-all duration-200 flex-shrink-0",
+                  isActive 
+                    ? "bg-teal-400 shadow-[0_0_6px_rgba(45,212,191,0.8)] scale-125" 
+                    : "bg-slate-600 group-hover:bg-slate-400"
+                )} />
+                <span className="flex-1 truncate">{itemLabel}</span>
+                {badgeCount > 0 && (
+                  <span className="px-2 py-0.5 bg-rose-500/15 text-rose-400 border border-rose-500/30 rounded-full text-[10px] font-bold">
+                    {badgeCount}
+                  </span>
+                )}
+              </>
+            )}
+          </NavLink>
+        </motion.div>
+      )
+    }
+
     if (hasChildren) {
       return (
-        <div key={item.href} className="space-y-0.5">
+        <div key={`${item.href}-${item.label}`} className="space-y-0.5">
           <motion.button
-            whileHover={{ x: 4 }}
+            whileHover={{ x: 3 }}
             whileTap={{ scale: 0.98 }}
-            transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 28 }}
             onClick={() => toggleExpanded(item.href)}
             className={cn(
-              'w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-200 group',
+              'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 group relative',
               activeState
-                ? 'text-[#00a68a] bg-[#e6f7f4]'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                ? 'text-emerald-400 bg-slate-800/80 border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.08)]'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800/50 border border-transparent'
             )}
           >
+            {activeState && (
+              <span className="absolute left-0 top-2 bottom-2 w-1 bg-emerald-400 rounded-r-full shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+            )}
+            
             <div className={cn(
-              "w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 flex-shrink-0",
+              "w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 flex-shrink-0",
               activeState 
-                ? "bg-[#00a68a] text-white shadow-sm shadow-[#00a68a]/20" 
-                : "bg-slate-50 text-slate-500 group-hover:bg-slate-100"
+                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-sm" 
+                : "bg-slate-800/60 text-slate-400 group-hover:bg-slate-700/60 group-hover:text-slate-200"
             )}>
-              <Icon className="w-5 h-5 flex-shrink-0" />
+              <Icon className="w-4 h-4 flex-shrink-0" />
             </div>
             
             <span className={cn("flex-1 text-left tracking-tight flex items-center justify-between", sidebarCollapsed && "lg:hidden")}>
-              <span>{item.label}</span>
+              <span className="font-semibold">{itemLabel}</span>
               {totalChildBadgeCount > 0 && (
-                <span className="px-2 py-0.5 bg-rose-50 text-rose-600 border border-rose-100/50 rounded-full text-[10px] font-bold mr-2">
+                <span className="px-2 py-0.5 bg-rose-500/15 text-rose-400 border border-rose-500/30 rounded-full text-[10px] font-bold mr-2">
                   {totalChildBadgeCount}
                 </span>
               )}
@@ -511,7 +714,7 @@ export const Sidebar: React.FC = () => {
               animate={{ rotate: expanded ? 180 : 0 }}
               transition={{ duration: 0.2, ease: 'easeOut' }}
             >
-              <ChevronDown className="w-4 h-4 flex-shrink-0" />
+              <ChevronDown className="w-4 h-4 flex-shrink-0 text-slate-400 group-hover:text-slate-200" />
             </motion.div>
           </motion.button>
           
@@ -524,7 +727,7 @@ export const Sidebar: React.FC = () => {
                 transition={{ duration: 0.2, ease: 'easeInOut' }}
                 className="overflow-hidden"
               >
-                <div className="ml-[1.75rem] mt-1 space-y-1 border-l-2 border-[#e6f7f4]/80 pl-4">
+                <div className="ml-5 mt-1 space-y-1 border-l border-slate-800/90 pl-3">
                   {item.children?.map((child) => renderNavItem(child, depth + 1))}
                 </div>
               </motion.div>
@@ -536,10 +739,10 @@ export const Sidebar: React.FC = () => {
 
     return (
       <motion.div
-        key={item.href}
-        whileHover={{ x: 4 }}
+        key={`${item.href}-${item.label}`}
+        whileHover={{ x: 3 }}
         whileTap={{ scale: 0.98 }}
-        transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+        transition={{ type: 'spring', stiffness: 400, damping: 28 }}
       >
         <NavLink
           to={item.href}
@@ -550,29 +753,37 @@ export const Sidebar: React.FC = () => {
           }}
           className={({ isActive }) =>
             cn(
-              'flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-200 group',
+              'flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 group relative',
               isActive
-                ? 'text-[#00a68a] bg-[#e6f7f4]'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                ? 'text-emerald-400 bg-slate-800/80 border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.08)]'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800/50 border border-transparent'
             )
           }
         >
-          <div className={cn(
-            "w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 flex-shrink-0",
-            isActive 
-              ? "bg-[#00a68a] text-white shadow-sm shadow-[#00a68a]/20" 
-              : "bg-slate-50 text-slate-500 group-hover:bg-slate-100"
-          )}>
-            <Icon className="w-5 h-5 flex-shrink-0" />
-          </div>
-          <span className="flex-1 flex justify-between items-center">
-            <span>{item.label}</span>
-            {badgeCount > 0 && (
-              <span className="px-2 py-0.5 bg-rose-50 text-rose-600 border border-rose-100/50 rounded-full text-[10px] font-bold">
-                {badgeCount}
+          {({ isActive }) => (
+            <>
+              {isActive && (
+                <span className="absolute left-0 top-2 bottom-2 w-1 bg-emerald-400 rounded-r-full shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+              )}
+              
+              <div className={cn(
+                "w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 flex-shrink-0",
+                isActive 
+                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-sm" 
+                  : "bg-slate-800/60 text-slate-400 group-hover:bg-slate-700/60 group-hover:text-slate-200"
+              )}>
+                <Icon className="w-4 h-4 flex-shrink-0" />
+              </div>
+              <span className="flex-1 flex justify-between items-center">
+                <span>{itemLabel}</span>
+                {badgeCount > 0 && (
+                  <span className="px-2 py-0.5 bg-rose-500/15 text-rose-400 border border-rose-500/30 rounded-full text-[10px] font-bold">
+                    {badgeCount}
+                  </span>
+                )}
               </span>
-            )}
-          </span>
+            </>
+          )}
         </NavLink>
       </motion.div>
     )
@@ -588,7 +799,7 @@ export const Sidebar: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setSidebarOpen(false)}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] lg:hidden"
+            className="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-[60] lg:hidden"
           />
         )}
       </AnimatePresence>
@@ -601,40 +812,45 @@ export const Sidebar: React.FC = () => {
         }}
         transition={{ duration: 0.3, ease: 'easeInOut' }}
         className={cn(
-          'fixed left-0 bg-white border-r border-slate-200',
-          'flex flex-col z-[60]',
-          'top-20 sm:top-28 h-[calc(100vh-80px)] sm:h-[calc(100vh-112px)]',
+          'fixed left-0 bg-slate-950/95 backdrop-blur-xl border-r border-slate-800/80',
+          'flex flex-col z-[60] shadow-2xl shadow-slate-950/50',
+          'top-16 sm:top-20 lg:top-24 h-[calc(100vh-64px)] sm:h-[calc(100vh-80px)] lg:h-[calc(100vh-96px)]',
           'lg:translate-x-0 lg:w-[280px]'
         )}
       >
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto pt-6 px-4 pb-4 space-y-1">
-          <p className={cn(
-            "text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mb-4 px-3"
-          )}>
-            NAVIGATION PANEL
-          </p>
+        <nav className="flex-1 overflow-y-auto pt-5 px-3.5 pb-4 space-y-1.5 custom-scrollbar">
+          <div className="flex items-center gap-2 mb-3.5 px-3">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
+              NAVIGATION PANEL
+            </p>
+          </div>
           {filteredNavigation.map((item) => renderNavItem(item))}
         </nav>
 
-        {/* User Profile */}
-        <div className="p-4 border-t border-slate-100">
+        {/* User Profile Footer */}
+        <div className="p-3 border-t border-slate-800/80 bg-slate-950/60">
           <div
             className={cn(
-              'flex items-center gap-3 p-3 rounded-xl bg-slate-50/50 border border-slate-100/80 shadow-[0_2px_8px_-3px_rgba(0,0,0,0.05)]'
+              'flex items-center gap-3 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800/90 shadow-lg group hover:border-slate-700/80 transition-all duration-200'
             )}
           >
-            <Avatar
-              src={user?.profile_photo_url}
-              name={user?.full_name}
-              size="sm"
-            />
+            <div className="relative">
+              <Avatar
+                src={user?.profile_photo_url}
+                name={user?.full_name}
+                size="sm"
+                className="ring-2 ring-emerald-500/30 group-hover:ring-emerald-400/60 transition-all"
+              />
+              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-400 rounded-full ring-2 ring-slate-950" />
+            </div>
             
             <div className={cn("flex-1 min-w-0")}>
-              <p className="text-sm font-semibold text-slate-800 truncate">
+              <p className="text-xs font-semibold text-slate-100 truncate group-hover:text-emerald-300 transition-colors">
                 {user?.full_name}
               </p>
-              <p className="text-xs text-slate-400 truncate">
+              <p className="text-[11px] text-slate-400 truncate">
                 {user?.role?.role_name}
               </p>
             </div>
@@ -645,7 +861,7 @@ export const Sidebar: React.FC = () => {
               onClick={handleLogout}
               title="Logout"
               className={cn(
-                "p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors duration-200"
+                "p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors duration-200"
               )}
             >
               <LogOut className="w-4 h-4" />

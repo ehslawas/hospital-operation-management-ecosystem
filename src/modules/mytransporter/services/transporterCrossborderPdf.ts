@@ -409,7 +409,7 @@ export async function generateCrossborderPermissionLetterPDF(request: TransportR
   doc.setFont('times', 'normal');
   doc.setFontSize(9.5);
   doc.text('Jalan Hospital, 98850 Lawas, Sarawak, Malaysia', margin + 26, y + 13.5);
-  doc.text('Tel: 085 283 781  E-mel: hospitallawas@moh.gov.my', margin + 26, y + 17.5);
+  doc.text('Tel: 085 283 781  E-mel: hosp_lawas@moh.gov.my', margin + 26, y + 17.5);
 
   y += 22;
 

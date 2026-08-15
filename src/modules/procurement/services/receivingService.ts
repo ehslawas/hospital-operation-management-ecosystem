@@ -6,6 +6,7 @@ import type {
 } from '@/types/pharmacy'
 import { createCreditNoteDraft, approveCreditNote } from './creditNoteService'
 import { checkAndCreateLatePenalty } from './penaltyService'
+import { recalculateOverdueStatus } from './orderTrackingService'
 
 export interface GoodsReceiptCreate {
   hospital_id: string
@@ -112,34 +113,83 @@ export async function getReceivingDetail(poId: string): Promise<ApiResponse<any>
 /**
  * Create a new Goods Receipt and update associated records
  */
-export async function createGoodsReceipt(data: GoodsReceiptCreate): Promise<ApiResponse<GoodsReceipt>> {
+export async function createGoodsReceipt(
+  data: GoodsReceiptCreate,
+  options?: { skipTrackingSync?: boolean }
+): Promise<ApiResponse<GoodsReceipt>> {
   try {
     if (!isSupabaseConfigured()) throw new Error('Supabase not configured')
 
-    const gr_number = await generateGRNumber(data.hospital_id)
+    // 0. Check if a Goods Receipt for this PO with the same Delivery Note or Invoice already exists to prevent duplicate GR creation
+    if (data.delivery_note_number || data.invoice_number) {
+      let query = supabase
+        .from('pharmacy_goods_receipts')
+        .select('*')
+        .eq('po_id', data.po_id)
+      
+      if (data.delivery_note_number) {
+        query = query.eq('delivery_note_number', data.delivery_note_number)
+      } else if (data.invoice_number) {
+        query = query.eq('invoice_number', data.invoice_number)
+      }
 
-    // 1. Create the GR Header
-    const { data: grData, error: grError } = await supabase
-      .from('pharmacy_goods_receipts')
-      .insert({
-        hospital_id: data.hospital_id,
-        gr_number,
-        po_id: data.po_id,
-        lpo_id: data.lpo_id,
-        receipt_date: data.receipt_date,
-        delivery_note_number: data.delivery_note_number,
-        invoice_number: data.invoice_number,
-        invoice_amount: data.invoice_amount,
-        status: 'accepted',
-        received_by: data.received_by,
-        notes: data.notes,
-        document_url: data.document_url,
-        document_urls: data.document_urls || []
-      })
-      .select()
-      .single()
+      const { data: existingGr } = await query.maybeSingle()
+      if (existingGr) {
+        console.log(`[createGoodsReceipt] Existing GR ${existingGr.gr_number} found for PO ${data.po_id}. Skipping duplicate creation.`)
+        return { data: existingGr as GoodsReceipt, error: null }
+      }
+    }
 
-    if (grError) throw grError
+    // 1. Create the GR Header with collision retry loop for high concurrency
+    let grData: any = null
+    let grError: any = null
+    let attempts = 0
+
+    while (attempts < 5) {
+      attempts++
+      let gr_number = await generateGRNumber(data.hospital_id)
+      if (attempts > 1) {
+        const rand = Math.floor(1000 + Math.random() * 9000)
+        gr_number = `${gr_number}-${rand}`
+      }
+
+      const res = await supabase
+        .from('pharmacy_goods_receipts')
+        .insert({
+          hospital_id: data.hospital_id,
+          gr_number,
+          po_id: data.po_id,
+          lpo_id: data.lpo_id,
+          receipt_date: data.receipt_date,
+          delivery_note_number: data.delivery_note_number,
+          invoice_number: data.invoice_number,
+          invoice_amount: data.invoice_amount,
+          status: 'accepted',
+          received_by: data.received_by,
+          notes: data.notes,
+          document_url: data.document_url,
+          document_urls: data.document_urls || []
+        })
+        .select()
+        .single()
+
+      if (!res.error) {
+        grData = res.data
+        grError = null
+        break
+      }
+
+      if (res.error.code === '23505') {
+        console.warn(`[createGoodsReceipt] GR number collision (${res.error.message}) on attempt ${attempts}, retrying...`)
+        grError = res.error
+        await new Promise(r => setTimeout(r, 100 * attempts))
+        continue
+      }
+
+      throw res.error
+    }
+
+    if (grError || !grData) throw grError || new Error('Failed to create Goods Receipt header')
     const newGr = grData as GoodsReceipt
 
     // 2. Prepare and Insert GR Items
@@ -293,27 +343,94 @@ export async function createGoodsReceipt(data: GoodsReceiptCreate): Promise<ApiR
           .update({ quantity_received: newTotalReceived }) // only received, CN doesn't add to stock received
           .eq('id', item.po_item_id)
 
-        // Update Order Tracking
-        if (data.lpo_id && item.item_id) {
-          const trackingUpdate: any = {}
-          
+        // ─── FIX: Robust Order Tracking Update ───────────────────────────────────
+        // Always update tracking when goods arrive. Use 3-level fallback matching:
+        // Level 1: item_id match (most specific)
+        // Level 2: po_item_id via a sub-query (handles manual items with null item_id)
+        // Level 3: if all PO items are now fully received, bulk-update the entire LPO
+        if (data.lpo_id) {
+          const trackingUpdate: any = {
+            updated_at: new Date().toISOString()
+          }
+
           if (isItemFullyReceived) {
             trackingUpdate.status = 'delivered'
             trackingUpdate.actual_delivery_date = data.receipt_date
             trackingUpdate.tarikh_serahan = data.receipt_date ? new Date(data.receipt_date).toISOString() : new Date().toISOString()
             trackingUpdate.is_overdue = false
+            trackingUpdate.days_overdue = 0
+          } else {
+            // Partial delivery: at minimum clear the overdue flag since goods have arrived
+            trackingUpdate.is_overdue = false
           }
-          
-          if (data.lpo_id && item.item_id) {
-            await supabase
+
+          // Level 1: Match by item_id (catalogue item FK)
+          if (item.item_id) {
+            const { count: matchCount } = await supabase
               .from('pharmacy_order_tracking')
-              .update(trackingUpdate)
+              .select('id', { count: 'exact', head: true })
               .eq('lpo_id', data.lpo_id)
               .eq('item_id', item.item_id)
+
+            if (matchCount && matchCount > 0) {
+              await supabase
+                .from('pharmacy_order_tracking')
+                .update(trackingUpdate)
+                .eq('lpo_id', data.lpo_id)
+                .eq('item_id', item.item_id)
+              continue
+            }
+          }
+
+          // Level 2: Match by po_item_id value in item_id column (handles null item_id for manual catalog items)
+          if (item.po_item_id) {
+            const { count: matchCount2 } = await supabase
+              .from('pharmacy_order_tracking')
+              .select('id', { count: 'exact', head: true })
+              .eq('lpo_id', data.lpo_id)
+              .eq('item_id', item.po_item_id)
+
+            if (matchCount2 && matchCount2 > 0) {
+              await supabase
+                .from('pharmacy_order_tracking')
+                .update(trackingUpdate)
+                .eq('lpo_id', data.lpo_id)
+                .eq('item_id', item.po_item_id)
+            }
           }
         }
+        // ─────────────────────────────────────────────────────────────────────────
       }
     }
+
+    // ─── FIX Level 3: If all PO items are fully received, bulk-mark entire LPO as delivered ───
+    // This is the safety net for items that had no item_id / po_item_id match above.
+    if (data.lpo_id) {
+      const { data: allPoItemsFinal } = await supabase
+        .from('pharmacy_purchase_order_items')
+        .select('id, quantity_ordered, quantity_received')
+        .eq('po_id', data.po_id)
+
+      const allFullyReceived = allPoItemsFinal && allPoItemsFinal.length > 0 &&
+        allPoItemsFinal.every(pi => (pi.quantity_received || 0) >= (pi.quantity_ordered || 0))
+
+      if (allFullyReceived) {
+        // Mark ALL remaining non-delivered tracking items for this LPO as delivered
+        await supabase
+          .from('pharmacy_order_tracking')
+          .update({
+            status: 'delivered',
+            actual_delivery_date: data.receipt_date,
+            tarikh_serahan: data.receipt_date ? new Date(data.receipt_date).toISOString() : new Date().toISOString(),
+            is_overdue: false,
+            days_overdue: 0,
+            updated_at: new Date().toISOString()
+          })
+          .eq('lpo_id', data.lpo_id)
+          .neq('status', 'delivered')
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────────
 
     // 4. Update PO Status
     if (anyItemsReceived) {
@@ -375,7 +492,7 @@ export async function createGoodsReceipt(data: GoodsReceiptCreate): Promise<ApiR
           entity_id: data.po_id,
           action: poStatus,
           approved_by: data.received_by,
-          notes: `Goods Receipt ${gr_number} created. Status updated to ${poStatus}.`,
+          notes: `Goods Receipt ${newGr.gr_number} created. Status updated to ${poStatus}.`,
           created_at: new Date().toISOString()
         })
     }
@@ -397,6 +514,15 @@ export async function createGoodsReceipt(data: GoodsReceiptCreate): Promise<ApiR
           itemCode,
           data.lpo_id
         )
+      }
+    }
+
+    // 6. Automatically sync and cross-match Order Tracking table (skipped during bulk Excel authorization)
+    if (!options?.skipTrackingSync) {
+      try {
+        await recalculateOverdueStatus(data.hospital_id)
+      } catch (syncErr) {
+        console.warn('Post-receiving order tracking sync warning:', syncErr)
       }
     }
 
@@ -726,7 +852,25 @@ export async function deleteGoodsReceipt(grId: string, poId: string): Promise<Ap
       : { count: 0 }
 
     const totalRemaining = (countA || 0) + (countB || 0)
-    const newPoStatus = totalRemaining > 0 ? 'partial_received' : 'approved'
+
+    // FIX: Preserve the PO's original status when reverting after GR deletion.
+    // If no GRs remain, revert to the original pre-receiving status instead of blindly
+    // setting 'approved' (which would wipe 'sent' status).
+    const { data: currentPo } = await supabase
+      .from('pharmacy_purchase_orders')
+      .select('status')
+      .eq('id', poId)
+      .single()
+    const previousStatus = currentPo?.status
+
+    let newPoStatus: string
+    if (totalRemaining > 0) {
+      newPoStatus = 'partial_received'
+    } else if (previousStatus === 'sent') {
+      newPoStatus = 'sent' // Preserve sent status; supplier still has the order
+    } else {
+      newPoStatus = 'approved'
+    }
     
     await supabase
       .from('pharmacy_purchase_orders')
@@ -804,10 +948,11 @@ export async function updateGoodsReceipt(
                 .single()
 
               if (poItem) {
+                // FIX: Math.max(0,...) guard to prevent negative quantity_received
                 await supabase
                   .from('pharmacy_purchase_order_items')
                   .update({ 
-                    quantity_received: (poItem.quantity_received || 0) + qtyDelta 
+                    quantity_received: Math.max(0, (poItem.quantity_received || 0) + qtyDelta) 
                   })
                   .eq('id', oldItem.po_item_id)
               }
@@ -869,10 +1014,11 @@ export async function updateGoodsReceipt(
                 .single()
 
               if (poItem) {
+                // FIX: Math.max(0,...) guard to prevent negative quantity_received
                 await supabase
                   .from('pharmacy_purchase_order_items')
                   .update({ 
-                    quantity_received: (poItem.quantity_received || 0) + qtyDelta 
+                    quantity_received: Math.max(0, (poItem.quantity_received || 0) + qtyDelta) 
                   })
                   .eq('id', oldItem.lpo_item_id)
               }

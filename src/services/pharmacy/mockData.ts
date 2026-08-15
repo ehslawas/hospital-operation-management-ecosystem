@@ -1085,6 +1085,22 @@ export const mockOxygenCylinders: OxygenCylinderWithRelations[] = [
     type_info: mockOxygenCylinderTypes[1],
     current_location: mockStockLocations[0],
   },
+  {
+    id: 'oc-004',
+    hospital_id: '1a2b3c4d-5e6f-7890-abcd-ef1234567890',
+    serial_number: 'O2-P101-E-0020',
+    qr_code_value: 'O2-P101-E-0020',
+    type_id: 'oct-003',
+    status: 'issued',
+    current_location_id: 'loc-001',
+    last_fill_date: '2024-03-20',
+    next_maintenance_date: '2024-09-20',
+    certification_expiry: '2025-03-20',
+    supplier_id: 'sup-001',
+    created_at: '2024-01-01T00:00:00Z',
+    type_info: mockOxygenCylinderTypes[2],
+    current_location: mockStockLocations[0],
+  },
 ]
 
 // =====================================================

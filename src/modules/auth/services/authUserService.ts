@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import { supabase, isSupabaseConfigured } from '../../../services/supabase'
 
 /**
@@ -80,87 +80,23 @@ export async function createAuthUser(
     if (checkByEmailResponse.ok) {
       const usersData = await checkByEmailResponse.json()
       if (usersData.users && usersData.users.length > 0) {
-        const existingAuthUser = usersData.users[0]
-        
-        // CRITICAL: Verify the email matches exactly - don't reuse if email is different
-        // This prevents reusing an Auth account that belongs to a different user
-        if (existingAuthUser.email && existingAuthUser.email.toLowerCase() !== email.toLowerCase()) {
-          return {
-            success: false,
-            error: `An Auth account with a different email (${existingAuthUser.email}) was found when searching for ${email}. ` +
-                   `This indicates a data inconsistency. Cannot reuse this Auth account. Please contact system administrator.`,
-            authUserId: existingAuthUser.id,
-          }
-        }
-        
-        // If userId was provided and it doesn't match existing user, log a warning but REUSE the existing Auth user
-        // This situation can happen if an auth account was created earlier (e.g. via dashboard or failed attempt)
-        if (userId && existingAuthUser.id !== userId) {
-          console.warn(
-            `Auth user email conflict for ${email}: existing auth ID ${existingAuthUser.id} ` +
-            `differs from requested ID ${userId}. Reusing existing Auth user.`
-          )
-        }
-        
-        // Update password for existing user (or just ensure it is valid)
-        const updateResponse = await fetch(
-          `${supabaseUrl}/auth/v1/admin/users/${existingAuthUser.id}`,
-          {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${serviceRoleKey}`,
-              apikey: serviceRoleKey,
-            },
-            body: JSON.stringify({
-              password,
-              email_confirm: true,
-            }),
-          }
+        const existingAuthUser = usersData.users.find(
+          (u: any) => u.email && u.email.toLowerCase() === email.toLowerCase()
         )
         
-        if (updateResponse.ok) {
-          // Always return the existing Auth user ID - caller can update public.users.id if needed
-          return { success: true, authUserId: existingAuthUser.id }
-        } else {
-          const errorData = await updateResponse.json().catch(() => ({}))
-          return {
-            success: false,
-            error: `Failed to update existing Auth user: ${errorData.msg || updateResponse.statusText}`,
-            authUserId: existingAuthUser.id,
-          }
-        }
-      }
-    }
-    
-    // If userId provided, check if that UUID already exists in auth.users
-    // NOTE: 404 is expected and means the UUID is available - we can proceed with creation
-    if (userId) {
-      try {
-        const checkByIdResponse = await fetch(
-          `${supabaseUrl}/auth/v1/admin/users/${userId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${serviceRoleKey}`,
-              apikey: serviceRoleKey,
-            },
-          }
-        )
-        
-        if (checkByIdResponse.ok) {
-          // User already exists with this UUID - check if it's the same email
-          const existingUser = await checkByIdResponse.json()
-          if (existingUser.email !== email) {
-            return {
-              success: false,
-              error: `An Auth account with ID ${userId} already exists with email ${existingUser.email}. Cannot use this ID for ${email}.`,
-              authUserId: userId,
-            }
+        if (existingAuthUser) {
+          // If userId was provided and it doesn't match existing user, log a warning but REUSE the existing Auth user
+          // This situation can happen if an auth account was created earlier (e.g. via dashboard or failed attempt)
+          if (userId && existingAuthUser.id !== userId) {
+            console.warn(
+              `Auth user email conflict for ${email}: existing auth ID ${existingAuthUser.id} ` +
+              `differs from requested ID ${userId}. Reusing existing Auth user.`
+            )
           }
           
-          // Same email, update password
+          // Update password for existing user (or just ensure it is valid)
           const updateResponse = await fetch(
-            `${supabaseUrl}/auth/v1/admin/users/${userId}`,
+            `${supabaseUrl}/auth/v1/admin/users/${existingAuthUser.id}`,
             {
               method: 'PUT',
               headers: {
@@ -176,20 +112,21 @@ export async function createAuthUser(
           )
           
           if (updateResponse.ok) {
-            return { success: true, authUserId: userId }
+            // Always return the existing Auth user ID - caller can update public.users.id if needed
+            return { success: true, authUserId: existingAuthUser.id }
+          } else {
+            const errorData = await updateResponse.json().catch(() => ({}))
+            return {
+              success: false,
+              error: `Failed to update existing Auth user: ${errorData.msg || updateResponse.statusText}`,
+              authUserId: existingAuthUser.id,
+            }
           }
-        } else if (checkByIdResponse.status === 404) {
-          // 404 is expected - UUID doesn't exist, we can proceed with creation
-          // This is not an error, just continue to create the user
-        } else {
-          // Some other error occurred, log it but continue
-          console.warn(`Unexpected status ${checkByIdResponse.status} when checking user by ID:`, await checkByIdResponse.text().catch(() => ''))
         }
-      } catch (error) {
-        // Network error or other issue - log but continue
-        console.warn('Error checking user by ID, continuing with creation:', error)
       }
     }
+    
+
 
     // User doesn't exist, create new one
     // NOTE: Supabase Admin API may not support setting custom 'id' when creating users
@@ -275,7 +212,10 @@ export async function createAuthUser(
         if (getUserResponse.ok) {
           const users = await getUserResponse.json()
           if (users.users && users.users.length > 0) {
-            return { success: true, authUserId: users.users[0].id }
+            const foundUser = users.users.find((u: any) => u.email && u.email.toLowerCase() === email.toLowerCase())
+            if (foundUser) {
+              return { success: true, authUserId: foundUser.id }
+            }
           }
         }
       }
@@ -338,14 +278,15 @@ export async function confirmAuthUserEmail(
     }
 
     const usersData = await getUserResponse.json()
-    if (!usersData.users || usersData.users.length === 0) {
+    const foundUser = usersData.users ? usersData.users.find((u: any) => u.email && u.email.toLowerCase() === email.toLowerCase()) : null
+    if (!foundUser) {
       return {
         success: false,
         error: 'User not found',
       }
     }
 
-    const authUserId = usersData.users[0].id
+    const authUserId = foundUser.id
 
     // Update user to confirm email
     const response = await fetch(`${supabaseUrl}/auth/v1/admin/users/${authUserId}`, {
@@ -411,7 +352,10 @@ export async function checkAuthUserExists(email: string): Promise<{ exists: bool
 
     const data = await response.json()
     if (data.users && data.users.length > 0) {
-      return { exists: true, userId: data.users[0].id }
+      const foundUser = data.users.find((u: any) => u.email && u.email.toLowerCase() === email.toLowerCase())
+      if (foundUser) {
+        return { exists: true, userId: foundUser.id }
+      }
     }
 
     return { exists: false }
@@ -504,4 +448,136 @@ export async function updateAuthUserPassword(
     }
   }
 }
+
+/**
+ * Admin reset/update password for a user
+ * Supports direct update via Supabase Admin API, creating auth account if missing, or sending reset email.
+ */
+export async function adminResetUserPassword(
+  userId: string,
+  email: string,
+  newPassword: string
+): Promise<{ success: boolean; error?: string; message?: string }> {
+  try {
+    if (!isSupabaseConfigured()) {
+      // Mock mode: simulate success
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      return { success: true, message: 'Kata laluan berjaya dikemaskini (Mod Demonstrasi).' }
+    }
+
+    if (!newPassword || newPassword.length < 6) {
+      return {
+        success: false,
+        error: 'Kata laluan mestilah sekurang-kurangnya 6 aksara.',
+      }
+    }
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+    const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
+
+    // If service role key is available
+    if (serviceRoleKey && serviceRoleKey !== 'placeholder-service-key') {
+      // 1. Check if auth user exists
+      const authUserCheck = await checkAuthUserExists(email)
+
+      if (authUserCheck.exists && authUserCheck.userId) {
+        const authUserId = authUserCheck.userId
+
+        const response = await fetch(`${supabaseUrl}/auth/v1/admin/users/${authUserId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${serviceRoleKey}`,
+            apikey: serviceRoleKey,
+          },
+          body: JSON.stringify({
+            password: newPassword,
+            email_confirm: true,
+          }),
+        })
+
+        if (response.ok) {
+          // Reset failed login attempts in public.users
+          try {
+            await supabase
+              .from('users')
+              .update({
+                failed_login_attempts: 0,
+                status: 'active',
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', userId)
+          } catch (e) {
+            console.warn('Could not reset failed attempts:', e)
+          }
+
+          return { success: true, message: 'Kata laluan berjaya dikemaskini.' }
+        } else {
+          const errorData = await response.json().catch(() => ({}))
+          return {
+            success: false,
+            error: errorData.msg || errorData.message || 'Gagal mengemaskini kata laluan pengguna.',
+          }
+        }
+      } else {
+        // If Auth account is missing, create it
+        const createResult = await createAuthUser(email, newPassword, userId)
+        if (createResult.success) {
+          try {
+            await supabase
+              .from('users')
+              .update({
+                failed_login_attempts: 0,
+                status: 'active',
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', userId)
+          } catch (e) {
+            console.warn('Could not reset failed attempts:', e)
+          }
+
+          return { success: true, message: 'Akaun pengesahan baru berjaya didaftarkan dan kata laluan ditetapkan.' }
+        } else {
+          return {
+            success: false,
+            error: createResult.error || 'Gagal mencipta akaun pengesahan pengguna.',
+          }
+        }
+      }
+    }
+
+    // If no service role key, try client-side admin api
+    try {
+      const { error } = await supabase.auth.admin.updateUserById(userId, {
+        password: newPassword,
+      })
+      if (!error) {
+        return { success: true, message: 'Kata laluan berjaya dikemaskini.' }
+      }
+    } catch {
+      // Fallback
+    }
+
+    // Fallback: send password reset email
+    const { error: emailError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+
+    if (emailError) {
+      return { success: false, error: emailError.message }
+    }
+
+    return {
+      success: true,
+      message: 'Pautan tetapan semula kata laluan telah dihantar ke emel pengguna.',
+    }
+  } catch (error) {
+    console.error('Error in adminResetUserPassword:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Ralat yang tidak dijangka berlaku.',
+    }
+  }
+}
+
 

@@ -369,7 +369,10 @@ export const CrossborderDetailPage: React.FC = () => {
                     </div>
                     <div>
                       <span className="text-xs text-slate-400 block">Dokumen Perjalanan</span>
-                      <span className="text-slate-800">{p.jenis_dokumen} : {p.no_dokumen}</span>
+                      <span className="text-slate-800">
+                        {p.jenis_dokumen} : {p.no_dokumen}
+                        {p.jenis_dokumen === 'PASSPORT' && p.passport_expiry && ` (Tamat: ${formatDate(new Date(p.passport_expiry))})`}
+                      </span>
                     </div>
                     {p.no_pengenalan && (
                       <div className="md:col-span-2">
@@ -403,7 +406,10 @@ export const CrossborderDetailPage: React.FC = () => {
               </div>
               <div>
                 <span className="text-xs text-slate-400 block">No. Passport Pemandu</span>
-                <span className="font-semibold text-slate-850">{(transfer as any).pemandu_passport || 'N/A'}</span>
+                <span className="font-semibold text-slate-850">
+                  {(transfer as any).pemandu_passport || 'N/A'}
+                  {(transfer as any).pemandu_passport_expiry && ` (Tamat: ${formatDate(new Date((transfer as any).pemandu_passport_expiry))})`}
+                </span>
               </div>
               <div className="md:col-span-2">
                 <span className="text-xs text-slate-400 block">Peralatan Perubatan Lain</span>
@@ -434,7 +440,10 @@ export const CrossborderDetailPage: React.FC = () => {
                         <div>
                           <div className="font-semibold text-slate-900">{e.nama}</div>
                           {e.no_dokumen && (
-                            <div className="text-xs text-slate-450">{e.jenis_dokumen} : {e.no_dokumen}</div>
+                            <div className="text-xs text-slate-450">
+                              {e.jenis_dokumen} : {e.no_dokumen}
+                              {e.jenis_dokumen === 'PASSPORT' && e.passport_expiry && ` (Tamat: ${formatDate(new Date(e.passport_expiry))})`}
+                            </div>
                           )}
                         </div>
                         <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold border border-emerald-200 text-emerald-800 bg-emerald-50">
@@ -462,7 +471,10 @@ export const CrossborderDetailPage: React.FC = () => {
                       <div key={e.id} className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex justify-between items-center text-sm text-slate-600">
                         <div>
                           <div className="font-semibold text-slate-900">{e.nama}</div>
-                          <div className="text-xs text-slate-450">{e.jenis_dokumen} : {e.no_dokumen}</div>
+                          <div className="text-xs text-slate-450">
+                            {e.jenis_dokumen} : {e.no_dokumen}
+                            {e.jenis_dokumen === 'PASSPORT' && e.passport_expiry && ` (Tamat: ${formatDate(new Date(e.passport_expiry))})`}
+                          </div>
                         </div>
                         <div className="text-right">
                           <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold border border-cyan-200 text-cyan-800 bg-cyan-50">

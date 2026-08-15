@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import React from 'react';
 import { ClipboardList, AlertCircle, PlayCircle, CheckCircle, XCircle } from 'lucide-react';
 import type { CylinderDispatchKPI } from '@/types/pharmacy';
@@ -74,25 +74,25 @@ export const CylinderDispatchKpiCards: React.FC<CylinderDispatchKpiCardsProps> =
         return (
           <div
             key={card.title}
-            className={`relative overflow-hidden bg-white/40 backdrop-blur-xl rounded-2xl p-5 border ${card.border} shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all duration-300`}
+            className={`relative overflow-hidden bg-white rounded-2xl p-5 border ${card.border} shadow-sm hover:shadow-md hover:scale-[1.01] transition-all duration-300`}
           >
             {/* Soft decorative glow */}
             <div className={`absolute -right-4 -bottom-4 w-20 h-20 rounded-full blur-2xl ${card.bgGlow}`} />
 
             <div className="flex items-start justify-between relative z-10">
               <div className="flex flex-col">
-                <span className="text-slate-500 font-semibold text-xs uppercase tracking-wider mb-1">
+                <span className="text-slate-600 font-bold text-xs uppercase tracking-wider mb-1">
                   {card.title}
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className="text-3xl font-extrabold text-slate-800 tracking-tight">
+                  <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
                     {card.value.toLocaleString()}
                   </span>
                   {card.isWarning && (
                     <span className="animate-pulse flex h-2 w-2 rounded-full bg-amber-500" />
                   )}
                 </div>
-                <span className="text-slate-400 font-medium text-[11px] mt-1">
+                <span className="text-slate-600 font-semibold text-[11px] mt-1">
                   {card.description}
                 </span>
               </div>

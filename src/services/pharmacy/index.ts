@@ -16,6 +16,7 @@ export * from './nonDrugCatalogService'
 export * from './maintenanceService'
 export * from './pharmacyDashboardService'
 export * from './poPdfService'
+export * from './lpAllocationService'
 
 // Mock data
 export * from './mockData'
@@ -25,6 +26,3 @@ export * from './procurementReportService'
 export * from './procurementReportPdfService'
 export * from './financialReportService'
 export * from './financialReportPdfService'
-
-
-

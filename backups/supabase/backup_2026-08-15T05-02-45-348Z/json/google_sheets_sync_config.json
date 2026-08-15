@@ -1,0 +1,29 @@
+[
+  {
+    "id": "0a716fe6-51b3-4929-9eb5-ec53c6d555e9",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "sheet_id": "1yoE2l4BjI-yton-mG9O-vQJUEMqxox4C",
+    "sheet_name": "Kontrak Ubat Aktif",
+    "range": "",
+    "sync_type": "contracts",
+    "auto_sync_enabled": true,
+    "sync_interval_minutes": 240,
+    "last_sync_at": "2026-06-01T04:29:15.405+00:00",
+    "last_sync_status": "failed",
+    "last_sync_error": "No contract data found in Google Sheet",
+    "api_key": "",
+    "created_at": "2026-01-07T12:02:47.29+00:00",
+    "updated_at": "2026-06-01T04:29:20.518647+00:00",
+    "detected_headers": [
+      "Item",
+      "No Kontrak",
+      "Kontrak Mula",
+      "Kontrak Tamat",
+      "Pembekal",
+      "Unit",
+      "Harga (RM)",
+      "Tempoh Serahan",
+      "SST"
+    ]
+  }
+]

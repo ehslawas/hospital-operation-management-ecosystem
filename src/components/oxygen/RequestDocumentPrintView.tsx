@@ -74,6 +74,8 @@ export const RequestDocumentPrintView: React.FC<RequestDocumentPrintViewProps> =
         let sizeDesc = '';
         if (item.size_code === '101-N') {
           sizeDesc = 'Silinder Sewaan Gas Oksigen BN (8.0m³)';
+        } else if (item.size_code === '101-F-BN' || item.size_code === 'P101-F-BN') {
+          sizeDesc = 'Silinder Gas Oksigen BN (1.4m³)';
         } else if (item.size_code === 'P101-F' || item.size_code === '101-F') {
           sizeDesc = 'Silinder Sewaan Gas Oksigen PI (1.4m³)';
         } else {
@@ -169,32 +171,41 @@ export const RequestDocumentPrintView: React.FC<RequestDocumentPrintViewProps> =
         <body>
           <div class="print-page">
             <div style="flex: 1; width: 100%;">
-              <div style="display: flex; align-items: center; justify-content: flex-start; gap: 15px; margin-bottom: 8px;">
-              <img src="${logoUrl}" style="height: 55px; width: auto; flex-shrink: 0;" />
-              <div style="text-align: left; font-family: 'Inter', Arial, sans-serif;">
-                <div style="font-size: 11px; font-weight: 800; letter-spacing: 0.5px; color: #0f172a; text-transform: uppercase; line-height: 1.2;">KEMENTERIAN KESIHATAN MALAYSIA</div>
-                <div style="font-size: 13px; font-weight: 900; color: #000; margin-top: 2px; text-transform: uppercase; line-height: 1.2;">HOSPITAL DAERAH LAWAS</div>
-                <div style="font-size: 8px; font-weight: 500; color: #475569; margin-top: 2px; line-height: 1.2;">98850 LAWAS, SARAWAK &bull; TEL: 085 283 781 (ext-206) &bull; EMEL: hosplws@gmail.com</div>
+              <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; font-family: 'Inter', Arial, sans-serif; margin-bottom: 8px;">
+                <div style="display: flex; align-items: flex-start; gap: 16px;">
+                  <img src="${logoUrl}" style="height: 52px; width: auto; flex-shrink: 0; margin-top: 2px;" alt="Jata Negara" />
+                  <div style="text-align: left; line-height: 1.3;">
+                    <div style="font-size: 14px; font-weight: 800; color: #1e293b; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 2px;">HOSPITAL LAWAS</div>
+                    <div style="font-size: 10px; font-weight: 500; color: #475569;">Jalan Hospital,</div>
+                    <div style="font-size: 10px; font-weight: 500; color: #475569;">98850 Lawas,</div>
+                    <div style="font-size: 10px; font-weight: 500; color: #475569;">Sarawak,</div>
+                    <div style="font-size: 10px; font-weight: 500; color: #475569;">Malaysia.</div>
+                  </div>
+                </div>
+                <div style="text-align: left; font-size: 10px; color: #475569; line-height: 1.4; font-family: 'Inter', Arial, sans-serif; min-width: 170px;">
+                  <div><strong style="color: #334155; font-weight: 700;">Telefon:</strong> 085-283781</div>
+                  <div><strong style="color: #334155; font-weight: 700;">Faks:</strong> 085-285993</div>
+                  <div><strong style="color: #334155; font-weight: 700;">Email:</strong> hosp_lawas@moh.gov.my</div>
+                </div>
               </div>
-            </div>
-            <div style="border-bottom: 2.5px solid #000; border-top: 0.5px solid #000; height: 3px; margin: 2px 0 12px 0;"></div>
+              <div style="border-bottom: 1px solid #cbd5e1; margin-bottom: 14px; margin-top: 4px;"></div>
 
-            <div class="text-center mb-4">
-              <h1 style="font-size: 13px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: 0.5px; color: #000;">
-                BORANG PESANAN / PERMINTAAN BEKALAN SILINDER GAS PERUBATAN
-              </h1>
-              <h2 style="font-size: 10px; font-weight: 700; margin: 4px 0 0 0; text-transform: uppercase; color: #334155; letter-spacing: 0.5px;">
-                (SILINDER SEWAAN / LOAN CYLINDER)
-              </h2>
-            </div>
-
-            <div class="grid grid-cols-2 border" style="font-size: 10px; border: 1.5px solid #000; border-radius: 4px; overflow: hidden; background-color: #fff;">
-              <div class="border-r p-3 space-y-1.5" style="border-right: 1.5px solid #000;">
-                <div style="font-size: 8.5px; font-weight: 800; color: #64748b; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 3px;">DARIPADA (FROM)</div>
-                <div style="font-size: 11px; font-weight: 800; color: #0f172a; text-transform: uppercase;">HOSPITAL DAERAH LAWAS</div>
-                <div style="font-size: 9px; font-weight: 500; color: #334155; line-height: 1.3;">98850, LAWAS, SARAWAK.</div>
-                <div style="font-size: 9px; font-weight: 500; color: #334155; line-height: 1.3;">TEL: 085 283 781 (ext-206) &bull; EMEL: hosplws@gmail.com</div>
+              <div class="text-center mb-4">
+                <h1 style="font-size: 13px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: 0.5px; color: #000;">
+                  BORANG PESANAN / PERMINTAAN BEKALAN SILINDER GAS PERUBATAN
+                </h1>
+                <h2 style="font-size: 10px; font-weight: 700; margin: 4px 0 0 0; text-transform: uppercase; color: #334155; letter-spacing: 0.5px;">
+                  (SILINDER SEWAAN / LOAN CYLINDER)
+                </h2>
               </div>
+
+              <div class="grid grid-cols-2 border" style="font-size: 10px; border: 1.5px solid #000; border-radius: 4px; overflow: hidden; background-color: #fff;">
+                <div class="border-r p-3 space-y-1.5" style="border-right: 1.5px solid #000;">
+                  <div style="font-size: 8.5px; font-weight: 800; color: #64748b; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 3px;">DARIPADA (FROM)</div>
+                  <div style="font-size: 11px; font-weight: 800; color: #0f172a; text-transform: uppercase;">HOSPITAL LAWAS</div>
+                  <div style="font-size: 9px; font-weight: 500; color: #334155; line-height: 1.3;">Jalan Hospital, 98850 Lawas, Sarawak, Malaysia.</div>
+                  <div style="font-size: 9px; font-weight: 500; color: #334155; line-height: 1.3;">TEL: 085-283781 &bull; FAKS: 085-285993</div>
+                </div>
               <div class="p-3 space-y-1.5">
                 <div style="font-size: 8.5px; font-weight: 800; color: #64748b; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 3px;">KEPADA (TO)</div>
                 <div style="font-size: 11px; font-weight: 800; color: #0f172a; text-transform: uppercase;">${supplierName}</div>
@@ -301,15 +312,24 @@ export const RequestDocumentPrintView: React.FC<RequestDocumentPrintViewProps> =
             <div className="bg-white text-black p-8 border border-slate-300 shadow-lg max-w-[210mm] min-h-[297mm] mx-auto my-6 relative flex flex-col justify-between font-sans text-xs select-none">
               <div>
                 {/* Header Title */}
-                <div className="flex items-center justify-start gap-4 mb-2 font-sans">
-                  <img src="/512px-Jata_MalaysiaV2.svg.png" className="h-[55px] w-auto flex-shrink-0" alt="Jata Negara" />
-                  <div className="text-left">
-                    <div className="text-[11px] font-extrabold tracking-wider text-slate-900 uppercase leading-tight">KEMENTERIAN KESIHATAN MALAYSIA</div>
-                    <div className="text-[13px] font-black text-black mt-0.5 uppercase leading-tight">HOSPITAL DAERAH LAWAS</div>
-                    <div className="text-[8px] font-medium text-slate-600 mt-0.5 leading-tight">98850 LAWAS, SARAWAK &bull; TEL: 085 283 781 (ext-206) &bull; EMEL: hosplws@gmail.com</div>
+                <div className="flex items-start justify-between gap-5 mb-2 font-sans">
+                  <div className="flex items-start gap-4">
+                    <img src="/512px-Jata_MalaysiaV2.svg.png" className="h-[52px] w-auto flex-shrink-0 mt-0.5" alt="Jata Negara" />
+                    <div className="text-left leading-tight">
+                      <div className="text-[14px] font-extrabold tracking-wide text-slate-900 uppercase mb-0.5">HOSPITAL LAWAS</div>
+                      <div className="text-[10px] font-medium text-slate-600">Jalan Hospital,</div>
+                      <div className="text-[10px] font-medium text-slate-600">98850 Lawas,</div>
+                      <div className="text-[10px] font-medium text-slate-600">Sarawak,</div>
+                      <div className="text-[10px] font-medium text-slate-600">Malaysia.</div>
+                    </div>
+                  </div>
+                  <div className="text-left text-[10px] text-slate-600 leading-snug min-w-[170px]">
+                    <div><strong className="text-slate-700 font-bold">Telefon:</strong> 085-283781</div>
+                    <div><strong className="text-slate-700 font-bold">Faks:</strong> 085-285993</div>
+                    <div><strong className="text-slate-700 font-bold">Email:</strong> hosp_lawas@moh.gov.my</div>
                   </div>
                 </div>
-                <div className="border-b-[2.5px] border-t-[0.5px] border-black h-[3px] mt-1 mb-3" />
+                <div className="border-b border-slate-300 mt-1 mb-3.5" />
 
                 <div className="text-center mb-4">
                   <h1 className="text-[13px] font-black tracking-wide uppercase text-black">
@@ -324,9 +344,9 @@ export const RequestDocumentPrintView: React.FC<RequestDocumentPrintViewProps> =
                 <div className="grid grid-cols-2 border-[1.5px] border-black text-[10px] bg-white rounded overflow-hidden">
                   <div className="border-r-[1.5px] border-black p-3 space-y-1.5 text-left bg-white">
                     <div className="text-[8.5px] font-extrabold text-slate-500 tracking-wider uppercase mb-1">DARIPADA (FROM)</div>
-                    <div className="text-[11px] font-black text-slate-900 uppercase">HOSPITAL DAERAH LAWAS</div>
-                    <div className="text-[9px] text-slate-800 font-medium leading-relaxed">98850, LAWAS, SARAWAK.</div>
-                    <div className="text-[9px] text-slate-800 font-medium leading-relaxed">TEL: 085 283 781 (ext-206) &bull; EMEL: hosplws@gmail.com</div>
+                    <div className="text-[11px] font-black text-slate-900 uppercase">HOSPITAL LAWAS</div>
+                    <div className="text-[9px] text-slate-800 font-medium leading-relaxed">Jalan Hospital, 98850 Lawas, Sarawak, Malaysia.</div>
+                    <div className="text-[9px] text-slate-800 font-medium leading-relaxed">TEL: 085-283781 &bull; FAKS: 085-285993</div>
                   </div>
                   <div className="p-3 space-y-1.5 text-left bg-white">
                     <div className="text-[8.5px] font-extrabold text-slate-500 tracking-wider uppercase mb-1">KEPADA (TO)</div>
@@ -368,6 +388,8 @@ export const RequestDocumentPrintView: React.FC<RequestDocumentPrintViewProps> =
                           let sizeDesc = '';
                           if (item.size_code === '101-N') {
                             sizeDesc = 'Silinder Sewaan Gas Oksigen BN (8.0m³)';
+                          } else if (item.size_code === '101-F-BN' || item.size_code === 'P101-F-BN') {
+                            sizeDesc = 'Silinder Gas Oksigen BN (1.4m³)';
                           } else if (item.size_code === 'P101-F' || item.size_code === '101-F') {
                             sizeDesc = 'Silinder Sewaan Gas Oksigen PI (1.4m³)';
                           } else {

@@ -122,7 +122,11 @@ export const CylinderMaintenancePage: React.FC = () => {
         .select('id, company_name')
         .order('company_name', { ascending: true })
       if (!error && data) {
-        setSuppliers(data)
+        const filtered = data.filter(s => {
+          const name = (s.company_name || '').toLowerCase();
+          return name.includes('linde') || name.includes('borneo indah');
+        });
+        setSuppliers(filtered)
       }
     } catch (err) {
       console.error('Failed to load suppliers:', err)

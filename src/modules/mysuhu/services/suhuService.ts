@@ -12,14 +12,26 @@ import type {
   BacaanSuhuWithRelations,
 } from '@/types/mysuhu';
 
+// Helper to get default thresholds based on unit type
+export function getDefaultThresholds(jenisUnit?: string): { min_suhu: number; max_suhu: number } {
+  switch (jenisUnit) {
+    case 'freezer':
+      return { min_suhu: -25, max_suhu: -15 };
+    case 'ambient':
+      return { min_suhu: 18, max_suhu: 25 };
+    case 'incubator':
+      return { min_suhu: 35, max_suhu: 39 };
+    case 'other':
+      return { min_suhu: 0, max_suhu: 40 };
+    case 'refrigerator':
+    default:
+      return { min_suhu: 2, max_suhu: 8 };
+  }
+}
+
 // Helper to determine reading status (normal, warning, breach)
 export function calculateReadingStatus(suhu: number, min: number, max: number): 'normal' | 'warning' | 'breach' {
   if (suhu < min || suhu > max) return 'breach';
-  const range = max - min;
-  const margin = range * 0.1; // 10% approaching threshold
-  if (suhu <= min + margin || suhu >= max - margin) {
-    return 'warning';
-  }
   return 'normal';
 }
 
@@ -32,16 +44,6 @@ export function calculateReadingStatusWithRange(
 ): 'normal' | 'warning' | 'breach' {
   if (suhuMin < minLimit || suhuMax > maxLimit || suhu < minLimit || suhu > maxLimit) {
     return 'breach';
-  }
-  const range = maxLimit - minLimit;
-  const margin = range * 0.1; // 10% approaching threshold
-  if (
-    suhuMin <= minLimit + margin ||
-    suhuMax >= maxLimit - margin ||
-    suhu <= minLimit + margin ||
-    suhu >= maxLimit - margin
-  ) {
-    return 'warning';
   }
   return 'normal';
 }
@@ -1092,11 +1094,20 @@ export async function updateReadingValues(
       const index = readings.findIndex(r => r.id === readingId);
       if (index === -1) throw new Error('Reading not found');
       
-      const updated = {
+      const thresholds = getMockData<AmbangSuhu[]>('ambang_suhu', []);
+      const threshold = thresholds.find(t => t.id === readings[index].ambang_id) ||
+                        thresholds.find(t => t.unit_id === readings[index].unit_id && t.effective_until === null);
+      
+      const newStatus = threshold
+        ? calculateReadingStatusWithRange(suhu, suhuMin, suhuMax, threshold.min_suhu, threshold.max_suhu)
+        : 'normal';
+
+      const updated: BacaanSuhu = {
         ...readings[index],
         suhu,
         suhu_min: suhuMin,
         suhu_max: suhuMax,
+        status_bacaan: newStatus,
         updated_at: new Date().toISOString()
       };
       if (tarikhMasa) {

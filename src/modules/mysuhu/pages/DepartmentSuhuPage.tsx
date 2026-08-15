@@ -45,7 +45,8 @@ import {
   logTemperature,
   getReadings,
   deleteAutoPlottedReadings,
-  updateReadingValues
+  updateReadingValues,
+  getDefaultThresholds
 } from '@/modules/mysuhu/services/suhuService'
 import { getDepartmentsByHospital } from '@/services/departmentService'
 import { downloadPdfReport } from '@/modules/mysuhu/services/suhuReportService'
@@ -241,8 +242,9 @@ export const DepartmentSuhuPage: React.FC = () => {
       const localISOTime = new Date(now.getTime() - tzOffset).toISOString().slice(0, 16)
       setDetailLogDateTime(localISOTime)
       
-      const minVal = activeDetailUnit.active_threshold?.min_suhu ?? 2
-      const maxVal = activeDetailUnit.active_threshold?.max_suhu ?? 8
+      const defaults = getDefaultThresholds(activeDetailUnit.jenis_unit)
+      const minVal = activeDetailUnit.active_threshold?.min_suhu ?? defaults.min_suhu
+      const maxVal = activeDetailUnit.active_threshold?.max_suhu ?? defaults.max_suhu
       const midVal = (minVal + maxVal) / 2
       setDetailLogTemp(midVal.toFixed(1))
       setDetailLogTempMin(midVal.toFixed(1))
@@ -444,8 +446,9 @@ export const DepartmentSuhuPage: React.FC = () => {
       return
     }
 
-    const min = loggingUnit.active_threshold?.min_suhu ?? 2
-    const max = loggingUnit.active_threshold?.max_suhu ?? 8
+    const defaults = getDefaultThresholds(loggingUnit.jenis_unit)
+    const min = loggingUnit.active_threshold?.min_suhu ?? defaults.min_suhu
+    const max = loggingUnit.active_threshold?.max_suhu ?? defaults.max_suhu
 
     if (tempNum < min || tempNum > max) {
       setBreachInfo({ temp: tempNum, status: 'breach' })
@@ -518,8 +521,9 @@ export const DepartmentSuhuPage: React.FC = () => {
       return
     }
 
-    const minLimit = activeDetailUnit.active_threshold?.min_suhu ?? 2
-    const maxLimit = activeDetailUnit.active_threshold?.max_suhu ?? 8
+    const defaults = getDefaultThresholds(activeDetailUnit.jenis_unit)
+    const minLimit = activeDetailUnit.active_threshold?.min_suhu ?? defaults.min_suhu
+    const maxLimit = activeDetailUnit.active_threshold?.max_suhu ?? defaults.max_suhu
 
     // Check if any value breaches thresholds
     if (tempNum < minLimit || tempNum > maxLimit || minNum < minLimit || minNum > maxLimit || maxNum < minLimit || maxNum > maxLimit) {
@@ -683,8 +687,9 @@ export const DepartmentSuhuPage: React.FC = () => {
       return;
     }
     
-    const minLimit = activeDetailUnit.active_threshold?.min_suhu ?? 2
-    const maxLimit = activeDetailUnit.active_threshold?.max_suhu ?? 8
+    const defaults = getDefaultThresholds(activeDetailUnit.jenis_unit)
+    const minLimit = activeDetailUnit.active_threshold?.min_suhu ?? defaults.min_suhu
+    const maxLimit = activeDetailUnit.active_threshold?.max_suhu ?? defaults.max_suhu
     const rangeVal = maxLimit - minLimit
     // 15% buffer
     const buffer = rangeVal * 0.15
@@ -1391,8 +1396,9 @@ export const DepartmentSuhuPage: React.FC = () => {
                         <button
                           onClick={() => {
                             setEditingUnit(unit)
-                            setEditMinTemp(String(unit.active_threshold?.min_suhu ?? '2'))
-                            setEditMaxTemp(String(unit.active_threshold?.max_suhu ?? '8'))
+                            const defaults = getDefaultThresholds(unit.jenis_unit)
+                            setEditMinTemp(String(unit.active_threshold?.min_suhu ?? defaults.min_suhu))
+                            setEditMaxTemp(String(unit.active_threshold?.max_suhu ?? defaults.max_suhu))
                           }}
                           className="p-2 hover:bg-slate-100 text-slate-500 hover:text-slate-800 rounded-lg transition-all border border-slate-200"
                           title="Edit Threshold Limits"
@@ -1557,8 +1563,9 @@ export const DepartmentSuhuPage: React.FC = () => {
       >
         <div className="p-6 space-y-6 overflow-y-auto max-h-[85vh]">
           {activeDetailUnit && (() => {
-            const minLimit = activeDetailUnit.active_threshold?.min_suhu ?? 2;
-            const maxLimit = activeDetailUnit.active_threshold?.max_suhu ?? 8;
+            const defaults = getDefaultThresholds(activeDetailUnit.jenis_unit);
+            const minLimit = activeDetailUnit.active_threshold?.min_suhu ?? defaults.min_suhu;
+            const maxLimit = activeDetailUnit.active_threshold?.max_suhu ?? defaults.max_suhu;
             const sliderMin = minLimit - 10;
             const sliderMax = maxLimit + 10;
             const chartYMin = minLimit - 2;

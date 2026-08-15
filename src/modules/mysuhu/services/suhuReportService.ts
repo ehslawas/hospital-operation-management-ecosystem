@@ -5,6 +5,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import type { UnitPemantauanWithRelations, BacaanSuhuWithRelations } from '@/types/mysuhu';
+import { drawHospitalHeader } from '@/lib/pdfHeader';
 
 const getBase64ImageFromUrlLocal = async (imageUrl: string): Promise<string | null> => {
   try {
@@ -61,65 +62,55 @@ export async function downloadPdfReport({
   const maxTemp = temps.length > 0 ? Math.max(...temps) : 0;
   const avgTemp = temps.length > 0 ? Number((temps.reduce((sum, t) => sum + t, 0) / temps.length).toFixed(1)) : 0;
 
-  // Header bar background
-  doc.setFillColor(190, 24, 74); // Rose 700 (#be184d)
-  doc.rect(10, 10, 190, 16, 'F');
-
-  // Draw Jata Negara if loaded
-  if (logoBase64) {
-    try {
-      doc.addImage(logoBase64, 'PNG', 14, 12, 15, 12);
-    } catch (e) {
-      console.error('Failed to draw logo on pdf', e);
-    }
-  }
-
-  // Header Title
-  doc.setFont('Helvetica', 'bold');
-  doc.setFontSize(14);
-  doc.setTextColor(255, 255, 255);
-  doc.text('MINISTRY OF HEALTH MALAYSIA', 32, 19.5);
-  
-  doc.setFontSize(9);
-  doc.setFont('Helvetica', 'normal');
-  doc.text(hospitalName.toUpperCase(), 32, 23.5);
+  // Draw standard Hospital Lawas Header
+  const headerEndY = await drawHospitalHeader(doc, { margin: 10, startY: 10, logoBase64 });
+  let currentY = headerEndY;
 
   // Document Title
   doc.setTextColor(51, 65, 85);
   doc.setFont('Helvetica', 'bold');
   doc.setFontSize(14);
-  doc.text('KKM TEMPERATURE MONITORING AUDIT REPORT', 10, 36);
+  doc.text('KKM TEMPERATURE MONITORING AUDIT REPORT', 10, currentY);
 
   // Date printed
   doc.setFont('Helvetica', 'normal');
   doc.setFontSize(9);
-  doc.text(`Printed Date: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 145, 36);
+  doc.text(`Printed Date: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 145, currentY);
 
   // Divider
+  currentY += 3;
   doc.setDrawColor(226, 232, 240);
-  doc.line(10, 39, 200, 39);
+  doc.line(10, currentY, 200, currentY);
 
   // Metadata block (Location & Unit info)
+  currentY += 6;
   doc.setFont('Helvetica', 'bold');
   doc.setFontSize(10);
-  doc.text('Monitoring Unit Information', 10, 45);
-
-  doc.setFont('Helvetica', 'normal');
-  doc.text(`Unit Name: ${unit.nama_unit} (${unit.unit_id})`, 10, 50);
-  doc.text(`Unit Type: ${getJenisUnitLabel(unit.jenis_unit)}`, 10, 54);
-  doc.text(`Location: ${unit.lokasi?.nama_lokasi || '-'} (${unit.lokasi?.kod_lokasi || '-'})`, 10, 58);
-  doc.text(`Department: ${unit.lokasi?.jabatan || '-'}`, 10, 62);
+  doc.text('Monitoring Unit Information', 10, currentY);
 
   const minLimit = unit.active_threshold?.min_suhu !== undefined ? `${unit.active_threshold.min_suhu}°C` : '-';
   const maxLimit = unit.active_threshold?.max_suhu !== undefined ? `${unit.active_threshold.max_suhu}°C` : '-';
-  doc.text(`Safe Range Threshold: ${minLimit} to ${maxLimit}`, 110, 50);
-  
   const startStr = startDate ? format(new Date(startDate), 'dd/MM/yyyy') : 'Earliest';
   const endStr = endDate ? format(new Date(endDate), 'dd/MM/yyyy') : 'Present';
-  doc.text(`Report Period: ${startStr} - ${endStr}`, 110, 54);
+
+  doc.setFont('Helvetica', 'normal');
+  currentY += 5;
+  doc.text(`Unit Name: ${unit.nama_unit} (${unit.unit_id})`, 10, currentY);
+  doc.text(`Safe Range Threshold: ${minLimit} to ${maxLimit}`, 110, currentY);
+
+  currentY += 4;
+  doc.text(`Unit Type: ${getJenisUnitLabel(unit.jenis_unit)}`, 10, currentY);
+  doc.text(`Report Period: ${startStr} - ${endStr}`, 110, currentY);
+
+  currentY += 4;
+  doc.text(`Location: ${unit.lokasi?.nama_lokasi || '-'} (${unit.lokasi?.kod_lokasi || '-'})`, 10, currentY);
+
+  currentY += 4;
+  doc.text(`Department: ${unit.lokasi?.jabatan || '-'}`, 10, currentY);
 
   // Divider
-  doc.line(10, 66, 200, 66);
+  currentY += 4;
+  doc.line(10, currentY, 200, currentY);
 
   // Summary Metrics Table
   const monthYearSummaryStr = startDate 
@@ -128,8 +119,9 @@ export async function downloadPdfReport({
       ? format(new Date(readings[0].tarikh_masa), 'MMMM yyyy') 
       : format(new Date(), 'MMMM yyyy');
 
+  currentY += 6;
   doc.setFont('Helvetica', 'bold');
-  doc.text(`Audit Compliance Summary - ${monthYearSummaryStr.toUpperCase()}`, 10, 72);
+  doc.text(`Audit Compliance Summary - ${monthYearSummaryStr.toUpperCase()}`, 10, currentY);
 
   const metricsHeaders = [['Criteria', 'Log Value', 'Notes / Status']];
   const metricsRows = [
@@ -142,7 +134,7 @@ export async function downloadPdfReport({
   ];
 
   autoTable(doc, {
-    startY: 75,
+    startY: currentY + 3,
     head: metricsHeaders,
     body: metricsRows,
     theme: 'grid',
@@ -152,7 +144,7 @@ export async function downloadPdfReport({
   });
 
   // Inject Chart Image if exists
-  let currentY = (doc as any).lastAutoTable.finalY + 8;
+  currentY = (doc as any).lastAutoTable.finalY + 8;
   if (chartImageBase64) {
     try {
       doc.setFont('Helvetica', 'bold');

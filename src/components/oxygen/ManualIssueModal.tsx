@@ -74,8 +74,99 @@ export const ManualIssueModal: React.FC<ManualIssueModalProps> = ({
   // Loan quantities: 101-F & 101-N
   const [loanQtyF, setLoanQtyF] = useState<number>(0);
   const [loanNotesF, setLoanNotesF] = useState('');
+  const [loanSerialsF, setLoanSerialsF] = useState<string[]>([]);
+  const [serialInputF, setSerialInputF] = useState('');
+
   const [loanQtyN, setLoanQtyN] = useState<number>(0);
   const [loanNotesN, setLoanNotesN] = useState('');
+  const [loanSerialsN, setLoanSerialsN] = useState<string[]>([]);
+  const [serialInputN, setSerialInputN] = useState('');
+
+  const [showSuggestionsF, setShowSuggestionsF] = useState(false);
+  const [showSuggestionsN, setShowSuggestionsN] = useState(false);
+
+  // Resolves partial inputs (e.g. "3051") to the full serial number (e.g. "101-N3051" or DB serial)
+  const resolveFullSerial = (input: string, sizeCode: '101-F' | '101-N'): string => {
+    const clean = input.trim();
+    if (!clean) return '';
+
+    // 1. Search available database cylinders for exact or partial serial match
+    const matchedCyl = availableCylinders.find(c => {
+      const s = (c.serial_number || c.qr_code || '').toUpperCase();
+      return s === clean.toUpperCase() || s.endsWith(clean.toUpperCase());
+    });
+
+    if (matchedCyl) {
+      return matchedCyl.serial_number || matchedCyl.qr_code;
+    }
+
+    // 2. If user typed only numbers (e.g., "3051"), prepend the size code prefix ("101-N3051" or "101-F3051")
+    if (/^\d+$/.test(clean)) {
+      return `${sizeCode}${clean}`;
+    }
+
+    // 3. Otherwise return the cleaned full input string (e.g., "SBX-101N-3051")
+    return clean;
+  };
+
+  // Helper to fetch live serial autocomplete suggestions
+  const getSerialSuggestions = (sizeCode: '101-F' | '101-N', query: string) => {
+    const q = query.trim().toUpperCase();
+    if (!q) return [];
+
+    const matches: { id: string; full_serial: string }[] = [];
+
+    availableCylinders.forEach((c) => {
+      const full = c.serial_number || c.qr_code || '';
+      if (full.toUpperCase().includes(q)) {
+        matches.push({ id: c.id, full_serial: full });
+      }
+    });
+
+    // Add formatted suggestion if query is purely numeric
+    if (/^\d+$/.test(q)) {
+      const formatted = `${sizeCode}${q}`;
+      if (!matches.some(m => m.full_serial === formatted)) {
+        matches.unshift({ id: `fmt-${formatted}`, full_serial: formatted });
+      }
+    }
+
+    return matches.slice(0, 5);
+  };
+
+  const handleAddSerialF = (inputVal?: string) => {
+    const raw = (inputVal !== undefined ? inputVal : serialInputF).trim();
+    if (!raw) return;
+    const tokens = raw.split(/[\s,\n]+/).map(t => resolveFullSerial(t, '101-F')).filter(Boolean);
+    if (tokens.length === 0) return;
+    const updated = Array.from(new Set([...loanSerialsF, ...tokens]));
+    setLoanSerialsF(updated);
+    setLoanQtyF(Math.max(loanQtyF, updated.length));
+    setSerialInputF('');
+    setShowSuggestionsF(false);
+  };
+
+  const handleRemoveSerialF = (index: number) => {
+    const updated = loanSerialsF.filter((_, i) => i !== index);
+    setLoanSerialsF(updated);
+  };
+
+  const handleAddSerialN = (inputVal?: string) => {
+    const raw = (inputVal !== undefined ? inputVal : serialInputN).trim();
+    if (!raw) return;
+    const tokens = raw.split(/[\s,\n]+/).map(t => resolveFullSerial(t, '101-N')).filter(Boolean);
+    if (tokens.length === 0) return;
+    const updated = Array.from(new Set([...loanSerialsN, ...tokens]));
+    setLoanSerialsN(updated);
+    setLoanQtyN(Math.max(loanQtyN, updated.length));
+    setSerialInputN('');
+    setShowSuggestionsN(false);
+  };
+
+  const handleRemoveSerialN = (index: number) => {
+    const updated = loanSerialsN.filter((_, i) => i !== index);
+    setLoanSerialsN(updated);
+  };
 
   // Fetch available cylinders from database on open
   useEffect(() => {
@@ -376,18 +467,30 @@ export const ManualIssueModal: React.FC<ManualIssueModalProps> = ({
 
     // 2. Add loan items if any
     if (loanQtyF > 0) {
+      const serialsStr = loanSerialsF.filter(Boolean).join(', ');
+      const usageNotes = [
+        serialsStr ? `Serials (${loanSerialsF.length}): ${serialsStr}` : '',
+        loanNotesF || 'Loan cylinder (1.4m³)'
+      ].filter(Boolean).join(' | ');
+
       dispatchItems.push({
         size_code: '101-F',
         quantity: loanQtyF,
-        usage_notes: loanNotesF || 'Loan cylinder (1.4m┬│)'
+        usage_notes: usageNotes
       });
     }
 
     if (loanQtyN > 0) {
+      const serialsStr = loanSerialsN.filter(Boolean).join(', ');
+      const usageNotes = [
+        serialsStr ? `Serials (${loanSerialsN.length}): ${serialsStr}` : '',
+        loanNotesN || 'Loan cylinder (8.0m³)'
+      ].filter(Boolean).join(' | ');
+
       dispatchItems.push({
         size_code: '101-N',
         quantity: loanQtyN,
-        usage_notes: loanNotesN || 'Loan cylinder (8.0m┬│)'
+        usage_notes: usageNotes
       });
     }
 
@@ -487,25 +590,32 @@ export const ManualIssueModal: React.FC<ManualIssueModalProps> = ({
                 required
               >
                 <option value="">Select Department...</option>
-                {departments
-                  .filter(dept => {
-                    const name = dept.department_name.toLowerCase();
-                    const keywords = [
-                      'paediatric', 'paed',
-                      'maternity', 'bersalin',
-                      'emergency', 'trauma', 'kecemasan',
-                      'general ward', 'wad am',
-                      'haemodialysis', 'hemodialysis', 'hemodialisis', 'dialisis',
-                      'radiology', 'radiografi', 'radiography', 'x-ray',
-                      'operation theater', 'operation theatre', 'dewan bedah', 'ot'
-                    ];
-                    return keywords.some(keyword => name.includes(keyword));
-                  })
-                  .map((dept) => (
+                {(() => {
+                  const ALLOWED_CLINICAL = [
+                    'Emergency and trauma',
+                    'General ward',
+                    'Paediatric ward',
+                    'Maternity ward',
+                    'Operation Theater',
+                    'Radiology and radiography',
+                    'Nephrology'
+                  ];
+
+                  const matched = departments.filter(d => {
+                    const name = (d.department_name || '').toLowerCase().trim();
+                    return ALLOWED_CLINICAL.some(a => a.toLowerCase() === name || name.includes(a.toLowerCase().split(' ')[0]));
+                  });
+
+                  const listToRender = matched.length > 0
+                    ? matched
+                    : ALLOWED_CLINICAL.map((name, idx) => ({ id: `dept-auto-manual-${idx}`, department_name: name }));
+
+                  return listToRender.map((dept) => (
                     <option key={dept.id} value={dept.id}>
                       {dept.department_name}
                     </option>
-                  ))}
+                  ));
+                })()}
               </select>
               <div className="absolute right-3.5 top-3 sm:top-3.5 pointer-events-none text-slate-400">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
@@ -840,17 +950,17 @@ export const ManualIssueModal: React.FC<ManualIssueModalProps> = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Loan cylinder 101-F */}
-                  <div className="p-3.5 bg-slate-50/50 border border-slate-200/80 rounded-xl flex flex-col gap-3">
-                    <div className="flex items-center justify-between">
+                  <div className="p-4 bg-slate-50/70 border border-slate-200/90 rounded-2xl flex flex-col gap-3 shadow-2xs">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                       <div>
-                        <span className="font-bold text-xs text-slate-800 block">101-F (1.4m┬│)</span>
-                        <span className="text-[9px] text-slate-400 block font-semibold">Medium Size Loan Cylinder</span>
+                        <span className="font-extrabold text-xs text-slate-900 block">101-F (1.4m³)</span>
+                        <span className="text-[10px] text-slate-500 block font-semibold">Medium Size Loan Cylinder</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => setLoanQtyF(Math.max(0, loanQtyF - 1))}
-                          className="w-7 h-7 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-xs font-bold text-slate-600 shadow-2xs"
+                          className="w-7 h-7 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-xs font-bold text-slate-600 shadow-2xs cursor-pointer"
                         >
                           -
                         </button>
@@ -864,33 +974,108 @@ export const ManualIssueModal: React.FC<ManualIssueModalProps> = ({
                         <button
                           type="button"
                           onClick={() => setLoanQtyF(loanQtyF + 1)}
-                          className="w-7 h-7 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-xs font-bold text-slate-600 shadow-2xs"
+                          className="w-7 h-7 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-xs font-bold text-slate-600 shadow-2xs cursor-pointer"
                         >
                           +
                         </button>
                       </div>
                     </div>
+
+                    {/* Serial Numbers Input for 101-F */}
+                    <div className="space-y-1.5 relative">
+                      <label className="text-[10px] font-extrabold text-slate-600 uppercase tracking-wider block">
+                        Cylinder Serial Nos (e.g. Saboxy / Supplier)
+                      </label>
+                      <div className="flex gap-2 relative">
+                        <input
+                          type="text"
+                          placeholder="Type/paste serial no (e.g. SBX-001, 3051)..."
+                          value={serialInputF}
+                          onFocus={() => setShowSuggestionsF(true)}
+                          onChange={(e) => {
+                            setSerialInputF(e.target.value);
+                            setShowSuggestionsF(true);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ',') {
+                              e.preventDefault();
+                              handleAddSerialF();
+                            }
+                          }}
+                          className="flex-1 px-3 py-1.5 border border-slate-250 bg-white rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleAddSerialF()}
+                          disabled={!serialInputF.trim()}
+                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                        >
+                          + Add
+                        </button>
+                      </div>
+
+                      {/* Autocomplete Suggestions Popup for 101-F */}
+                      {showSuggestionsF && serialInputF.trim().length > 0 && (
+                        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-40 overflow-y-auto divide-y divide-slate-100">
+                          {getSerialSuggestions('101-F', serialInputF).map((sugg) => (
+                            <button
+                              key={sugg.id}
+                              type="button"
+                              onClick={() => handleAddSerialF(sugg.full_serial)}
+                              className="w-full px-3 py-2 text-left hover:bg-indigo-50 flex items-center justify-between transition-colors cursor-pointer"
+                            >
+                              <span className="font-extrabold text-xs text-slate-900 font-mono">🏷️ {sugg.full_serial}</span>
+                              <span className="text-[10px] text-indigo-600 font-extrabold bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">Use Full Serial</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {loanSerialsF.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {loanSerialsF.map((s, idx) => (
+                            <span key={idx} className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 border border-indigo-200 text-indigo-800 rounded-lg text-[10px] font-extrabold font-mono shadow-2xs">
+                              🏷️ {s}
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveSerialF(idx)}
+                                className="text-indigo-500 hover:text-indigo-900 ml-0.5 cursor-pointer font-bold"
+                              >
+                                ✕
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {loanQtyF > 0 && (
+                        <span className="text-[10px] text-slate-400 font-semibold block">
+                          {loanSerialsF.length} of {loanQtyF} serial numbers entered
+                        </span>
+                      )}
+                    </div>
+
                     <input
                       type="text"
                       placeholder="Usage notes for 101-F loan..."
                       value={loanNotesF}
                       onChange={(e) => setLoanNotesF(e.target.value)}
-                      className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white text-xs text-slate-700 focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-xs text-slate-700 focus:outline-none focus:border-indigo-500 font-medium"
                     />
                   </div>
 
                   {/* Loan cylinder 101-N */}
-                  <div className="p-3.5 bg-slate-50/50 border border-slate-200/80 rounded-xl flex flex-col gap-3">
-                    <div className="flex items-center justify-between">
+                  <div className="p-4 bg-slate-50/70 border border-slate-200/90 rounded-2xl flex flex-col gap-3 shadow-2xs">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                       <div>
-                        <span className="font-bold text-xs text-slate-800 block">101-N (8.0m┬│)</span>
-                        <span className="text-[9px] text-slate-400 block font-semibold">Large Size Loan Cylinder</span>
+                        <span className="font-extrabold text-xs text-slate-900 block">101-N (8.0m³)</span>
+                        <span className="text-[10px] text-slate-500 block font-semibold">Large Size Loan Cylinder</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => setLoanQtyN(Math.max(0, loanQtyN - 1))}
-                          className="w-7 h-7 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-xs font-bold text-slate-600 shadow-2xs"
+                          className="w-7 h-7 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-xs font-bold text-slate-600 shadow-2xs cursor-pointer"
                         >
                           -
                         </button>
@@ -904,18 +1089,93 @@ export const ManualIssueModal: React.FC<ManualIssueModalProps> = ({
                         <button
                           type="button"
                           onClick={() => setLoanQtyN(loanQtyN + 1)}
-                          className="w-7 h-7 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-xs font-bold text-slate-600 shadow-2xs"
+                          className="w-7 h-7 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-xs font-bold text-slate-600 shadow-2xs cursor-pointer"
                         >
                           +
                         </button>
                       </div>
                     </div>
+
+                    {/* Serial Numbers Input for 101-N */}
+                    <div className="space-y-1.5 relative">
+                      <label className="text-[10px] font-extrabold text-slate-600 uppercase tracking-wider block">
+                        Cylinder Serial Nos (e.g. Saboxy / Supplier)
+                      </label>
+                      <div className="flex gap-2 relative">
+                        <input
+                          type="text"
+                          placeholder="Type/paste serial no (e.g. SBX-001, 3051)..."
+                          value={serialInputN}
+                          onFocus={() => setShowSuggestionsN(true)}
+                          onChange={(e) => {
+                            setSerialInputN(e.target.value);
+                            setShowSuggestionsN(true);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ',') {
+                              e.preventDefault();
+                              handleAddSerialN();
+                            }
+                          }}
+                          className="flex-1 px-3 py-1.5 border border-slate-250 bg-white rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleAddSerialN()}
+                          disabled={!serialInputN.trim()}
+                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                        >
+                          + Add
+                        </button>
+                      </div>
+
+                      {/* Autocomplete Suggestions Popup for 101-N */}
+                      {showSuggestionsN && serialInputN.trim().length > 0 && (
+                        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-40 overflow-y-auto divide-y divide-slate-100">
+                          {getSerialSuggestions('101-N', serialInputN).map((sugg) => (
+                            <button
+                              key={sugg.id}
+                              type="button"
+                              onClick={() => handleAddSerialN(sugg.full_serial)}
+                              className="w-full px-3 py-2 text-left hover:bg-indigo-50 flex items-center justify-between transition-colors cursor-pointer"
+                            >
+                              <span className="font-extrabold text-xs text-slate-900 font-mono">🏷️ {sugg.full_serial}</span>
+                              <span className="text-[10px] text-indigo-600 font-extrabold bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">Use Full Serial</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {loanSerialsN.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {loanSerialsN.map((s, idx) => (
+                            <span key={idx} className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 border border-indigo-200 text-indigo-800 rounded-lg text-[10px] font-extrabold font-mono shadow-2xs">
+                              🏷️ {s}
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveSerialN(idx)}
+                                className="text-indigo-500 hover:text-indigo-900 ml-0.5 cursor-pointer font-bold"
+                              >
+                                ✕
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {loanQtyN > 0 && (
+                        <span className="text-[10px] text-slate-400 font-semibold block">
+                          {loanSerialsN.length} of {loanQtyN} serial numbers entered
+                        </span>
+                      )}
+                    </div>
+
                     <input
                       type="text"
                       placeholder="Usage notes for 101-N loan..."
                       value={loanNotesN}
                       onChange={(e) => setLoanNotesN(e.target.value)}
-                      className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white text-xs text-slate-700 focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-xs text-slate-700 focus:outline-none focus:border-indigo-500 font-medium"
                     />
                   </div>
                 </div>

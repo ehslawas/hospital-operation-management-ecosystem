@@ -49,7 +49,8 @@ export const CreateReturnDocumentModal: React.FC<CreateReturnDocumentModalProps>
   const [manualSizeSelect, setManualSizeSelect] = useState('101-F (1.4m3)');
   const [manualQtyInput, setManualQtyInput] = useState<number>(1);
   const [supplierCylinders, setSupplierCylinders] = useState<OxygenCylinderWithRelations[]>([]);
-  const [supplierSizeFilter, setSupplierSizeFilter] = useState<'all' | '101-N' | '101-F'>('101-N');
+  const [supplierSizeFilter, setSupplierSizeFilter] = useState<'all' | '101-N' | '101-F'>('all');
+  const [supplierSearchTerm, setSupplierSearchTerm] = useState('');
   
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -98,23 +99,33 @@ export const CreateReturnDocumentModal: React.FC<CreateReturnDocumentModalProps>
     setIsLoading(true);
     setError(null);
     setManualLoans([]);
+    setSupplierSearchTerm('');
     setStep('scan');
     setScannedCylinders(sessionScannedCylinders);
     try {
-      // 1. Fetch active suppliers
+      // 1. Fetch active suppliers (Only show Linde & Borneo Indah)
       const { data: sups, error: supErr } = await supabase
         .from('suppliers')
         .select('id, company_name, supplier_code')
         .eq('status', 'active');
 
       if (supErr) throw supErr;
-      setSuppliers(sups || []);
       
-      const linde = (sups || []).find(s => s.company_name.toLowerCase().includes('linde'));
+      const filteredSuppliers = (sups || []).filter(s => {
+        const name = (s.company_name || '').toLowerCase();
+        return name.includes('linde') || name.includes('borneo indah');
+      });
+
+      setSuppliers(filteredSuppliers);
+      
+      const linde = filteredSuppliers.find(s => s.company_name.toLowerCase().includes('linde'));
+      const borneo = filteredSuppliers.find(s => s.company_name.toLowerCase().includes('borneo indah'));
       if (linde) {
         setSelectedSupplier(linde.id);
-      } else if (sups && sups.length > 0) {
-        setSelectedSupplier(sups[0].id);
+      } else if (borneo) {
+        setSelectedSupplier(borneo.id);
+      } else if (filteredSuppliers.length > 0) {
+        setSelectedSupplier(filteredSuppliers[0].id);
       }
 
       // 2. Fetch empty cylinders in store (status='issued')
@@ -140,30 +151,27 @@ export const CreateReturnDocumentModal: React.FC<CreateReturnDocumentModalProps>
       setRemarks('');
       setReturnDate(new Date().toISOString().split('T')[0]);
 
-      // 3. Fetch supplier-tagged cylinders
-      const { isSupabaseConfigured } = await import('@/services/supabase');
-      if (isSupabaseConfigured()) {
-        const { data: supCyls, error: supCylsErr } = await supabase
-          .from('pharmacy_oxygen_cylinder_inventory')
-          .select(`
-            *,
-            size_info:pharmacy_oxygen_cylinder_sizes(*),
-            type_info:pharmacy_oxygen_cylinder_types(*)
-          `)
-          .eq('hospital_id', hospitalId)
-          .eq('supplier_tagged', true)
-          .neq('status', 'returned_to_supplier')
-          .order('serial_number', { ascending: true });
+      // 3. Fetch supplier-tagged / Saboxy cylinders directly from database (active or returned)
+      const { data: supCyls, error: supCylsErr } = await supabase
+        .from('pharmacy_oxygen_cylinder_inventory')
+        .select(`
+          *,
+          size_info:pharmacy_oxygen_cylinder_sizes(*),
+          type_info:pharmacy_oxygen_cylinder_types(*)
+        `)
+        .eq('hospital_id', hospitalId)
+        .or('supplier_tagged.eq.true,serial_number.ilike.%saboxy%,qr_code.ilike.%saboxy%')
+        .order('serial_number', { ascending: true });
 
-        if (!supCylsErr) {
-          setSupplierCylinders(supCyls || []);
-        }
+      if (!supCylsErr && Array.isArray(supCyls)) {
+        const saboxyOnly = supCyls.filter((c: any) => {
+          const serial = String(c?.serial_number || '').toLowerCase();
+          const qr = String(c?.qr_code || '').toLowerCase();
+          return c?.supplier_tagged === true || serial.includes('saboxy') || qr.includes('saboxy');
+        });
+        setSupplierCylinders(saboxyOnly);
       } else {
-        const { mockOxygenCylinders } = await import('@/services/pharmacy/mockData');
-        const mockSupCyls = mockOxygenCylinders.filter(
-          c => c.supplier_tagged === true && c.status !== 'returned_to_supplier'
-        );
-        setSupplierCylinders(mockSupCyls);
+        setSupplierCylinders([]);
       }
     } catch (err) {
       console.error(err);
@@ -343,6 +351,9 @@ export const CreateReturnDocumentModal: React.FC<CreateReturnDocumentModalProps>
     }
   };
 
+  const selectedSupplierObj = suppliers.find(s => s.id === selectedSupplier);
+  const isBorneoIndahSelected = (selectedSupplierObj?.company_name || '').toLowerCase().includes('borneo indah');
+
   return (
     <>
       {/* Backdrop overlay */}
@@ -354,7 +365,7 @@ export const CreateReturnDocumentModal: React.FC<CreateReturnDocumentModalProps>
       />
 
       <div 
-        className={`fixed inset-y-0 right-0 z-50 w-full max-w-3xl bg-white shadow-2xl flex flex-col transform transition-transform duration-300 ease-out ${
+        className={`fixed inset-y-0 right-0 z-50 w-full max-w-5xl bg-white shadow-2xl flex flex-col transform transition-transform duration-300 ease-out ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
@@ -625,8 +636,8 @@ export const CreateReturnDocumentModal: React.FC<CreateReturnDocumentModalProps>
                     </span>
                   </div>
 
-                  {/* Manual Supplier Tag Selection (Loan Cylinders Only) */}
-                  {supplierCylinders.length > 0 || scannedCylinders.some(c => c.supplier_tagged) ? (
+                  {/* Manual Supplier Tag Selection (Loan Cylinders Only - Only shown if Borneo Indah is selected) */}
+                  {isBorneoIndahSelected && (supplierCylinders.length > 0 || scannedCylinders.some(c => c.supplier_tagged)) ? (
                     <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4 shadow-sm">
                       <div className="flex justify-between items-center flex-wrap gap-2">
                         <label className="block text-slate-700 font-bold text-xs flex items-center gap-1.5">
@@ -637,7 +648,19 @@ export const CreateReturnDocumentModal: React.FC<CreateReturnDocumentModalProps>
                         {/* Size Filter Toggle/Pills */}
                         <div className="flex bg-slate-200/80 p-0.5 rounded-lg text-[10px] font-extrabold uppercase">
                           {(['all', '101-N', '101-F'] as const).map((filterVal) => {
-                            const count = supplierCylinders.filter(c => filterVal === 'all' || c.size_info?.code === filterVal).length;
+                            const count = supplierCylinders.filter(c => {
+                              if (filterVal === 'all') return true;
+                              const code = (c.size_info?.code || '').toUpperCase();
+                              const typeName = (c.type_info?.type_name || c.type_info?.name || '').toUpperCase();
+                              const serial = (c.serial_number || '').toUpperCase();
+                              const is101F = code === '101-F' || typeName.includes('101-F') || serial.includes('101-F') || serial.includes('101F') || typeName.includes('1.4');
+                              
+                              if (filterVal === '101-F') {
+                                return is101F;
+                              } else {
+                                return !is101F;
+                              }
+                            }).length;
                             return (
                               <button
                                 key={filterVal}
@@ -656,18 +679,61 @@ export const CreateReturnDocumentModal: React.FC<CreateReturnDocumentModalProps>
                         </div>
                       </div>
 
+                      {/* Search Input for Supplier Cylinder IDs */}
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                        <input
+                          type="text"
+                          value={supplierSearchTerm}
+                          onChange={(e) => setSupplierSearchTerm(e.target.value)}
+                          placeholder="Search cylinder serial number or QR code..."
+                          className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/30 shadow-xs"
+                        />
+                        {supplierSearchTerm && (
+                          <button
+                            type="button"
+                            onClick={() => setSupplierSearchTerm('')}
+                            className="absolute right-2.5 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+
                       {/* Checkbox Grid of available supplier cylinders */}
                       {(() => {
-                        const displayedCyls = supplierCylinders.filter(c => supplierSizeFilter === 'all' || c.size_info?.code === supplierSizeFilter);
+                        const displayedCyls = supplierCylinders.filter(c => {
+                          const code = (c.size_info?.code || '').toUpperCase();
+                          const typeName = (c.type_info?.type_name || c.type_info?.name || '').toUpperCase();
+                          const serial = (c.serial_number || '').toUpperCase();
+                          const is101F = code === '101-F' || typeName.includes('101-F') || serial.includes('101-F') || serial.includes('101F') || typeName.includes('1.4');
+                          
+                          let matchesSize = true;
+                          if (supplierSizeFilter === '101-N') {
+                            matchesSize = !is101F;
+                          } else if (supplierSizeFilter === '101-F') {
+                            matchesSize = is101F;
+                          }
+                          if (!matchesSize) return false;
+                          if (supplierSearchTerm.trim()) {
+                            const query = supplierSearchTerm.toLowerCase();
+                            const serial = (c.serial_number || '').toLowerCase();
+                            const qr = (c.qr_code || '').toLowerCase();
+                            return serial.includes(query) || qr.includes(query);
+                          }
+                          return true;
+                        });
                         if (displayedCyls.length === 0) {
                           return (
                             <p className="text-[11px] text-slate-400 font-semibold italic text-center py-4 bg-white border border-dashed border-slate-200 rounded-xl">
-                              No active supplier-tagged cylinders found for this size.
+                              {supplierSearchTerm.trim() 
+                                ? `No cylinders found matching "${supplierSearchTerm}"`
+                                : 'No active supplier-tagged cylinders found for this size.'}
                             </p>
                           );
                         }
                         return (
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 max-h-96 overflow-y-auto pr-1">
                             {displayedCyls.map((cyl) => {
                               const isSelected = scannedCylinders.some(sc => sc.id === cyl.id);
                               return (

@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ROUTES } from '@/lib/constants'
@@ -18,7 +18,7 @@ import { Spinner, Input, Select, SlideOver } from '@/components/ui'
 import { PurchaseOrderDetailView } from './PurchaseOrderDetailView'
 import { cn, formatCurrency } from '@/lib/utils'
 import { useToast } from '@/stores/toastStore'
-import { ChevronRight, Sparkles, DollarSign, Trash2 } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Sparkles, DollarSign, Trash2 } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 export default function PenaltyPage() {
@@ -35,11 +35,16 @@ export default function PenaltyPage() {
   const [activeTab, setActiveTab] = useState<'all' | 'appl' | 'cc'>('all')
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
 
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(50)
+  const [totalRecords, setTotalRecords] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+
   useEffect(() => {
     if (hospitalId) {
       loadData()
     }
-  }, [hospitalId, statusFilter, activeTab])
+  }, [hospitalId, statusFilter, activeTab, page, pageSize])
 
   const loadData = async () => {
     if (!hospitalId) return
@@ -56,12 +61,14 @@ export default function PenaltyPage() {
       }
 
       const [penaltiesRes, statsRes] = await Promise.all([
-        getPenalties(hospitalId, filter, 1, 50),
+        getPenalties(hospitalId, filter, page, pageSize),
         getPenaltyStats(hospitalId)
       ])
 
       if (penaltiesRes.data) {
         setPenalties(penaltiesRes.data)
+        setTotalRecords(penaltiesRes.meta?.total || 0)
+        setTotalPages(penaltiesRes.meta?.totalPages || 0)
       }
       if (statsRes.data) {
         setStats(statsRes.data)
@@ -75,6 +82,7 @@ export default function PenaltyPage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
+    setPage(1)
     loadData()
   }
 
@@ -344,7 +352,10 @@ export default function PenaltyPage() {
           ].map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => {
+                setActiveTab(tab.id as any)
+                setPage(1)
+              }}
               className={cn(
                 "px-5 py-2.5 text-xs font-bold rounded-xl transition-all duration-200 relative",
                 activeTab === tab.id 
@@ -383,7 +394,10 @@ export default function PenaltyPage() {
                     <Select 
                       className="pl-11 bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-rose-100 transition-all outline-none"
                       value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
+                      onChange={(e) => {
+                        setStatusFilter(e.target.value)
+                        setPage(1)
+                      }}
                     >
                       <option value="all">All Statuses</option>
                       <option value="pending">Draft</option>
@@ -397,26 +411,26 @@ export default function PenaltyPage() {
             </div>
 
             {/* Table Area - Desktop Table */}
-            <div className="hidden lg:block overflow-x-auto rounded-[2rem] border border-slate-100 shadow-sm">
-              <table className="w-full border-collapse">
+            <div className="hidden lg:block overflow-x-auto rounded-2xl border border-slate-200/80 shadow-sm">
+              <table className="w-full border-collapse text-left">
                 <thead>
-                  <tr className="bg-slate-50/80">
-                    <th className="px-6 py-5 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Date</th>
-                    <th className="px-6 py-5 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">LPO/PO</th>
-                    <th className="px-6 py-5 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">DO Number</th>
-                    <th className="px-6 py-5 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Penalty Type</th>
-                    <th className="px-6 py-5 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Supplier & Item Details</th>
-                    <th className="px-6 py-5 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Delays</th>
-                    <th className="px-6 py-5 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Penalty Amount</th>
-                    <th className="px-6 py-5 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Status</th>
-                    <th className="px-6 py-5 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Payment Status</th>
-                    <th className="px-6 py-5 text-right text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Actions</th>
+                  <tr className="bg-slate-50/80 border-b border-slate-200/60">
+                    <th className="px-3 py-3.5 whitespace-nowrap text-left text-[10px] font-black uppercase tracking-wider text-slate-400">Date</th>
+                    <th className="px-3 py-3.5 whitespace-nowrap text-left text-[10px] font-black uppercase tracking-wider text-slate-400">LPO/PO</th>
+                    <th className="px-3 py-3.5 whitespace-nowrap text-left text-[10px] font-black uppercase tracking-wider text-slate-400">DO Number</th>
+                    <th className="px-3 py-3.5 whitespace-nowrap text-left text-[10px] font-black uppercase tracking-wider text-slate-400">Type</th>
+                    <th className="px-3 py-3.5 text-left text-[10px] font-black uppercase tracking-wider text-slate-400">Supplier & Item</th>
+                    <th className="px-3 py-3.5 whitespace-nowrap text-left text-[10px] font-black uppercase tracking-wider text-slate-400">Delays</th>
+                    <th className="px-3 py-3.5 whitespace-nowrap text-left text-[10px] font-black uppercase tracking-wider text-slate-400">Amount</th>
+                    <th className="px-3 py-3.5 whitespace-nowrap text-left text-[10px] font-black uppercase tracking-wider text-slate-400">Status</th>
+                    <th className="px-3 py-3.5 whitespace-nowrap text-left text-[10px] font-black uppercase tracking-wider text-slate-400">Payment</th>
+                    <th className="px-3 py-3.5 whitespace-nowrap text-right text-[10px] font-black uppercase tracking-wider text-slate-400">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
+                <tbody className="divide-y divide-slate-100">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={9} className="px-8 py-20 text-center">
+                      <td colSpan={10} className="px-6 py-16 text-center">
                         <div className="flex flex-col items-center justify-center">
                           <Spinner size="lg" className="mb-4" />
                           <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Loading records...</p>
@@ -425,9 +439,9 @@ export default function PenaltyPage() {
                     </tr>
                   ) : penalties.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-8 py-20 text-center">
-                        <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-100">
-                          <IconAlertTriangle className="w-8 h-8 text-slate-300" />
+                      <td colSpan={10} className="px-6 py-16 text-center">
+                        <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-slate-100">
+                          <IconAlertTriangle className="w-7 h-7 text-slate-300" />
                         </div>
                         <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No penalties found</p>
                       </td>
@@ -437,117 +451,117 @@ export default function PenaltyPage() {
                       <tr 
                         key={penalty.id} 
                         onClick={() => handleRowClick(penalty.id)}
-                        className="hover:bg-slate-50/50 transition-colors group cursor-pointer"
+                        className="hover:bg-slate-50/70 transition-colors group cursor-pointer"
                       >
-                        <td className="px-6 py-5">
-                          <div className="text-sm font-bold text-slate-900">
+                        <td className="px-3 py-3.5 whitespace-nowrap">
+                          <div className="text-xs font-bold text-slate-900">
                             {new Date(penalty.created_at || penalty.issue_date).toLocaleDateString('en-MY', {
                               day: '2-digit', month: 'short', year: 'numeric'
                             })}
                           </div>
                         </td>
-                        <td className="px-6 py-5" onClick={e => e.stopPropagation()}>
-                          <div className="flex flex-col items-start gap-1.5">
+                        <td className="px-3 py-3.5 whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                          <div className="flex flex-col items-start gap-1">
                             {penalty.po_id ? (
                               <button 
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   setSelectedOrderId(penalty.po_id!)
                                 }}
-                                className="group/link inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 hover:bg-rose-50 text-slate-700 hover:text-rose-600 border border-slate-200 hover:border-rose-200 rounded-lg text-[10px] font-bold transition-all w-fit text-left"
+                                className="group/link inline-flex items-center gap-1 px-2 py-0.5 bg-slate-50 hover:bg-rose-50 text-slate-700 hover:text-rose-600 border border-slate-200 hover:border-rose-200 rounded-md text-[10px] font-bold transition-all w-fit text-left"
                               >
-                                <span className="text-slate-400 group-hover/link:text-rose-400 font-mono text-[9px] uppercase tracking-wider">PO:</span>
-                                <span className="font-mono">{penalty.purchase_order?.po_number || 'â€”'}</span>
+                                <span className="text-slate-400 group-hover/link:text-rose-400 font-mono text-[9px] uppercase">PO:</span>
+                                <span className="font-mono">{penalty.purchase_order?.po_number || '—'}</span>
                               </button>
                             ) : (
-                              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 text-slate-500 border border-slate-200 rounded-lg text-[10px] font-bold w-fit">
-                                <span className="text-slate-400 font-mono text-[9px] uppercase tracking-wider">PO:</span>
-                                <span className="font-mono">{penalty.purchase_order?.po_number || 'â€”'}</span>
+                              <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-50 text-slate-500 border border-slate-200 rounded-md text-[10px] font-bold w-fit">
+                                <span className="text-slate-400 font-mono text-[9px] uppercase">PO:</span>
+                                <span className="font-mono">{penalty.purchase_order?.po_number || '—'}</span>
                               </div>
                             )}
                             {penalty.lpo?.lpo_number && (
-                              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50/60 text-indigo-700 border border-indigo-100/80 rounded-lg text-[10px] font-bold w-fit">
-                                <span className="text-indigo-400 font-mono text-[9px] uppercase tracking-wider">LPO:</span>
+                              <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-50/60 text-indigo-700 border border-indigo-100/80 rounded-md text-[10px] font-bold w-fit">
+                                <span className="text-indigo-400 font-mono text-[9px] uppercase">LPO:</span>
                                 <span className="font-mono">{penalty.lpo.lpo_number}</span>
                               </div>
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-5">
+                        <td className="px-3 py-3.5 whitespace-nowrap">
                           {(penalty.goods_receipt?.delivery_note_number || (penalty as any).receiving?.do_number) ? (
-                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700">
-                              <IconFileText className="w-3.5 h-3.5 text-slate-400" />
+                            <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 border border-slate-200 rounded-md text-[10px] font-bold text-slate-700">
+                              <IconFileText className="w-3 h-3 text-slate-400" />
                               <span className="font-mono uppercase">
                                 {penalty.goods_receipt?.delivery_note_number || (penalty as any).receiving?.do_number}
                               </span>
                             </div>
                           ) : (
-                            <span className="text-slate-300 font-bold font-mono">â€”</span>
+                            <span className="text-slate-300 font-bold font-mono">—</span>
                           )}
                         </td>
-                        <td className="px-6 py-5">
+                        <td className="px-3 py-3.5 whitespace-nowrap">
                           {renderContractCategory(penalty.penalty_type)}
                         </td>
-                        <td className="px-6 py-5">
-                          <div className="flex flex-col gap-1 max-w-[280px]">
-                            <div className="text-sm font-bold text-slate-900 group-hover:text-indigo-650 transition-colors truncate" title={penalty.supplier?.company_name}>
-                              {penalty.supplier?.company_name || 'â€”'}
+                        <td className="px-3 py-3.5">
+                          <div className="flex flex-col gap-0.5 max-w-[200px] xl:max-w-[260px]">
+                            <div className="text-xs font-bold text-slate-900 group-hover:text-indigo-650 transition-colors truncate" title={penalty.supplier?.company_name}>
+                              {penalty.supplier?.company_name || '—'}
                             </div>
                             {penalty.item_name && (
-                              <div className="text-[11px] font-semibold text-slate-600 truncate leading-relaxed flex items-center gap-1" title={penalty.item_name}>
+                              <div className="text-[10px] font-semibold text-slate-500 truncate flex items-center gap-1" title={penalty.item_name}>
                                 <span className="truncate">{penalty.item_name}</span>
-                                {penalty.item_code && <span className="text-[9px] font-mono text-slate-500 shrink-0">({penalty.item_code})</span>}
+                                {penalty.item_code && <span className="text-[9px] font-mono text-slate-400 shrink-0">({penalty.item_code})</span>}
                               </div>
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-5">
-                          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-rose-50 border border-rose-100 rounded-full text-rose-700 shadow-sm">
-                            <IconClock className="w-3.5 h-3.5 text-rose-500" />
-                            <span className="text-xs font-black tracking-tight">{penalty.days_delayed || 0} Days</span>
+                        <td className="px-3 py-3.5 whitespace-nowrap">
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-rose-50 border border-rose-100 rounded-full text-rose-700 shadow-sm">
+                            <IconClock className="w-3 h-3 text-rose-500" />
+                            <span className="text-xs font-black tracking-tight">{penalty.days_delayed || 0}d</span>
                           </div>
                         </td>
-                        <td className="px-6 py-5">
+                        <td className="px-3 py-3.5 whitespace-nowrap">
                           <div className="flex flex-col items-start gap-0.5">
-                            <span className="text-sm font-extrabold text-rose-600 font-mono tracking-tight">
+                            <span className="text-xs font-extrabold text-rose-600 font-mono tracking-tight">
                               {penalty.penalty_amount ? formatCurrency(Number(penalty.penalty_amount)) : 'RM 0.00'}
                             </span>
                             {(penalty as any).selected_penalty_type === 'minimum' && (
-                              <span className="text-[8px] font-black text-rose-500 bg-rose-50/50 border border-rose-100 px-1.5 py-0.5 rounded uppercase tracking-wider">
-                                MIN FINE APPLIED
+                              <span className="text-[7.5px] font-black text-rose-500 bg-rose-50/50 border border-rose-100 px-1 py-0.2 rounded uppercase">
+                                MIN FINE
                               </span>
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-5">
+                        <td className="px-3 py-3.5 whitespace-nowrap">
                           {renderStatusBadge(penalty.status)}
                         </td>
-                        <td className="px-6 py-5">
+                        <td className="px-3 py-3.5 whitespace-nowrap">
                           {penalty.penalty_paid ? (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-705 border border-emerald-250 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50 text-emerald-705 border border-emerald-250 rounded-full text-[9px] font-black uppercase tracking-wider shadow-sm">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
                               Paid
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-50 text-rose-750 border border-rose-200 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-rose-50 text-rose-750 border border-rose-200 rounded-full text-[9px] font-black uppercase tracking-wider shadow-sm">
                               <span className="w-1.5 h-1.5 rounded-full bg-rose-650" />
                               Unpaid
                             </span>
                           )}
                         </td>
-                        <td className="px-6 py-5 text-right" onClick={e => e.stopPropagation()}>
-                          <div className="flex items-center justify-end gap-2">
+                        <td className="px-3 py-3.5 whitespace-nowrap text-right" onClick={e => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-1.5">
                             {penalty.status === 'pending' && (
                               <>
                                 <button
                                   onClick={(e) => handleStatusUpdate(penalty.id, 'enforced', e)}
-                                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[9px] font-black uppercase tracking-widest transition-all duration-200"
+                                  className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200"
                                 >
                                   Submit
                                 </button>
                                 <button
                                   onClick={(e) => handleStatusUpdate(penalty.id, 'waived', e)}
-                                  className="px-3 py-1.5 bg-white hover:bg-rose-50 text-rose-650 border border-rose-200 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all duration-200"
+                                  className="px-2.5 py-1 bg-white hover:bg-rose-50 text-rose-650 border border-rose-200 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200"
                                 >
                                   Reject
                                 </button>
@@ -555,13 +569,13 @@ export default function PenaltyPage() {
                             )}
                             <button
                               onClick={() => handleRowClick(penalty.id)}
-                              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-950 text-white rounded-lg text-[9px] font-black uppercase tracking-widest transition-all duration-200"
+                              className="px-2.5 py-1 bg-slate-900 hover:bg-slate-950 text-white rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200"
                             >
                               Process
                             </button>
                             <button
                               onClick={(e) => handleDelete(penalty.id, e)}
-                              className="p-1.5 bg-white hover:bg-rose-50 text-rose-650 hover:text-rose-700 border border-slate-200 hover:border-rose-200 rounded-lg transition-all duration-200"
+                              className="p-1 bg-white hover:bg-rose-50 text-rose-650 hover:text-rose-700 border border-slate-200 hover:border-rose-200 rounded-lg transition-all duration-200"
                               title="Delete Duplicate/Incorrect Penalty"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -721,12 +735,61 @@ export default function PenaltyPage() {
               )}
             </div>
 
-            {/* Pagination / Total Indicator */}
-            {penalties.length > 0 && (
-              <div className="mt-10 pt-8 border-t border-slate-50 flex items-center justify-between">
-                <div className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-3">
-                  <span className="w-8 h-px bg-slate-100"></span>
-                  Showing <span className="text-rose-600 font-black">{penalties.length}</span> {activeTab.toUpperCase()} Penalty Records
+            {/* Pagination / Page Controls */}
+            {totalRecords > 0 && (
+              <div className="mt-10 pt-6 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-1.5 h-6 bg-indigo-600 rounded-full" />
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Showing <span className="text-slate-900 font-black">{(page - 1) * pageSize + 1}</span> to{' '}
+                    <span className="text-slate-900 font-black">
+                      {Math.min(page * pageSize, totalRecords)}
+                    </span>{' '}
+                    of <span className="text-indigo-600 font-black">{totalRecords}</span> records
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  {/* Page Size Selector */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-slate-400">Per page:</span>
+                    <select
+                      value={pageSize}
+                      onChange={(e) => {
+                        setPageSize(Number(e.target.value))
+                        setPage(1)
+                      }}
+                      className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 shadow-sm focus:outline-none focus:border-indigo-500 cursor-pointer"
+                    >
+                      <option value={25}>25</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                      <option value={200}>200</option>
+                    </select>
+                  </div>
+
+                  {/* Prev / Next Page Buttons */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:border-slate-900 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      Previous
+                    </button>
+                    <span className="text-xs font-extrabold text-slate-600 px-2 font-mono">
+                      {page} / {totalPages || 1}
+                    </span>
+                    <button
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={page >= totalPages}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 text-xs font-bold text-white hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-md shadow-slate-900/10"
+                    >
+                      Next
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

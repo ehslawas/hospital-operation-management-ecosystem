@@ -2,6 +2,7 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import type { FinancialReportData } from './financialReportService'
+import { drawHospitalHeader } from '@/lib/pdfHeader'
 
 // Helper to convert logo image to base64
 const getBase64ImageFromUrlLocal = async (imageUrl: string): Promise<string | null> => {
@@ -57,27 +58,8 @@ export async function generateFinancialReportPdf(data: FinancialReportData): Pro
     }
 
     // Header drawing
-    const drawHeader = (title: string, showLogo = true) => {
-      if (showLogo && logoBase64) {
-        doc.addImage(logoBase64, 'PNG', (pageWidth - 25) / 2, 15, 25, 20)
-      }
-      
-      let y = showLogo ? 45 : 20
-      
-      doc.setFont('times', 'bold')
-      doc.setFontSize(14)
-      doc.setTextColor(31, 41, 55)
-      doc.text('KEMENTERIAN KESIHATAN MALAYSIA', pageWidth / 2, y, { align: 'center' })
-      y += 6
-      doc.setFontSize(12)
-      doc.text(data.metadata.hospitalName.toUpperCase(), pageWidth / 2, y, { align: 'center' })
-      y += 10
-      
-      // Divider line
-      doc.setLineWidth(0.5)
-      doc.setDrawColor(31, 41, 55)
-      doc.line(margin, y, pageWidth - margin, y)
-      y += 8
+    const drawHeader = async (title: string, showLogo = true) => {
+      let y = await drawHospitalHeader(doc, { margin, startY: 10, logoBase64 })
       
       doc.setFont('times', 'bold')
       doc.setFontSize(16)
@@ -106,7 +88,7 @@ export async function generateFinancialReportPdf(data: FinancialReportData): Pro
     // PAGE 1: COVER & EXECUTIVE SUMMARY
     // ==========================================
     drawWatermark()
-    let y = drawHeader('Laporan Eksekutif Kewangan & Belanjawan (Financial Intelligence Report)')
+    let y = await drawHeader('Laporan Eksekutif Kewangan & Belanjawan (Financial Intelligence Report)')
 
     // Draw Stat KPI boxes (3x2 Grid)
     const drawStatBox = (x: number, y: number, w: number, h: number, label: string, value: string, subValue?: string) => {

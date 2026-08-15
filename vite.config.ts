@@ -33,10 +33,10 @@ export default defineConfig({
       'lucide-react',
       'framer-motion',
       'recharts',
-      'jspdf',
-      'xlsx',
       'date-fns',
       'zustand',
+      'tesseract.js',
+      'pdfjs-dist',
     ],
     esbuildOptions: {
       target: 'esnext',

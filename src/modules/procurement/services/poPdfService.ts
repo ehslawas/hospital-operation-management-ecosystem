@@ -2,6 +2,8 @@
 import { PDFDocument } from 'pdf-lib'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { isContractExpired } from '@/shared/lib/utils'
+import { drawHospitalHeader } from '@/lib/pdfHeader'
 
 console.error('!!! PO_PDF_SERVICE_LOADED !!!');
 
@@ -103,38 +105,11 @@ async function compileVectorPO(options: VectorPDFOptions): Promise<ArrayBuffer> 
   const hospitalName = order.hospital?.name || 'Hospital Daerah Lawas';
 
   // --- Page 1 Header Manual Compilation ---
-  const drawFirstPageHeader = () => {
+  const drawFirstPageHeader = async () => {
     const col1 = margin + 5;
     const col2 = pageWidth / 2 + 5;
 
-    // 1. Logo on the left (widen to 22.5 to restore natural Malaysian Crest aspect ratio)
-    if (logoBase64) {
-      doc.addImage(logoBase64, 'PNG', margin + 5, 15, 22.5, 18);
-    }
-
-    // 2. Thick vertical bar next to logo (shifted right to accommodate wider logo)
-    doc.setFillColor(31, 41, 55);
-    doc.rect(margin + 30.5, 15, 0.8, 18, 'F');
-
-    // 3. Centered Title text (Ministry header) - Times Bold
-    doc.setFont('times', 'bold');
-    doc.setFontSize(14);
-    doc.setTextColor(31, 41, 55);
-    doc.text('KEMENTERIAN KESIHATAN', pageWidth / 2, 19, { align: 'center' });
-    doc.setFontSize(12);
-    doc.text('MINISTRY OF HEALTH', pageWidth / 2, 24, { align: 'center' });
-    doc.text('MALAYSIA', pageWidth / 2, 29, { align: 'center' });
-    doc.setFontSize(10.5);
-    doc.text(hospitalName, pageWidth / 2, 35, { align: 'center' });
-
-    // 4. Thick vertical bar on the far right
-    doc.setFillColor(31, 41, 55);
-    doc.rect(pageWidth - margin - 7, 15, 0.8, 18, 'F');
-
-    // 5. Horizontal divider line under main header
-    doc.setLineWidth(0.8);
-    doc.setDrawColor(31, 41, 55);
-    doc.line(margin + 5, 39, pageWidth - margin - 5, 39);
+    await drawHospitalHeader(doc, { margin: margin + 5, startY: 10, logoBase64 });
 
     // 6. Document main title & translation
     const docTitle = order?.po_type === 'sq' ? 'PELAWAAN SEBUT HARGA' : 'BORANG PERMOHONAN UNTUK PENGELUARAN PESANAN KERAJAAN';
@@ -211,10 +186,29 @@ async function compileVectorPO(options: VectorPDFOptions): Promise<ArrayBuffer> 
     gridY += rowHeight;
 
     // Row 4: Contract No. / INV SQ No.
+    // A PO's contract is considered expired when:
+    //   1. The inv_sq_number is present (user purchased under INV SQ due to expired CC contract), OR
+    //   2. Any item on the PO has an expired contract (checked via contract_end_date vs order date), OR
+    //   3. The order/supplier object has an explicit expired status or expired end date
+    const refDate = order.order_date || order.created_at;
+
+    // Check if any item has an expired contract end date
+    const anyItemExpired = items && items.length > 0 && items.some((it: any) => isContractExpired(it, refDate));
+    // Check order-level expiry (status/end-date on the order or supplier)
+    const orderLevelExpired = isContractExpired(order, refDate) || isContractExpired(order.supplier, refDate);
+    // If inv_sq_number is present, the purchase was made under INV SQ (contract was expired at time of purchase)
+    const purchasedUnderSQ = !!(order.inv_sq_number && order.po_type !== 'sq');
+
+    const isOrderContractExpired = anyItemExpired || orderLevelExpired || purchasedUnderSQ;
+
+    const rawContractNo = (order.vote_code === '990102' || order.po_type === 'manual') 
+      ? '-' 
+      : (order.kkm_contract_number || order.supplier?.contract_number || '-');
+
     const contractLabel = order.po_type === 'sq' ? 'INV SQ NO.' : 'NO. KONTRAK / CONTRACT NO.';
     const contractDisplay = order.po_type === 'sq' 
       ? (order.inv_sq_number || '-') 
-      : ((order.vote_code === '990102' || order.po_type === 'manual') ? '-' : (order.kkm_contract_number || order.supplier?.contract_number || '-'));
+      : (isOrderContractExpired ? '-' : rawContractNo);
     drawGridRow(gridY, contractLabel, contractDisplay);
     gridY += rowHeight;
 
@@ -322,15 +316,24 @@ async function compileVectorPO(options: VectorPDFOptions): Promise<ArrayBuffer> 
     let itemNameText = item.item_name || 'Unknown Item';
     let contractInfo = '';
 
-    if (order.vote_code !== '990102' && order.po_type !== 'manual' && order.po_type !== 'sq') {
+    const refDate = order.order_date || order.created_at;
+
+    // Primary signal: if inv_sq_number exists, purchase was made under INV SQ (expired contract)
+    const purchasedUnderSQ = !!(order.inv_sq_number && order.po_type !== 'sq');
+    // Per-item expiry: check item's own contract_end_date (available from catalog lookup)
+    const itemExpired = purchasedUnderSQ || isContractExpired(item, refDate) || isContractExpired(order, refDate) || isContractExpired(order.supplier, refDate);
+
+    if (order.vote_code !== '990102' && order.po_type !== 'manual' && order.po_type !== 'sq' && !itemExpired) {
          const contractNo = item.contract_number || order.kkm_contract_number || order.supplier?.contract_number;
          if (contractNo) {
-             const deliveryPeriod = item.delivery_period || order.supplier?.delivery_period || 'Tidak melebihi 30 hari...';
+             const rawDeliveryPeriod = item.delivery_period || order.supplier?.delivery_period;
+             const deliveryPeriod = rawDeliveryPeriod ? String(rawDeliveryPeriod).trim() : 'Tempoh serahan adalah tidak melebihi 30 hari daripada tarikh pesanan untuk 1 bulan pertama tempoh kontrak. Selepas 1 bulan pertama tempoh kontrak dan seterusnya, tempoh serahan adalah tidak melebihi 21 hari daripada tarikh pesanan. Pengiraan tempoh pesanan bermula sehari selepas tarikh pesanan rasmi dikeluarkan.';
              const contractEndDate = item.contract_end_date || order.supplier?.contract_end_date;
              const contractEnd = contractEndDate ? new Date(contractEndDate).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
              contractInfo = `\nNo. Kontrak: ${contractNo}\nTempoh Serahan: ${deliveryPeriod}\nTamat Kontrak: ${contractEnd}`;
          }
     }
+
 
     return [
       idx + 1,
@@ -350,7 +353,7 @@ async function compileVectorPO(options: VectorPDFOptions): Promise<ArrayBuffer> 
   ]);
 
   // Draw Page 1 manual header elements
-  drawFirstPageHeader();
+  await drawFirstPageHeader();
   const tableStartY = (doc as any).firstPageTableY || 135;
 
   // --- Render Items Table ---
@@ -571,8 +574,14 @@ async function compileVectorPO(options: VectorPDFOptions): Promise<ArrayBuffer> 
   doc.text('(ii)  No. rujukan kontrak :', margin + 10, ry);
   doc.line(margin + 48, ry + 0.5, margin + 120, ry + 0.5);
   doc.setFont('times', 'bold');
-  const contractNo = order.kkm_contract_number || order.supplier?.contract_number || '';
-  doc.text(String(contractNo), margin + 50, ry - 0.5);
+  const refDateSec4 = order.order_date || order.created_at;
+  const anyItemExpiredSec4 = items && items.length > 0 && items.some((it: any) => isContractExpired(it, refDateSec4));
+  const orderLevelExpiredSec4 = isContractExpired(order, refDateSec4) || isContractExpired(order.supplier, refDateSec4);
+  const purchasedUnderSQSec4 = !!(order.inv_sq_number && order.po_type !== 'sq');
+  const isOrderContractExpiredSec4 = anyItemExpiredSec4 || orderLevelExpiredSec4 || purchasedUnderSQSec4;
+  const contractNoSec4 = isOrderContractExpiredSec4 ? '-' : (order.kkm_contract_number || order.supplier?.contract_number || '-');
+  doc.text(String(contractNoSec4), margin + 50, ry - 0.5);
+
   doc.setFont('times', 'normal');
   ry += 6;
   doc.text('(iii) Salinan surat kelulusan Pejabat Kewangan Persekutuan Bil.:', margin + 10, ry);

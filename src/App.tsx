@@ -4,6 +4,8 @@ import { ToastContainer } from '@/components/ui'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { useAuthStore } from '@/stores/authStore'
 
+import { LanguageProvider } from '@/shared/contexts/LanguageContext'
+
 function App() {
   const { setLoading, checkSession, logout } = useAuthStore()
 
@@ -31,8 +33,10 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <AppRouter />
-      <ToastContainer />
+      <LanguageProvider>
+        <AppRouter />
+        <ToastContainer />
+      </LanguageProvider>
     </ErrorBoundary>
   )
 }

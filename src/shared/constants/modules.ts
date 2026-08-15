@@ -101,7 +101,7 @@ export const MODULE_DEFINITIONS = [
   {
     code: SYSTEM_MODULES.SYSTEM_TRANSPORTER,
     name: 'MyTransporter',
-    description: 'Sistem Pengurusan Pengangkutan & Ambulans',
+    description: 'Vehicle Fleet & Transport Management System',
     icon: 'Car',
     category: 'support',
   },
@@ -122,21 +122,21 @@ export const MODULE_DEFINITIONS = [
   {
     code: SYSTEM_MODULES.SYSTEM_PERHIMPUNAN,
     name: 'MyPerhimpunan',
-    description: 'Sistem Perhimpunan & Acara',
+    description: 'Assembly & Events Management System',
     icon: 'Users',
     category: 'support',
   },
   {
     code: SYSTEM_MODULES.SYSTEM_KUNCI,
     name: 'MyKunci',
-    description: 'Sistem Pengurusan Kunci Bersepadu',
+    description: 'Integrated Key Management System',
     icon: 'Key',
     category: 'support',
   },
   {
     code: SYSTEM_MODULES.SYSTEM_CUTI,
     name: 'MyCuti',
-    description: 'Sistem Pengurusan Cuti Kakitangan',
+    description: 'Staff Leave Management System',
     icon: 'Plane',
     category: 'support',
   },
@@ -198,7 +198,7 @@ export const MODULE_DEFINITIONS = [
   },
   {
     code: SYSTEM_MODULES.KLINIK_PAKAR,
-    name: 'Klinik Pakar',
+    name: 'Specialist Clinic',
     description: 'Specialist clinic management',
     icon: 'Stethoscope',
     category: 'clinical',

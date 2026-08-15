@@ -80,7 +80,7 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
             department:departments(*)
           `)
           .eq('hospital_id', hospitalId)
-          .neq('status', 'issued') // retrieve allocated/in-use cylinders
+          .in('status', ['available', 'allocated', 'in_use', 'full']) // retrieve active scannable cylinders
           .limit(1000);
 
         if (!error && data) {
@@ -321,8 +321,14 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
       setStatusMessage(null);
       let successCount = 0;
       let errorCount = 0;
+      const newScannedBatch: OxygenCylinderWithRelations[] = [];
+      const batchSeenIds = new Set<string>();
 
-      for (const code of codes) {
+      // Deduplicate scanned inputs upfront to avoid double-processing repeated barcodes
+      const uniqueCodes = Array.from(new Set(codes));
+      errorCount += (codes.length - uniqueCodes.length); // count duplicates in scanned text as skipped
+
+      for (const code of uniqueCodes) {
         // Nested check for bulk codes
         const uc = code.toUpperCase();
         if (uc.startsWith('101-N') || uc.startsWith('101-F') || uc.startsWith('101N') || uc.startsWith('101F')) {
@@ -333,6 +339,12 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
           const res = await getCylinderByQrOrSerial(hospitalId, code);
           if (res.data && !res.error) {
             let targetCylinder = res.data;
+            if (batchSeenIds.has(targetCylinder.id)) {
+              errorCount++;
+              continue;
+            }
+            batchSeenIds.add(targetCylinder.id);
+
             if (targetCylinder.status !== 'issued') {
               const creatorId = user?.id || localStorage.getItem('userId') || 'fbbd44d1-f322-4fdb-a367-a18e5371e205';
               const updateRes = await markCylinderAsEmpty(hospitalId, targetCylinder.id, creatorId);
@@ -340,10 +352,7 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
                 targetCylinder = { ...targetCylinder, status: 'issued' };
               }
             }
-            setSessionScannedCylinders(prev => {
-              if (prev.some(c => c.id === targetCylinder.id)) return prev;
-              return [...prev, targetCylinder];
-            });
+            newScannedBatch.push(targetCylinder);
             successCount++;
           } else {
             errorCount++;
@@ -353,13 +362,18 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
         }
       }
 
-      if (successCount > 0) {
+      if (newScannedBatch.length > 0) {
+        setSessionScannedCylinders(prev => {
+          const existingIds = new Set(prev.map(c => c.id));
+          const toAdd = newScannedBatch.filter(c => !existingIds.has(c.id));
+          return [...prev, ...toAdd];
+        });
         playBeep('success');
         setSuccessFlash(true);
         setTimeout(() => setSuccessFlash(false), 500);
         setStatusMessage({ 
           type: 'success', 
-          text: `Processed ${successCount} cylinders from bulk list!${errorCount > 0 ? ` (${errorCount} skipped/failed)` : ''}` 
+          text: `Processed ${successCount} unique cylinders from bulk scan!${errorCount > 0 ? ` (${errorCount} skipped/duplicates/failed)` : ''}` 
         });
         setQrInput('');
         onSuccess();

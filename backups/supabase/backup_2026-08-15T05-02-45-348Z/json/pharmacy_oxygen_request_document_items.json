@@ -1,0 +1,90 @@
+[
+  {
+    "id": "d14dd3ce-c2ba-453b-aeb2-f9a547743db6",
+    "request_document_id": "3b11bc54-1ca5-4b68-914f-0b0b0bec516b",
+    "size_code": "101-N",
+    "quantity": 20,
+    "usage_notes": "Bantuan Gas Sewaan (8.0m3)",
+    "created_at": "2026-06-11T05:34:35.223566+00:00"
+  },
+  {
+    "id": "34d2c737-48bc-407d-953b-6f8b57ee190e",
+    "request_document_id": "3b11bc54-1ca5-4b68-914f-0b0b0bec516b",
+    "size_code": "101-F",
+    "quantity": 50,
+    "usage_notes": "ward usage (long Cylinder)",
+    "created_at": "2026-06-11T05:34:35.223566+00:00"
+  },
+  {
+    "id": "7cc22502-1d5e-497c-bf67-c9e45cd92a67",
+    "request_document_id": "3b11bc54-1ca5-4b68-914f-0b0b0bec516b",
+    "size_code": "101-F",
+    "quantity": 50,
+    "usage_notes": "Ambulance usage (short Cylinder)",
+    "created_at": "2026-06-11T05:34:35.223566+00:00"
+  },
+  {
+    "id": "ab9e9c8f-7fda-4044-ad25-79df27604777",
+    "request_document_id": "d7dc5388-7f47-46fb-8130-d27bd472e166",
+    "size_code": "101-N",
+    "quantity": 30,
+    "usage_notes": "Bantuan Gas Sewaan (8.0m3)",
+    "created_at": "2026-06-17T23:54:33.601954+00:00"
+  },
+  {
+    "id": "aef505d8-dd1c-4255-8d82-b94595fd6d3c",
+    "request_document_id": "d7dc5388-7f47-46fb-8130-d27bd472e166",
+    "size_code": "101-F",
+    "quantity": 50,
+    "usage_notes": "ward usage (long Cylinder)",
+    "created_at": "2026-06-17T23:54:33.601954+00:00"
+  },
+  {
+    "id": "575dcb90-c231-4f7d-9801-82e9539e8571",
+    "request_document_id": "d7dc5388-7f47-46fb-8130-d27bd472e166",
+    "size_code": "101-F",
+    "quantity": 50,
+    "usage_notes": "Ambulance usage (short Cylinder)",
+    "created_at": "2026-06-17T23:54:33.601954+00:00"
+  },
+  {
+    "id": "fa6ddf75-15e6-484f-8906-d09831c9df4c",
+    "request_document_id": "165bf40d-cb84-4a2a-8336-f0cacd757472",
+    "size_code": "101-N",
+    "quantity": 30,
+    "usage_notes": "Bantuan Gas Sewaan (8.0m3)",
+    "created_at": "2026-07-02T04:29:18.519436+00:00"
+  },
+  {
+    "id": "56abe073-72a7-4f2e-82c4-9fb189bd0693",
+    "request_document_id": "165bf40d-cb84-4a2a-8336-f0cacd757472",
+    "size_code": "101-F",
+    "quantity": 50,
+    "usage_notes": "Ambulance usage (short Cylinder)",
+    "created_at": "2026-07-02T04:29:18.519436+00:00"
+  },
+  {
+    "id": "3c2b6579-2f29-493c-a8ed-32e2658d31af",
+    "request_document_id": "58519c7f-1e7c-429a-a1e9-47bc3cd2fa98",
+    "size_code": "101-N",
+    "quantity": 50,
+    "usage_notes": "Bantuan Gas Sewaan (8.0m3)",
+    "created_at": "2026-07-13T00:35:40.803432+00:00"
+  },
+  {
+    "id": "e5fbffac-48b1-47b7-8eba-2790ff886e5f",
+    "request_document_id": "f5f56627-54a6-4ed6-ad1a-c71af9793dad",
+    "size_code": "101-N",
+    "quantity": 30,
+    "usage_notes": "Bantuan Gas Sewaan (8.0m3)",
+    "created_at": "2026-07-28T00:01:35.088572+00:00"
+  },
+  {
+    "id": "2aafc2d1-35a4-48a3-b732-c943589466ab",
+    "request_document_id": "258199a2-6f16-42f6-9390-a67d92f2c119",
+    "size_code": "101-N",
+    "quantity": 30,
+    "usage_notes": "Bantuan Gas Sewaan (8.0m3)",
+    "created_at": "2026-08-05T00:09:16.771058+00:00"
+  }
+]

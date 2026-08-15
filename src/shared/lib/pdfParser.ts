@@ -1,9 +1,32 @@
-import * as pdfjsLib from 'pdfjs-dist';
-import Tesseract from 'tesseract.js';
+// ⚡ PERFORMANCE: pdfjs-dist (~5MB) and tesseract.js (~10MB WASM) are loaded
+// dynamically on first use — NOT at module load time — to prevent them from
+// being bundled into the main chunk and delaying the initial app load.
 
-// Use CDN worker for simplicity in Vite environments
-// Matches the version installed (4.10.38)
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs`;
+type PdfjsLib = typeof import('pdfjs-dist')
+type TesseractLib = typeof import('tesseract.js')
+
+let _pdfjs: any = null
+let _tesseract: any = null
+
+async function getPdfjs(): Promise<any> {
+  if (!_pdfjs) {
+    const raw = await import('pdfjs-dist')
+    _pdfjs = (raw as any).default || raw
+    if (_pdfjs && _pdfjs.GlobalWorkerOptions) {
+      _pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs`
+    }
+  }
+  return _pdfjs
+}
+
+async function getTesseract(): Promise<any> {
+  if (!_tesseract) {
+    const raw = await import('tesseract.js')
+    _tesseract = (raw as any).default || raw
+  }
+  return _tesseract
+}
+
 
 /**
  * Extracts text from the first page of a PDF file and finds the LPO number.
@@ -11,6 +34,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs
  */
 export async function extractLpoNumberFromPdf(file: File): Promise<string | null> {
   try {
+    const pdfjsLib = await getPdfjs();
     const arrayBuffer = await file.arrayBuffer();
     const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
     const pdf = await loadingTask.promise;
@@ -84,13 +108,14 @@ export async function extractLpoNumberFromPdf(file: File): Promise<string | null
  */
 export async function extractTextFromPdf(file: File): Promise<string> {
   try {
+    const pdfjsLib = await getPdfjs();
     const arrayBuffer = await file.arrayBuffer();
     const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
     const pdf = await loadingTask.promise;
     
     let fullText = '';
-    // Extract text from the first 3 pages (usually sufficient for LPO headers)
-    for (let i = 1; i <= Math.min(pdf.numPages, 3); i++) {
+    // Extract text from up to 10 pages to ensure multi-item/multi-page DOs are fully parsed
+    for (let i = 1; i <= Math.min(pdf.numPages, 10); i++) {
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
       fullText += textContent.items.map((item: any) => item.str).join(' ') + ' ';
@@ -166,66 +191,139 @@ export async function extractDatesFromPdf(file: File): Promise<ExtractedLpoDates
 
 /**
  * Parses and extracts serial numbers from a raw string text, formatting them with 'saboxy-' prefix.
+ * Scans ALL "Serial No." sections across multiple items in the document and stops reading each section at section boundaries.
  */
 export function parseSerialsFromText(text: string): string[] {
-  const lowerText = text.toLowerCase();
-  
-  // Find "serial" section
-  let startIdx = -1;
-  const serialKeywords = ['serial no', 'serial number', 'serialno', 's/n', 'silinder sewaan'];
-  for (const keyword of serialKeywords) {
-    const idx = lowerText.indexOf(keyword);
-    if (idx !== -1) {
-      startIdx = idx + keyword.length;
-      break;
-    }
-  }
-  
-  let searchArea = text;
-  if (startIdx !== -1) {
-    searchArea = text.substring(startIdx);
-    
-    // Find where the serial section ends (Batch No., Filling Date, etc.)
-    const endKeywords = ['batch', 'filling', 'expiry', 'date', 'perihal', 'total', 'qty', 'catatan', 'nota', 'notes'];
-    let endIdx = searchArea.length;
-    const lowerSearchArea = searchArea.toLowerCase();
-    for (const keyword of endKeywords) {
-      const idx = lowerSearchArea.indexOf(keyword);
-      if (idx !== -1 && idx < endIdx) {
-        endIdx = idx;
-      }
-    }
-    searchArea = searchArea.substring(0, endIdx);
-  }
-  
-  // Split by whitespace, commas, semicolons, or pipes
-  const words = searchArea.split(/[\s,;|]+/);
   const serialsSet = new Set<string>();
-  
-  for (let word of words) {
-    // Clean token: remove leading/trailing punctuation except letters/numbers
-    const cleaned = word.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '').trim();
-    
-    // Match alphanumeric values of length 4 to 12 containing at least 2 digits
-    if (/^[a-zA-Z0-9]{4,12}$/.test(cleaned) && (cleaned.match(/\d/g) || []).length >= 2) {
+
+  // Find all section headers like "Serial No.:", "Serial Number", "S/N", "Nomor Siri", etc.
+  const headerRegex = /(?:serial\s*(?:no|number|numbers|s\/n)?|s\/n|silinder\s*sewaan|nomor\s*siri|no\.\s*siri)\s*:?/gi;
+
+  const matches: { index: number; length: number }[] = [];
+  let match: RegExpExecArray | null;
+
+  while ((match = headerRegex.exec(text)) !== null) {
+    matches.push({ index: match.index, length: match[0].length });
+  }
+
+  const textBlocksToScan: string[] = [];
+
+  if (matches.length > 0) {
+    // For each "Serial No." header found, extract raw block up to the next header or end of document
+    for (let i = 0; i < matches.length; i++) {
+      const startPos = matches[i].index + matches[i].length;
+      const endPos = (i + 1 < matches.length) ? matches[i + 1].index : text.length;
+      const rawBlock = text.substring(startPos, endPos);
+      textBlocksToScan.push(rawBlock);
+    }
+  } else {
+    // Fallback: search entire document text if no explicit section header is found
+    textBlocksToScan.push(text);
+  }
+
+  // Keywords that signal the end of a serial number section
+  const isStopKeyword = (lowerToken: string): boolean => {
+    return (
+      lowerToken.includes('perihal') ||
+      lowerToken.includes('total') ||
+      lowerToken.includes('jumlah') ||
+      lowerToken.includes('nota') ||
+      lowerToken.includes('catatan') ||
+      lowerToken.includes('notes') ||
+      lowerToken.includes('disediakan') ||
+      lowerToken.includes('disahkan') ||
+      lowerToken.includes('received') ||
+      lowerToken.includes('signature') ||
+      lowerToken.includes('tandatangan') ||
+      lowerToken.includes('terms') ||
+      lowerToken.includes('borneo') ||
+      lowerToken.includes('delivery') ||
+      lowerToken.includes('order') ||
+      lowerToken.includes('hospital') ||
+      lowerToken.includes('batch') ||
+      lowerToken.includes('filling') ||
+      lowerToken.includes('expiry') ||
+      lowerToken.includes('code') ||
+      lowerToken.includes('size') ||
+      lowerToken.includes('silinder') ||
+      lowerToken.includes('101n') ||
+      lowerToken.includes('101f') ||
+      lowerToken.includes('p101hs') ||
+      lowerToken.includes('page') ||
+      lowerToken.includes('halaman') ||
+      lowerToken.includes('attn') ||
+      lowerToken.includes('kuching') ||
+      lowerToken.includes('sarawak') ||
+      lowerToken.includes('malaysia')
+    );
+  };
+
+  const isNoiseToken = (str: string): boolean => {
+    const lower = str.toLowerCase();
+    // Filter volume/weight units e.g. 80m3, 8m3, 14m3, 64m3
+    if (/^\d+(\.\d+)?m3?$/i.test(str)) {
+      return true;
+    }
+    // Filter dates (DD/MM/YYYY or YYYYMMDD)
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(str) || (/^\d{8}$/.test(str) && (str.startsWith('20') || str.startsWith('19')))) {
+      return true;
+    }
+    // Filter PO / DO / REF patterns like O2-REQ-20260805-6477 or D26/08-039 or 199401024117
+    if (/req|lpo|po-|co-|do-/i.test(str)) {
+      return true;
+    }
+    // Filter phone numbers / registration numbers (>10 digits starting with 082, 085, 011, 016, 1994, 3097)
+    if (/^(082|085|011|016|1994|3097)/.test(str)) {
+      return true;
+    }
+    return false;
+  };
+
+  for (const block of textBlocksToScan) {
+    // Split by whitespace, commas, semicolons, or pipes
+    const words = block.split(/[\s,;|]+/);
+    let consecutiveNonSerialCount = 0;
+
+    for (let word of words) {
+      // Clean token: strip leading/trailing non-alphanumeric chars (e.g. "- 054610" -> "054610")
+      const cleaned = word.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '').trim();
       const lowerCleaned = cleaned.toLowerCase();
-      // Filter out typical layout labels
-      if (lowerCleaned.includes('101n') || lowerCleaned.includes('101f') || lowerCleaned.includes('size') || lowerCleaned.includes('page')) {
-        continue;
+
+      if (!cleaned) continue;
+
+      // If we encounter a section stop keyword, terminate scanning this block immediately
+      if (isStopKeyword(lowerCleaned)) {
+        break;
       }
-      
-      // Prefix formatting: 'saboxy-<UPPERCASE_SERIAL>'
-      let finalSerial = cleaned.toUpperCase();
-      if (/^saboxy-/i.test(finalSerial)) {
-        finalSerial = `saboxy-${finalSerial.substring(7)}`;
+
+      // Match alphanumeric tokens of length 4 to 14 containing at least 2 digits
+      if (/^[a-zA-Z0-9]{4,14}$/.test(cleaned) && (cleaned.match(/\d/g) || []).length >= 2) {
+        if (isNoiseToken(cleaned)) {
+          consecutiveNonSerialCount++;
+          if (consecutiveNonSerialCount >= 3) break;
+          continue;
+        }
+
+        consecutiveNonSerialCount = 0; // reset counter on valid serial
+
+        let finalSerial = cleaned.toUpperCase();
+        if (/^saboxy-/i.test(finalSerial)) {
+          finalSerial = `saboxy-${finalSerial.substring(7)}`;
+        } else {
+          finalSerial = `saboxy-${finalSerial}`;
+        }
+
+        serialsSet.add(finalSerial);
       } else {
-        finalSerial = `saboxy-${finalSerial}`;
+        consecutiveNonSerialCount++;
+        // If we see 3 non-serial words in a row (when section headers exist), stop reading block
+        if (matches.length > 0 && consecutiveNonSerialCount >= 3) {
+          break;
+        }
       }
-      
-      serialsSet.add(finalSerial);
     }
   }
-  
+
   return Array.from(serialsSet);
 }
 
@@ -245,12 +343,13 @@ export async function extractSerialsFromDocument(file: File): Promise<string[]> 
       }
       
       // 2. Fallback to OCR on rendered pages if digital text extraction yielded nothing
+      const pdfjsLib = await getPdfjs();
       const arrayBuffer = await file.arrayBuffer();
       const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
       const pdf = await loadingTask.promise;
       
       let fullOcrText = '';
-      const pagesToScan = Math.min(pdf.numPages, 3);
+      const pagesToScan = Math.min(pdf.numPages, 10);
       
       for (let i = 1; i <= pagesToScan; i++) {
         const page = await pdf.getPage(i);
@@ -264,6 +363,7 @@ export async function extractSerialsFromDocument(file: File): Promise<string[]> 
           
           await page.render({ canvasContext: context, viewport }).promise;
           
+          const Tesseract = await getTesseract();
           const { data: { text: pageText } } = await Tesseract.recognize(canvas, 'eng');
           fullOcrText += '\n' + pageText;
         }
@@ -272,6 +372,7 @@ export async function extractSerialsFromDocument(file: File): Promise<string[]> 
       return parseSerialsFromText(fullOcrText);
     } else {
       // Image file OCR
+      const Tesseract = await getTesseract();
       const { data: { text: ocrText } } = await Tesseract.recognize(file, 'eng');
       return parseSerialsFromText(ocrText);
     }

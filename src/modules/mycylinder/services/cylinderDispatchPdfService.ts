@@ -1,7 +1,8 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { CylinderDispatchRequestWithRelations } from '@/types/pharmacy';
+import { drawHospitalHeader } from '@/lib/pdfHeader';
 
 // Helper to convert image URL to base64
 const getBase64ImageFromUrl = async (imageUrl: string): Promise<string | null> => {
@@ -80,26 +81,8 @@ export async function generateCylinderDispatchPdf(
 
   renderFrame();
 
-  // 1. Header (Malaysian crest, Kementerian Kesihatan, Hospital)
-  if (logoBase64) {
-    doc.addImage(logoBase64, 'PNG', margin + 5, 15, 20, 16);
-  }
-
-  doc.setFont('times', 'bold');
-  doc.setFontSize(12);
-  doc.setTextColor(0);
-  doc.text('KEMENTERIAN KESIHATAN MALAYSIA', pageWidth / 2, 19, { align: 'center' });
-  doc.setFontSize(11);
-  doc.text(hospitalName, pageWidth / 2, 24, { align: 'center' });
-  doc.setFont('times', 'normal');
-  doc.setFontSize(9);
-  doc.text('Peti Surat 70, 98850 Lawas, Sarawak', pageWidth / 2, 28, { align: 'center' });
-
-  // Double line separator below header
-  doc.setLineWidth(0.8);
-  doc.line(margin + 5, 32, pageWidth - margin - 5, 32);
-  doc.setLineWidth(0.2);
-  doc.line(margin + 5, 33, pageWidth - margin - 5, 33);
+  // 1. Header (Official Hospital Lawas Letterhead)
+  await drawHospitalHeader(doc, { margin: margin + 5, startY: 10, logoBase64 });
 
   // 2. Document Title
   doc.setFont('times', 'bold');

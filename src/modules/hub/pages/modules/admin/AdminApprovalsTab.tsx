@@ -106,14 +106,18 @@ export const AdminApprovalsTab: React.FC = () => {
 
     setIsSubmitting(true)
     try {
-      await approveAccessRequest(
+      const result = await approveAccessRequest(
         selectedRequest.id,
         currentLoggedUser?.id || '',
         assignedRole
       )
-      showSuccess('Success', `${selectedRequest.full_name} has been approved as an active user.`)
-      setSelectedRequest(null)
-      fetchRequests()
+      if (result && result.success) {
+        showSuccess('Success', `${selectedRequest.full_name} has been approved as an active user.`)
+        setSelectedRequest(null)
+        fetchRequests()
+      } else {
+        showError('Error', result?.error || 'Failed to approve request')
+      }
     } catch (error: any) {
       showError('Error', error.message || 'Failed to approve request')
     } finally {
@@ -134,14 +138,18 @@ export const AdminApprovalsTab: React.FC = () => {
 
     setIsSubmitting(true)
     try {
-      await rejectAccessRequest(
+      const result = await rejectAccessRequest(
         rejectionRequest.id,
-        rejectionReason.trim(),
-        currentLoggedUser?.id || ''
+        currentLoggedUser?.id || '',
+        rejectionReason.trim()
       )
-      showSuccess('Success', `Registration for ${rejectionRequest.full_name} has been rejected.`)
-      setRejectionRequest(null)
-      fetchRequests()
+      if (result && result.success) {
+        showSuccess('Success', `Registration for ${rejectionRequest.full_name} has been rejected.`)
+        setRejectionRequest(null)
+        fetchRequests()
+      } else {
+        showError('Error', result?.error || 'Failed to reject request')
+      }
     } catch (error: any) {
       showError('Error', error.message || 'Failed to reject request')
     } finally {

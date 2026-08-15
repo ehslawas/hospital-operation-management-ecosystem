@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/Icons'
 import GoodsReceivingForm from './GoodsReceivingForm'
 import { createGoodsReceipt } from '../../services/receivingService'
+import { recalculateOverdueStatus } from '../../services/orderTrackingService'
 import { cn } from '@/lib/utils'
 
 interface ExcelUploadModalProps {
@@ -53,6 +54,7 @@ export default function ExcelUploadModal({
   const [approvedGroups, setApprovedGroups] = useState<string[]>([]) // Array of LPO numbers
   const [skippedGroups, setSkippedGroups] = useState<string[]>([]) // Array of LPO numbers
   const [isBulkAuthorizing, setIsBulkAuthorizing] = useState(false)
+  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number; currentLpo: string } | null>(null)
 
   // Pagination & Search States
   const [currentPage, setCurrentPage] = useState(1)
@@ -187,10 +189,15 @@ export default function ExcelUploadModal({
     }
   }
 
-  const handleFormSuccess = () => {
+  const handleFormSuccess = async () => {
     if (activeGroupIndex !== null) {
       const activeGroup = matchedGroups[activeGroupIndex]
       setApprovedGroups(prev => [...prev, activeGroup.lpoNumber])
+      
+      if (hospitalId) {
+        recalculateOverdueStatus(hospitalId).catch(console.error)
+      }
+
       onSuccess() // Refresh the main page list
       
       // Auto-select next ready group
@@ -217,76 +224,113 @@ export default function ExcelUploadModal({
 
     setIsBulkAuthorizing(true)
     setError(null)
+    setBulkProgress({ current: 0, total: readyGroups.length, currentLpo: 'Starting...' })
 
     try {
-      for (const group of readyGroups) {
-        const payloadItems = group.items.map((item: any) => {
-          const qty = item.quantity_received || 0
-          const batches = item.batches && item.batches.length > 0
-            ? item.batches.map((b: any) => ({
-                batch_number: b.batch_number || 'NOT APPLICABLE',
-                manufacturing_date: b.mfg_date || b.manufacturing_date || null,
-                expiry_date: (b.expiry_date === 'N/A' || !b.expiry_date) ? null : b.expiry_date,
-                quantity: b.quantity
-              }))
-            : [
-                {
-                  batch_number: item.batch_number || 'NOT APPLICABLE',
-                  manufacturing_date: item.mfg_date || item.manufacturing_date || null,
-                  expiry_date: (item.expiry_date === 'N/A' || !item.expiry_date) ? null : item.expiry_date,
-                  quantity: qty
-                }
-              ]
+      let successCount = 0
+      let failCount = 0
 
-          return {
-            po_item_id: item.poItemId,
-            item_id: item.item_id,
-            item_name: item.item_name,
-            quantity_ordered: item.quantity_ordered,
-            quantity_previously_received: item.quantity_previously_received,
-            quantity_received: qty,
-            quantity_accepted: qty,
-            quantity_rejected: 0,
-            disposition: 'accepted',
-            rejection_reason: '',
-            notes: 'Auto-authorized in bulk from Excel',
-            batches
-          }
+      for (let i = 0; i < readyGroups.length; i++) {
+        const group = readyGroups[i]
+        setBulkProgress({
+          current: i + 1,
+          total: readyGroups.length,
+          currentLpo: group.lpoNumber
         })
 
-        const receivedItems = payloadItems.filter(i => i.quantity_accepted > 0)
+        try {
+          const payloadItems = group.items.map((item: any) => {
+            const qty = item.quantity_received || 0
+            const batches = item.batches && item.batches.length > 0
+              ? item.batches.map((b: any) => ({
+                  batch_number: b.batch_number || 'NOT APPLICABLE',
+                  manufacturing_date: b.mfg_date || b.manufacturing_date || null,
+                  expiry_date: (b.expiry_date === 'N/A' || !b.expiry_date) ? null : b.expiry_date,
+                  quantity: b.quantity
+                }))
+              : [
+                  {
+                    batch_number: item.batch_number || 'NOT APPLICABLE',
+                    manufacturing_date: item.mfg_date || item.manufacturing_date || null,
+                    expiry_date: (item.expiry_date === 'N/A' || !item.expiry_date) ? null : item.expiry_date,
+                    quantity: qty
+                  }
+                ]
 
-        if (receivedItems.length > 0) {
-          const payload = {
-            hospital_id: hospitalId,
-            po_id: group.poId,
-            lpo_id: group.lpoId,
-            receipt_date: group.receiptDate || new Date().toISOString().split('T')[0],
-            delivery_note_number: group.deliveryNote || `DO-${group.lpoNumber}`,
-            invoice_number: group.invoiceNumber || '',
-            received_by: userId,
-            notes: 'Bulk Authorized via Excel Import',
-            document_urls: [],
-            items: receivedItems
+            return {
+              po_item_id: item.poItemId,
+              item_id: item.item_id,
+              item_name: item.item_name,
+              quantity_ordered: item.quantity_ordered,
+              quantity_previously_received: item.quantity_previously_received,
+              quantity_received: qty,
+              quantity_accepted: qty,
+              quantity_rejected: 0,
+              disposition: 'accepted',
+              rejection_reason: '',
+              notes: 'Auto-authorized in bulk from Excel',
+              batches
+            }
+          })
+
+          const receivedItems = payloadItems.filter((item: any) => item.quantity_accepted > 0)
+
+          if (receivedItems.length > 0) {
+            const payload = {
+              hospital_id: hospitalId,
+              po_id: group.poId,
+              lpo_id: group.lpoId,
+              receipt_date: group.receiptDate || new Date().toISOString().split('T')[0],
+              delivery_note_number: group.deliveryNote || `DO-${group.lpoNumber}`,
+              invoice_number: group.invoiceNumber || '',
+              received_by: userId,
+              notes: 'Bulk Authorized via Excel Import',
+              document_urls: [],
+              items: receivedItems
+            }
+
+            // Pass skipTrackingSync: true during bulk to avoid repeated scan overhead
+            const res = await createGoodsReceipt(payload, { skipTrackingSync: true })
+            if (res.error) {
+              console.warn(`[Bulk Authorize Warning] LPO ${group.lpoNumber} failed: ${res.error}`)
+              setSkippedGroups(prev => [...prev, group.lpoNumber])
+              failCount++
+              continue
+            }
           }
 
-          const res = await createGoodsReceipt(payload)
-          if (res.error) {
-            throw new Error(`Failed on LPO ${group.lpoNumber}: ${res.error}`)
-          }
+          setApprovedGroups(prev => [...prev, group.lpoNumber])
+          successCount++
+        } catch (singleErr: any) {
+          console.error(`[Bulk Authorize Error] Failed to process LPO ${group.lpoNumber}:`, singleErr)
+          setSkippedGroups(prev => [...prev, group.lpoNumber])
+          failCount++
         }
+      }
 
-        setApprovedGroups(prev => [...prev, group.lpoNumber])
+      // Perform single fast tracking recalculation once at the end
+      if (hospitalId) {
+        setBulkProgress({
+          current: readyGroups.length,
+          total: readyGroups.length,
+          currentLpo: 'Syncing Order Tracking Table...'
+        })
+        await recalculateOverdueStatus(hospitalId)
       }
 
       onSuccess()
       setActiveGroupIndex(null)
-      alert("Successfully authorized all pending POs!")
+      if (failCount > 0) {
+        alert(`Bulk Authorization finished!\n- Authorized: ${successCount} POs\n- Skipped/Failed: ${failCount} POs`)
+      } else {
+        alert(`Successfully authorized all ${successCount} pending POs!`)
+      }
     } catch (err: any) {
       console.error(err)
       setError(err.message || "An error occurred during bulk authorization.")
     } finally {
       setIsBulkAuthorizing(false)
+      setBulkProgress(null)
     }
   }
 
@@ -463,9 +507,21 @@ export default function ExcelUploadModal({
                   className="w-full py-2.5 bg-emerald-600 border border-emerald-500 text-xs font-black text-white hover:bg-emerald-500 rounded-xl uppercase tracking-wider transition-all active:scale-98 shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 shrink-0"
                 >
                   {isBulkAuthorizing ? (
-                    <>
-                      <Spinner className="w-3.5 h-3.5 text-white" /> AUTHORIZING...
-                    </>
+                    <div className="flex flex-col items-center gap-0.5 py-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <Spinner className="w-3.5 h-3.5 text-white" />
+                        <span className="font-bold">
+                          {bulkProgress 
+                            ? `AUTHORIZING (${bulkProgress.current}/${bulkProgress.total})...`
+                            : 'AUTHORIZING...'}
+                        </span>
+                      </div>
+                      {bulkProgress && (
+                        <span className="text-[9px] font-normal text-emerald-100 truncate max-w-[280px]">
+                          {bulkProgress.currentLpo}
+                        </span>
+                      )}
+                    </div>
                   ) : (
                     <>
                       AUTHORIZE ALL PENDING ({matchedGroupsOnly.filter(g => !approvedGroups.includes(g.lpoNumber) && !skippedGroups.includes(g.lpoNumber) && !g.alreadyProcessed).length})

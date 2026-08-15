@@ -19,11 +19,14 @@ import {
   IconCheckCircle,
   IconSettings,
   IconChevronRight,
-  IconHistory
+  IconHistory,
+  IconUpload
 } from '@/components/ui/Icons'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
 import { Button, Spinner, Badge, ConfirmationDialog, Modal, Input, Select } from '@/components/ui'
+import { uploadLPO, checkDuplicateLPO } from '@/services/pharmacy/lpoService'
+import { extractLpoNumberFromPdf, extractDatesFromPdf } from '@/lib/pdfParser'
 import { 
   getPurchaseOrderById, 
   rejectPurchaseOrder, 
@@ -39,7 +42,7 @@ import { generatePurchaseOrderPdf, openPdfForPrint, cleanupPdfUrl } from '@/serv
 import { getBudgetForPO } from '@/services/pharmacy/budgetEngine'
 import type { PurchaseOrderWithRelations, PurchaseOrderItem } from '@/types/pharmacy'
 import { ROUTES } from '@/lib/constants'
-import { cn, formatCurrency, formatDateTime } from '@/lib/utils'
+import { cn, formatCurrency, formatDateTime, isContractExpired } from '@/lib/utils'
 
 const getStatusColor = (status: string) => {
   switch (status || '') {
@@ -152,6 +155,91 @@ export const PurchaseOrderDetailView: React.FC<PurchaseOrderDetailViewProps> = (
   const [isSavingSignatures, setIsSavingSignatures] = useState(false)
   const [hospitalUsers, setHospitalUsers] = useState<any[]>([])
 
+  // LPO Upload/Change Modal state
+  const [isUploadLpoModalOpen, setIsUploadLpoModalOpen] = useState(false)
+  const [isUploadingLpo, setIsUploadingLpo] = useState(false)
+  const [lpoUploadData, setLpoUploadData] = useState<{
+    lpo_number: string
+    document_date: string
+    document_file?: File
+    expected_delivery_date?: string
+  }>({
+    lpo_number: '',
+    document_date: new Date().toISOString().split('T')[0]
+  })
+  const lpoFileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleLpoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+        showError("Invalid Format", "Only PDF files are allowed for LPO documents")
+        e.target.value = ''
+        return
+      }
+      setLpoUploadData(prev => ({ ...prev, document_file: file }))
+
+      const fileName = file.name.replace(/\.[^/.]+$/, "")
+      const lpoMatch = fileName.match(/(LPO[-_]?\d+)/i)
+      let identifiedLPO = lpoMatch ? lpoMatch[1].toUpperCase() : ''
+
+      try {
+        const textExtractedLpo = await extractLpoNumberFromPdf(file)
+        if (textExtractedLpo) identifiedLPO = textExtractedLpo
+        const extractedDates = await extractDatesFromPdf(file)
+        
+        setLpoUploadData(prev => {
+          const updated = { ...prev }
+          if (identifiedLPO) updated.lpo_number = identifiedLPO
+          if (extractedDates.documentDate) updated.document_date = extractedDates.documentDate
+          if (extractedDates.expectedDeliveryDate) updated.expected_delivery_date = extractedDates.expectedDeliveryDate
+          return updated
+        })
+        if (identifiedLPO || extractedDates.documentDate) {
+          showSuccess("Document Analyzed", "LPO number and dates automatically extracted from PDF!")
+        }
+      } catch (err) {
+        console.error("PDF metadata extraction failed:", err)
+      }
+    }
+  }
+
+  const handleLpoUploadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!hospitalId || !user?.id || !id) return
+
+    if (!lpoUploadData.lpo_number || !lpoUploadData.document_date || !lpoUploadData.document_file) {
+      showError('Required Fields Missing', 'Please fill in all required fields and select a PDF document')
+      return
+    }
+
+    setIsUploadingLpo(true)
+    try {
+      const dupRes = await checkDuplicateLPO(hospitalId, lpoUploadData.lpo_number, id)
+      if (dupRes.data?.isDuplicate) {
+        throw new Error(`Duplicate LPO: This number is already linked to ${dupRes.data.existingPoNumber}`)
+      }
+
+      const { error } = await uploadLPO(
+        hospitalId,
+        id,
+        user.id,
+        lpoUploadData
+      )
+      if (error) throw new Error(error)
+
+      showSuccess('LPO Updated', `LPO ${lpoUploadData.lpo_number} successfully linked to this PO`)
+      setIsUploadLpoModalOpen(false)
+      setLpoUploadData({ lpo_number: '', document_date: new Date().toISOString().split('T')[0] })
+      loadOrder()
+      if (onMutate) onMutate()
+    } catch (err) {
+      showError('Upload Failed', err instanceof Error ? err.message : String(err))
+    } finally {
+      setIsUploadingLpo(false)
+    }
+  }
+
   // Load hospital users
   useEffect(() => {
     if (!hospitalId) return
@@ -232,54 +320,192 @@ export const PurchaseOrderDetailView: React.FC<PurchaseOrderDetailViewProps> = (
               }
 
               try {
-                // 1. Try Standard Catalogs (drugs / non_drugs)
-                const table = item.item_type === 'drug' ? 'drugs' : 'non_drugs'
-                const nameCol = item.item_type === 'drug' ? 'drug_name' : 'item_name'
-                const codeCol = item.item_type === 'drug' ? 'drug_code' : 'item_code'
+                // 1. Try myInventory Catalogs (drugs / non_drugs)
+                const isDrug = !item.item_type || item.item_type.toLowerCase().includes('drug')
+                const table = isDrug ? 'drugs' : 'non_drugs'
+                const nameCol = isDrug ? 'drug_name' : 'item_name'
+                const codeCol = isDrug ? 'drug_code' : 'item_code'
 
-                let stdData = null
-                const { data: stdById } = await supabase
-                  .from(table)
-                  .select(`${nameCol}, ${codeCol}`)
-                  .eq('id', item.item_id)
-                  .maybeSingle()
+                let stdData: any = null
                 
-                if (stdById) {
-                  stdData = stdById
-                } else if (item.item_name && item.item_name !== 'Unknown Item') {
-                  // Fallback: try lookup by name
-                  const { data: stdByName } = await supabase
+                // A. Match by ID
+                if (item.item_id && item.item_id !== 'null') {
+                  const { data: stdById } = await supabase
                     .from(table)
-                    .select(`${nameCol}, ${codeCol}`)
-                    .eq(nameCol, item.item_name)
-                    .limit(1)
+                    .select('*')
+                    .eq('id', item.item_id)
                     .maybeSingle()
-                  if (stdByName) {
-                    stdData = stdByName
+                  if (stdById) stdData = stdById
+                }
+
+                // B. Match by Code (if ID didn't match or was legacy seed)
+                if ((!stdData || !stdData.cc_contract_number) && item.item_code) {
+                  const cleanCode = item.item_code.replace(/[^a-z0-9]/gi, '');
+                  const { data: candidatesByCode } = await supabase
+                    .from(table)
+                    .select('*');
+                  
+                  if (candidatesByCode) {
+                    const matchedByCode = candidatesByCode.find((c: any) => {
+                      const cCode = (c[codeCol] || c.drug_code || c.item_code || '').replace(/[^a-z0-9]/gi, '');
+                      return cCode && cleanCode && (cCode === cleanCode || cCode.includes(cleanCode) || cleanCode.includes(cCode));
+                    });
+                    if (matchedByCode && (matchedByCode.cc_contract_number || !stdData)) {
+                      stdData = matchedByCode;
+                    }
+                  }
+
+                  // If still not found, try drugs table directly if table wasn't drugs
+                  if (!stdData && !isDrug) {
+                    const { data: drugCandidates } = await supabase.from('drugs').select('*');
+                    if (drugCandidates) {
+                      const matchedDrug = drugCandidates.find((c: any) => {
+                        const cCode = (c.drug_code || c.item_code || '').replace(/[^a-z0-9]/gi, '');
+                        return cCode && cleanCode && (cCode === cleanCode || cCode.includes(cleanCode) || cleanCode.includes(cCode));
+                      });
+                      if (matchedDrug) stdData = matchedDrug;
+                    }
+                  }
+                }
+
+                // C. Match by Name (if code didn't yield a contract item)
+                if ((!stdData || !stdData.cc_contract_number) && item.item_name && item.item_name !== 'Unknown Item') {
+                  const normItemName = item.item_name.replace(/\+/g, 'dan').toLowerCase().trim();
+                  const { data: candidatesByName } = await supabase
+                    .from(table)
+                    .select('*');
+                  
+                  if (candidatesByName) {
+                    const matchedByName = candidatesByName.find((c: any) => {
+                      const cName = (c[nameCol] || c.drug_name || c.item_name || '').replace(/\+/g, 'dan').toLowerCase().trim();
+                      return cName === normItemName || cName.includes(normItemName) || normItemName.includes(cName);
+                    });
+                    if (matchedByName && (matchedByName.cc_contract_number || !stdData)) {
+                      stdData = matchedByName;
+                    }
                   }
                 }
                 
-                if (stdData) {
+                let cNo = stdData ? (stdData.cc_contract_number || stdData.kkm_contract_number || stdData.contract_number) : null
+                let lTime = stdData ? (stdData.delivery_period || null) : null // NOTE: do NOT fall back to lead_time_days here — that is the inventory reorder lead time (defaults to 7), not the contract delivery period
+                let cEnd = stdData ? (stdData.cc_contract_end_date || stdData.contract_end_date || stdData.contract_expiry) : null
+                let myPrice = stdData?.price ? Number(stdData.price) : null
+                
+                let rawPkg = stdData?.packaging_description || stdData?.unit_of_measure || null;
+                if (!rawPkg || rawPkg === 'unit') {
+                  if (stdData?.packaging_description && stdData.packaging_description !== 'unit') rawPkg = stdData.packaging_description;
+                  else if (stdData?.unit_of_measure && stdData.unit_of_measure !== 'unit') rawPkg = stdData.unit_of_measure;
+                }
+                let myPkg = rawPkg;
+
+                // Fallback: if cNo is present but lTime or cEnd is missing, look up contracts catalog by contract_number
+                if (cNo && (!lTime || !cEnd)) {
+                  try {
+                    const cleanNo = cNo.trim();
+                    const { data: contractByNo } = await supabase
+                      .from('contracts')
+                      .select('*')
+                      .ilike('contract_number', `%${cleanNo}%`)
+                      .limit(1)
+                      .maybeSingle();
+
+                    if (contractByNo) {
+                      lTime = lTime || contractByNo.delivery_period || contractByNo.metadata?.['tempoh serahan'] || contractByNo.delivery_timeframe;
+                      cEnd = cEnd || contractByNo.end_date || contractByNo.contract_end_date || contractByNo.contract_expiry;
+                      if (!myPrice && contractByNo.unit_price) myPrice = Number(contractByNo.unit_price);
+                    }
+                  } catch (_cErr) {}
+                }
+
+                // Fallback: if contract number is missing on drug/non_drug record, search contracts catalog by supplier and item name keywords
+                if (!cNo && item.item_name) {
+                  try {
+                    const cleanName = item.item_name.replace(/\+/g, 'dan').toLowerCase();
+                    const words = cleanName.split(/\s+/).filter(w => w.length > 2);
+                    const suppName = poData?.manual_supplier_name || poData?.supplier?.company_name;
+
+                    let query = supabase.from('contracts').select('*');
+                    if (poData?.supplier_id) {
+                      query = query.eq('supplier_id', poData.supplier_id);
+                    } else if (suppName) {
+                      const firstWord = suppName.split(' ')[0];
+                      query = query.ilike('supplier_name', `%${firstWord}%`);
+                    }
+
+                    const { data: candidateContracts } = await query;
+                    let matchedContract: any = null;
+                    if (candidateContracts && candidateContracts.length > 0) {
+                      matchedContract = candidateContracts.find((c: any) => {
+                        const cName = (c.contract_name || '').toLowerCase();
+                        return words.every(w => cName.includes(w));
+                      }) || candidateContracts.find((c: any) => {
+                        const cName = (c.contract_name || '').toLowerCase();
+                        const mainWords = words.filter(w => w !== 'dan' && w !== 'injection' && w !== 'tablet');
+                        return mainWords.length > 0 && mainWords.every(w => cName.includes(w));
+                      });
+                    }
+
+                    if (!matchedContract) {
+                      const { data: nameContracts } = await supabase
+                        .from('contracts')
+                        .select('*')
+                        .ilike('contract_name', `%${words[0] || ''}%`);
+                      if (nameContracts) {
+                        matchedContract = nameContracts.find((c: any) => {
+                          const cName = (c.contract_name || '').toLowerCase();
+                          const mainWords = words.filter(w => w !== 'dan' && w !== 'injection' && w !== 'tablet');
+                          return mainWords.length > 0 && mainWords.every(w => cName.includes(w));
+                        });
+                      }
+                    }
+
+                    if (matchedContract) {
+                      cNo = matchedContract.contract_number;
+                      lTime = lTime || matchedContract.delivery_period || matchedContract.lead_time_days || matchedContract.delivery_timeframe;
+                      cEnd = cEnd || matchedContract.end_date || matchedContract.contract_end_date || matchedContract.contract_expiry;
+                      if (!myPrice && matchedContract.unit_price) myPrice = Number(matchedContract.unit_price);
+                    }
+                  } catch (cErr) {
+                    // Ignore lookup error
+                  }
+                }
+
+                if (stdData || cNo) {
                   return {
                     ...item,
-                    item_name: (stdData as any)[nameCol] || item.item_name,
-                    item_code: (stdData as any)[codeCol] || item.item_code
+                    item_name: stdData ? (stdData[nameCol] || stdData.drug_name || stdData.item_name || item.item_name) : item.item_name,
+                    item_code: stdData ? (stdData[codeCol] || stdData.drug_code || stdData.item_code || item.item_code) : item.item_code,
+                    // unit_price intentionally NOT overwritten — preserve the stored purchase price
+                    packaging_description: (myPkg && myPkg !== 'unit') ? myPkg : (item.packaging_description && item.packaging_description !== 'unit' ? item.packaging_description : (myPkg || item.packaging_description)),
+                    contract_number: cNo || (item as any).contract_number,
+                    delivery_period: lTime ? (typeof lTime === 'number' ? `${lTime} hari` : lTime) : (item as any).delivery_period,
+                    lead_time_days: lTime || (item as any).lead_time_days,
+                    contract_end_date: cEnd || (item as any).contract_end_date,
+                    cc_contract_status: stdData?.cc_contract_status || stdData?.contract_status || (item as any).cc_contract_status || (item as any).contract_status
                   }
+
                 }
 
                 // 2. Try APPL Catalogs
                 const applTable = item.item_type === 'drug' ? 'appl_drugs' : 'appl_non_drugs'
                 const { data: applData } = await supabase
                   .from(applTable)
-                  .select('item_name, item_code')
+                  .select('*')
                   .eq('id', item.item_id)
                   .maybeSingle()
 
                 if (applData) {
+                  const cNo = (applData as any).cc_contract_number || (applData as any).kkm_contract_number || (applData as any).contract_number
+                  const lTime = (applData as any).delivery_period || (applData as any).lead_time_days
+                  const cEnd = (applData as any).cc_contract_end_date || (applData as any).contract_end_date
                   return {
                     ...item,
                     item_name: applData.item_name || item.item_name,
-                    item_code: applData.item_code || item.item_code
+                    item_code: applData.item_code || item.item_code,
+                    contract_number: cNo || (item as any).contract_number,
+                    delivery_period: lTime ? (typeof lTime === 'number' ? `${lTime} hari` : lTime) : (item as any).delivery_period,
+                    lead_time_days: lTime || (item as any).lead_time_days,
+                    contract_end_date: cEnd || (item as any).contract_end_date
                   }
                 }
 
@@ -287,46 +513,67 @@ export const PurchaseOrderDetailView: React.FC<PurchaseOrderDetailViewProps> = (
                 const lpTable = item.item_type === 'drug' ? 'lp_drugs' : 'lp_non_drugs'
                 const { data: lpData } = await supabase
                   .from(lpTable)
-                  .select('item_name, item_code')
+                  .select('*')
                   .eq('id', item.item_id)
                   .maybeSingle()
 
                 if (lpData) {
+                  const cNo = (lpData as any).cc_contract_number || (lpData as any).kkm_contract_number || (lpData as any).contract_number
+                  const lTime = (lpData as any).delivery_period || (lpData as any).lead_time_days
+                  const cEnd = (lpData as any).cc_contract_end_date || (lpData as any).contract_end_date
                   return {
                     ...item,
                     item_name: lpData.item_name || item.item_name,
-                    item_code: lpData.item_code || item.item_code
+                    item_code: lpData.item_code || item.item_code,
+                    contract_number: cNo || (item as any).contract_number,
+                    delivery_period: lTime ? (typeof lTime === 'number' ? `${lTime} hari` : lTime) : (item as any).delivery_period,
+                    lead_time_days: lTime || (item as any).lead_time_days,
+                    contract_end_date: cEnd || (item as any).contract_end_date
                   }
                 }
 
                 // 4. Try Contracts Catalog
                 const { data: contractData } = await supabase
                   .from('contracts')
-                  .select('contract_name, item_code')
+                  .select('*')
                   .eq('id', item.item_id)
                   .maybeSingle()
 
                 if (contractData) {
+                  const cNo = contractData.contract_number || (item as any).contract_number
+                  const lTime = contractData.delivery_period || contractData.delivery_timeframe || contractData.lead_time_days || (item as any).delivery_period
+                  const cEnd = contractData.contract_end_date || contractData.contract_expiry || (item as any).contract_end_date
                   return {
                     ...item,
                     item_name: contractData.contract_name || item.item_name,
-                    item_code: contractData.item_code || item.item_code
+                    item_code: contractData.item_code || item.item_code,
+                    contract_number: cNo,
+                    delivery_period: lTime ? (typeof lTime === 'number' ? `${lTime} hari` : lTime) : (item as any).delivery_period,
+                    lead_time_days: lTime || (item as any).lead_time_days,
+                    contract_end_date: cEnd
                   }
                 }
 
                 if (item.item_name && item.item_name !== 'Unknown Item') {
                   const { data: contractByName } = await supabase
                     .from('contracts')
-                    .select('contract_name, item_code')
+                    .select('*')
                     .eq('contract_name', item.item_name)
                     .limit(1)
                     .maybeSingle()
                   
                   if (contractByName) {
+                    const cNo = contractByName.contract_number || (item as any).contract_number
+                    const lTime = contractByName.delivery_period || contractByName.delivery_timeframe || contractByName.lead_time_days || (item as any).delivery_period
+                    const cEnd = contractByName.contract_end_date || contractByName.contract_expiry || (item as any).contract_end_date
                     return {
                       ...item,
                       item_name: contractByName.contract_name || item.item_name,
-                      item_code: contractByName.item_code || item.item_code
+                      item_code: contractByName.item_code || item.item_code,
+                      contract_number: cNo,
+                      delivery_period: lTime ? (typeof lTime === 'number' ? `${lTime} hari` : lTime) : (item as any).delivery_period,
+                      lead_time_days: lTime || (item as any).lead_time_days,
+                      contract_end_date: cEnd
                     }
                   }
                 }
@@ -338,6 +585,24 @@ export const PurchaseOrderDetailView: React.FC<PurchaseOrderDetailViewProps> = (
           )
           setItems(enrichedItems)
           
+          // Self-healing: if order header contract number is missing, backfill from item contract number
+          // BUT skip expired contracts — if the contract is expired, don't backfill it
+          const orderRefDate = poData?.order_date || poData?.created_at;
+          const firstActiveContractNo = enrichedItems.find(i => {
+            const cNo = (i as any).contract_number;
+            if (!cNo) return false;
+            return !isContractExpired(i, orderRefDate);
+          })?.contract_number;
+          if (firstActiveContractNo) {
+            setOrder(prev => (prev && (!prev.kkm_contract_number || prev.kkm_contract_number === '-')) ? { ...prev, kkm_contract_number: firstActiveContractNo } : prev);
+            if (poData?.id && (!poData.kkm_contract_number || poData.kkm_contract_number === '-')) {
+              void supabase
+                .from('pharmacy_purchase_orders')
+                .update({ kkm_contract_number: firstActiveContractNo })
+                .eq('id', poData.id);
+            }
+          }
+
           // --- Self-Healing Logic ---
           // If we found new names or codes, save them back to the DB to fix legacy records permanently
           for (const enriched of enrichedItems) {
@@ -752,7 +1017,15 @@ export const PurchaseOrderDetailView: React.FC<PurchaseOrderDetailViewProps> = (
                     <p className="text-[10.5pt] font-bold text-gray-900">
                       {order?.po_type === 'sq'
                         ? (order?.inv_sq_number || '-')
-                        : (order?.vote_code === '990102' || order?.po_type === 'manual' ? '-' : (order?.kkm_contract_number || order?.supplier?.contract_number || '-'))}
+                        : (order?.vote_code === '990102' || order?.po_type === 'manual'
+                          ? '-'
+                          : (() => {
+                              const refD = order?.order_date || order?.created_at;
+                              const purchasedUnderSQ = !!(order?.inv_sq_number && order?.po_type !== 'sq');
+                              const anyItemExpired = items && items.length > 0 && items.some((it: any) => isContractExpired(it, refD));
+                              return (purchasedUnderSQ || anyItemExpired) ? '-' : (order?.kkm_contract_number || order?.supplier?.contract_number || '-');
+                            })()
+                        )}
                     </p>
                   </div>
                   {order?.inv_sq_number && order?.po_type !== 'sq' && (
@@ -846,14 +1119,18 @@ export const PurchaseOrderDetailView: React.FC<PurchaseOrderDetailViewProps> = (
           <tbody>
             {pageItems.map((item, index) => {
               const contractNo = (item as any).contract_number || order?.kkm_contract_number || order?.supplier?.contract_number;
-              const deliveryPeriod = (item as any).delivery_period || order?.supplier?.delivery_period || 'Tidak melebihi 30 hari...';
+              const rawDeliveryPeriod = (item as any).delivery_period || order?.supplier?.delivery_period;
+              const deliveryPeriod = rawDeliveryPeriod ? String(rawDeliveryPeriod).trim() : 'Tempoh serahan adalah tidak melebihi 30 hari daripada tarikh pesanan untuk 1 bulan pertama tempoh kontrak. Selepas 1 bulan pertama tempoh kontrak dan seterusnya, tempoh serahan adalah tidak melebihi 21 hari daripada tarikh pesanan. Pengiraan tempoh pesanan bermula sehari selepas tarikh pesanan rasmi dikeluarkan.';
               const contractEndDate = (item as any).contract_end_date || order?.supplier?.contract_end_date;
+              const refD = order?.order_date || order?.created_at;
+              const purchasedUnderSQ = !!(order?.inv_sq_number && order?.po_type !== 'sq');
+              const contractIsExpired = purchasedUnderSQ || isContractExpired(item, refD);
               return (
                 <tr key={item.id} className="align-top">
                   <td className="border border-gray-800 px-1 py-1 text-center font-bold text-[9pt]">{index + 1}</td>
                   <td className="border border-gray-800 px-2 py-1">
                     <div className="font-bold text-[9.5pt] mb-0.5">{item.item_name}</div>
-                    {order?.vote_code !== '990102' && order?.po_type !== 'manual' && order?.po_type !== 'sq' && contractNo && (
+                    {order?.vote_code !== '990102' && order?.po_type !== 'manual' && order?.po_type !== 'sq' && contractNo && !contractIsExpired && (
                       <div className="space-y-0 text-[7.5pt] leading-tight text-gray-700 italic">
                         <p><span className="font-bold not-italic">No. Kontrak:</span> {contractNo}</p>
                         <p><span className="font-bold not-italic">Tempoh Serahan:</span> {deliveryPeriod}</p>
@@ -1393,6 +1670,23 @@ export const PurchaseOrderDetailView: React.FC<PurchaseOrderDetailViewProps> = (
                 </Button>
               )}
 
+              {/* Upload / Change LPO Button */}
+              {['approved', 'sent', 'partial_received', 'completed'].includes(order.status) && (
+                <Button 
+                  onClick={() => {
+                    setLpoUploadData({
+                      lpo_number: (order as any).lpo_number || '',
+                      document_date: (order as any).document_date || new Date().toISOString().split('T')[0]
+                    })
+                    setIsUploadLpoModalOpen(true)
+                  }} 
+                  variant="outline" 
+                  className="bg-blue-50 border-blue-200 text-blue-700 font-semibold text-xs h-9 px-4 rounded-lg flex items-center gap-1.5 hover:bg-blue-100 shadow-sm transition-all active:scale-95 no-print"
+                >
+                  <IconUpload className="w-4 h-4 opacity-80" /> Change / Upload LPO
+                </Button>
+              )}
+
               {/* Edit Button */}
               <Button 
                 onClick={handleEdit} 
@@ -1738,6 +2032,124 @@ export const PurchaseOrderDetailView: React.FC<PurchaseOrderDetailViewProps> = (
           </div>
         </div>
       </Modal>
+
+      {/* Upload / Change LPO Modal */}
+      {isUploadLpoModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onClick={() => setIsUploadLpoModalOpen(false)}></div>
+          
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md relative z-10 overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+              <h3 className="text-lg font-semibold text-slate-900">Upload / Change LPO Document</h3>
+              <button 
+                onClick={() => setIsUploadLpoModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 transition-colors p-1"
+              >
+                <IconX className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleLpoUploadSubmit} className="p-6 space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  LPO Number <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={lpoUploadData.lpo_number}
+                  onChange={(e) => setLpoUploadData({ ...lpoUploadData, lpo_number: e.target.value })}
+                  placeholder="e.g. C0260000000140103"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  Document Date <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={lpoUploadData.document_date}
+                  onChange={(e) => setLpoUploadData({ ...lpoUploadData, document_date: e.target.value })}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  Expected Delivery Date (ETA) <span className="text-slate-400 font-normal">(Optional)</span>
+                </label>
+                <input
+                  type="date"
+                  value={lpoUploadData.expected_delivery_date || ''}
+                  onChange={(e) => setLpoUploadData({ ...lpoUploadData, expected_delivery_date: e.target.value || undefined })}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  LPO Document PDF <span className="text-red-500">*</span>
+                </label>
+                <div 
+                  className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-300 border-dashed rounded-xl hover:border-blue-400 hover:bg-blue-50/50 transition-colors cursor-pointer"
+                  onClick={() => lpoFileInputRef.current?.click()}
+                >
+                  <div className="space-y-1 text-center">
+                    <IconUpload className="mx-auto h-8 w-8 text-slate-400" />
+                    <div className="flex text-sm text-slate-600 justify-center">
+                      <label className="relative cursor-pointer bg-transparent rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none">
+                        <span>Upload a PDF file</span>
+                        <input 
+                          ref={lpoFileInputRef}
+                          type="file" 
+                          className="sr-only" 
+                          accept=".pdf"
+                          required
+                          onChange={handleLpoFileChange}
+                        />
+                      </label>
+                      <p className="pl-1">or drag and drop</p>
+                    </div>
+                    <p className="mt-2 text-xs text-slate-500">
+                      Strictly PDF format only.
+                    </p>
+                    <p className="text-xs font-semibold text-blue-600">
+                      {lpoUploadData.document_file ? lpoUploadData.document_file.name : 'PDF up to 10MB'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 flex gap-3 justify-end border-t border-slate-100 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setIsUploadLpoModalOpen(false)}
+                  className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUploadingLpo}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50"
+                >
+                  {isUploadingLpo ? (
+                    <>
+                      <Spinner size="sm" />
+                      Uploading...
+                    </>
+                  ) : (
+                    'Upload & Link LPO'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

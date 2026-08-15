@@ -24,6 +24,7 @@ export interface CrossborderTransfer extends BaseEntity {
   peralatan_lain?: string
   pemandu_nama?: string
   pemandu_passport?: string
+  pemandu_passport_expiry?: string
   
   // Referring Doctor
   doktor_perujuk_nama: string
@@ -60,6 +61,7 @@ export interface CrossborderPatient extends BaseEntity {
   jenis_dokumen: JenisDokumen
   no_dokumen: string
   no_pengenalan?: string
+  passport_expiry?: string
   hospital_id: string
 }
 
@@ -71,6 +73,8 @@ export interface CrossborderEscort extends BaseEntity {
   jenis_dokumen: JenisDokumen
   no_dokumen: string
   jawatan?: string // For KKM escort: nurse, MO, AMO, PPK
+  hubungan?: string
+  passport_expiry?: string
   hospital_id: string
 }
 

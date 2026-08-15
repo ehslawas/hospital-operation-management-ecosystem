@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState, useMemo } from 'react';
-import { Search, Filter, Printer, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Filter, Printer, FileText, ChevronLeft, ChevronRight, Eye, CheckCircle } from 'lucide-react';
 import type { CylinderDispatchRequestWithRelations } from '@/types/pharmacy';
 
 interface CylinderDispatchTableProps {
@@ -214,7 +214,7 @@ export const CylinderDispatchTable: React.FC<CylinderDispatchTableProps> = ({
           paginatedRequests.map((req) => (
             <div
               key={req.id}
-              onClick={() => onPrint(req)}
+              onClick={() => onViewDetails(req)}
               className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer space-y-4"
             >
               {/* Header: ID & Status */}
@@ -298,6 +298,40 @@ export const CylinderDispatchTable: React.FC<CylinderDispatchTableProps> = ({
                   )}
                 </div>
               </div>
+
+              {/* Action Buttons */}
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                {req.status === 'pending' ? (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onViewDetails(req);
+                    }}
+                    className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+                  >
+                    <CheckCircle className="w-4 h-4" /> Review & Approve
+                  </button>
+                ) : (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onViewDetails(req);
+                    }}
+                    className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5"
+                  >
+                    <Eye className="w-4 h-4" /> View Details
+                  </button>
+                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onPrint(req);
+                  }}
+                  className="px-3 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5"
+                >
+                  <Printer className="w-4 h-4" /> Print Slip
+                </button>
+              </div>
             </div>
           ))
         ) : (
@@ -319,6 +353,7 @@ export const CylinderDispatchTable: React.FC<CylinderDispatchTableProps> = ({
               <th className="px-6 py-4">Items Summary</th>
               <th className="px-6 py-4">Date/Time</th>
               <th className="px-6 py-4">Status</th>
+              <th className="px-6 py-4 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-sm text-slate-600">
@@ -326,12 +361,12 @@ export const CylinderDispatchTable: React.FC<CylinderDispatchTableProps> = ({
               paginatedRequests.map((req) => (
                 <tr 
                   key={req.id} 
-                  onClick={() => onPrint(req)}
-                  className="hover:bg-slate-50/40 transition-colors cursor-pointer"
+                  onClick={() => onViewDetails(req)}
+                  className="hover:bg-slate-50/60 transition-colors cursor-pointer"
                 >
                   {/* Request ID */}
                   <td className="px-6 py-4">
-                    <span className="font-mono font-bold text-blue-600 hover:text-blue-800">
+                    <span className="font-mono font-bold text-blue-600 hover:text-blue-800 hover:underline">
                       {req.request_number}
                     </span>
                     {req.priority && req.priority !== 'normal' && (
@@ -404,11 +439,41 @@ export const CylinderDispatchTable: React.FC<CylinderDispatchTableProps> = ({
 
                   {/* Status */}
                   <td className="px-6 py-4">{getStatusBadge(req.status)}</td>
+
+                  {/* Actions */}
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                      {req.status === 'pending' ? (
+                        <button
+                          onClick={() => onViewDetails(req)}
+                          className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+                          title="Review & Approve Request"
+                        >
+                          <CheckCircle className="w-3.5 h-3.5" /> Review & Approve
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => onViewDetails(req)}
+                          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5"
+                          title="View Request Details"
+                        >
+                          <Eye className="w-3.5 h-3.5" /> Details
+                        </button>
+                      )}
+                      <button
+                        onClick={() => onPrint(req)}
+                        className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all border border-slate-200/60 bg-white"
+                        title="Print Issue Slip"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
+                <td colSpan={8} className="px-6 py-12 text-center text-slate-400">
                   No requests found matching filters.
                 </td>
               </tr>

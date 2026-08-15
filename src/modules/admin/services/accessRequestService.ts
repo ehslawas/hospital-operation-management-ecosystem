@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import { supabase, isSupabaseConfigured, uploadFile, createAnonymousClient } from '@/services/supabase'
 import { mockAccessRequests, mockHospitals, mockDepartments, getDepartmentsByHospitalId } from '@/services/mockData'
 import type { AccessRequest, Hospital, Department, AccessRequestFormData } from '@/types'
@@ -57,12 +57,41 @@ export async function getHospitals(): Promise<Hospital[]> {
 
 /**
  * Get departments by hospital ID
- * Only returns departments that correspond to enabled modules for the hospital
+ * Returns the actual medical departments mapped according to the MyWarrant department list
  */
 export async function getDepartments(hospitalId: string): Promise<Department[]> {
+  const WARRANT_DEPT_MAPPING: Record<string, { code: string; name: string }> = {
+    // Uppercase database codes
+    'PHARMACY_LOGISTIC': { code: 'PHR', name: 'Pharmacy' },
+    'PHR': { code: 'PHR', name: 'Pharmacy' },
+    'HAEMODIALYSIS': { code: 'NPH', name: 'Nephrology' },
+    'RADIOLOGY': { code: 'RAD', name: 'Radiology & Radiography' },
+    'EMERGENCY_TRAUMA': { code: 'EMT', name: 'Emergency & Trauma' },
+    'CSSU_CSSD': { code: 'CSS', name: 'CSSU & CSSD' },
+    'OPERATION_THEATER': { code: 'OT', name: 'Operation Theater' },
+    'PATHOLOGY': { code: 'LAB', name: 'Laboratory & Pathology' },
+    'GENERAL_WARD': { code: 'GW', name: 'General Ward' },
+    'REHABILITATION': { code: 'REH', name: 'Rehabilitation' },
+    'PAEDIATRIC_WARD': { code: 'PED', name: 'Paediatric Ward' },
+    'MATERNITY_WARD': { code: 'MAT', name: 'Maternity Ward' },
+    'KLINIK_PAKAR': { code: 'CLINIC', name: 'Klinik Pakar' },
+
+    // Lowercase module codes
+    'pharmacy_logistics': { code: 'PHR', name: 'Pharmacy' },
+    'haemodialysis': { code: 'NPH', name: 'Nephrology' },
+    'radiology': { code: 'RAD', name: 'Radiology & Radiography' },
+    'emergency_trauma': { code: 'EMT', name: 'Emergency & Trauma' },
+    'cssu_cssd': { code: 'CSS', name: 'CSSU & CSSD' },
+    'operation_theater': { code: 'OT', name: 'Operation Theater' },
+    'laboratory': { code: 'LAB', name: 'Laboratory & Pathology' },
+    'general_ward': { code: 'GW', name: 'General Ward' },
+    'rehabilitation': { code: 'REH', name: 'Rehabilitation' },
+    'paediatric_ward': { code: 'PED', name: 'Paediatric Ward' },
+    'maternity_ward': { code: 'MAT', name: 'Maternity Ward' },
+    'klinik_pakar': { code: 'CLINIC', name: 'Klinik Pakar' },
+  }
+
   if (isSupabaseConfigured()) {
-    // Get departments that correspond to enabled modules
-    // Departments are synced from enabled modules, so we just need active departments
     const { data, error } = await supabase
       .from('departments')
       .select('*')
@@ -75,23 +104,55 @@ export async function getDepartments(hospitalId: string): Promise<Department[]> 
       return []
     }
 
-    // Verify these departments correspond to enabled modules
-    // Get enabled modules for this hospital
-    const { data: enabledModules } = await supabase
-      .from('hospital_modules')
-      .select('module_code')
-      .eq('hospital_id', hospitalId)
-      .eq('is_enabled', true)
+    const mapped = (data || [])
+      .map((dept) => {
+        const mapping = WARRANT_DEPT_MAPPING[dept.department_code]
+        if (mapping) {
+          return {
+            ...dept,
+            department_code: mapping.code,
+            department_name: mapping.name,
+          }
+        }
+        return null
+      })
+      .filter((dept): dept is NonNullable<typeof dept> => dept !== null)
 
-    if (enabledModules && enabledModules.length > 0) {
-      const enabledModuleCodes = new Set(enabledModules.map((m) => m.module_code))
-      // Filter departments to only those matching enabled module codes
-      return (data || []).filter((dept) => enabledModuleCodes.has(dept.department_code))
+    const seen = new Set<string>()
+    const deDuplicated: Department[] = []
+    for (const dept of mapped) {
+      if (!seen.has(dept.department_name)) {
+        seen.add(dept.department_name)
+        deDuplicated.push(dept)
+      }
     }
 
-    return data || []
+    return deDuplicated
   } else {
-    return getDepartmentsByHospitalId(hospitalId).filter((d) => d.status === 'active')
+    const data = getDepartmentsByHospitalId(hospitalId).filter((d) => d.status === 'active')
+    const mapped = data
+      .map((dept) => {
+        const mapping = WARRANT_DEPT_MAPPING[dept.department_code]
+        if (mapping) {
+          return {
+            ...dept,
+            department_code: mapping.code,
+            department_name: mapping.name,
+          }
+        }
+        return null
+      })
+      .filter((dept): dept is NonNullable<typeof dept> => dept !== null)
+
+    const seen = new Set<string>()
+    const deDuplicated: Department[] = []
+    for (const dept of mapped) {
+      if (!seen.has(dept.department_name)) {
+        seen.add(dept.department_name)
+        deDuplicated.push(dept)
+      }
+    }
+    return deDuplicated
   }
 }
 
@@ -124,7 +185,7 @@ export async function submitAccessRequest(
         if (errorMsg.includes("does not exist") || errorMsg.includes("Bucket not found")) {
           return {
             success: false,
-            error: `Storage bucket 'avatar' does not exist. Please create it in Supabase Dashboard:\n1. Go to Storage â†’ New Bucket\n2. Name it 'avatar'\n3. Set it to Public\n4. Create the bucket and try again.`,
+            error: `Storage bucket 'avatar' does not exist. Please create it in Supabase Dashboard:\n1. Go to Storage ➔ New Bucket\n2. Name it 'avatar'\n3. Set it to Public\n4. Create the bucket and try again.`,
           }
         }
         throw new Error(errorMsg)
@@ -137,7 +198,7 @@ export async function submitAccessRequest(
       if (errorMessage.includes("does not exist") || errorMessage.includes("Bucket not found")) {
         return {
           success: false,
-          error: `Storage bucket 'avatars' does not exist. Please create it in Supabase Dashboard:\n1. Go to Storage â†’ New Bucket\n2. Name it 'avatars'\n3. Set it to Public\n4. Create the bucket and try again.`,
+          error: `Storage bucket 'avatars' does not exist. Please create it in Supabase Dashboard:\n1. Go to Storage ➔ New Bucket\n2. Name it 'avatars'\n3. Set it to Public\n4. Create the bucket and try again.`,
         }
       }
       return {
@@ -360,4 +421,3 @@ export async function rejectAccessRequest(
     return { success: false, error: 'Failed to reject request' }
   }
 }
-

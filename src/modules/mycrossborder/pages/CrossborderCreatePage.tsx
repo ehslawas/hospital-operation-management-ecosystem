@@ -38,6 +38,7 @@ interface PatientFormState {
   jenis_dokumen: JenisDokumen;
   no_dokumen: string;
   no_pengenalan: string;
+  passport_expiry?: string;
 }
 
 interface KkmEscortForm {
@@ -45,6 +46,7 @@ interface KkmEscortForm {
   jenis_dokumen: JenisDokumen;
   no_dokumen: string;
   jawatan: string;
+  passport_expiry?: string;
 }
 
 interface WarisEscortForm {
@@ -52,6 +54,7 @@ interface WarisEscortForm {
   jenis_dokumen: JenisDokumen;
   no_dokumen: string;
   hubungan: string;
+  passport_expiry?: string;
 }
 
 
@@ -71,6 +74,7 @@ export const CrossborderCreatePage: React.FC = () => {
   const [noPendaftaran, setNoPendaftaran] = useState('');
   const [pemanduNama, setPemanduNama] = useState('');
   const [pemanduPassport, setPemanduPassport] = useState('');
+  const [pemanduPassportExpiry, setPemanduPassportExpiry] = useState('');
   const [peralatanLain, setPeralatanLain] = useState('');
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
   const [customEquipment, setCustomEquipment] = useState('');
@@ -84,7 +88,7 @@ export const CrossborderCreatePage: React.FC = () => {
 
   // Dynamic lists
   const [patients, setPatients] = useState<PatientFormState[]>([
-    { nama: '', jantina: 'Lelaki', tarikh_lahir: '', warganegara: 'Malaysia', jenis_dokumen: 'PASSPORT', no_dokumen: '', no_pengenalan: '' }
+    { nama: '', jantina: 'Lelaki', tarikh_lahir: '', warganegara: 'Malaysia', jenis_dokumen: 'PASSPORT', no_dokumen: '', no_pengenalan: '', passport_expiry: '' }
   ]);
   const [kkmEscorts, setKkmEscorts] = useState<KkmEscortForm[]>([]);
   const [isKkmAutoFilled, setIsKkmAutoFilled] = useState(false);
@@ -165,7 +169,8 @@ export const CrossborderCreatePage: React.FC = () => {
             warganegara: 'Malaysia',
             jenis_dokumen: 'PASSPORT',
             no_dokumen: '',
-            no_pengenalan: selectedReq.rn_pesakit || ''
+            no_pengenalan: selectedReq.rn_pesakit || '',
+            passport_expiry: ''
           }
         ]);
         setWarisEscorts([null]);
@@ -176,7 +181,8 @@ export const CrossborderCreatePage: React.FC = () => {
           nama: e.name.toUpperCase(),
           jenis_dokumen: 'IC' as JenisDokumen,
           no_dokumen: '',
-          jawatan: e.job
+          jawatan: e.job,
+          passport_expiry: ''
         }));
         setKkmEscorts(mappedKkm);
         setIsKkmAutoFilled(true);
@@ -192,7 +198,7 @@ export const CrossborderCreatePage: React.FC = () => {
       toast.warning('Had Pesakit', 'Satu perjalanan ambulans merentasi sempadan dihadkan kepada 3 kes pesakit sahaja.');
       return;
     }
-    setPatients([...patients, { nama: '', jantina: 'Lelaki', tarikh_lahir: '', warganegara: 'Malaysia', jenis_dokumen: 'PASSPORT', no_dokumen: '', no_pengenalan: '' }]);
+    setPatients([...patients, { nama: '', jantina: 'Lelaki', tarikh_lahir: '', warganegara: 'Malaysia', jenis_dokumen: 'PASSPORT', no_dokumen: '', no_pengenalan: '', passport_expiry: '' }]);
     setWarisEscorts([...warisEscorts, null]);
   };
 
@@ -212,7 +218,7 @@ export const CrossborderCreatePage: React.FC = () => {
   };
 
   const handleAddKkmEscort = () => {
-    setKkmEscorts([...kkmEscorts, { nama: '', jenis_dokumen: 'IC', no_dokumen: '', jawatan: 'nurse' }]);
+    setKkmEscorts([...kkmEscorts, { nama: '', jenis_dokumen: 'IC', no_dokumen: '', jawatan: 'nurse', passport_expiry: '' }]);
   };
 
   const handleRemoveKkmEscort = (index: number) => {
@@ -227,7 +233,7 @@ export const CrossborderCreatePage: React.FC = () => {
 
   const handleAddWaris = (patientIdx: number) => {
     const updated = [...warisEscorts];
-    updated[patientIdx] = { nama: '', jenis_dokumen: 'PASSPORT', no_dokumen: '', hubungan: 'Adik-beradik' };
+    updated[patientIdx] = { nama: '', jenis_dokumen: 'PASSPORT', no_dokumen: '', hubungan: 'Adik-beradik', passport_expiry: '' };
     setWarisEscorts(updated);
   };
 
@@ -251,16 +257,26 @@ export const CrossborderCreatePage: React.FC = () => {
     if (!noPendaftaran) return 'No Pendaftaran Kenderaan diperlukan';
     if (!doktorPerujukNama) return 'Nama Doktor Perujuk diperlukan';
 
+    if (pemanduPassport && !pemanduPassportExpiry) {
+      return 'Tarikh Tamat Pasport Pemandu diperlukan';
+    }
+
     for (let i = 0; i < patients.length; i++) {
       const p = patients[i];
       if (!p.nama) return `Nama Pesakit ${i + 1} diperlukan`;
       if (!p.tarikh_lahir) return `Tarikh Lahir Pesakit ${i + 1} diperlukan`;
       if (!p.no_dokumen) return `No Dokumen Perjalanan Pesakit ${i + 1} diperlukan`;
+      if (p.jenis_dokumen === 'PASSPORT' && !p.passport_expiry) {
+        return `Tarikh Tamat Pasport Pesakit ${i + 1} diperlukan`;
+      }
     }
 
     for (let i = 0; i < kkmEscorts.length; i++) {
       const e = kkmEscorts[i];
       if (!e.nama) return `Nama Pengiring KKM di baris ${i + 1} diperlukan`;
+      if (e.jenis_dokumen === 'PASSPORT' && !e.passport_expiry) {
+        return `Tarikh Tamat Pasport Pengiring KKM di baris ${i + 1} diperlukan`;
+      }
     }
 
     for (let i = 0; i < warisEscorts.length; i++) {
@@ -268,6 +284,9 @@ export const CrossborderCreatePage: React.FC = () => {
       if (w) {
         if (!w.nama) return `Nama Waris bagi Pesakit #${i + 1} diperlukan`;
         if (!w.no_dokumen) return `No Dokumen Waris bagi Pesakit #${i + 1} diperlukan`;
+        if (w.jenis_dokumen === 'PASSPORT' && !w.passport_expiry) {
+          return `Tarikh Tamat Pasport Waris bagi Pesakit #${i + 1} diperlukan`;
+        }
       }
     }
 
@@ -292,6 +311,7 @@ export const CrossborderCreatePage: React.FC = () => {
         no_pendaftaran: noPendaftaran,
         pemandu_nama: pemanduNama,
         pemandu_passport: pemanduPassport,
+        pemandu_passport_expiry: pemanduPassport ? pemanduPassportExpiry : undefined,
         peralatan_lain: (() => {
           const eqNameMap: Record<string, string> = {
             vital_sign: 'Vital Sign Monitor',
@@ -312,7 +332,8 @@ export const CrossborderCreatePage: React.FC = () => {
       },
       patients: patients.map((p, idx) => ({
         ...p,
-        urutan: idx + 1
+        urutan: idx + 1,
+        passport_expiry: p.jenis_dokumen === 'PASSPORT' ? p.passport_expiry : undefined
       })),
       escorts: [
         ...kkmEscorts.map(e => ({
@@ -320,7 +341,8 @@ export const CrossborderCreatePage: React.FC = () => {
           nama: e.nama,
           jenis_dokumen: e.jenis_dokumen,
           no_dokumen: e.no_dokumen,
-          jawatan: e.jawatan
+          jawatan: e.jawatan,
+          passport_expiry: e.jenis_dokumen === 'PASSPORT' ? e.passport_expiry : undefined
         })),
         ...warisEscorts
           .map((w, idx) => w ? {
@@ -328,7 +350,8 @@ export const CrossborderCreatePage: React.FC = () => {
             nama: w.nama,
             jenis_dokumen: w.jenis_dokumen,
             no_dokumen: w.no_dokumen,
-            patient_urutan: idx + 1
+            patient_urutan: idx + 1,
+            passport_expiry: w.jenis_dokumen === 'PASSPORT' ? w.passport_expiry : undefined
           } : null)
           .filter((w): w is any => w !== null)
       ]
@@ -572,7 +595,7 @@ export const CrossborderCreatePage: React.FC = () => {
                       </select>
                     </div>
                     <div>
-                      <label className="text-xs font-semibold text-slate-500 block mb-1">
+                      <label className="text-xs font-semibold text-slate-550 block mb-1">
                         No Dokumen *
                       </label>
                       <input 
@@ -583,8 +606,21 @@ export const CrossborderCreatePage: React.FC = () => {
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all font-medium"
                       />
                     </div>
-                    <div className="md:col-span-2">
-                      <label className="text-xs font-semibold text-slate-500 block mb-1">
+                    {patient.jenis_dokumen === 'PASSPORT' && (
+                      <div className="animate-fadeIn">
+                        <label className="text-xs font-semibold text-slate-550 block mb-1">
+                          Tarikh Tamat Pasport *
+                        </label>
+                        <input 
+                          type="date" 
+                          value={patient.passport_expiry || ''}
+                          onChange={(e) => handlePatientChange(index, 'passport_expiry', e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all font-medium"
+                        />
+                      </div>
+                    )}
+                    <div className={patient.jenis_dokumen === 'PASSPORT' ? 'md:col-span-1' : 'md:col-span-2'}>
+                      <label className="text-xs font-semibold text-slate-550 block mb-1">
                         No Kad Pengenalan Sekunder (Pilihan)
                       </label>
                       <input 
@@ -668,6 +704,19 @@ export const CrossborderCreatePage: React.FC = () => {
                   onChange={(e) => setPemanduPassport(e.target.value.toUpperCase())}
                   placeholder="e.g. K12345678"
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all font-medium font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-500 block mb-1">
+                  Tarikh Tamat Pasport Pemandu {pemanduPassport && '*'}
+                </label>
+                <input 
+                  type="date" 
+                  value={pemanduPassportExpiry}
+                  onChange={(e) => setPemanduPassportExpiry(e.target.value)}
+                  disabled={!pemanduPassport}
+                  className={`w-full border border-slate-200 rounded-xl p-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium ${!pemanduPassport ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-50 focus:bg-white'}`}
                 />
               </div>
 
@@ -795,8 +844,8 @@ export const CrossborderCreatePage: React.FC = () => {
                         <option value="OTHERS">LAIN-LAIN</option>
                       </select>
                     </div>
-                    <div>
-                      <label className="text-xs font-semibold text-slate-555 block mb-1">No. Dokumen</label>
+                    <div className={escort.jenis_dokumen === 'PASSPORT' ? 'md:col-span-1' : 'md:col-span-2'}>
+                      <label className="text-xs font-semibold text-slate-555 block mb-1 font-mono">No. Dokumen</label>
                       <input 
                         type="text" 
                         value={escort.no_dokumen}
@@ -805,6 +854,17 @@ export const CrossborderCreatePage: React.FC = () => {
                         className="w-full bg-white border border-slate-200 rounded-lg p-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
+                    {escort.jenis_dokumen === 'PASSPORT' && (
+                      <div className="md:col-span-1 animate-fadeIn">
+                        <label className="text-xs font-semibold text-slate-555 block mb-1">Tarikh Tamat Pasport *</label>
+                        <input 
+                          type="date" 
+                          value={escort.passport_expiry || ''}
+                          onChange={(e) => handleKkmEscortChange(index, 'passport_expiry', e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-lg p-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -887,7 +947,7 @@ export const CrossborderCreatePage: React.FC = () => {
                             <option value="OTHERS">LAIN-LAIN</option>
                           </select>
                         </div>
-                        <div className="md:col-span-2">
+                        <div className={waris.jenis_dokumen === 'PASSPORT' ? 'md:col-span-1' : 'md:col-span-2'}>
                           <label className="text-xs font-semibold text-slate-555 block mb-1">No. Dokumen *</label>
                           <input 
                             type="text" 
@@ -897,6 +957,17 @@ export const CrossborderCreatePage: React.FC = () => {
                             className="w-full bg-white border border-slate-200 rounded-lg p-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </div>
+                        {waris.jenis_dokumen === 'PASSPORT' && (
+                          <div className="md:col-span-1 animate-fadeIn">
+                            <label className="text-xs font-semibold text-slate-555 block mb-1">Tarikh Tamat Pasport *</label>
+                            <input 
+                              type="date" 
+                              value={waris.passport_expiry || ''}
+                              onChange={(e) => handleWarisChange(patientIdx, 'passport_expiry', e.target.value)}
+                              className="w-full bg-white border border-slate-200 rounded-lg p-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

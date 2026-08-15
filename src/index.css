@@ -13,6 +13,11 @@
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
+  /* Base Form Element Contrast Defaults */
+  input, textarea, select {
+    @apply text-slate-900 placeholder-slate-400;
+  }
+
   /* Custom Scrollbar */
   ::-webkit-scrollbar {
     @apply w-2 h-2;

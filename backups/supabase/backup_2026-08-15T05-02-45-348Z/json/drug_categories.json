@@ -1,0 +1,812 @@
+[
+  {
+    "id": "f3d97c52-e3e2-48e2-900e-40bce34dbc87",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "category_code": "B",
+    "category_name": "B",
+    "parent_category_id": null,
+    "description": "Category for B",
+    "created_at": "2026-01-07T07:04:38.96273+00:00",
+    "updated_at": "2026-01-07T07:04:38.96273+00:00"
+  },
+  {
+    "id": "0695de52-fb3e-43fd-b5e1-1d8279525b9c",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "category_code": "A_KK",
+    "category_name": "A/KK",
+    "parent_category_id": null,
+    "description": "Category for A/KK",
+    "created_at": "2026-01-07T07:04:38.986839+00:00",
+    "updated_at": "2026-01-07T07:04:38.986839+00:00"
+  },
+  {
+    "id": "abb45dbd-fff5-47d4-ab1b-904d39fb554a",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "category_code": "C",
+    "category_name": "C",
+    "parent_category_id": null,
+    "description": "Category for C",
+    "created_at": "2026-01-07T07:04:39.003859+00:00",
+    "updated_at": "2026-01-07T07:04:39.003859+00:00"
+  },
+  {
+    "id": "e06e6f20-e180-4c1f-957c-2bb392367f3d",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "category_code": "NON_FUKKM",
+    "category_name": "Non-FUKKM",
+    "parent_category_id": null,
+    "description": "Category for Non-FUKKM",
+    "created_at": "2026-01-07T07:04:39.02267+00:00",
+    "updated_at": "2026-01-07T07:04:39.02267+00:00"
+  },
+  {
+    "id": "3330262f-825c-4f3a-b6e7-3773965fc570",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "category_code": "A",
+    "category_name": "A",
+    "parent_category_id": null,
+    "description": "Category for A",
+    "created_at": "2026-01-07T07:04:39.051578+00:00",
+    "updated_at": "2026-01-07T07:04:39.051578+00:00"
+  },
+  {
+    "id": "24c56d6b-5003-4d8a-a846-3d2c3bcb45c7",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "category_code": "A_",
+    "category_name": "A*",
+    "parent_category_id": null,
+    "description": "Category for A*",
+    "created_at": "2026-01-07T07:04:39.068878+00:00",
+    "updated_at": "2026-01-07T07:04:39.068878+00:00"
+  },
+  {
+    "id": "f118382d-803c-474c-af1f-de3550485734",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "category_code": "C_",
+    "category_name": "C+",
+    "parent_category_id": null,
+    "description": "Category for C+",
+    "created_at": "2026-01-07T07:04:39.155513+00:00",
+    "updated_at": "2026-01-07T07:04:39.155513+00:00"
+  },
+  {
+    "id": "1e56fd4e-2469-47ab-9a52-4eff9cb86792",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "category_code": "ANTIHYPERTENSIVE",
+    "category_name": "Anti-hypertensive",
+    "parent_category_id": null,
+    "description": "Medications for high blood pressure",
+    "created_at": "2026-01-31T10:23:29.621854+00:00",
+    "updated_at": "2026-01-31T10:23:29.621854+00:00"
+  },
+  {
+    "id": "a8a0f9e2-4d86-4a54-9ae4-32d2051a7b63",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "category_code": "ANTIBIOTIC",
+    "category_name": "Antibiotic",
+    "parent_category_id": null,
+    "description": "Antibacterial medications",
+    "created_at": "2026-01-31T10:23:29.621854+00:00",
+    "updated_at": "2026-01-31T10:23:29.621854+00:00"
+  },
+  {
+    "id": "3efd5081-9832-40d2-ba05-c7eabc05bced",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "category_code": "ART",
+    "category_name": "Anti-Retroviral Therapy",
+    "parent_category_id": null,
+    "description": "HIV/AIDS medications",
+    "created_at": "2026-01-31T10:23:29.621854+00:00",
+    "updated_at": "2026-01-31T10:23:29.621854+00:00"
+  },
+  {
+    "id": "4a112eb9-4bcf-45ff-a4f5-304643bff63f",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "category_code": "ANTIDIABETIC",
+    "category_name": "Anti-diabetic",
+    "parent_category_id": null,
+    "description": "Diabetes medications",
+    "created_at": "2026-01-31T10:23:29.621854+00:00",
+    "updated_at": "2026-01-31T10:23:29.621854+00:00"
+  },
+  {
+    "id": "5d1ac493-10b1-4082-a314-b4efb0ea899b",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "category_code": "ANALGESIC",
+    "category_name": "Analgesic/Antipyretic",
+    "parent_category_id": null,
+    "description": "Pain relief and fever medications",
+    "created_at": "2026-01-31T10:23:29.621854+00:00",
+    "updated_at": "2026-01-31T10:23:29.621854+00:00"
+  },
+  {
+    "id": "e2bdaa7e-64d1-480d-8a9f-33f421974efb",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "category_code": "RESPIRATORY",
+    "category_name": "Respiratory",
+    "parent_category_id": null,
+    "description": "Asthma and respiratory medications",
+    "created_at": "2026-01-31T10:23:29.621854+00:00",
+    "updated_at": "2026-01-31T10:23:29.621854+00:00"
+  },
+  {
+    "id": "c4fe5e01-0013-4b3f-9e64-1e728d2416f0",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "category_code": "CARDIOVASCULAR",
+    "category_name": "Cardiovascular",
+    "parent_category_id": null,
+    "description": "Heart conditions excluding hypertension",
+    "created_at": "2026-01-31T10:23:29.621854+00:00",
+    "updated_at": "2026-01-31T10:23:29.621854+00:00"
+  },
+  {
+    "id": "21140ec6-3106-4f76-9660-cb8fb083147b",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "category_code": "GASTROINTESTINAL",
+    "category_name": "Gastrointestinal",
+    "parent_category_id": null,
+    "description": "Stomach and digestive medications",
+    "created_at": "2026-01-31T10:23:29.621854+00:00",
+    "updated_at": "2026-01-31T10:23:29.621854+00:00"
+  },
+  {
+    "id": "fb5a01dd-bfb4-401f-8f05-c8508713e13f",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "category_code": "CNS",
+    "category_name": "Central Nervous System",
+    "parent_category_id": null,
+    "description": "Neurological and psychiatric medications",
+    "created_at": "2026-01-31T10:23:29.621854+00:00",
+    "updated_at": "2026-01-31T10:23:29.621854+00:00"
+  },
+  {
+    "id": "e66b09a8-3e5f-46df-9aa5-bfc51d967d8c",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "category_code": "DERMATOLOGICAL",
+    "category_name": "Dermatological",
+    "parent_category_id": null,
+    "description": "Skin medications",
+    "created_at": "2026-01-31T10:23:29.621854+00:00",
+    "updated_at": "2026-01-31T10:23:29.621854+00:00"
+  },
+  {
+    "id": "157b8611-6e5e-44fb-ad26-548a8eb4a43c",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "category_code": "VITAMIN",
+    "category_name": "Vitamin/Supplement",
+    "parent_category_id": null,
+    "description": "Nutritional supplements",
+    "created_at": "2026-01-31T10:23:29.621854+00:00",
+    "updated_at": "2026-01-31T10:23:29.621854+00:00"
+  },
+  {
+    "id": "08918bc4-42b2-4e88-8807-e93e96fe1fdb",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "category_code": "VACCINE",
+    "category_name": "Vaccine",
+    "parent_category_id": null,
+    "description": "Immunizations",
+    "created_at": "2026-01-31T10:23:29.621854+00:00",
+    "updated_at": "2026-01-31T10:23:29.621854+00:00"
+  },
+  {
+    "id": "e629075b-e5c6-42c4-9c92-f5974da41986",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "category_code": "ANESTHETIC",
+    "category_name": "Anesthetic",
+    "parent_category_id": null,
+    "description": "Anesthesia medications",
+    "created_at": "2026-01-31T10:23:29.621854+00:00",
+    "updated_at": "2026-01-31T10:23:29.621854+00:00"
+  },
+  {
+    "id": "ee683e24-0c15-467a-9c8c-6367e02cfbba",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "category_code": "ONCOLOGY",
+    "category_name": "Oncology",
+    "parent_category_id": null,
+    "description": "Cancer medications",
+    "created_at": "2026-01-31T10:23:29.621854+00:00",
+    "updated_at": "2026-01-31T10:23:29.621854+00:00"
+  },
+  {
+    "id": "d8ac9ed1-84f4-48ed-b362-f75919cf7cbe",
+    "hospital_id": null,
+    "category_code": "ANTIHYPERTENSIVE",
+    "category_name": "Anti-hypertensive",
+    "parent_category_id": null,
+    "description": "Medications for high blood pressure",
+    "created_at": "2026-01-31T10:23:29.621854+00:00",
+    "updated_at": "2026-01-31T10:23:29.621854+00:00"
+  },
+  {
+    "id": "b1c27822-3818-4844-bbaa-2cb053606d7d",
+    "hospital_id": null,
+    "category_code": "ANTIBIOTIC",
+    "category_name": "Antibiotic",
+    "parent_category_id": null,
+    "description": "Antibacterial medications",
+    "created_at": "2026-01-31T10:23:29.621854+00:00",
+    "updated_at": "2026-01-31T10:23:29.621854+00:00"
+  },
+  {
+    "id": "fbfff3aa-8c97-4e15-94e7-834dffac93be",
+    "hospital_id": null,
+    "category_code": "ART",
+    "category_name": "Anti-Retroviral Therapy",
+    "parent_category_id": null,
+    "description": "HIV/AIDS medications",
+    "created_at": "2026-01-31T10:23:29.621854+00:00",
+    "updated_at": "2026-01-31T10:23:29.621854+00:00"
+  },
+  {
+    "id": "66a9a5a4-4052-4dd9-881c-6700d8a8543e",
+    "hospital_id": null,
+    "category_code": "ANTIDIABETIC",
+    "category_name": "Anti-diabetic",
+    "parent_category_id": null,
+    "description": "Diabetes medications",
+    "created_at": "2026-01-31T10:23:29.621854+00:00",
+    "updated_at": "2026-01-31T10:23:29.621854+00:00"
+  },
+  {
+    "id": "9b6a0551-6a51-4a3d-9ff2-2c2bbdd0965a",
+    "hospital_id": null,
+    "category_code": "ANALGESIC",
+    "category_name": "Analgesic/Antipyretic",
+    "parent_category_id": null,
+    "description": "Pain relief and fever medications",
+    "created_at": "2026-01-31T10:23:29.621854+00:00",
+    "updated_at": "2026-01-31T10:23:29.621854+00:00"
+  },
+  {
+    "id": "ece0a3da-3bf5-4951-89c4-e6cb0a0f0585",
+    "hospital_id": null,
+    "category_code": "RESPIRATORY",
+    "category_name": "Respiratory",
+    "parent_category_id": null,
+    "description": "Asthma and respiratory medications",
+    "created_at": "2026-01-31T10:23:29.621854+00:00",
+    "updated_at": "2026-01-31T10:23:29.621854+00:00"
+  },
+  {
+    "id": "171e1872-537f-46ca-8004-5df671aa11b7",
+    "hospital_id": null,
+    "category_code": "CARDIOVASCULAR",
+    "category_name": "Cardiovascular",
+    "parent_category_id": null,
+    "description": "Heart conditions excluding hypertension",
+    "created_at": "2026-01-31T10:23:29.621854+00:00",
+    "updated_at": "2026-01-31T10:23:29.621854+00:00"
+  },
+  {
+    "id": "7ae69df3-8cb3-4fa2-8e3b-ed36efbba3b1",
+    "hospital_id": null,
+    "category_code": "GASTROINTESTINAL",
+    "category_name": "Gastrointestinal",
+    "parent_category_id": null,
+    "description": "Stomach and digestive medications",
+    "created_at": "2026-01-31T10:23:29.621854+00:00",
+    "updated_at": "2026-01-31T10:23:29.621854+00:00"
+  },
+  {
+    "id": "8b7e521e-8240-4a17-a4b0-7a11b3efb3b2",
+    "hospital_id": null,
+    "category_code": "CNS",
+    "category_name": "Central Nervous System",
+    "parent_category_id": null,
+    "description": "Neurological and psychiatric medications",
+    "created_at": "2026-01-31T10:23:29.621854+00:00",
+    "updated_at": "2026-01-31T10:23:29.621854+00:00"
+  },
+  {
+    "id": "a1184d2f-b51e-4123-923d-a35fbd4b6df6",
+    "hospital_id": null,
+    "category_code": "DERMATOLOGICAL",
+    "category_name": "Dermatological",
+    "parent_category_id": null,
+    "description": "Skin medications",
+    "created_at": "2026-01-31T10:23:29.621854+00:00",
+    "updated_at": "2026-01-31T10:23:29.621854+00:00"
+  },
+  {
+    "id": "b7b032b9-943f-4978-bca1-ea08a75d9d27",
+    "hospital_id": null,
+    "category_code": "VITAMIN",
+    "category_name": "Vitamin/Supplement",
+    "parent_category_id": null,
+    "description": "Nutritional supplements",
+    "created_at": "2026-01-31T10:23:29.621854+00:00",
+    "updated_at": "2026-01-31T10:23:29.621854+00:00"
+  },
+  {
+    "id": "938fe7e0-b59f-407c-97e5-c3aefa029000",
+    "hospital_id": null,
+    "category_code": "VACCINE",
+    "category_name": "Vaccine",
+    "parent_category_id": null,
+    "description": "Immunizations",
+    "created_at": "2026-01-31T10:23:29.621854+00:00",
+    "updated_at": "2026-01-31T10:23:29.621854+00:00"
+  },
+  {
+    "id": "cf9f04a1-8a74-4d43-b9b9-e78d82fe37a2",
+    "hospital_id": null,
+    "category_code": "ANESTHETIC",
+    "category_name": "Anesthetic",
+    "parent_category_id": null,
+    "description": "Anesthesia medications",
+    "created_at": "2026-01-31T10:23:29.621854+00:00",
+    "updated_at": "2026-01-31T10:23:29.621854+00:00"
+  },
+  {
+    "id": "d7acb69a-5ed1-429e-bfc6-cd12fe6bc414",
+    "hospital_id": null,
+    "category_code": "ONCOLOGY",
+    "category_name": "Oncology",
+    "parent_category_id": null,
+    "description": "Cancer medications",
+    "created_at": "2026-01-31T10:23:29.621854+00:00",
+    "updated_at": "2026-01-31T10:23:29.621854+00:00"
+  },
+  {
+    "id": "94cea48b-4feb-4fd2-8234-867ace8b925f",
+    "hospital_id": null,
+    "category_code": "ANTIHYPERTENSIVE",
+    "category_name": "Anti-hypertensive",
+    "parent_category_id": null,
+    "description": "Medications for high blood pressure",
+    "created_at": "2026-01-31T10:48:43.195307+00:00",
+    "updated_at": "2026-01-31T10:48:43.195307+00:00"
+  },
+  {
+    "id": "36d2f1c4-e27d-4fb0-bf78-03a3eac5130d",
+    "hospital_id": null,
+    "category_code": "ANTIBIOTIC",
+    "category_name": "Antibiotic",
+    "parent_category_id": null,
+    "description": "Antibacterial medications",
+    "created_at": "2026-01-31T10:48:43.195307+00:00",
+    "updated_at": "2026-01-31T10:48:43.195307+00:00"
+  },
+  {
+    "id": "0220fdb1-85b4-410e-8d31-ca96eae2fba6",
+    "hospital_id": null,
+    "category_code": "ART",
+    "category_name": "Anti-Retroviral Therapy",
+    "parent_category_id": null,
+    "description": "HIV/AIDS medications",
+    "created_at": "2026-01-31T10:48:43.195307+00:00",
+    "updated_at": "2026-01-31T10:48:43.195307+00:00"
+  },
+  {
+    "id": "e3940739-006f-442b-94a5-229575c3891a",
+    "hospital_id": null,
+    "category_code": "ANTIDIABETIC",
+    "category_name": "Anti-diabetic",
+    "parent_category_id": null,
+    "description": "Diabetes medications",
+    "created_at": "2026-01-31T10:48:43.195307+00:00",
+    "updated_at": "2026-01-31T10:48:43.195307+00:00"
+  },
+  {
+    "id": "7c240711-8901-4bcb-acea-736f4838f8cc",
+    "hospital_id": null,
+    "category_code": "ANALGESIC",
+    "category_name": "Analgesic/Antipyretic",
+    "parent_category_id": null,
+    "description": "Pain relief and fever medications",
+    "created_at": "2026-01-31T10:48:43.195307+00:00",
+    "updated_at": "2026-01-31T10:48:43.195307+00:00"
+  },
+  {
+    "id": "0bc9ccaa-2b04-4270-a4b4-49cebf937753",
+    "hospital_id": null,
+    "category_code": "RESPIRATORY",
+    "category_name": "Respiratory",
+    "parent_category_id": null,
+    "description": "Asthma and respiratory medications",
+    "created_at": "2026-01-31T10:48:43.195307+00:00",
+    "updated_at": "2026-01-31T10:48:43.195307+00:00"
+  },
+  {
+    "id": "57ac130d-7404-4097-98e7-7714f56f3a59",
+    "hospital_id": null,
+    "category_code": "CARDIOVASCULAR",
+    "category_name": "Cardiovascular",
+    "parent_category_id": null,
+    "description": "Heart conditions excluding hypertension",
+    "created_at": "2026-01-31T10:48:43.195307+00:00",
+    "updated_at": "2026-01-31T10:48:43.195307+00:00"
+  },
+  {
+    "id": "aa29e1fc-7be2-46fc-8ca8-61ff47922fff",
+    "hospital_id": null,
+    "category_code": "GASTROINTESTINAL",
+    "category_name": "Gastrointestinal",
+    "parent_category_id": null,
+    "description": "Stomach and digestive medications",
+    "created_at": "2026-01-31T10:48:43.195307+00:00",
+    "updated_at": "2026-01-31T10:48:43.195307+00:00"
+  },
+  {
+    "id": "722b8c16-aac9-4899-94a1-e7bc2056b4ec",
+    "hospital_id": null,
+    "category_code": "CNS",
+    "category_name": "Central Nervous System",
+    "parent_category_id": null,
+    "description": "Neurological and psychiatric medications",
+    "created_at": "2026-01-31T10:48:43.195307+00:00",
+    "updated_at": "2026-01-31T10:48:43.195307+00:00"
+  },
+  {
+    "id": "95906654-e69e-4d97-bff8-505c51cf7589",
+    "hospital_id": null,
+    "category_code": "DERMATOLOGICAL",
+    "category_name": "Dermatological",
+    "parent_category_id": null,
+    "description": "Skin medications",
+    "created_at": "2026-01-31T10:48:43.195307+00:00",
+    "updated_at": "2026-01-31T10:48:43.195307+00:00"
+  },
+  {
+    "id": "ed51b32b-0897-45a8-bead-8ffdad707ff3",
+    "hospital_id": null,
+    "category_code": "VITAMIN",
+    "category_name": "Vitamin/Supplement",
+    "parent_category_id": null,
+    "description": "Nutritional supplements",
+    "created_at": "2026-01-31T10:48:43.195307+00:00",
+    "updated_at": "2026-01-31T10:48:43.195307+00:00"
+  },
+  {
+    "id": "9fa5e018-b73b-4ee8-a694-5450c011160d",
+    "hospital_id": null,
+    "category_code": "VACCINE",
+    "category_name": "Vaccine",
+    "parent_category_id": null,
+    "description": "Immunizations",
+    "created_at": "2026-01-31T10:48:43.195307+00:00",
+    "updated_at": "2026-01-31T10:48:43.195307+00:00"
+  },
+  {
+    "id": "747f6402-32ab-4507-b867-db24e595cf9a",
+    "hospital_id": null,
+    "category_code": "ANESTHETIC",
+    "category_name": "Anesthetic",
+    "parent_category_id": null,
+    "description": "Anesthesia medications",
+    "created_at": "2026-01-31T10:48:43.195307+00:00",
+    "updated_at": "2026-01-31T10:48:43.195307+00:00"
+  },
+  {
+    "id": "d3811ce0-51c0-4ed8-a456-159b25403a56",
+    "hospital_id": null,
+    "category_code": "ONCOLOGY",
+    "category_name": "Oncology",
+    "parent_category_id": null,
+    "description": "Cancer medications",
+    "created_at": "2026-01-31T10:48:43.195307+00:00",
+    "updated_at": "2026-01-31T10:48:43.195307+00:00"
+  },
+  {
+    "id": "05c2e63c-54dd-4cac-9f27-0291a3cd8f96",
+    "hospital_id": null,
+    "category_code": "ANTIVIRAL",
+    "category_name": "Antivirals",
+    "parent_category_id": null,
+    "description": "Medications for viral infections",
+    "created_at": "2026-01-31T20:07:36.243841+00:00",
+    "updated_at": "2026-01-31T20:07:36.243841+00:00"
+  },
+  {
+    "id": "b160d945-566e-44c2-9396-098021e4dbe1",
+    "hospital_id": null,
+    "category_code": "ANTIFUNGAL",
+    "category_name": "Antifungals",
+    "parent_category_id": null,
+    "description": "Medications for fungal infections",
+    "created_at": "2026-01-31T20:07:36.243841+00:00",
+    "updated_at": "2026-01-31T20:07:36.243841+00:00"
+  },
+  {
+    "id": "28bd9189-a414-4ec3-8d97-28e8db25fcd0",
+    "hospital_id": null,
+    "category_code": "ANTIPROTOZOAL_ANTIMALARIAL",
+    "category_name": "Antiprotozoals & Antimalarials",
+    "parent_category_id": null,
+    "description": "Medications for protozoal and malarial infections",
+    "created_at": "2026-01-31T20:07:36.243841+00:00",
+    "updated_at": "2026-01-31T20:07:36.243841+00:00"
+  },
+  {
+    "id": "9495c906-f285-413d-a135-8874c8063784",
+    "hospital_id": null,
+    "category_code": "ANTHELMINTIC",
+    "category_name": "Anthelmintics",
+    "parent_category_id": null,
+    "description": "Medications for parasitic worm infections",
+    "created_at": "2026-01-31T20:07:36.243841+00:00",
+    "updated_at": "2026-01-31T20:07:36.243841+00:00"
+  },
+  {
+    "id": "0bca2018-e560-4a7f-938f-9d24341ccfd2",
+    "hospital_id": null,
+    "category_code": "ANALGESIC_NON_OPIOID",
+    "category_name": "Analgesics (Non-Opioid/Antipyretics)",
+    "parent_category_id": null,
+    "description": "Pain relief and fever medications excluding opioids",
+    "created_at": "2026-01-31T20:07:36.243841+00:00",
+    "updated_at": "2026-01-31T20:07:36.243841+00:00"
+  },
+  {
+    "id": "814c0420-7c2b-4a48-bad8-f3c97244bc08",
+    "hospital_id": null,
+    "category_code": "ANALGESIC_GENERAL",
+    "category_name": "Analgesics",
+    "parent_category_id": null,
+    "description": "General pain relief medications",
+    "created_at": "2026-01-31T20:07:36.243841+00:00",
+    "updated_at": "2026-01-31T20:07:36.243841+00:00"
+  },
+  {
+    "id": "e0f1b185-9675-4288-857b-2cd2342a1d8c",
+    "hospital_id": null,
+    "category_code": "ANTIEPILEPTIC",
+    "category_name": "Antiepileptics",
+    "parent_category_id": null,
+    "description": "Medications for seizures and epilepsy",
+    "created_at": "2026-01-31T20:07:36.243841+00:00",
+    "updated_at": "2026-01-31T20:07:36.243841+00:00"
+  },
+  {
+    "id": "95bf614a-397e-4aed-854b-18dd8174d689",
+    "hospital_id": null,
+    "category_code": "STEROID",
+    "category_name": "Steroid",
+    "parent_category_id": null,
+    "description": "Steroidal medications",
+    "created_at": "2026-01-31T20:07:36.243841+00:00",
+    "updated_at": "2026-01-31T20:07:36.243841+00:00"
+  },
+  {
+    "id": "fd5c9230-81be-46ba-8252-8ca79d7b6a1d",
+    "hospital_id": null,
+    "category_code": "HYPNOTIC_SEDATIVE",
+    "category_name": "Hypnotics & Sedatives",
+    "parent_category_id": null,
+    "description": "Medications for sleep and sedation",
+    "created_at": "2026-01-31T20:07:36.243841+00:00",
+    "updated_at": "2026-01-31T20:07:36.243841+00:00"
+  },
+  {
+    "id": "c0f2b1b6-b59a-46e8-896c-06e0060c426a",
+    "hospital_id": null,
+    "category_code": "ANTIDEPRESSANT",
+    "category_name": "Antidepressants",
+    "parent_category_id": null,
+    "description": "Medications for depression",
+    "created_at": "2026-01-31T20:07:36.243841+00:00",
+    "updated_at": "2026-01-31T20:07:36.243841+00:00"
+  },
+  {
+    "id": "6d77b749-f357-44e8-a594-c84f796efac1",
+    "hospital_id": null,
+    "category_code": "ANTIPSYCHOTIC",
+    "category_name": "Antipsychotics",
+    "parent_category_id": null,
+    "description": "Medications for psychotic disorders",
+    "created_at": "2026-01-31T20:07:36.243841+00:00",
+    "updated_at": "2026-01-31T20:07:36.243841+00:00"
+  },
+  {
+    "id": "94447ce6-dd90-4c6f-a46a-cb84ab23eccd",
+    "hospital_id": null,
+    "category_code": "ANTIPARKINSONIAN",
+    "category_name": "Antiparkinsonian Drugs",
+    "parent_category_id": null,
+    "description": "Medications for Parkinson's disease",
+    "created_at": "2026-01-31T20:07:36.243841+00:00",
+    "updated_at": "2026-01-31T20:07:36.243841+00:00"
+  },
+  {
+    "id": "09cf07aa-6d7e-4153-b038-38c5e5103e09",
+    "hospital_id": null,
+    "category_code": "ANTIASTHMATIC_BRONCHODILATOR",
+    "category_name": "Antiasthmatics & Bronchodilators",
+    "parent_category_id": null,
+    "description": "Medications for asthma and respiratory relief",
+    "created_at": "2026-01-31T20:07:36.243841+00:00",
+    "updated_at": "2026-01-31T20:07:36.243841+00:00"
+  },
+  {
+    "id": "e57a159b-8363-4924-9231-5bfd18297a1d",
+    "hospital_id": null,
+    "category_code": "ANTIHISTAMINE",
+    "category_name": "Antihistamines",
+    "parent_category_id": null,
+    "description": "Medications for allergies",
+    "created_at": "2026-01-31T20:07:36.243841+00:00",
+    "updated_at": "2026-01-31T20:07:36.243841+00:00"
+  },
+  {
+    "id": "82ebfe9d-d064-47c0-bd21-34dafcf1674d",
+    "hospital_id": null,
+    "category_code": "COUGH_COLD_PREPARATION",
+    "category_name": "Cough & Cold Preparations",
+    "parent_category_id": null,
+    "description": "Medications for cough and cold symptoms",
+    "created_at": "2026-01-31T20:07:36.243841+00:00",
+    "updated_at": "2026-01-31T20:07:36.243841+00:00"
+  },
+  {
+    "id": "fc216b88-3109-4c43-beff-aa0dde2cac7a",
+    "hospital_id": null,
+    "category_code": "NASAL_DECONGESTANT",
+    "category_name": "Nasal Decongestants",
+    "parent_category_id": null,
+    "description": "Medications for nasal congestion",
+    "created_at": "2026-01-31T20:07:36.243841+00:00",
+    "updated_at": "2026-01-31T20:07:36.243841+00:00"
+  },
+  {
+    "id": "1f8d51bc-15bc-4ba0-9e5c-3ff3b8705122",
+    "hospital_id": null,
+    "category_code": "MUSCLE_RELAXANT",
+    "category_name": "Muscle Relaxants",
+    "parent_category_id": null,
+    "description": "Medications for muscle spasms",
+    "created_at": "2026-01-31T20:07:36.243841+00:00",
+    "updated_at": "2026-01-31T20:07:36.243841+00:00"
+  },
+  {
+    "id": "43725d83-cb2c-440c-aacd-abd5570baaa8",
+    "hospital_id": null,
+    "category_code": "ANTIGOUT",
+    "category_name": "Antigout Preparations",
+    "parent_category_id": null,
+    "description": "Medications for gout",
+    "created_at": "2026-01-31T20:07:36.243841+00:00",
+    "updated_at": "2026-01-31T20:07:36.243841+00:00"
+  },
+  {
+    "id": "6399e8b8-a7a9-4792-840b-d39cf721367a",
+    "hospital_id": null,
+    "category_code": "HORMONE_ENDOCRINE",
+    "category_name": "Hormones & Endocrine",
+    "parent_category_id": null,
+    "description": "Medications for hormonal and endocrine disorders",
+    "created_at": "2026-01-31T20:07:36.243841+00:00",
+    "updated_at": "2026-01-31T20:07:36.243841+00:00"
+  },
+  {
+    "id": "cd1c5408-ce0a-4976-aca0-97230360ebba",
+    "hospital_id": null,
+    "category_code": "CONTRACEPTIVE",
+    "category_name": "Contraceptives",
+    "parent_category_id": null,
+    "description": "Birth control medications",
+    "created_at": "2026-01-31T20:07:36.243841+00:00",
+    "updated_at": "2026-01-31T20:07:36.243841+00:00"
+  },
+  {
+    "id": "c433da23-c862-4e29-9647-88c28d23e688",
+    "hospital_id": null,
+    "category_code": "OPHTHALMIC",
+    "category_name": "Ophthalmic (Eye) Preparations",
+    "parent_category_id": null,
+    "description": "Eye care medications",
+    "created_at": "2026-01-31T20:07:36.243841+00:00",
+    "updated_at": "2026-01-31T20:07:36.243841+00:00"
+  },
+  {
+    "id": "bcd92cbc-3441-457c-8f10-2a4884b48019",
+    "hospital_id": null,
+    "category_code": "OTOLOGICAL",
+    "category_name": "Otological (Ear) Preparations",
+    "parent_category_id": null,
+    "description": "Ear care medications",
+    "created_at": "2026-01-31T20:07:36.243841+00:00",
+    "updated_at": "2026-01-31T20:07:36.243841+00:00"
+  },
+  {
+    "id": "5655c3cc-d90b-4c6c-b7c5-cdef25ba171c",
+    "hospital_id": null,
+    "category_code": "CYTOTOXIC",
+    "category_name": "Cytotoxic Chemotherapy",
+    "parent_category_id": null,
+    "description": "Medications for cancer treatment",
+    "created_at": "2026-01-31T20:07:36.243841+00:00",
+    "updated_at": "2026-01-31T20:07:36.243841+00:00"
+  },
+  {
+    "id": "71c8f1a7-0d63-45d6-91c2-2ef9424edde4",
+    "hospital_id": null,
+    "category_code": "HUMAN_INSULIN",
+    "category_name": "Human Insulin",
+    "parent_category_id": null,
+    "description": "Standard human insulin products",
+    "created_at": "2026-01-31T20:07:36.243841+00:00",
+    "updated_at": "2026-01-31T20:07:36.243841+00:00"
+  },
+  {
+    "id": "38f96cbd-6c30-4538-93fd-0e10d4067fc6",
+    "hospital_id": null,
+    "category_code": "INSULIN_ANALOGUE",
+    "category_name": "Insulin Analogues",
+    "parent_category_id": null,
+    "description": "Modified insulin products",
+    "created_at": "2026-01-31T20:07:36.243841+00:00",
+    "updated_at": "2026-01-31T20:07:36.243841+00:00"
+  },
+  {
+    "id": "ff7687fe-31df-4566-b046-c2318dbc45bb",
+    "hospital_id": null,
+    "category_code": "IMMUNOSUPPRESSANT",
+    "category_name": "Immunosuppressants",
+    "parent_category_id": null,
+    "description": "Medications that suppress the immune system",
+    "created_at": "2026-01-31T20:11:22.97991+00:00",
+    "updated_at": "2026-01-31T20:11:22.97991+00:00"
+  },
+  {
+    "id": "410f0fd0-4397-4b89-bb39-1778d5852aea",
+    "hospital_id": null,
+    "category_code": "THROMBOLYTIC_FIBRINOLYTIC",
+    "category_name": "Thrombolytics / Fibrinolytics",
+    "parent_category_id": null,
+    "description": "Medications used to dissolve blood clots",
+    "created_at": "2026-01-31T20:11:22.97991+00:00",
+    "updated_at": "2026-01-31T20:11:22.97991+00:00"
+  },
+  {
+    "id": "ba0913b0-1ba1-4248-bd3d-6d4274bf32c8",
+    "hospital_id": null,
+    "category_code": "ANTIPLATELET",
+    "category_name": "Anti-Platelet",
+    "parent_category_id": null,
+    "description": "Medications that prevent blood clot formation",
+    "created_at": "2026-01-31T20:23:06.767891+00:00",
+    "updated_at": "2026-01-31T20:23:06.767891+00:00"
+  },
+  {
+    "id": "44488275-8c9b-497c-a47d-3bdca4197a9e",
+    "hospital_id": null,
+    "category_code": "ANTICOAGULANT",
+    "category_name": "Anti-Coagulant",
+    "parent_category_id": null,
+    "description": "Medications that slow down blood clotting",
+    "created_at": "2026-01-31T20:23:06.767891+00:00",
+    "updated_at": "2026-01-31T20:23:06.767891+00:00"
+  },
+  {
+    "id": "6b98224c-5a9a-4edd-84f7-8527d5c2b130",
+    "hospital_id": null,
+    "category_code": "ANTI_ANAEMIA",
+    "category_name": "Anti-Anaemia",
+    "parent_category_id": null,
+    "description": "Medications for the treatment of anaemia",
+    "created_at": "2026-01-31T20:30:01.245507+00:00",
+    "updated_at": "2026-01-31T20:30:01.245507+00:00"
+  },
+  {
+    "id": "47b93e7e-950b-4885-9c90-0ad02ed88f8a",
+    "hospital_id": null,
+    "category_code": "TC_ANTI_TUBERCULOSIS",
+    "category_name": "Anti-Tuberculosis (Anti-TB)",
+    "parent_category_id": null,
+    "description": "Medications for tuberculosis treatment",
+    "created_at": "2026-01-31T20:11:22.97991+00:00",
+    "updated_at": "2026-01-31T20:37:56.646107+00:00"
+  },
+  {
+    "id": "cdee3ab2-9762-437d-9495-6dfefc236c3f",
+    "hospital_id": null,
+    "category_code": "TC_NSAID",
+    "category_name": "NSAIDs",
+    "parent_category_id": null,
+    "description": "Non-steroidal anti-inflammatory drugs",
+    "created_at": "2026-01-31T20:07:36.243841+00:00",
+    "updated_at": "2026-01-31T20:37:56.646107+00:00"
+  }
+]

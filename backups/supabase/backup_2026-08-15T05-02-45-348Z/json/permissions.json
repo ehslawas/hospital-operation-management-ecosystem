@@ -1,0 +1,522 @@
+[
+  {
+    "id": "a556d137-9c54-48bb-a75d-8f3a556eca7a",
+    "permission_code": "pharmacy_logistics.inventory.view",
+    "permission_name": "View Inventory",
+    "module": "pharmacy_logistics",
+    "feature": "inventory",
+    "description": "View inventory items and stock levels",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "93813003-cd9a-44ce-97e5-68cd9a11a57a",
+    "permission_code": "pharmacy_logistics.inventory.create",
+    "permission_name": "Create Inventory Item",
+    "module": "pharmacy_logistics",
+    "feature": "inventory",
+    "description": "Add new inventory items",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "a5f746f4-836d-4299-8c22-9838a19e5db4",
+    "permission_code": "pharmacy_logistics.inventory.edit",
+    "permission_name": "Edit Inventory Item",
+    "module": "pharmacy_logistics",
+    "feature": "inventory",
+    "description": "Modify existing inventory items",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "5c4a539a-fad6-43c4-aa74-0bed99b24df4",
+    "permission_code": "pharmacy_logistics.inventory.delete",
+    "permission_name": "Delete Inventory Item",
+    "module": "pharmacy_logistics",
+    "feature": "inventory",
+    "description": "Remove inventory items",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "818d6ebc-5fc7-488e-a2c5-edaded475831",
+    "permission_code": "pharmacy_logistics.inventory.adjust",
+    "permission_name": "Adjust Stock",
+    "module": "pharmacy_logistics",
+    "feature": "inventory",
+    "description": "Adjust stock quantities",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "601e06ac-0838-417b-8c03-3db4e92769eb",
+    "permission_code": "pharmacy_logistics.drug_catalog.view",
+    "permission_name": "View Drug Catalog",
+    "module": "pharmacy_logistics",
+    "feature": "drug_catalog",
+    "description": "View drug catalog",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "85d64c54-0084-4b29-ae19-dfd3f70a57c0",
+    "permission_code": "pharmacy_logistics.drug_catalog.create",
+    "permission_name": "Add Drug",
+    "module": "pharmacy_logistics",
+    "feature": "drug_catalog",
+    "description": "Add new drugs to catalog",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "200656bf-c796-476b-bb81-e6979389f53a",
+    "permission_code": "pharmacy_logistics.drug_catalog.edit",
+    "permission_name": "Edit Drug",
+    "module": "pharmacy_logistics",
+    "feature": "drug_catalog",
+    "description": "Modify drug information",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "4f727c4e-b904-45c6-a2a4-9f5dd37d6608",
+    "permission_code": "pharmacy_logistics.drug_catalog.delete",
+    "permission_name": "Delete Drug",
+    "module": "pharmacy_logistics",
+    "feature": "drug_catalog",
+    "description": "Remove drugs from catalog",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "0de8ef32-f95e-4bfa-ad7c-64b477d8b3c4",
+    "permission_code": "pharmacy_logistics.non_drug_catalog.view",
+    "permission_name": "View Non-Drug Catalog",
+    "module": "pharmacy_logistics",
+    "feature": "non_drug_catalog",
+    "description": "View non-drug items catalog",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "de0638c6-0f33-4597-893d-5254f4ee5752",
+    "permission_code": "pharmacy_logistics.non_drug_catalog.create",
+    "permission_name": "Add Non-Drug Item",
+    "module": "pharmacy_logistics",
+    "feature": "non_drug_catalog",
+    "description": "Add new non-drug items",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "5cf02ded-9990-4c1f-8dd3-c59734cde120",
+    "permission_code": "pharmacy_logistics.non_drug_catalog.edit",
+    "permission_name": "Edit Non-Drug Item",
+    "module": "pharmacy_logistics",
+    "feature": "non_drug_catalog",
+    "description": "Modify non-drug items",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "cbd453fe-109f-446e-a7fc-3890cafade45",
+    "permission_code": "pharmacy_logistics.non_drug_catalog.delete",
+    "permission_name": "Delete Non-Drug Item",
+    "module": "pharmacy_logistics",
+    "feature": "non_drug_catalog",
+    "description": "Remove non-drug items",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "4c446960-b828-4ba6-8160-9374180fbdc5",
+    "permission_code": "pharmacy_logistics.purchase_order.view",
+    "permission_name": "View Purchase Orders",
+    "module": "pharmacy_logistics",
+    "feature": "purchase_order",
+    "description": "View purchase orders",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "d0c65b08-6feb-4a54-ba35-1b7aa4e0c1e1",
+    "permission_code": "pharmacy_logistics.purchase_order.create",
+    "permission_name": "Create Purchase Order",
+    "module": "pharmacy_logistics",
+    "feature": "purchase_order",
+    "description": "Create new purchase orders",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "ee938c69-f634-4c9f-b6cc-4bb745899945",
+    "permission_code": "pharmacy_logistics.purchase_order.edit",
+    "permission_name": "Edit Purchase Order",
+    "module": "pharmacy_logistics",
+    "feature": "purchase_order",
+    "description": "Modify purchase orders",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "36c8d413-7d9c-40eb-bbdd-d57a904d8921",
+    "permission_code": "pharmacy_logistics.purchase_order.approve",
+    "permission_name": "Approve Purchase Order",
+    "module": "pharmacy_logistics",
+    "feature": "purchase_order",
+    "description": "Approve purchase orders",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "46501376-67f6-48db-8887-36e051f22061",
+    "permission_code": "pharmacy_logistics.purchase_order.delete",
+    "permission_name": "Delete Purchase Order",
+    "module": "pharmacy_logistics",
+    "feature": "purchase_order",
+    "description": "Delete purchase orders",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "31445df2-2f4d-45ba-a85f-ef11201cfd73",
+    "permission_code": "pharmacy_logistics.goods_receipt.view",
+    "permission_name": "View Goods Receipt",
+    "module": "pharmacy_logistics",
+    "feature": "goods_receipt",
+    "description": "View goods receipts",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "a22a8d2f-131c-4ab2-bcec-ea4798f115ab",
+    "permission_code": "pharmacy_logistics.goods_receipt.create",
+    "permission_name": "Create Goods Receipt",
+    "module": "pharmacy_logistics",
+    "feature": "goods_receipt",
+    "description": "Create goods receipts",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "cfd27978-11ad-4641-8339-af887c110d08",
+    "permission_code": "pharmacy_logistics.goods_receipt.edit",
+    "permission_name": "Edit Goods Receipt",
+    "module": "pharmacy_logistics",
+    "feature": "goods_receipt",
+    "description": "Modify goods receipts",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "dcf269eb-9979-4da7-b86c-c14f1ee0bee9",
+    "permission_code": "pharmacy_logistics.goods_receipt.approve",
+    "permission_name": "Approve Goods Receipt",
+    "module": "pharmacy_logistics",
+    "feature": "goods_receipt",
+    "description": "Approve goods receipts",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "2d0fdd54-6253-44a4-b811-b8f5c5bdef7c",
+    "permission_code": "pharmacy_logistics.distribution.view",
+    "permission_name": "View Distribution",
+    "module": "pharmacy_logistics",
+    "feature": "distribution",
+    "description": "View distribution records",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "607147c7-1493-4de1-82fc-2270863c6bd7",
+    "permission_code": "pharmacy_logistics.distribution.create",
+    "permission_name": "Create Distribution",
+    "module": "pharmacy_logistics",
+    "feature": "distribution",
+    "description": "Create distribution records",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "ecfc6df7-c427-49a1-865f-58c2979bedee",
+    "permission_code": "pharmacy_logistics.distribution.edit",
+    "permission_name": "Edit Distribution",
+    "module": "pharmacy_logistics",
+    "feature": "distribution",
+    "description": "Modify distribution records",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "fd67832f-a4f6-4401-95d0-bb8d8a000beb",
+    "permission_code": "pharmacy_logistics.distribution.approve",
+    "permission_name": "Approve Distribution",
+    "module": "pharmacy_logistics",
+    "feature": "distribution",
+    "description": "Approve distribution requests",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "c829d332-fd03-42a2-828e-e4c9f85edfd3",
+    "permission_code": "pharmacy_logistics.reports.view",
+    "permission_name": "View Reports",
+    "module": "pharmacy_logistics",
+    "feature": "reports",
+    "description": "View pharmacy logistics reports",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "d098872a-7d4b-4872-9b3f-e085a210a42c",
+    "permission_code": "pharmacy_logistics.reports.export",
+    "permission_name": "Export Reports",
+    "module": "pharmacy_logistics",
+    "feature": "reports",
+    "description": "Export reports to various formats",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "7bfa028d-b287-4f2e-ae65-d308d7674dcc",
+    "permission_code": "pharmacy_logistics.dashboard.view",
+    "permission_name": "View Dashboard",
+    "module": "pharmacy_logistics",
+    "feature": "dashboard",
+    "description": "Access pharmacy logistics dashboard",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "86abea61-a3fc-48f4-95ca-bc31b806d592",
+    "permission_code": "admin.users.view",
+    "permission_name": "View Users",
+    "module": "admin",
+    "feature": "users",
+    "description": "View user list and details",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "8cabab2a-5149-47c7-b9ac-6887c6962666",
+    "permission_code": "admin.users.create",
+    "permission_name": "Create User",
+    "module": "admin",
+    "feature": "users",
+    "description": "Create new users",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "bd074ce4-070a-4fb8-8ff3-dabc6a534a7f",
+    "permission_code": "admin.users.edit",
+    "permission_name": "Edit User",
+    "module": "admin",
+    "feature": "users",
+    "description": "Modify user information",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "abd35ad1-d11c-4219-b82c-47fd0956fca5",
+    "permission_code": "admin.users.delete",
+    "permission_name": "Delete User",
+    "module": "admin",
+    "feature": "users",
+    "description": "Remove users",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "5b3e3af4-d8ce-4954-969f-c7543ad30026",
+    "permission_code": "admin.users.activate",
+    "permission_name": "Activate/Deactivate User",
+    "module": "admin",
+    "feature": "users",
+    "description": "Change user status",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "c5d1ac8c-06f5-4f12-9dcd-6ccdf03699b2",
+    "permission_code": "admin.departments.view",
+    "permission_name": "View Departments",
+    "module": "admin",
+    "feature": "departments",
+    "description": "View department list",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "c6ce6299-7c95-40b1-a47f-94d354eee17d",
+    "permission_code": "admin.departments.create",
+    "permission_name": "Create Department",
+    "module": "admin",
+    "feature": "departments",
+    "description": "Create new departments",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "9f8951fb-a20e-4819-83ce-c46dedf66eea",
+    "permission_code": "admin.departments.edit",
+    "permission_name": "Edit Department",
+    "module": "admin",
+    "feature": "departments",
+    "description": "Modify departments",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "727d13ad-3470-4fdf-97a4-b3425e60e74a",
+    "permission_code": "admin.departments.delete",
+    "permission_name": "Delete Department",
+    "module": "admin",
+    "feature": "departments",
+    "description": "Remove departments",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "d1bb2e38-0412-4968-8dd3-e0367aa715e3",
+    "permission_code": "admin.roles.view",
+    "permission_name": "View Roles",
+    "module": "admin",
+    "feature": "roles",
+    "description": "View role list",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "bb8e8c10-0592-4052-a959-33e163a319fb",
+    "permission_code": "admin.roles.create",
+    "permission_name": "Create Role",
+    "module": "admin",
+    "feature": "roles",
+    "description": "Create new roles",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "12e396c2-0d90-4f56-8f38-c143e23c5cdc",
+    "permission_code": "admin.roles.edit",
+    "permission_name": "Edit Role",
+    "module": "admin",
+    "feature": "roles",
+    "description": "Modify roles",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "9145decd-b1e9-4551-8605-d8ba1fa7157b",
+    "permission_code": "admin.roles.delete",
+    "permission_name": "Delete Role",
+    "module": "admin",
+    "feature": "roles",
+    "description": "Remove roles",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "66e770f8-c558-461c-8ef7-81c49671ba83",
+    "permission_code": "admin.roles.manage_permissions",
+    "permission_name": "Manage Permissions",
+    "module": "admin",
+    "feature": "roles",
+    "description": "Assign permissions to roles",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "57f2d7aa-2f18-4e3c-8b95-7add78ccd85e",
+    "permission_code": "admin.access_requests.view",
+    "permission_name": "View Access Requests",
+    "module": "admin",
+    "feature": "access_requests",
+    "description": "View access request list",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "ee086e8a-0ebf-4365-9394-668fb6df3c54",
+    "permission_code": "admin.access_requests.approve",
+    "permission_name": "Approve Access Requests",
+    "module": "admin",
+    "feature": "access_requests",
+    "description": "Approve or reject access requests",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "0882d9c9-dd49-44a7-b719-33e48926d461",
+    "permission_code": "admin.memos.view",
+    "permission_name": "View Memos",
+    "module": "admin",
+    "feature": "memos",
+    "description": "View memo list",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "85db7c26-44cf-489b-ac1c-2c231cf1f71e",
+    "permission_code": "admin.memos.create",
+    "permission_name": "Create Memo",
+    "module": "admin",
+    "feature": "memos",
+    "description": "Create new memos",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "9c446da9-d5c8-4037-9528-8bd4aecec206",
+    "permission_code": "admin.memos.edit",
+    "permission_name": "Edit Memo",
+    "module": "admin",
+    "feature": "memos",
+    "description": "Modify memos",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "e16503d4-c924-4cb1-8858-d675127aaab1",
+    "permission_code": "admin.memos.approve",
+    "permission_name": "Approve Memo",
+    "module": "admin",
+    "feature": "memos",
+    "description": "Approve memo submissions",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "ec1d83b1-d2fe-4611-8f33-58ec1fa30534",
+    "permission_code": "admin.memos.delete",
+    "permission_name": "Delete Memo",
+    "module": "admin",
+    "feature": "memos",
+    "description": "Remove memos",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "596fdb2f-897e-4aa1-9ba9-f5044edef8dc",
+    "permission_code": "admin.sensitive_data.view",
+    "permission_name": "View Sensitive Data Requests",
+    "module": "admin",
+    "feature": "sensitive_data",
+    "description": "View sensitive data access requests",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  },
+  {
+    "id": "e48c0692-c633-43eb-a2e5-36b7ddae6e50",
+    "permission_code": "admin.sensitive_data.approve",
+    "permission_name": "Approve Sensitive Data Requests",
+    "module": "admin",
+    "feature": "sensitive_data",
+    "description": "Approve or deny sensitive data access",
+    "created_at": "2026-01-06T14:54:37.352143+00:00",
+    "updated_at": "2026-01-06T14:54:37.352143+00:00"
+  }
+]

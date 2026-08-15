@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import { supabase, isSupabaseConfigured } from '@/services/supabase'
 import type { HospitalModule, HospitalModuleWithRelations, ModuleCode, ApiResponse } from '@/types'
 import { MODULE_DEFINITIONS } from '@/lib/constants'
@@ -346,13 +346,13 @@ async function syncDepartmentFromModule(
     }
 
     if (isEnabled) {
-      // Check if department already exists
+      // Check if department already exists (case-insensitive search)
       const { data: existing } = await supabase
         .from('departments')
         .select('id')
         .eq('hospital_id', hospitalId)
-        .eq('department_code', moduleCode)
-        .single()
+        .ilike('department_code', moduleCode)
+        .maybeSingle()
 
       if (existing) {
         // Update existing department

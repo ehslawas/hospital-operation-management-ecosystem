@@ -1,0 +1,910 @@
+{
+  "timestamp": "2026-08-15T05:03:07.835Z",
+  "supabaseUrl": "https://ahnpjmdfutxdiotrbtzc.supabase.co",
+  "totalTables": 180,
+  "successfulTables": 180,
+  "failedTables": 0,
+  "totalRecords": 24252,
+  "tables": [
+    {
+      "table": "hospitals",
+      "count": 1,
+      "status": "OK"
+    },
+    {
+      "table": "roles",
+      "count": 25,
+      "status": "OK"
+    },
+    {
+      "table": "departments",
+      "count": 39,
+      "status": "OK"
+    },
+    {
+      "table": "users",
+      "count": 47,
+      "status": "OK"
+    },
+    {
+      "table": "access_requests",
+      "count": 38,
+      "status": "OK"
+    },
+    {
+      "table": "hospital_modules",
+      "count": 31,
+      "status": "OK"
+    },
+    {
+      "table": "system_health_logs",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "system_backups",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "system_alerts",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "uploaded_files",
+      "count": 14,
+      "status": "OK"
+    },
+    {
+      "table": "drug_categories",
+      "count": 81,
+      "status": "OK"
+    },
+    {
+      "table": "non_drug_categories",
+      "count": 68,
+      "status": "OK"
+    },
+    {
+      "table": "suppliers",
+      "count": 56,
+      "status": "OK"
+    },
+    {
+      "table": "drugs",
+      "count": 3605,
+      "status": "OK"
+    },
+    {
+      "table": "non_drugs",
+      "count": 731,
+      "status": "OK"
+    },
+    {
+      "table": "system_settings",
+      "count": 1,
+      "status": "OK"
+    },
+    {
+      "table": "hospital_logs",
+      "count": 6,
+      "status": "OK"
+    },
+    {
+      "table": "audit_logs",
+      "count": 693,
+      "status": "OK"
+    },
+    {
+      "table": "memos",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "sensitive_data_requests",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "sensitive_data_access_logs",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "hospital_health_metrics",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "permissions",
+      "count": 52,
+      "status": "OK"
+    },
+    {
+      "table": "role_permissions",
+      "count": 110,
+      "status": "OK"
+    },
+    {
+      "table": "emergency_contacts",
+      "count": 29,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_stock_locations",
+      "count": 3,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_stock_batches",
+      "count": 18,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_stock_transactions",
+      "count": 48,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_oxygen_cylinder_types",
+      "count": 2,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_oxygen_cylinders",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_oxygen_consumption",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_budgets",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_budget_transactions",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_appl",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_purchase_orders",
+      "count": 726,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_purchase_order_items",
+      "count": 1739,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_goods_receipts",
+      "count": 634,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_goods_receipt_items",
+      "count": 1877,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_supplier_penalties",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_transfer_requests",
+      "count": 2,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_transfer_request_items",
+      "count": 8,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_units_of_measure",
+      "count": 11,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_stock_verifications",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_stock_verification_items",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_activity_logs",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "contracts",
+      "count": 372,
+      "status": "OK"
+    },
+    {
+      "table": "google_sheets_sync_config",
+      "count": 1,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_warrants",
+      "count": 33,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_appl_expenses",
+      "count": 171,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_cc_expenses",
+      "count": 348,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_unit_catalog",
+      "count": 9,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_unit_catalog_changes",
+      "count": 324,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_unit_catalog_items",
+      "count": 71,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_settings",
+      "count": 19,
+      "status": "OK"
+    },
+    {
+      "table": "hospital_facilities",
+      "count": 147,
+      "status": "OK"
+    },
+    {
+      "table": "clinic_facilities",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_lpo",
+      "count": 477,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_order_tracking",
+      "count": 1195,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_receiving",
+      "count": 10,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_receiving_items",
+      "count": 27,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_payments",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_penalties",
+      "count": 150,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_lou",
+      "count": 2,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_oxygen_cylinder_sizes",
+      "count": 6,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_oxygen_reception_records",
+      "count": 40,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_oxygen_cylinder_inventory",
+      "count": 1,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_oxygen_cylinder_movements",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_oxygen_cylinder_requests",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_oxygen_request_items",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_oxygen_pricing_config",
+      "count": 54,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_oxygen_system_settings",
+      "count": 1,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_oxygen_dept_requests",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_oxygen_dept_request_items",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_oxygen_reception_items",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "menus",
+      "count": 87,
+      "status": "OK"
+    },
+    {
+      "table": "role_menu_access",
+      "count": 47,
+      "status": "OK"
+    },
+    {
+      "table": "department_running_numbers",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "appl_drugs",
+      "count": 403,
+      "status": "OK"
+    },
+    {
+      "table": "appl_non_drugs",
+      "count": 286,
+      "status": "OK"
+    },
+    {
+      "table": "lp_drugs",
+      "count": 402,
+      "status": "OK"
+    },
+    {
+      "table": "lp_non_drugs",
+      "count": 134,
+      "status": "OK"
+    },
+    {
+      "table": "reagents",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "contract_non_drugs",
+      "count": 2,
+      "status": "OK"
+    },
+    {
+      "table": "old_resource_permissions",
+      "count": 7,
+      "status": "OK"
+    },
+    {
+      "table": "old_role_department_permissions",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "old_approval_routes",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "old_approval_logs",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "modules",
+      "count": 43,
+      "status": "OK"
+    },
+    {
+      "table": "features",
+      "count": 84,
+      "status": "OK"
+    },
+    {
+      "table": "legacy_role_permissions",
+      "count": 121,
+      "status": "OK"
+    },
+    {
+      "table": "role_feature_permissions",
+      "count": 118,
+      "status": "OK"
+    },
+    {
+      "table": "staff_custom_permissions",
+      "count": 1515,
+      "status": "OK"
+    },
+    {
+      "table": "action_types",
+      "count": 17,
+      "status": "OK"
+    },
+    {
+      "table": "approval_workflows",
+      "count": 3,
+      "status": "OK"
+    },
+    {
+      "table": "approval_workflow_steps",
+      "count": 3,
+      "status": "OK"
+    },
+    {
+      "table": "approval_conditions",
+      "count": 3,
+      "status": "OK"
+    },
+    {
+      "table": "approval_requests",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "approval_actions",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "approval_logs",
+      "count": 1933,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_temperature_readings",
+      "count": 1127,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_temperature_locations",
+      "count": 6,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_receiving_documents",
+      "count": 15,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_supplier_assessments",
+      "count": 644,
+      "status": "OK"
+    },
+    {
+      "table": "penalty_performance_standards",
+      "count": 21,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_performance_standards",
+      "count": 1,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_lou_items",
+      "count": 4,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_lpo_reminders",
+      "count": 28,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_oxygen_size_type_combos",
+      "count": 7,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_oxygen_stock_adjustments",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "system_admin_audit_logs",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "admin_purchase_orders",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "admin_purchase_order_items",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "admin_warrants",
+      "count": 3,
+      "status": "OK"
+    },
+    {
+      "table": "admin_warrant_programs",
+      "count": 2,
+      "status": "OK"
+    },
+    {
+      "table": "admin_warrant_objeks",
+      "count": 8,
+      "status": "OK"
+    },
+    {
+      "table": "admin_warrant_budget_groups",
+      "count": 3,
+      "status": "OK"
+    },
+    {
+      "table": "admin_warrant_kategoris",
+      "count": 33,
+      "status": "OK"
+    },
+    {
+      "table": "admin_warrant_allocations",
+      "count": 5,
+      "status": "OK"
+    },
+    {
+      "table": "admin_pembangunan_programs",
+      "count": 1,
+      "status": "OK"
+    },
+    {
+      "table": "admin_pembangunan_objeks",
+      "count": 3,
+      "status": "OK"
+    },
+    {
+      "table": "admin_pembangunan_kategoris",
+      "count": 6,
+      "status": "OK"
+    },
+    {
+      "table": "admin_pembangunan_allocations",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "admin_pembangunan",
+      "count": 6,
+      "status": "OK"
+    },
+    {
+      "table": "admin_lpos",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "admin_receiving_records",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "admin_receiving_items",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "admin_payments",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_location_items",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_loan_records",
+      "count": 2,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_loan_items",
+      "count": 3,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_loan_returns",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_loan_return_items",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_item_registry",
+      "count": 1,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_item_movements",
+      "count": 1,
+      "status": "OK"
+    },
+    {
+      "table": "resource_permissions",
+      "count": 9,
+      "status": "OK"
+    },
+    {
+      "table": "role_department_permissions",
+      "count": 6,
+      "status": "OK"
+    },
+    {
+      "table": "approval_routes",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "admin_suppliers",
+      "count": 1,
+      "status": "OK"
+    },
+    {
+      "table": "admin_perihal_catalog",
+      "count": 54,
+      "status": "OK"
+    },
+    {
+      "table": "admin_programs",
+      "count": 3,
+      "status": "OK"
+    },
+    {
+      "table": "admin_objeks",
+      "count": 11,
+      "status": "OK"
+    },
+    {
+      "table": "admin_kategoris",
+      "count": 19,
+      "status": "OK"
+    },
+    {
+      "table": "visitor_log",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "gallery_albums",
+      "count": 1,
+      "status": "OK"
+    },
+    {
+      "table": "gallery_photos",
+      "count": 7,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_credit_notes",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_credit_note_items",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_oxygen_return_documents",
+      "count": 32,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_oxygen_return_document_items",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_oxygen_request_documents",
+      "count": 6,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_oxygen_request_document_items",
+      "count": 11,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_cylinder_dispatch_requests",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_cylinder_dispatch_request_items",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "lokasi",
+      "count": 5,
+      "status": "OK"
+    },
+    {
+      "table": "unit_pemantauan",
+      "count": 8,
+      "status": "OK"
+    },
+    {
+      "table": "ambang_suhu",
+      "count": 10,
+      "status": "OK"
+    },
+    {
+      "table": "bacaan_suhu",
+      "count": 1363,
+      "status": "OK"
+    },
+    {
+      "table": "myphis_disk_changes",
+      "count": 162,
+      "status": "OK"
+    },
+    {
+      "table": "myphis_navigation_logs",
+      "count": 48,
+      "status": "OK"
+    },
+    {
+      "table": "kunci_daftar",
+      "count": 1,
+      "status": "OK"
+    },
+    {
+      "table": "kunci_log",
+      "count": 1,
+      "status": "OK"
+    },
+    {
+      "table": "kunci_audit_bulanan",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "transport_vehicles",
+      "count": 2,
+      "status": "OK"
+    },
+    {
+      "table": "transport_requests",
+      "count": 11,
+      "status": "OK"
+    },
+    {
+      "table": "vehicle_inspections",
+      "count": 14,
+      "status": "OK"
+    },
+    {
+      "table": "vehicle_issue_reports",
+      "count": 7,
+      "status": "OK"
+    },
+    {
+      "table": "transport_request_logs",
+      "count": 40,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_oxygen_cylinder_maintenance",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "pharmacy_oxygen_cylinder_maintenance_items",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "crossborder_transfers",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "crossborder_patients",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "crossborder_escorts",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "appl_approved_suppliers",
+      "count": 533,
+      "status": "OK"
+    },
+    {
+      "table": "appl_sync_logs",
+      "count": 11,
+      "status": "OK"
+    },
+    {
+      "table": "lp_sync_logs",
+      "count": 12,
+      "status": "OK"
+    },
+    {
+      "table": "cc_sync_logs",
+      "count": 0,
+      "status": "OK"
+    },
+    {
+      "table": "facility_drug_inventory",
+      "count": 438,
+      "status": "OK"
+    },
+    {
+      "table": "store_sub_locations",
+      "count": 123,
+      "status": "OK"
+    },
+    {
+      "table": "store_locations",
+      "count": 4,
+      "status": "OK"
+    },
+    {
+      "table": "facility_nondrug_inventory",
+      "count": 8,
+      "status": "OK"
+    }
+  ]
+}
