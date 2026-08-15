@@ -25,14 +25,23 @@ try {
   console.error(`Git bundle error:`, err.message);
 }
 
-// 2. Create ZIP Archive of workspace source code (excluding node_modules, .git, dist)
+// 2. Create ZIP Archive of workspace source code
 const zipPath = path.join(outsideBackupDir, `source_backup_${timestamp}.zip`);
 console.log(`Creating ZIP Archive of source files to: ${zipPath}`);
 try {
-  const powershellCmd = `Compress-Archive -Path "src", "public", "supabase", "scripts", "backups", "package.json", "tsconfig.json", "vite.config.ts", "tailwind.config.js", ".env" -DestinationPath "${zipPath}" -Force`;
+  // Use PowerShell with safe single-quoted or properly escaped arguments
+  const items = ['src', 'public', 'supabase', 'scripts', 'backups', 'package.json', 'tsconfig.json', 'vite.config.ts', 'tailwind.config.js', 'index.html', '.env.example'];
+  const itemsExisting = items.filter(item => fs.existsSync(path.join(rootDir, item)));
+  const pathArgs = itemsExisting.map(i => `'${path.join(rootDir, i)}'`).join(',');
+  const destArg = `'${zipPath}'`;
+  
+  const powershellCmd = `Compress-Archive -Path ${pathArgs} -DestinationPath ${destArg} -Force`;
   execSync(`powershell -NoProfile -Command "${powershellCmd}"`, { cwd: rootDir, stdio: 'inherit' });
-  const stats = fs.statSync(zipPath);
-  console.log(`ZIP Archive created successfully! Size: ${(stats.size / (1024 * 1024)).toFixed(2)} MB`);
+  
+  if (fs.existsSync(zipPath)) {
+    const stats = fs.statSync(zipPath);
+    console.log(`ZIP Archive created successfully! Size: ${(stats.size / (1024 * 1024)).toFixed(2)} MB`);
+  }
 } catch (err) {
   console.error(`ZIP Archive error:`, err.message);
 }
