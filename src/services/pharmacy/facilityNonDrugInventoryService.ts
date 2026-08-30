@@ -37,6 +37,15 @@ export interface FacilityNonDrugItem extends NonDrug {
   level_name?: string
   added_at?: string
   notes?: string
+  batch_number?: string
+  batch_no?: string
+  expiry_date?: string
+  exp_date?: string
+  category?: any
+  category_name?: string
+  supplier?: any
+  supplier_name?: string
+  is_active?: boolean
 }
 
 const DEFAULT_HOSPITAL_UUID = '85bb6adc-b868-428b-83f4-e5af2f5cf904'

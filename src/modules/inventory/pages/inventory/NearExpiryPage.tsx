@@ -25,22 +25,47 @@ import {
   ArrowRightLeft,
   FileSpreadsheet,
   Flame,
-  ChevronDown
+  ChevronDown,
+  ChevronRight,
+  Layers,
+  Boxes,
+  LayoutList,
+  ChevronsUpDown,
+  FolderTree
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { Table, Spinner, Badge, Select } from '@/components/ui'
-import { getNearExpiryItems } from '@/services/pharmacy/inventoryService'
+import { getNearExpiryItems, getStockLocations, createStockTransaction } from '@/services/pharmacy/inventoryService'
 import type { ExpiryItem } from '@/types/pharmacy'
+
+export interface GroupedExpiryItem {
+  item_id: string
+  item_code: string
+  item_name: string
+  item_type: 'drug' | 'non_drug'
+  packaging?: string
+  location_name: string
+  unit_cost: number
+  total_quantity: number
+  batch_count: number
+  earliest_expiry_date: string
+  min_days_to_expiry: number
+  worst_status: 'valid' | 'near_expiry' | 'expired'
+  batches: ExpiryItem[]
+}
 
 export const NearExpiryPage: React.FC = () => {
   const { user } = useAuthStore()
-  const hospitalId = user?.hospital_id || 'hosp-001'
+  const hospitalId = user?.hospital_id || '85bb6adc-b868-428b-83f4-e5af2f5cf904'
 
   // State Management
   const [rawItems, setRawItems] = useState<ExpiryItem[]>([])
+  const [availableLocations, setAvailableLocations] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [daysThreshold, setDaysThreshold] = useState<number>(30)
+  const [daysThreshold, setDaysThreshold] = useState<number>(9999)
+  const [viewMode, setViewMode] = useState<'grouped' | 'flat'>('grouped')
+  const [expandedItemIds, setExpandedItemIds] = useState<Record<string, boolean>>({})
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('')
@@ -56,9 +81,10 @@ export const NearExpiryPage: React.FC = () => {
 
   // Interactive Form State
   const [transferQty, setTransferQty] = useState<number>(1)
-  const [targetLocation, setTargetLocation] = useState<string>('Farmasi Pesakit Luar')
+  const [targetLocation, setTargetLocation] = useState<string>('Decanting')
   const [disposalReason, setDisposalReason] = useState<string>('Telah Luput Tarikh (Expired)')
   const [disposalRefNo, setDisposalRefNo] = useState<string>('')
+  const [isSubmittingAction, setIsSubmittingAction] = useState(false)
 
   // Toast Notification
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null)
@@ -69,27 +95,52 @@ export const NearExpiryPage: React.FC = () => {
     setTimeout(() => setToast(null), 3500)
   }
 
-  // Load Data
+  // Load Real Data
   const loadData = async () => {
     setIsLoading(true)
     setError(null)
     try {
-      const res = await getNearExpiryItems(hospitalId, 180) // load broad scope for interactive filtering
+      const res = await getNearExpiryItems(hospitalId)
       if (res.error) {
         setError(res.error)
         setRawItems([])
       } else {
-        const data = res.data || []
-        // Fallback demo data if API returns empty array so user gets a live vibrant experience
-        if (data.length === 0) {
-          setRawItems(generateDemoItems())
-        } else {
-          setRawItems(data)
+        let items = res.data || []
+        try {
+          const itemOverrides = JSON.parse(localStorage.getItem('kewps4_item_overrides') || '{}')
+          if (Object.keys(itemOverrides).length > 0) {
+            items = items.map((item) => {
+              const override = itemOverrides[item.item_id]
+              if (override && override.location) {
+                const cleanedLoc = override.location
+                  .replace(/^\[[^\]]+\]\s*/, '')
+                  .replace(/\[.*?\]\s*/g, '')
+                  .replace(/\((Drug|drug)\)/gi, '(Ubat)')
+                  .replace(/\((Non-Drug|non-drug|nondrug)\)/gi, '(Bukan Ubat)')
+                  .trim()
+                return {
+                  ...item,
+                  location_name: cleanedLoc,
+                }
+              }
+              return item
+            })
+          }
+        } catch {}
+        setRawItems(items)
+      }
+
+      const locRes = await getStockLocations(hospitalId)
+      if (locRes.data && locRes.data.length > 0) {
+        const locNames = locRes.data.map((l: any) => l.location_name).filter(Boolean)
+        setAvailableLocations(locNames)
+        if (locNames.length > 0) {
+          setTargetLocation(locNames[0])
         }
       }
     } catch (err: any) {
       setError(err?.message || 'Gagal memuatkan maklumat stok hampir luput')
-      setRawItems(generateDemoItems())
+      setRawItems([])
     } finally {
       setIsLoading(false)
     }
@@ -99,132 +150,15 @@ export const NearExpiryPage: React.FC = () => {
     void loadData()
   }, [hospitalId])
 
-  // Helper for generating dynamic realistic mock items relative to today
-  function generateDemoItems(): ExpiryItem[] {
-    const today = new Date()
-    const addDays = (days: number) => {
-      const d = new Date(today)
-      d.setDate(d.getDate() + days)
-      return d.toISOString().split('T')[0]
-    }
-
-    return [
-      {
-        batch_id: 'batch-demo-001',
-        item_id: 'drug-001',
-        item_type: 'drug',
-        item_code: 'PCM500',
-        item_name: 'Paracetamol 500mg Tablet',
-        batch_number: 'PCM-2025-001',
-        expiry_date: addDays(-3),
-        quantity: 1250,
-        days_to_expiry: -3,
-        location_name: 'Stor Utama Farmasi',
-        status: 'expired',
-      },
-      {
-        batch_id: 'batch-demo-002',
-        item_id: 'drug-002',
-        item_type: 'drug',
-        item_code: 'AMX500',
-        item_name: 'Amoxicillin 500mg Capsule',
-        batch_number: 'AMX-2025-089',
-        expiry_date: addDays(4),
-        quantity: 850,
-        days_to_expiry: 4,
-        location_name: 'Farmasi Pesakit Luar',
-        status: 'near_expiry',
-      },
-      {
-        batch_id: 'batch-demo-003',
-        item_id: 'drug-003',
-        item_type: 'drug',
-        item_code: 'METF500',
-        item_name: 'Metformin HCl 500mg Film-Coated Tablet',
-        batch_number: 'MET-2025-044',
-        expiry_date: addDays(6),
-        quantity: 2100,
-        days_to_expiry: 6,
-        location_name: 'Farmasi Pesakit Dalam',
-        status: 'near_expiry',
-      },
-      {
-        batch_id: 'batch-demo-004',
-        item_id: 'drug-004',
-        item_type: 'drug',
-        item_code: 'INS-GLARG',
-        item_name: 'Insulin Glargine 100 IU/ml Injection Pen 3ml',
-        batch_number: 'INS-2025-012',
-        expiry_date: addDays(14),
-        quantity: 320,
-        days_to_expiry: 14,
-        location_name: 'Bilik Rangkaian Sejuk (Cold Room)',
-        status: 'near_expiry',
-      },
-      {
-        batch_id: 'batch-demo-005',
-        item_id: 'nd-001',
-        item_type: 'non_drug',
-        item_code: 'SYR-10ML',
-        item_name: 'Disposable Syringe 10ml with Luer Lock Needle',
-        batch_number: 'SYR-2025-901',
-        expiry_date: addDays(22),
-        quantity: 4500,
-        days_to_expiry: 22,
-        location_name: 'Stor Logistik Perubatan',
-        status: 'near_expiry',
-      },
-      {
-        batch_id: 'batch-demo-006',
-        item_id: 'nd-002',
-        item_type: 'non_drug',
-        item_code: 'IV-CANN-20G',
-        item_name: 'IV Cannula 20G Pink Safety Winged',
-        batch_number: 'IVC-2025-412',
-        expiry_date: addDays(28),
-        quantity: 1800,
-        days_to_expiry: 28,
-        location_name: 'Jabatan Kecemasan & Trauma (ETU)',
-        status: 'near_expiry',
-      },
-      {
-        batch_id: 'batch-demo-007',
-        item_id: 'drug-005',
-        item_type: 'drug',
-        item_code: 'ATEN50',
-        item_name: 'Atenolol 50mg Tablet',
-        batch_number: 'ATN-2025-078',
-        expiry_date: addDays(45),
-        quantity: 1400,
-        days_to_expiry: 45,
-        location_name: 'Stor Utama Farmasi',
-        status: 'valid',
-      },
-      {
-        batch_id: 'batch-demo-008',
-        item_id: 'drug-006',
-        item_type: 'drug',
-        item_code: 'LOSTAT50',
-        item_name: 'Losartan Potassium 50mg Tablet',
-        batch_number: 'LST-2025-331',
-        expiry_date: addDays(85),
-        quantity: 3600,
-        days_to_expiry: 85,
-        location_name: 'Farmasi Pesakit Luar',
-        status: 'valid',
-      },
-    ]
-  }
-
-  // Calculate Expiry Status Buckets
+  // Calculate Expiry Status Buckets with Real Costs
   const stats = useMemo(() => {
     const expired = rawItems.filter((i) => i.status === 'expired' || i.days_to_expiry <= 0)
     const critical = rawItems.filter((i) => i.days_to_expiry > 0 && i.days_to_expiry <= 7)
     const warning = rawItems.filter((i) => i.days_to_expiry > 7 && i.days_to_expiry <= 30)
     const safe = rawItems.filter((i) => i.days_to_expiry > 30)
 
-    const totalExpiredValue = expired.reduce((acc, i) => acc + i.quantity * 0.45, 0)
-    const totalCriticalValue = critical.reduce((acc, i) => acc + i.quantity * 0.85, 0)
+    const totalExpiredValue = expired.reduce((acc, i) => acc + i.quantity * (i.unit_cost || 0), 0)
+    const totalCriticalValue = critical.reduce((acc, i) => acc + i.quantity * (i.unit_cost || 0), 0)
 
     return {
       expiredCount: expired.length,
@@ -237,11 +171,11 @@ export const NearExpiryPage: React.FC = () => {
     }
   }, [rawItems])
 
-  // Unique Locations for filter dropdown
+  // Unique Locations for filter dropdown from real data
   const uniqueLocations = useMemo(() => {
-    const locs = new Set(rawItems.map((i) => i.location_name))
-    return Array.from(locs).sort()
-  }, [rawItems])
+    const locs = new Set([...rawItems.map((i) => i.location_name), ...availableLocations])
+    return Array.from(locs).filter(Boolean).sort()
+  }, [rawItems, availableLocations])
 
   // Filtered Items List
   const filteredItems = useMemo(() => {
@@ -275,6 +209,79 @@ export const NearExpiryPage: React.FC = () => {
     })
   }, [rawItems, daysThreshold, statusFilter, selectedType, selectedLocation, searchQuery])
 
+  // Grouped items by item_id / item_code
+  const groupedItems = useMemo<GroupedExpiryItem[]>(() => {
+    const map = new Map<string, GroupedExpiryItem>()
+
+    filteredItems.forEach((item) => {
+      const key = item.item_id || item.item_code
+      if (!map.has(key)) {
+        map.set(key, {
+          item_id: item.item_id,
+          item_code: item.item_code,
+          item_name: item.item_name,
+          item_type: item.item_type,
+          packaging: item.packaging || '-',
+          location_name: item.location_name,
+          unit_cost: item.unit_cost || 0,
+          total_quantity: 0,
+          batch_count: 0,
+          earliest_expiry_date: item.expiry_date,
+          min_days_to_expiry: item.days_to_expiry,
+          worst_status: item.status,
+          batches: [],
+        })
+      }
+
+      const group = map.get(key)!
+      group.batches.push(item)
+      group.total_quantity += item.quantity
+      group.batch_count += 1
+
+      // Track earliest expiry (FEFO)
+      if (item.days_to_expiry < group.min_days_to_expiry) {
+        group.min_days_to_expiry = item.days_to_expiry
+        group.earliest_expiry_date = item.expiry_date
+      }
+
+      if (item.status === 'expired' || item.days_to_expiry <= 0) {
+        group.worst_status = 'expired'
+      } else if (item.status === 'near_expiry' && group.worst_status !== 'expired') {
+        group.worst_status = 'near_expiry'
+      }
+    })
+
+    // Sort batches within each group by days_to_expiry ascending (FEFO)
+    map.forEach((group) => {
+      group.batches.sort((a, b) => a.days_to_expiry - b.days_to_expiry)
+    })
+
+    // Sort groups by min_days_to_expiry ascending (most urgent items on top)
+    return Array.from(map.values()).sort((a, b) => a.min_days_to_expiry - b.min_days_to_expiry)
+  }, [filteredItems])
+
+  // Toggle single item accordion
+  const toggleExpand = (itemId: string) => {
+    setExpandedItemIds((prev) => ({
+      ...prev,
+      [itemId]: !prev[itemId],
+    }))
+  }
+
+  // Toggle all accordions
+  const toggleExpandAll = () => {
+    const allExpanded = groupedItems.length > 0 && groupedItems.every((g) => expandedItemIds[g.item_id])
+    if (allExpanded) {
+      setExpandedItemIds({})
+    } else {
+      const all: Record<string, boolean> = {}
+      groupedItems.forEach((g) => {
+        all[g.item_id] = true
+      })
+      setExpandedItemIds(all)
+    }
+  }
+
   // Multi-select handlers
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
@@ -288,6 +295,16 @@ export const NearExpiryPage: React.FC = () => {
     setSelectedItemIds((prev) =>
       prev.includes(batchId) ? prev.filter((id) => id !== batchId) : [...prev, batchId]
     )
+  }
+
+  const handleToggleSelectGroup = (group: GroupedExpiryItem) => {
+    const batchIds = group.batches.map((b) => b.batch_id)
+    const allSelected = batchIds.every((id) => selectedItemIds.includes(id))
+    if (allSelected) {
+      setSelectedItemIds((prev) => prev.filter((id) => !batchIds.includes(id)))
+    } else {
+      setSelectedItemIds((prev) => Array.from(new Set([...prev, ...batchIds])))
+    }
   }
 
   // Copy batch number helper
@@ -305,11 +322,12 @@ export const NearExpiryPage: React.FC = () => {
       return
     }
 
-    const headers = ['Kod Item', 'Nama Item', 'Jenis', 'No Batch', 'Lokasi', 'Kuantiti', 'Tarikh Luput', 'Baki Hari', 'Status']
+    const headers = ['Kod Item', 'Nama Item', 'Jenis', 'Pembungkusan', 'No Batch', 'Lokasi', 'Kuantiti', 'Tarikh Luput', 'Baki Hari', 'Status']
     const rows = filteredItems.map((item) => [
       `"${item.item_code}"`,
       `"${item.item_name.replace(/"/g, '""')}"`,
       item.item_type === 'drug' ? 'Ubat' : 'Bukan Ubat',
+      `"${(item.packaging || '-').replace(/"/g, '""')}"`,
       `"${item.batch_number}"`,
       `"${item.location_name}"`,
       item.quantity,
@@ -589,6 +607,8 @@ export const NearExpiryPage: React.FC = () => {
                 <option value="60">60 Hari</option>
                 <option value="90">90 Hari</option>
                 <option value="180">180 Hari</option>
+                <option value="365">1 Tahun (365 Hari)</option>
+                <option value="9999">Semua Tempoh</option>
               </select>
             </div>
 
@@ -639,6 +659,34 @@ export const NearExpiryPage: React.FC = () => {
                 </option>
               ))}
             </select>
+
+            {/* View Mode Toggle */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold">
+              <button
+                onClick={() => setViewMode('grouped')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+                  viewMode === 'grouped'
+                    ? 'bg-white text-indigo-700 shadow-sm font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Kelompokkan mengikut item dengan pecahan batch"
+              >
+                <Boxes className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Kelompok Item ({groupedItems.length})</span>
+              </button>
+              <button
+                onClick={() => setViewMode('flat')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+                  viewMode === 'flat'
+                    ? 'bg-white text-indigo-700 shadow-sm font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Papar semua batch secara berasingan"
+              >
+                <LayoutList className="w-3.5 h-3.5 text-slate-500" />
+                <span>Semua Batch ({filteredItems.length})</span>
+              </button>
+            </div>
 
             {/* Reset Filters button if any active filter */}
             {(statusFilter !== 'all' || selectedType !== 'all' || selectedLocation !== 'all' || searchQuery) && (
@@ -777,197 +825,601 @@ export const NearExpiryPage: React.FC = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50/80 border-b border-slate-200/80 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  <th className="py-3.5 px-4 w-10 text-center">
-                    <input
-                      type="checkbox"
-                      checked={
-                        filteredItems.length > 0 &&
-                        filteredItems.every((i) => selectedItemIds.includes(i.batch_id))
-                      }
-                      onChange={handleSelectAll}
-                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/20 cursor-pointer"
-                    />
-                  </th>
-                  <th className="py-3.5 px-4">Item & Spesifikasi</th>
-                  <th className="py-3.5 px-4">Jenis</th>
-                  <th className="py-3.5 px-4">No. Batch</th>
-                  <th className="py-3.5 px-4">Lokasi Depot / Wad</th>
-                  <th className="py-3.5 px-4 text-right">Baki Kuantiti</th>
-                  <th className="py-3.5 px-4">Tarikh Luput</th>
-                  <th className="py-3.5 px-4 text-center">Status Risk</th>
-                  <th className="py-3.5 px-4 text-center">Tindakan</th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-slate-100 text-sm">
-                {filteredItems.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="py-16 px-4 text-center">
-                      <div className="max-w-md mx-auto space-y-3">
-                        <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto shadow-sm">
-                          <ShieldCheck className="w-8 h-8" />
-                        </div>
-                        <h3 className="text-base font-bold text-slate-800">
-                          Tiada Item Hampir Luput Dikesan
-                        </h3>
-                        <p className="text-xs text-slate-500 leading-relaxed">
-                          Tiada rekod item luput atau mendekati tarikh luput dalam tempoh {daysThreshold} hari mengikut kriteria penapis anda.
-                        </p>
-                        {(statusFilter !== 'all' || selectedType !== 'all' || selectedLocation !== 'all' || searchQuery) && (
-                          <button
-                            onClick={() => {
-                              setStatusFilter('all')
-                              setSelectedType('all')
-                              setSelectedLocation('all')
-                              setSearchQuery('')
-                            }}
-                            className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-all"
-                          >
-                            Kosongkan Penapis
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredItems.map((item) => {
-                    const isSelected = selectedItemIds.includes(item.batch_id)
-                    const isExpired = item.status === 'expired' || item.days_to_expiry <= 0
-
-                    return (
-                      <tr
-                        key={item.batch_id}
-                        className={`transition-colors duration-150 ${
-                          isSelected
-                            ? 'bg-indigo-50/60'
-                            : isExpired
-                            ? 'bg-rose-50/40 hover:bg-rose-50/80'
-                            : 'hover:bg-slate-50/80'
-                        }`}
+            {viewMode === 'grouped' ? (
+              /* GROUPED VIEW TABLE */
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/80 border-b border-slate-200/80 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    <th className="py-3.5 px-3 w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={
+                          filteredItems.length > 0 &&
+                          filteredItems.every((i) => selectedItemIds.includes(i.batch_id))
+                        }
+                        onChange={handleSelectAll}
+                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/20 cursor-pointer"
+                        title="Pilih Semua Item"
+                      />
+                    </th>
+                    <th className="py-3.5 px-2 w-8 text-center">
+                      <button
+                        onClick={toggleExpandAll}
+                        className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-slate-200/60 transition-colors"
+                        title="Buka / Tutup Semua Pecahan Batch"
                       >
-                        {/* Checkbox */}
-                        <td className="py-3.5 px-4 text-center">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => handleToggleSelect(item.batch_id)}
-                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/20 cursor-pointer"
-                          />
-                        </td>
+                        <ChevronsUpDown className="w-4 h-4" />
+                      </button>
+                    </th>
+                    <th className="py-3.5 px-4">Item & Spesifikasi</th>
+                    <th className="py-3.5 px-4">Jenis</th>
+                    <th className="py-3.5 px-4">Pembungkusan</th>
+                    <th className="py-3.5 px-4">Lokasi Depot / Wad</th>
+                    <th className="py-3.5 px-4 text-right">Jumlah Stok</th>
+                    <th className="py-3.5 px-4 text-center">Pecahan Batch</th>
+                    <th className="py-3.5 px-4">Luput Terdekat (FEFO)</th>
+                    <th className="py-3.5 px-4 text-center">Tindakan</th>
+                  </tr>
+                </thead>
 
-                        {/* Item Code & Name */}
-                        <td className="py-3.5 px-4">
-                          <div className="flex flex-col">
-                            <span className="font-bold text-slate-900 text-sm">
-                              {item.item_name}
+                <tbody className="divide-y divide-slate-100 text-sm">
+                  {groupedItems.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="py-16 px-4 text-center">
+                        <div className="max-w-md mx-auto space-y-3">
+                          <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto shadow-sm">
+                            <ShieldCheck className="w-8 h-8" />
+                          </div>
+                          <h3 className="text-base font-bold text-slate-800">
+                            Tiada Item Hampir Luput Dikesan
+                          </h3>
+                          <p className="text-xs text-slate-500 leading-relaxed">
+                            Tiada rekod item luput atau mendekati tarikh luput dalam tempoh {daysThreshold} hari mengikut kriteria penapis anda.
+                          </p>
+                          {(statusFilter !== 'all' || selectedType !== 'all' || selectedLocation !== 'all' || searchQuery) && (
+                            <button
+                              onClick={() => {
+                                setStatusFilter('all')
+                                setSelectedType('all')
+                                setSelectedLocation('all')
+                                setSearchQuery('')
+                              }}
+                              className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-all"
+                            >
+                              Kosongkan Penapis
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    groupedItems.map((group) => {
+                      const isExpanded = Boolean(expandedItemIds[group.item_id])
+                      const isAllGroupSelected = group.batches.every((b) => selectedItemIds.includes(b.batch_id))
+                      const isSomeGroupSelected = group.batches.some((b) => selectedItemIds.includes(b.batch_id)) && !isAllGroupSelected
+                      const isExpired = group.worst_status === 'expired' || group.min_days_to_expiry <= 0
+                      const earliestBatch = group.batches[0]
+
+                      return (
+                        <React.Fragment key={group.item_id}>
+                          {/* Parent Item Master Row */}
+                          <tr
+                            className={`transition-colors duration-150 ${
+                              isAllGroupSelected
+                                ? 'bg-indigo-50/70'
+                                : isExpired
+                                ? 'bg-rose-50/40 hover:bg-rose-50/70'
+                                : isExpanded
+                                ? 'bg-slate-50/80 hover:bg-slate-50'
+                                : 'hover:bg-slate-50/60'
+                            }`}
+                          >
+                            {/* Checkbox */}
+                            <td className="py-3.5 px-3 text-center">
+                              <input
+                                type="checkbox"
+                                checked={isAllGroupSelected}
+                                ref={(el) => {
+                                  if (el) el.indeterminate = isSomeGroupSelected
+                                }}
+                                onChange={() => handleToggleSelectGroup(group)}
+                                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/20 cursor-pointer"
+                              />
+                            </td>
+
+                            {/* Accordion Expand Button */}
+                            <td className="py-3.5 px-2 text-center">
+                              <button
+                                onClick={() => toggleExpand(group.item_id)}
+                                className={`p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all ${
+                                  isExpanded ? 'bg-indigo-50 text-indigo-600' : ''
+                                }`}
+                                title={isExpanded ? 'Tutup Pecahan Batch' : 'Buka Pecahan Batch'}
+                              >
+                                <ChevronDown
+                                  className={`w-4 h-4 transition-transform duration-200 ${
+                                    isExpanded ? 'rotate-180 text-indigo-600' : ''
+                                  }`}
+                                />
+                              </button>
+                            </td>
+
+                            {/* Item Code & Name */}
+                            <td className="py-3.5 px-4">
+                              <div className="flex flex-col">
+                                <span className="font-bold text-slate-900 text-sm hover:text-indigo-600 transition-colors">
+                                  {group.item_name}
+                                </span>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="font-mono text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200/80 font-medium">
+                                    {group.item_code}
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Type */}
+                            <td className="py-3.5 px-4">
+                              {group.item_type === 'drug' ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                                  Ubat
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                                  Bukan Ubat
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Packaging */}
+                            <td className="py-3.5 px-4">
+                              <span className="text-xs font-semibold text-slate-700 bg-slate-100/90 px-2.5 py-1 rounded-md border border-slate-200/80">
+                                {group.packaging || '-'}
+                              </span>
+                            </td>
+
+                            {/* Location */}
+                            <td className="py-3.5 px-4">
+                              <div className="flex items-center gap-1.5 text-xs text-slate-700 font-medium max-w-xs">
+                                <MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                                <span className="truncate" title={group.location_name}>{group.location_name}</span>
+                              </div>
+                            </td>
+
+                            {/* Total Quantity */}
+                            <td className="py-3.5 px-4 text-right">
+                              <div className="flex flex-col items-end">
+                                <span className="font-mono font-extrabold text-slate-900 text-sm">
+                                  {group.total_quantity.toLocaleString('ms-MY')}
+                                </span>
+                                <span className="text-[10px] text-slate-500 font-medium">
+                                  {group.batch_count} Batch
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* Batch Pill Count */}
+                            <td className="py-3.5 px-4 text-center">
+                              {group.batch_count === 1 ? (
+                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-semibold bg-slate-100 text-slate-800 border border-slate-200">
+                                  <span>{group.batches[0].batch_number}</span>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => toggleExpand(group.item_id)}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition-all shadow-xs"
+                                >
+                                  <Layers className="w-3.5 h-3.5 text-indigo-600" />
+                                  <span>{group.batch_count} Batch</span>
+                                  <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                                </button>
+                              )}
+                            </td>
+
+                            {/* Earliest Expiry (FEFO) */}
+                            <td className="py-3.5 px-4">
+                              <div className="flex flex-col gap-1">
+                                <span className="text-xs font-semibold text-slate-800">
+                                  {formatDate(group.earliest_expiry_date)}
+                                </span>
+                                <div>
+                                  {renderExpiryPill(group.min_days_to_expiry, group.worst_status)}
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Actions */}
+                            <td className="py-3.5 px-4 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <button
+                                  onClick={() => setActiveModalItem(earliestBatch)}
+                                  className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                  title="Lihat Perincian Item"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => setTransferModalItem(earliestBatch)}
+                                  className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                  title="Mohon Pemindahan Stok (FEFO Prioriti)"
+                                >
+                                  <ArrowRightLeft className="w-4 h-4" />
+                                </button>
+                                {isExpired && (
+                                  <button
+                                    onClick={() => setDisposalModalItem(earliestBatch)}
+                                    className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors"
+                                    title="Rekod Pelupusan KEW.PS-11"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+
+                          {/* Expanded Nested Batch Drawer */}
+                          {isExpanded && (
+                            <tr className="bg-slate-50/90 border-b border-slate-200/80">
+                              <td colSpan={10} className="p-3 sm:p-4">
+                                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden ml-4 sm:ml-8">
+                                  <div className="bg-slate-100/80 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <Layers className="w-4 h-4 text-indigo-600" />
+                                      <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                                        Pecahan Batch & Giliran Pengagihan (FEFO - First Expired, First Out)
+                                      </span>
+                                    </div>
+                                    <span className="text-[11px] font-semibold text-slate-500">
+                                      {group.batches.length} Batch Aktif
+                                    </span>
+                                  </div>
+
+                                  <div className="overflow-x-auto">
+                                    <table className="w-full text-left text-xs border-collapse">
+                                      <thead>
+                                        <tr className="bg-slate-50 text-[11px] font-bold text-slate-500 uppercase border-b border-slate-200">
+                                          <th className="py-2.5 px-3 w-8 text-center">Pilih</th>
+                                          <th className="py-2.5 px-3">Keutamaan FEFO</th>
+                                          <th className="py-2.5 px-3">No. Batch</th>
+                                          <th className="py-2.5 px-3">Lokasi Simpanan</th>
+                                          <th className="py-2.5 px-3 text-right">Kuantiti Batch</th>
+                                          <th className="py-2.5 px-3">Tarikh Luput</th>
+                                          <th className="py-2.5 px-3 text-center">Status Risiko</th>
+                                          <th className="py-2.5 px-3 text-center">Tindakan Batch</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-slate-100">
+                                        {group.batches.map((batch, idx) => {
+                                          const isBatchSelected = selectedItemIds.includes(batch.batch_id)
+                                          const isBatchExpired = batch.status === 'expired' || batch.days_to_expiry <= 0
+
+                                          return (
+                                            <tr
+                                              key={batch.batch_id}
+                                              className={`transition-colors ${
+                                                isBatchSelected
+                                                  ? 'bg-indigo-50/80'
+                                                  : idx === 0
+                                                  ? 'bg-amber-50/30 hover:bg-amber-50/60'
+                                                  : 'hover:bg-slate-50/80'
+                                              }`}
+                                            >
+                                              {/* Batch Select Checkbox */}
+                                              <td className="py-2.5 px-3 text-center">
+                                                <input
+                                                  type="checkbox"
+                                                  checked={isBatchSelected}
+                                                  onChange={() => handleToggleSelect(batch.batch_id)}
+                                                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/20 cursor-pointer"
+                                                />
+                                              </td>
+
+                                              {/* Priority Tag */}
+                                              <td className="py-2.5 px-3">
+                                                {idx === 0 ? (
+                                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300 shadow-xs">
+                                                    #1 Terawal Luput (FEFO)
+                                                  </span>
+                                                ) : (
+                                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                                                    #{idx + 1} Seterusnya
+                                                  </span>
+                                                )}
+                                              </td>
+
+                                              {/* Batch Number */}
+                                              <td className="py-2.5 px-3">
+                                                <div className="flex items-center gap-1.5">
+                                                  <span className="font-mono font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                                                    {batch.batch_number}
+                                                  </span>
+                                                  <button
+                                                    onClick={() => handleCopyBatch(batch.batch_number, batch.batch_id)}
+                                                    className="text-slate-400 hover:text-indigo-600 p-0.5 rounded hover:bg-slate-200 transition-colors"
+                                                    title="Salin No Batch"
+                                                  >
+                                                    {copiedBatchId === batch.batch_id ? (
+                                                      <Check className="w-3 h-3 text-emerald-600" />
+                                                    ) : (
+                                                      <Copy className="w-3 h-3" />
+                                                    )}
+                                                  </button>
+                                                </div>
+                                              </td>
+
+                                              {/* Batch Location */}
+                                              <td className="py-2.5 px-3">
+                                                <span className="text-slate-600 font-medium">
+                                                  {batch.location_name}
+                                                </span>
+                                              </td>
+
+                                              {/* Batch Quantity */}
+                                              <td className="py-2.5 px-3 text-right">
+                                                <span className="font-mono font-bold text-slate-900">
+                                                  {batch.quantity.toLocaleString('ms-MY')} Unit
+                                                </span>
+                                              </td>
+
+                                              {/* Batch Expiry Date */}
+                                              <td className="py-2.5 px-3">
+                                                <span className="font-semibold text-slate-800">
+                                                  {formatDate(batch.expiry_date)}
+                                                </span>
+                                              </td>
+
+                                              {/* Batch Status Risk Pill */}
+                                              <td className="py-2.5 px-3 text-center">
+                                                {renderExpiryPill(batch.days_to_expiry, batch.status)}
+                                              </td>
+
+                                              {/* Batch Actions */}
+                                              <td className="py-2.5 px-3 text-center">
+                                                <div className="flex items-center justify-center gap-1">
+                                                  <button
+                                                    onClick={() => setActiveModalItem(batch)}
+                                                    className="p-1 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded"
+                                                    title="Lihat Perincian Batch Ini"
+                                                  >
+                                                    <Eye className="w-3.5 h-3.5" />
+                                                  </button>
+                                                  <button
+                                                    onClick={() => setTransferModalItem(batch)}
+                                                    className="p-1 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded"
+                                                    title="Pindah / Agih Batch Ini"
+                                                  >
+                                                    <ArrowRightLeft className="w-3.5 h-3.5" />
+                                                  </button>
+                                                  {isBatchExpired && (
+                                                    <button
+                                                      onClick={() => setDisposalModalItem(batch)}
+                                                      className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded"
+                                                      title="Pelupusan Batch Ini"
+                                                    >
+                                                      <Trash2 className="w-3.5 h-3.5" />
+                                                    </button>
+                                                  )}
+                                                </div>
+                                              </td>
+                                            </tr>
+                                          )
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            ) : (
+              /* FLAT LIST TABLE VIEW */
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/80 border-b border-slate-200/80 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    <th className="py-3.5 px-4 w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={
+                          filteredItems.length > 0 &&
+                          filteredItems.every((i) => selectedItemIds.includes(i.batch_id))
+                        }
+                        onChange={handleSelectAll}
+                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/20 cursor-pointer"
+                      />
+                    </th>
+                    <th className="py-3.5 px-4">Item & Spesifikasi</th>
+                    <th className="py-3.5 px-4">Jenis</th>
+                    <th className="py-3.5 px-4">Pembungkusan</th>
+                    <th className="py-3.5 px-4">No. Batch</th>
+                    <th className="py-3.5 px-4">Lokasi Depot / Wad</th>
+                    <th className="py-3.5 px-4 text-right">Baki Kuantiti</th>
+                    <th className="py-3.5 px-4">Tarikh Luput</th>
+                    <th className="py-3.5 px-4 text-center">Status Risk</th>
+                    <th className="py-3.5 px-4 text-center">Tindakan</th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-slate-100 text-sm">
+                  {filteredItems.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="py-16 px-4 text-center">
+                        <div className="max-w-md mx-auto space-y-3">
+                          <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto shadow-sm">
+                            <ShieldCheck className="w-8 h-8" />
+                          </div>
+                          <h3 className="text-base font-bold text-slate-800">
+                            Tiada Item Hampir Luput Dikesan
+                          </h3>
+                          <p className="text-xs text-slate-500 leading-relaxed">
+                            Tiada rekod item luput atau mendekati tarikh luput dalam tempoh {daysThreshold} hari mengikut kriteria penapis anda.
+                          </p>
+                          {(statusFilter !== 'all' || selectedType !== 'all' || selectedLocation !== 'all' || searchQuery) && (
+                            <button
+                              onClick={() => {
+                                setStatusFilter('all')
+                                setSelectedType('all')
+                                setSelectedLocation('all')
+                                setSearchQuery('')
+                              }}
+                              className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-all"
+                            >
+                              Kosongkan Penapis
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredItems.map((item) => {
+                      const isSelected = selectedItemIds.includes(item.batch_id)
+                      const isExpired = item.status === 'expired' || item.days_to_expiry <= 0
+
+                      return (
+                        <tr
+                          key={item.batch_id}
+                          className={`transition-colors duration-150 ${
+                            isSelected
+                              ? 'bg-indigo-50/60'
+                              : isExpired
+                              ? 'bg-rose-50/40 hover:bg-rose-50/80'
+                              : 'hover:bg-slate-50/80'
+                          }`}
+                        >
+                          {/* Checkbox */}
+                          <td className="py-3.5 px-4 text-center">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleToggleSelect(item.batch_id)}
+                              className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/20 cursor-pointer"
+                            />
+                          </td>
+
+                          {/* Item Code & Name */}
+                          <td className="py-3.5 px-4">
+                            <div className="flex flex-col">
+                              <span className="font-bold text-slate-900 text-sm">
+                                {item.item_name}
+                              </span>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="font-mono text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200/80">
+                                  {item.item_code}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Type */}
+                          <td className="py-3.5 px-4">
+                            {item.item_type === 'drug' ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                                Ubat
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                                Bukan Ubat
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Packaging */}
+                          <td className="py-3.5 px-4">
+                            <span className="text-xs font-semibold text-slate-700 bg-slate-100/90 px-2.5 py-1 rounded-md border border-slate-200/80">
+                              {item.packaging || '-'}
                             </span>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="font-mono text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200/80">
-                                {item.item_code}
+                          </td>
+
+                          {/* Batch Number */}
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono text-xs font-semibold text-slate-800 bg-slate-50 px-2 py-1 rounded border border-slate-200">
+                                {item.batch_number}
+                              </span>
+                              <button
+                                onClick={() => handleCopyBatch(item.batch_number, item.batch_id)}
+                                className="text-slate-400 hover:text-indigo-600 transition-colors p-1 rounded hover:bg-slate-100"
+                                title="Salin No Batch"
+                              >
+                                {copiedBatchId === item.batch_id ? (
+                                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                ) : (
+                                  <Copy className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                            </div>
+                          </td>
+
+                          {/* Location */}
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-1.5 text-xs text-slate-700 font-medium">
+                              <MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                              <span>{item.location_name}</span>
+                            </div>
+                          </td>
+
+                          {/* Quantity */}
+                          <td className="py-3.5 px-4 text-right">
+                            <span className="font-mono font-bold text-slate-900 text-sm">
+                              {item.quantity.toLocaleString('ms-MY')}
+                            </span>
+                          </td>
+
+                          {/* Expiry Date */}
+                          <td className="py-3.5 px-4">
+                            <div className="flex flex-col">
+                              <span className="text-xs font-semibold text-slate-800">
+                                {formatDate(item.expiry_date)}
                               </span>
                             </div>
-                          </div>
-                        </td>
+                          </td>
 
-                        {/* Type */}
-                        <td className="py-3.5 px-4">
-                          {item.item_type === 'drug' ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                              Ubat
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">
-                              Bukan Ubat
-                            </span>
-                          )}
-                        </td>
+                          {/* Status Risk Pill */}
+                          <td className="py-3.5 px-4 text-center">
+                            {renderExpiryPill(item.days_to_expiry, item.status)}
+                          </td>
 
-                        {/* Batch Number */}
-                        <td className="py-3.5 px-4">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-mono text-xs font-semibold text-slate-800 bg-slate-50 px-2 py-1 rounded border border-slate-200">
-                              {item.batch_number}
-                            </span>
-                            <button
-                              onClick={() => handleCopyBatch(item.batch_number, item.batch_id)}
-                              className="text-slate-400 hover:text-indigo-600 transition-colors p-1 rounded hover:bg-slate-100"
-                              title="Salin No Batch"
-                            >
-                              {copiedBatchId === item.batch_id ? (
-                                <Check className="w-3.5 h-3.5 text-emerald-600" />
-                              ) : (
-                                <Copy className="w-3.5 h-3.5" />
-                              )}
-                            </button>
-                          </div>
-                        </td>
-
-                        {/* Location */}
-                        <td className="py-3.5 px-4">
-                          <div className="flex items-center gap-1.5 text-xs text-slate-700 font-medium">
-                            <MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                            <span>{item.location_name}</span>
-                          </div>
-                        </td>
-
-                        {/* Quantity */}
-                        <td className="py-3.5 px-4 text-right">
-                          <span className="font-mono font-bold text-slate-900 text-sm">
-                            {item.quantity.toLocaleString('ms-MY')}
-                          </span>
-                        </td>
-
-                        {/* Expiry Date */}
-                        <td className="py-3.5 px-4">
-                          <div className="flex flex-col">
-                            <span className="text-xs font-semibold text-slate-800">
-                              {formatDate(item.expiry_date)}
-                            </span>
-                          </div>
-                        </td>
-
-                        {/* Status Risk Pill */}
-                        <td className="py-3.5 px-4 text-center">
-                          {renderExpiryPill(item.days_to_expiry, item.status)}
-                        </td>
-
-                        {/* Actions */}
-                        <td className="py-3.5 px-4 text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <button
-                              onClick={() => setActiveModalItem(item)}
-                              className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                              title="Lihat Perincian"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => setTransferModalItem(item)}
-                              className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                              title="Mohon Pemindahan"
-                            >
-                              <ArrowRightLeft className="w-4 h-4" />
-                            </button>
-                            {isExpired && (
+                          {/* Actions */}
+                          <td className="py-3.5 px-4 text-center">
+                            <div className="flex items-center justify-center gap-1">
                               <button
-                                onClick={() => setDisposalModalItem(item)}
-                                className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors"
-                                title="Rekod Pelupusan"
+                                onClick={() => setActiveModalItem(item)}
+                                className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                title="Lihat Perincian"
                               >
-                                <Trash2 className="w-4 h-4" />
+                                <Eye className="w-4 h-4" />
                               </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
+                              <button
+                                onClick={() => setTransferModalItem(item)}
+                                className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                title="Mohon Pemindahan"
+                              >
+                                <ArrowRightLeft className="w-4 h-4" />
+                              </button>
+                              {isExpired && (
+                                <button
+                                  onClick={() => setDisposalModalItem(item)}
+                                  className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors"
+                                  title="Rekod Pelupusan"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
         )}
       </div>
@@ -1031,11 +1483,17 @@ export const NearExpiryPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="p-3.5 rounded-xl border border-slate-200 bg-white">
-                <div className="text-xs text-slate-400">Lokasi Simpanan / Depo</div>
-                <div className="font-semibold text-slate-800 mt-1 flex items-center gap-1.5">
-                  <MapPin className="w-4 h-4 text-indigo-600" />
-                  {activeModalItem.location_name}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-white">
+                  <div className="text-xs text-slate-400">Pembungkusan (Packaging)</div>
+                  <div className="font-semibold text-slate-800 mt-1">{activeModalItem.packaging || '-'}</div>
+                </div>
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-white">
+                  <div className="text-xs text-slate-400">Lokasi Simpanan / Depo</div>
+                  <div className="font-semibold text-slate-800 mt-1 flex items-center gap-1.5">
+                    <MapPin className="w-4 h-4 text-indigo-600" />
+                    <span className="truncate">{activeModalItem.location_name}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1095,11 +1553,18 @@ export const NearExpiryPage: React.FC = () => {
                   onChange={(e) => setTargetLocation(e.target.value)}
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500/20"
                 >
-                  <option value="Farmasi Pesakit Luar">Farmasi Pesakit Luar (Poliklinik)</option>
-                  <option value="Farmasi Pesakit Dalam">Farmasi Pesakit Dalam (Inpatient)</option>
-                  <option value="Jabatan Kecemasan & Trauma (ETU)">Jabatan Kecemasan & Trauma (ETU)</option>
-                  <option value="Wad ICU & CCU">Wad ICU & CCU</option>
-                  <option value="Wad Bersalin">Wad Bersalin</option>
+                  {uniqueLocations.map((loc) => (
+                    <option key={loc} value={loc}>
+                      {loc}
+                    </option>
+                  ))}
+                  {uniqueLocations.length === 0 && (
+                    <>
+                      <option value="Decanting">Decanting</option>
+                      <option value="Main Store">Main Store</option>
+                      <option value="Pharmacy Logistic">Pharmacy Logistic</option>
+                    </>
+                  )}
                 </select>
               </div>
 

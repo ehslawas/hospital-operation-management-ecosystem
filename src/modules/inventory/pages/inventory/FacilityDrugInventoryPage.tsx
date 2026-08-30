@@ -27,6 +27,7 @@ import {
   TrendingUp,
   BarChart3,
   FileDown,
+  FileSpreadsheet,
   Loader2,
   QrCode,
   Printer,
@@ -42,6 +43,7 @@ import { Spinner, Modal, Button } from '@/components/ui'
 import { getDrugTherapeuticCategory, getDrugPrescriberCategory, getDrugCombinedCategory } from '@/lib/drugCategorizer'
 import { getDrugs, getDrugCategories } from '@/services/pharmacy/inventoryService'
 import { generateFormulariPdf } from '@/services/pharmacy/formulariPdfService'
+import { exportFacilityDrugInventoryToExcel } from '@/services/pharmacy/facilityInventoryExcelService'
 import {
   loadFacilityDrugInventory,
   addToFacilityDrugInventory,
@@ -110,6 +112,7 @@ export const FacilityDrugInventoryPage: React.FC = () => {
   const [editBatchInput, setEditBatchInput] = useState<string>('')
   const [editExpiryInput, setEditExpiryInput] = useState<string>('')
   const [isExporting, setIsExporting] = useState<boolean>(false)
+  const [isExportingExcel, setIsExportingExcel] = useState<boolean>(false)
 
   // Table Filters
   const [search, setSearch] = useState('')
@@ -272,18 +275,41 @@ export const FacilityDrugInventoryPage: React.FC = () => {
     })
   }, [])
 
-  // Load Catalog Drugs for Modal with scheme filter & high limit (5000)
+  // Load Catalog Drugs for Modal with scheme filter & real-time search (debounced)
   useEffect(() => {
     if (!isAddModalOpen) return
+    let active = true
+
     const loadCatalogData = async () => {
       setIsCatalogLoading(true)
-      const filterObj = modalVoteFilter !== 'all' ? { procurement_vote: modalVoteFilter } : {}
-      const drugRes = await getDrugs(hospitalId, filterObj, 1, 5000)
-      if (drugRes.data) setCatalogDrugs(drugRes.data.data)
-      setIsCatalogLoading(false)
+      try {
+        const filterObj: any = {}
+        if (modalVoteFilter !== 'all') {
+          filterObj.procurement_vote = modalVoteFilter
+        }
+        if (modalSearch.trim()) {
+          filterObj.search = modalSearch.trim()
+        }
+        const drugRes = await getDrugs(hospitalId, filterObj, 1, 1000)
+        if (active && drugRes.data) {
+          setCatalogDrugs(drugRes.data.data)
+        }
+      } catch (err) {
+        console.error('Error loading drug catalog data for modal:', err)
+      } finally {
+        if (active) setIsCatalogLoading(false)
+      }
     }
-    void loadCatalogData()
-  }, [hospitalId, isAddModalOpen, modalVoteFilter])
+
+    const timer = setTimeout(() => {
+      void loadCatalogData()
+    }, 250)
+
+    return () => {
+      active = false
+      clearTimeout(timer)
+    }
+  }, [hospitalId, isAddModalOpen, modalVoteFilter, modalSearch])
 
   // Toggle item selection
   const handleToggleSelectDrug = (id: string, e?: React.MouseEvent) => {
@@ -929,22 +955,24 @@ export const FacilityDrugInventoryPage: React.FC = () => {
   const filteredCatalogDrugs = useMemo(() => {
     return catalogDrugs.filter(drug => {
       // Filter out already added items
-      if (facilityItems.some(f => f.id === drug.id)) return false
+      if (facilityItems.some(f => f.id === drug.id || (f as any).drug_id === drug.id)) return false
 
       if (modalVoteFilter !== 'all') {
         const dVote = (drug.procurement_vote || 'appl').toLowerCase()
         if (dVote !== modalVoteFilter.toLowerCase()) return false
       }
 
-      if (modalSearch) {
-        const q = modalSearch.toLowerCase()
-        const code = drug.drug_code || drug.item_code || drug.sku || ''
-        const contractNo = drug.cc_contract_number || drug.kkm_contract_number || drug.contract_number || ''
+      if (modalSearch.trim()) {
+        const q = modalSearch.toLowerCase().trim()
+        const code = (drug.drug_code || (drug as any).item_code || drug.sku || (drug as any).appl_kod || (drug as any).appl_code || '').toLowerCase()
+        const name = (drug.drug_name || '').toLowerCase()
+        const generic = (drug.generic_name || '').toLowerCase()
+        const contractNo = (drug.cc_contract_number || (drug as any).kkm_contract_number || (drug as any).contract_number || '').toLowerCase()
         return (
-          code.toLowerCase().includes(q) ||
-          drug.drug_name?.toLowerCase().includes(q) ||
-          drug.generic_name?.toLowerCase().includes(q) ||
-          contractNo.toLowerCase().includes(q)
+          code.includes(q) ||
+          name.includes(q) ||
+          generic.includes(q) ||
+          contractNo.includes(q)
         )
       }
       return true
@@ -1062,6 +1090,42 @@ export const FacilityDrugInventoryPage: React.FC = () => {
         </div>
 
         <div className="relative z-10 flex items-center gap-3">
+          {/* Export Excel */}
+          <button
+            onClick={() => {
+              if (isExportingExcel || filteredItems.length === 0) return
+              setIsExportingExcel(true)
+              try {
+                const skimLabel = currentVoteParam === 'all' ? 'SEMUA SKIM' : `SKIM ${currentVoteParam.toUpperCase()}`
+                exportFacilityDrugInventoryToExcel(filteredItems, {
+                  skim: skimLabel,
+                  hospitalName: user?.hospital?.hospital_name || (user?.hospital as any)?.name || 'HOSPITAL LAWAS',
+                  departmentName: 'Jabatan Farmasi / Stor Utama',
+                  generatedBy: user?.full_name || (user as any)?.name || 'Pegawai Farmasi',
+                  generatedByTitle: user?.jawatan || (user?.role as any)?.name || 'Pegawai Farmasi (S41/S44/S48)',
+                })
+                showSuccess('Eksport Berjaya', `Fail Excel bagi ${filteredItems.length} item formulari ubat berjaya dijana.`)
+              } catch (err: any) {
+                console.error('Export Excel error:', err)
+                showError('Ralat Eksport', err?.message || 'Gagal mengeksport fail Excel.')
+              } finally {
+                setIsExportingExcel(false)
+              }
+            }}
+            disabled={isExportingExcel || filteredItems.length === 0}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg
+              bg-white/10 hover:bg-white/20 border border-white/30 text-white
+              disabled:opacity-50 disabled:cursor-allowed"
+            title="Eksport Formulari Ubat ke format Excel (.xlsx)"
+          >
+            {isExportingExcel ? (
+              <Loader2 className="w-4 h-4 animate-spin text-emerald-300" />
+            ) : (
+              <FileSpreadsheet className="w-4 h-4 text-emerald-300" />
+            )}
+            <span>Eksport Excel</span>
+          </button>
+
           {/* Export Formulari PDF */}
           <button
             onClick={async () => {
@@ -1073,9 +1137,10 @@ export const FacilityDrugInventoryPage: React.FC = () => {
                   setTimeout(() => {
                     generateFormulariPdf(filteredItems, {
                       skim: skimLabel,
-                      preparedBy: user?.full_name || user?.name || 'Pegawai Farmasi',
+                      preparedBy: user?.full_name || (user as any)?.name || 'Pegawai Farmasi',
+                      preparedByTitle: user?.jawatan || (user?.role as any)?.name || 'Pegawai Farmasi (S41/S44/S48)',
                       approvedBy: 'Pengarah Hospital',
-                      hospitalName: 'HOSPITAL LAWAS',
+                      hospitalName: user?.hospital?.hospital_name || (user?.hospital as any)?.name || 'HOSPITAL LAWAS',
                       department: 'Jabatan Farmasi',
                     })
                     resolve()
@@ -1090,7 +1155,7 @@ export const FacilityDrugInventoryPage: React.FC = () => {
             disabled={isExporting || filteredItems.length === 0}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg
               bg-white/10 hover:bg-white/20 border border-white/30 text-white
-              disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled:opacity-50 disabled:cursor-allowed"
             title="Eksport Formulari Ubat sebagai PDF Rasmi"
           >
             {isExporting ? (

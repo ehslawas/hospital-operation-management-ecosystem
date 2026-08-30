@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState, useRef, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '@/stores/authStore'
@@ -61,7 +61,7 @@ import {
 } from '@/services/pharmacy/warrantService'
 import { getDrugCatalog } from '@/services/pharmacy/drugCatalogService'
 import { getNonDrugCatalog } from '@/services/pharmacy/nonDrugCatalogService'
-import { cn, formatCurrency, isContractExpired } from '@/lib/utils'
+import { cn, formatCurrency, isContractExpired, isApplVote, isCcVote } from '@/lib/utils'
 import type { 
   PurchaseOrderWithRelations, 
   Supplier, 
@@ -78,8 +78,8 @@ type CatalogSource =
   | { mode: 'free'               }
 
 function deriveCatalogSource(voteCode?: string): CatalogSource {
-  if (voteCode === '990102') return { mode: 'appl', vote: 'appl' }
-  if (voteCode === '080702') return { mode: 'cc',   vote: 'cc'   }
+  if (isApplVote(voteCode)) return { mode: 'appl', vote: 'appl' }
+  if (isCcVote(voteCode)) return { mode: 'cc',   vote: 'cc'   }
   return { mode: 'free' }
 }
 
@@ -87,6 +87,8 @@ function deriveCatalogSource(voteCode?: string): CatalogSource {
 const VOTE_CODES = [
   { value: '080702', label: '080702 - CC/DP' },
   { value: '990102', label: '990102 - APPL' },
+  { value: '080600 (APPL)', label: '080600 (APPL) - Duit Khas' },
+  { value: '080600 (CC)', label: '080600 (CC) - Duit Khas' },
   { value: 'other', label: 'Others (Manual Entry)' },
 ]
 
@@ -175,6 +177,42 @@ export const PurchaseOrderCreatePage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [existingPO, setExistingPO] = useState<PurchaseOrderWithRelations | null>(null)
   const [isDraftLoaded, setIsDraftLoaded] = useState(false)
+
+  // Dynamically compute available vote codes from base list, active warrants, and current PO
+  const dynamicVoteCodes = useMemo(() => {
+    const baseCodes: { value: string; label: string }[] = [
+      { value: '080702', label: '080702 - CC/DP' },
+      { value: '990102', label: '990102 - APPL' },
+      { value: '080600 (APPL)', label: '080600 (APPL) - Duit Khas' },
+      { value: '080600 (CC)', label: '080600 (CC) - Duit Khas' },
+    ]
+    const baseValues = new Set(baseCodes.map((b) => b.value))
+
+    // Pull all unique custom vote codes from warrants
+    const customCodesFromWarrants = Array.from(
+      new Set((warrants || []).map((w) => w.vote_code).filter(Boolean))
+    )
+      .filter((code) => !baseValues.has(code) && code !== 'other' && code !== 'others')
+      .map((code) => ({ value: code, label: code }))
+
+    // If current form has a custom vote_code that's not in the list, include it
+    const currentCode = formData.vote_code
+    const currentCustom =
+      currentCode &&
+      !baseValues.has(currentCode) &&
+      currentCode !== 'other' &&
+      currentCode !== 'others' &&
+      !customCodesFromWarrants.some((c) => c.value === currentCode)
+        ? [{ value: currentCode, label: currentCode }]
+        : []
+
+    return [
+      ...baseCodes,
+      ...customCodesFromWarrants,
+      ...currentCustom,
+      { value: 'other', label: 'Others (Manual Entry)' },
+    ]
+  }, [warrants, formData.vote_code])
 
   // Item selection
   const [itemSearch, setItemSearch] = useState('')
@@ -923,8 +961,8 @@ export const PurchaseOrderCreatePage: React.FC = () => {
         newData.items = []
       }
       
-      // 1. Auto-select Pharmaniaga for APPL (990102)
-      if (field === 'vote_code' && value === '990102') {
+      // 1. Auto-select Pharmaniaga for APPL (990102 / 080600 APPL)
+      if (field === 'vote_code' && isApplVote(value)) {
         const pharmaniaga = suppliers.find(s => 
           s.company_name.toLowerCase().includes('pharmaniaga') &&
           s.company_name.toLowerCase().includes('logistic')
@@ -934,14 +972,20 @@ export const PurchaseOrderCreatePage: React.FC = () => {
         if (pharmaniaga) {
           newData.supplier_id = pharmaniaga.id;
         }
-        // Auto-select Pharmacy as department for APPL (990102)
-        newData.department = 'pharmacy';
-        newData.category = 'drug';
-        newData.vote_activity = '27401';
+        // Auto-select Pharmacy as department for APPL
+        if (!newData.department) {
+          newData.department = 'pharmacy';
+        }
+        if (!newData.vote_activity) {
+          newData.vote_activity = '27401';
+        }
+        if (!newData.category && value === '990102') {
+          newData.category = 'drug';
+        }
       }
 
       // Auto fill KKM contract number if first item has contract
-      if (field === 'vote_code' && value === '080702') {
+      if (field === 'vote_code' && isCcVote(value)) {
         if (!newData.kkm_contract_number) {
           const firstItem = newData.items?.[0]
           if (firstItem?.contract_number) {
@@ -999,7 +1043,7 @@ export const PurchaseOrderCreatePage: React.FC = () => {
     }
 
     const itemCodeStr = ('drug_code' in item ? item.drug_code : item.item_code) || '';
-    const isCc = formData.vote_code === '080702' || (item as any).procurement_vote === 'cc';
+    const isCc = isCcVote(formData.vote_code) || (item as any).procurement_vote === 'cc';
     
     const supplierName = (item as any).cc_supplier_name || (item as any).supplier?.company_name || (item as any).supplier_name || (item as any).supplier?.name || '';
     const rawContractNo = (item as any).cc_contract_number || (item as any).kkm_contract_number || (item as any).contract_number || (item as any).supplier?.contract_number || '';
@@ -1126,7 +1170,7 @@ export const PurchaseOrderCreatePage: React.FC = () => {
           if (matched) {
             setFormData(prev => {
               const updated = { ...prev };
-              const cNo = matched.contract_number || prev.kkm_contract_number || resolvedContractNo;
+              const cNo = matched.contract_number || prev.kkm_contract_number || activeContractNo;
               
               if (!updated.kkm_contract_number && cNo) {
                 updated.kkm_contract_number = cNo;
@@ -1145,10 +1189,10 @@ export const PurchaseOrderCreatePage: React.FC = () => {
                       ...it,
                       unit_price: matched.unit_price ? Number(matched.unit_price) : it.unit_price,
                       packaging_description: matched.unit || it.packaging_description,
-                      supplier_name: matched.supplier_name || it.supplier_name || resolvedSupplierName,
-                      contract_number: matched.contract_number || it.contract_number || resolvedContractNo,
-                      lead_time_days: matched.lead_time_days || matched.delivery_timeframe || it.lead_time_days || resolvedLeadTime,
-                      contract_end_date: matched.contract_end_date || matched.contract_expiry || it.contract_end_date || resolvedContractEnd
+                      supplier_name: matched.supplier_name || it.supplier_name || supplierName,
+                      contract_number: matched.contract_number || it.contract_number || activeContractNo,
+                      lead_time_days: matched.lead_time_days || matched.delivery_timeframe || it.lead_time_days || leadTime,
+                      contract_end_date: matched.contract_end_date || matched.contract_expiry || it.contract_end_date || contractEnd
                     };
                   }
                   return it;
@@ -1908,7 +1952,7 @@ export const PurchaseOrderCreatePage: React.FC = () => {
                         className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 focus:border-indigo-500 focus:ring-0 outline-none transition-all hover:border-slate-300"
                       >
                         {formData.po_type !== 'sq' && <option value="">Select</option>}
-                        {VOTE_CODES.filter(code => 
+                        {dynamicVoteCodes.filter(code => 
                           formData.po_type !== 'sq' || code.value === '080702'
                         ).map((code) => (
                           <option key={code.value} value={code.value}>{code.label}</option>
@@ -1959,9 +2003,9 @@ export const PurchaseOrderCreatePage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* KKM Contract No - Only for CC/DP (080702) and not for SQ */}
+                  {/* KKM Contract No - Only for CC/DP and not for SQ */}
                   <AnimatePresence>
-                    {formData.vote_code === '080702' && formData.po_type !== 'sq' && (
+                    {isCcVote(formData.vote_code) && formData.po_type !== 'sq' && (
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
@@ -2239,7 +2283,7 @@ export const PurchaseOrderCreatePage: React.FC = () => {
                         >
                           <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                              Search Results {formData.vote_code === '990102' ? '(APPL Catalog)' : formData.vote_code === '080702' ? '(CC Catalog)' : ''}
+                              Search Results {isApplVote(formData.vote_code) ? '(APPL Catalog)' : isCcVote(formData.vote_code) ? '(CC Catalog)' : ''}
                             </span>
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{allItems.length} found</span>
                           </div>
@@ -2311,10 +2355,10 @@ export const PurchaseOrderCreatePage: React.FC = () => {
                             <IconAlertCircle className="w-6 h-6 text-amber-600" />
                           </div>
                           <h4 className="text-sm font-bold text-slate-900 mb-1">
-                            Item Tidak Wujud Dalam Katalog MyInventory {formData.vote_code === '990102' ? '(APPL)' : formData.vote_code === '080702' ? '(CC)' : ''}
+                            Item Tidak Wujud Dalam Katalog MyInventory {isApplVote(formData.vote_code) ? '(APPL)' : isCcVote(formData.vote_code) ? '(CC)' : ''}
                           </h4>
                           <p className="text-xs text-slate-600 max-w-md mx-auto mb-4 leading-relaxed">
-                            Ubat/Item <span className="font-semibold text-slate-900">"{itemSearch}"</span> tidak ditemui dalam senarai {formData.vote_code === '990102' ? 'APPL' : formData.vote_code === '080702' ? 'CC' : 'Katalog'} MyInventory. Sila tambah ubat/item ini secara manual ke dalam katalog di modul <span className="font-bold text-teal-700">MyInventory</span> terlebih dahulu.
+                            Ubat/Item <span className="font-semibold text-slate-900">"{itemSearch}"</span> tidak ditemui dalam senarai {isApplVote(formData.vote_code) ? 'APPL' : isCcVote(formData.vote_code) ? 'CC' : 'Katalog'} MyInventory. Sila tambah ubat/item ini secara manual ke dalam katalog di modul <span className="font-bold text-teal-700">MyInventory</span> terlebih dahulu.
                           </p>
                           <div className="flex items-center justify-center gap-3">
                             <Button
@@ -2332,7 +2376,7 @@ export const PurchaseOrderCreatePage: React.FC = () => {
                               onClick={() => {
                                 setShowSuggestions(false)
                                 navigate('/inventory/drug-inventory', { 
-                                  state: { filter: formData.vote_code === '990102' ? 'appl' : formData.vote_code === '080702' ? 'cc' : 'all' } 
+                                  state: { filter: isApplVote(formData.vote_code) ? 'appl' : isCcVote(formData.vote_code) ? 'cc' : 'all' } 
                                 })
                               }}
                               className="rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-bold shadow-md hover:from-teal-700 hover:to-emerald-700"

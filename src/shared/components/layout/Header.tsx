@@ -12,6 +12,21 @@ import { LanguageSelector } from '@/shared/components/LanguageSelector'
  * Get current module name based on route
  */
 const getCurrentModule = (pathname: string): { name: string; code?: string } | null => {
+  // MyTempahan
+  if (pathname.startsWith('/tempahan') || pathname.startsWith('/hub/tempahan')) {
+    return { name: 'MyTempahan', code: 'tempahan' }
+  }
+
+  // MyPriviledging
+  if (pathname.startsWith('/priviledging') || pathname.startsWith('/hub/priviledging')) {
+    return { name: 'MyPriviledging', code: 'priviledging' }
+  }
+
+  // MyFormulari
+  if (pathname.startsWith('/formulari') || pathname.startsWith('/hub/formulari')) {
+    return { name: 'MyFormulari', code: 'formulari' }
+  }
+
   // MyCrossBorder
   if (pathname.startsWith('/crossborder')) {
     return { name: 'MyCrossBorder', code: 'crossborder' }
@@ -25,6 +40,16 @@ const getCurrentModule = (pathname: string): { name: string; code?: string } | n
   // MyKunci
   if (pathname.startsWith('/kunci')) {
     return { name: 'MyKunci', code: 'kunci' }
+  }
+
+  // MyStaff
+  if (pathname.startsWith('/staff') || pathname.startsWith('/hub/staff')) {
+    return { name: 'MyStaff', code: 'staff' }
+  }
+
+  // MyPerolehan
+  if (pathname.startsWith('/perolehan') || pathname.startsWith('/hub/perolehan')) {
+    return { name: 'MyPerolehan', code: 'perolehan' }
   }
 
 
@@ -52,6 +77,12 @@ const getCurrentModule = (pathname: string): { name: string; code?: string } | n
   // Hospital Admin
   if (pathname.startsWith('/admin') && !pathname.includes('/modules')) {
     return { name: 'Hospital Administration', code: 'hospital_admin' }
+  }
+
+  // Porter
+  if (pathname.startsWith('/porter') || pathname.startsWith('/hub/porter')) {
+    const module = MODULE_DEFINITIONS.find(m => m.code === 'system_porter')
+    return { name: module?.name || 'MyPorter', code: 'system_porter' }
   }
 
   // Transporter

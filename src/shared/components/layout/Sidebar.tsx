@@ -4,7 +4,10 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard,
   Users,
+  Building,
   Building2,
+  HardHat,
+  CreditCard,
   Settings,
   Shield,
   FileText,
@@ -33,6 +36,24 @@ import {
   Globe,
   FlaskConical,
   MapPin,
+  Briefcase,
+  CalendarDays,
+  Bell,
+  Clock,
+  ShieldCheck,
+  Network,
+  Search,
+  Flame,
+  Droplets,
+  TrendingDown,
+  Layers,
+  Pill,
+  Plus,
+  Radio,
+  UserCheck,
+  BookOpen,
+  Printer,
+  Award,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
@@ -48,30 +69,40 @@ interface NavItem {
   icon: React.ElementType
   roles?: string[]
   children?: NavItem[]
-  module?: 'admin' | 'pharmacy' | 'oxygen' | 'suhu' | 'myphis' | 'mymsds' | 'kunci' | 'transporter' | 'crossborder' | 'inventory'
+  module?: 'admin' | 'pharmacy' | 'oxygen' | 'suhu' | 'myphis' | 'mymsds' | 'kunci' | 'transporter' | 'crossborder' | 'inventory' | 'staff' | 'perolehan' | 'formulari' | 'porter' | 'priviledging' | 'tempahan'
 }
 
 // Helper to check if user has access to nav item
 const hasAccess = (item: NavItem, userRole?: string): boolean => {
-  // Temporary bypass per user request: allow all authenticated users to see all menu items
-  return true;
-
-  /* Original implementation:
-  // If no roles specified, everyone can access
-  if (!item.roles || item.roles.length === 0) return true
-  
-  // If user has no role, deny access
   if (!userRole) return false
-  
-  // Check if user role matches
-  return item.roles.includes(userRole)
-  */
+  const normalizedRole = userRole.toLowerCase()
+
+  // Super Admin bypasses all restrictions
+  if (
+    normalizedRole === SYSTEM_ROLES.SYSTEM_ADMIN ||
+    normalizedRole === 'superadmin' ||
+    normalizedRole === 'super_admin'
+  ) {
+    return true
+  }
+
+  // If no roles specified, accessible to authenticated users
+  if (!item.roles || item.roles.length === 0) return true
+
+  // Check if user role is explicitly allowed
+  return item.roles.some((r) => r.toLowerCase() === normalizedRole)
 }
 
-const getActiveModule = (pathname: string, userRole?: string, locationState?: any): 'admin' | 'pharmacy' | 'oxygen' | 'suhu' | 'myphis' | 'mymsds' | 'kunci' | 'transporter' | 'crossborder' | 'inventory' => {
+const getActiveModule = (pathname: string, userRole?: string, locationState?: any): 'admin' | 'pharmacy' | 'oxygen' | 'suhu' | 'myphis' | 'mymsds' | 'kunci' | 'transporter' | 'crossborder' | 'inventory' | 'staff' | 'perolehan' | 'formulari' | 'porter' | 'priviledging' | 'tempahan' => {
+  if (pathname.startsWith('/tempahan') || pathname.startsWith('/hub/tempahan')) return 'tempahan'
+  if (pathname.startsWith('/priviledging') || pathname.startsWith('/hub/priviledging')) return 'priviledging'
+  if (pathname.startsWith('/porter') || pathname.startsWith('/hub/porter')) return 'porter'
+  if (pathname.startsWith('/formulari') || pathname.startsWith('/hub/formulari')) return 'formulari'
+  if (pathname.startsWith('/perolehan') || pathname.startsWith('/hub/perolehan')) return 'perolehan'
   if (pathname.startsWith('/crossborder')) return 'crossborder'
   if (pathname.startsWith('/transporter')) return 'transporter'
   if (pathname.startsWith('/kunci')) return 'kunci'
+  if (pathname.startsWith('/staff') || pathname.startsWith('/hub/staff')) return 'staff'
   if (pathname.startsWith('/hub/mymsds') || pathname.includes('/mymsds')) return 'mymsds'
   if (pathname.startsWith('/hub/myphis') || pathname.includes('/myphis')) return 'myphis'
   if (pathname.startsWith('/suhu')) return 'suhu'
@@ -83,6 +114,11 @@ const getActiveModule = (pathname: string, userRole?: string, locationState?: an
   // Check navigation state fallback (useful on shared pages like Profile)
   if (locationState && typeof locationState === 'object' && locationState.fromModule) {
     const fromModuleCode = locationState.fromModule.code
+    if (fromModuleCode === 'tempahan' || fromModuleCode === 'mytempahan' || fromModuleCode === 'system_tempahan') return 'tempahan'
+    if (fromModuleCode === 'priviledging' || fromModuleCode === 'mypriviledging' || fromModuleCode === 'system_priviledging') return 'priviledging'
+    if (fromModuleCode === 'porter' || fromModuleCode === 'myporter' || fromModuleCode === 'system_porter') return 'porter'
+    if (fromModuleCode === 'formulari' || fromModuleCode === 'myformulari' || fromModuleCode === 'pharmacy_formulari') return 'formulari'
+    if (fromModuleCode === 'perolehan') return 'perolehan'
     if (fromModuleCode === 'suhu') return 'suhu'
     if (fromModuleCode === 'oxygen' || fromModuleCode === 'cylinder') return 'oxygen'
     if (fromModuleCode === 'pharmacy_logistics' || fromModuleCode === 'pharmacy') return 'pharmacy'
@@ -92,6 +128,7 @@ const getActiveModule = (pathname: string, userRole?: string, locationState?: an
     if (fromModuleCode === 'system_kunci' || fromModuleCode === 'kunci') return 'kunci'
     if (fromModuleCode === 'transporter') return 'transporter'
     if (fromModuleCode === 'crossborder') return 'crossborder'
+    if (fromModuleCode === 'staff' || fromModuleCode === 'mystaff') return 'staff'
   }
   
   // Fallback based on user role
@@ -135,6 +172,23 @@ const PHARMACY_ROLES = [
   SYSTEM_ROLES.ASSISTANT_PHARMACIST,
   SYSTEM_ROLES.PHARMACY_STOREKEEPER,
   SYSTEM_ROLES.PHARMACY_STAFF,
+]
+
+const PRIVILEDGING_STAFF_CHILDREN: NavItem[] = [
+  { label: 'Papan Pemuka', href: '/priviledging', icon: LayoutDashboard },
+  { label: 'Kriteria Credentialing', href: '/priviledging/criteria', icon: Award },
+  { label: 'Katalog Prosedur (500+)', href: '/priviledging/catalog', icon: BookOpen },
+  { label: 'Log & Permohonan Saya', href: '/priviledging/my-submissions', icon: FileText },
+  { label: 'Cetak Sijil Privileging', href: '/priviledging/print', icon: Printer },
+]
+
+const PRIVILEDGING_ADMIN_CHILDREN: NavItem[] = [
+  { label: 'Papan Pemuka (JKCP)', href: '/priviledging', icon: LayoutDashboard },
+  { label: 'Semakan JKCP / Kelulusan', href: '/priviledging/review-queue', icon: ShieldCheck },
+  { label: 'Kemajuan Staf', href: '/priviledging/staff-progress', icon: Users },
+  { label: 'Kriteria Credentialing', href: '/priviledging/criteria', icon: Award },
+  { label: 'Katalog Prosedur KKM', href: '/priviledging/catalog', icon: BookOpen },
+  { label: 'Cetak & Perakuan Sijil', href: '/priviledging/print', icon: Printer },
 ]
 
 const navigation: NavItem[] = [
@@ -230,6 +284,7 @@ const navigation: NavItem[] = [
       { label: 'Cylinder Inventory', href: ROUTES.PHARMACY_OXYGEN_CYLINDERS, icon: Database },
       { label: 'Cylinder Request', href: ROUTES.PHARMACY_OXYGEN_CONSUMPTION, icon: ShoppingCart },
       { label: 'QR Generator', href: '/pharmacy/oxygen/qr', icon: ClipboardList },
+      { label: 'KEW.PS-4 Cylinder Ledger', href: ROUTES.PHARMACY_OXYGEN_LEDGER, icon: ScrollText },
       { label: 'Stock Reconciliation', href: '/pharmacy/oxygen/reconciliation', icon: FileText },
       { label: 'Cylinder Report', href: ROUTES.PHARMACY_OXYGEN_REPORTS, icon: BarChart3 },
       { label: 'Cylinder Maintenance', href: '/pharmacy/oxygen/maintenance', icon: Wrench },
@@ -395,6 +450,19 @@ const navigation: NavItem[] = [
     ],
   },
   {
+    label: 'MyStaff',
+    href: '/staff/dashboard',
+    icon: Users,
+    module: 'staff',
+    children: [
+      { label: 'Dashboard', href: '/staff/dashboard', icon: LayoutDashboard },
+      { label: 'Log Pergerakan', href: '/staff/movement', icon: Briefcase },
+      { label: 'Log Event', href: '/staff/reminders', icon: Bell },
+      { label: 'Kalendar Jabatan', href: '/staff/calendar', icon: Calendar },
+      { label: 'Carta Organisasi', href: '/staff/org-chart', icon: Network },
+    ],
+  },
+  {
     label: 'MyCrossBorder',
     href: '/crossborder/dashboard',
     icon: Globe,
@@ -403,6 +471,96 @@ const navigation: NavItem[] = [
       { label: 'Dashboard', href: '/crossborder/dashboard', icon: LayoutDashboard },
       { label: 'New Permit Request', href: '/crossborder/create', icon: FileText },
       { label: 'Movement Log', href: '/crossborder/log', icon: ClipboardList },
+    ],
+  },
+  {
+    label: 'Dashboard',
+    href: '/perolehan',
+    icon: LayoutDashboard,
+    module: 'perolehan',
+  },
+  {
+    label: 'Bajet Pengurusan',
+    href: '/perolehan/pengurusan',
+    icon: Building,
+    module: 'perolehan',
+  },
+  {
+    label: 'Bajet Pembangunan',
+    href: '/perolehan/pembangunan',
+    icon: HardHat,
+    module: 'perolehan',
+  },
+  {
+    label: 'Pesanan & LPO',
+    href: '/perolehan/orders',
+    icon: ShoppingCart,
+    module: 'perolehan',
+  },
+  {
+    label: 'Terimaan & Bayaran',
+    href: '/perolehan/payments',
+    icon: CreditCard,
+    module: 'perolehan',
+  },
+  {
+    label: 'Katalog & Pembekal',
+    href: '/perolehan/catalog',
+    icon: ClipboardList,
+    module: 'perolehan',
+  },
+  {
+    label: 'MyFormulari',
+    href: '/formulari/dashboard',
+    icon: Pill,
+    module: 'formulari',
+    children: [
+      { label: 'Carian & Katalog Ubat', href: '/formulari/dashboard', icon: Search },
+      { label: 'Ubat Berisiko Tinggi (HAM)', href: '/formulari/ham', icon: Flame },
+      { label: 'Daftar LASA & TALL-Man', href: '/formulari/lasa', icon: AlertTriangle },
+      { label: 'Protokol Pelarutan IV', href: '/formulari/dilution', icon: Droplets },
+      { label: 'Garis Panduan NAG 2024', href: '/formulari/antimicrobial', icon: ShieldCheck },
+      { label: 'Kuota & Amaran Stok', href: '/formulari/quota', icon: TrendingDown },
+      { label: 'Matriks Ubat Alternatif', href: '/formulari/alternatives', icon: Layers },
+    ],
+  },
+  {
+    label: 'MyPorter',
+    href: '/porter/dashboard',
+    icon: Truck,
+    module: 'porter',
+    children: [
+      { label: 'Papan Pemuka (Dashboard)', href: '/porter/dashboard', icon: LayoutDashboard },
+      { label: 'Pesan Porter Baharu', href: '/porter/requests/new', icon: Plus },
+      { label: 'Pesanan & Jejak Terkini', href: '/porter/requests/my', icon: ClipboardList },
+      { label: 'Panel PPK (Driver Rider)', href: '/porter/panel', icon: Radio },
+      { label: 'Penerimaan Kargo (Wad)', href: '/porter/receiver', icon: ShieldCheck },
+      { label: 'Pusat Kawalan Dispatch', href: '/porter/manager', icon: Shield },
+      { label: 'Jadual Bertugas PPK', href: '/porter/roster', icon: Calendar },
+      { label: 'Laporan Prestasi & KPI', href: '/porter/reports', icon: BarChart3 },
+      { label: 'Tetapan Peranan', href: '/porter/roles', icon: Users },
+    ],
+  },
+  {
+    label: 'MyPriviledging',
+    href: '/priviledging',
+    icon: UserCheck,
+    module: 'priviledging',
+    children: PRIVILEDGING_STAFF_CHILDREN,
+  },
+  {
+    label: 'MyTempahan',
+    href: '/tempahan',
+    icon: CalendarDays,
+    module: 'tempahan',
+    children: [
+      { label: 'Papan Pemuka', href: '/tempahan', icon: LayoutDashboard },
+      { label: 'Kalendar Interaktif', href: '/tempahan/kalendar', icon: Calendar },
+      { label: 'Tempahan Baharu', href: '/tempahan/permohonan-baru', icon: Plus },
+      { label: 'Permohonan Saya', href: '/tempahan/permohonan-saya', icon: ClipboardList },
+      { label: 'Semakan Kelulusan', href: '/tempahan/kelulusan', icon: ShieldCheck },
+      { label: 'Direktori Fasiliti & Bilik', href: '/tempahan/senarai-bilik', icon: Building2 },
+      { label: 'Laporan & Analisis', href: '/tempahan/laporan', icon: BarChart3 },
     ],
   },
 ]
@@ -423,12 +581,54 @@ export const Sidebar: React.FC = () => {
     adminApproval: 0
   })
 
+  const [porterCounts, setPorterCounts] = useState({
+    myRequests: 0,
+    driverPanel: 0,
+    receiver: 0,
+    manager: 0
+  })
+
+  const [priviledgingCounts, setPriviledgingCounts] = useState({
+    pendingReviews: 0,
+    changesRequested: 0
+  })
+
+  const [tempahanPendingCount, setTempahanPendingCount] = useState(0)
+
+  const [priviledgingMode, setPriviledgingMode] = useState<'staff' | 'admin'>(() => {
+    try {
+      const mode = localStorage.getItem('home_mypriviledging_role_mode')
+      if (mode === 'admin') return 'admin'
+      if (mode === 'staff') return 'staff'
+    } catch {}
+    if (userRole && [
+      SYSTEM_ROLES.SYSTEM_ADMIN,
+      SYSTEM_ROLES.HOSPITAL_ADMIN,
+      SYSTEM_ROLES.HOSPITAL_ADMINISTRATOR,
+      'admin',
+      'superadmin'
+    ].includes(userRole as any)) {
+      return 'admin'
+    }
+    return 'staff'
+  })
+
+  useEffect(() => {
+    const handlePriviledgingModeChange = (e: any) => {
+      if (e.detail === 'admin' || e.detail === 'staff') {
+        setPriviledgingMode(e.detail)
+      }
+    }
+    window.addEventListener('priviledging_mode_change', handlePriviledgingModeChange)
+    return () => window.removeEventListener('priviledging_mode_change', handlePriviledgingModeChange)
+  }, [])
+
   useEffect(() => {
     if (!user) return
 
     let isMounted = true
 
-    const fetchTransporterCounts = async () => {
+    const fetchCounts = async () => {
       try {
         const { getRequests } = await import('@/modules/mytransporter/services/transporterService')
         const res = await getRequests()
@@ -444,14 +644,47 @@ export const Sidebar: React.FC = () => {
             adminApproval: adminApprovalCount
           })
         }
+
+        const { getPorterJobs } = await import('@/modules/myporter/services/porterService')
+        const porterRes = await getPorterJobs()
+        if (porterRes.data && isMounted) {
+          const pList = porterRes.data
+          const myActive = pList.filter(j => j.status !== 'completed' && j.status !== 'cancelled').length
+          const poolCount = pList.filter(j => j.status === 'broadcasting').length
+          const receiverCount = pList.filter(j => j.status === 'pending_receiver_confirmation' || j.status === 'at_destination').length
+          const statCount = pList.filter(j => j.urgency === 'stat' && j.status !== 'completed' && j.status !== 'cancelled').length
+
+          setPorterCounts({
+            myRequests: myActive,
+            driverPanel: poolCount,
+            receiver: receiverCount,
+            manager: statCount
+          })
+        }
+
+        const { priviledgingService } = await import('@/modules/mypriviledging/services/priviledgingService')
+        if (isMounted) {
+          const kpis = priviledgingService.getKpis()
+          setPriviledgingCounts({
+            pendingReviews: kpis.pendingSubmissions,
+            changesRequested: kpis.changesRequestedSubmissions
+          })
+        }
+
+        const { getBookings } = await import('@/modules/mytempahan/services/tempahanService')
+        const tempahanRes = await getBookings()
+        if (tempahanRes.data && isMounted) {
+          const pending = tempahanRes.data.filter(b => b.status === 'pending').length
+          setTempahanPendingCount(pending)
+        }
       } catch (err) {
-        console.error('Error fetching transporter counts in sidebar:', err)
+        console.error('Error fetching sidebar counts:', err)
       }
     }
 
-    fetchTransporterCounts()
+    fetchCounts()
 
-    const interval = setInterval(fetchTransporterCounts, 10000)
+    const interval = setInterval(fetchCounts, 10000)
 
     return () => {
       isMounted = false
@@ -472,8 +705,18 @@ export const Sidebar: React.FC = () => {
   const filteredNavigation = useMemo(() => {
     const roleFiltered = filterNavigation(navigation, userRole)
     const activeModule = getActiveModule(location.pathname, userRole, location.state)
-    return roleFiltered.filter((item) => item.module === activeModule)
-  }, [userRole, location.pathname, location.state])
+    return roleFiltered
+      .filter((item) => item.module === activeModule)
+      .map((item) => {
+        if (item.module === 'priviledging') {
+          return {
+            ...item,
+            children: priviledgingMode === 'admin' ? PRIVILEDGING_ADMIN_CHILDREN : PRIVILEDGING_STAFF_CHILDREN,
+          }
+        }
+        return item
+      })
+  }, [userRole, location.pathname, location.state, priviledgingMode])
 
   const handleLogout = async () => {
     await logout()
@@ -554,11 +797,33 @@ export const Sidebar: React.FC = () => {
       badgeCount = transporterCounts.driverPanel
     } else if (item.href === '/transporter/admin/approval') {
       badgeCount = transporterCounts.adminApproval
+    } else if (item.href === '/porter/requests/my') {
+      badgeCount = porterCounts.myRequests
+    } else if (item.href === '/porter/panel') {
+      badgeCount = porterCounts.driverPanel
+    } else if (item.href === '/porter/receiver') {
+      badgeCount = porterCounts.receiver
+    } else if (item.href === '/porter/manager') {
+      badgeCount = porterCounts.manager
+    } else if (item.href === '/priviledging/review-queue') {
+      badgeCount = priviledgingCounts.pendingReviews
+    } else if (item.href === '/priviledging/my-submissions') {
+      badgeCount = priviledgingCounts.changesRequested
+    } else if (item.href === '/tempahan/kelulusan') {
+      badgeCount = tempahanPendingCount
     }
 
     let totalChildBadgeCount = 0
     if (item.module === 'transporter') {
       totalChildBadgeCount = transporterCounts.myRequests + transporterCounts.driverPanel + transporterCounts.adminApproval
+    } else if (item.module === 'porter') {
+      totalChildBadgeCount = porterCounts.myRequests + porterCounts.driverPanel + porterCounts.receiver + porterCounts.manager
+    } else if (item.module === 'priviledging') {
+      totalChildBadgeCount = priviledgingMode === 'admin'
+        ? priviledgingCounts.pendingReviews
+        : priviledgingCounts.changesRequested
+    } else if (item.module === 'tempahan') {
+      totalChildBadgeCount = tempahanPendingCount
     }
 
     const getTranslatedLabel = (label: string): string => {
@@ -572,6 +837,7 @@ export const Sidebar: React.FC = () => {
         'Cylinder Inventory': language === 'ms' ? 'Inventori Silinder' : 'Cylinder Inventory',
         'Cylinder Request': language === 'ms' ? 'Permohonan Silinder' : 'Cylinder Request',
         'QR Generator': language === 'ms' ? 'Jana Kod QR' : 'QR Generator',
+        'KEW.PS-4 Cylinder Ledger': language === 'ms' ? 'Lejar KEW.PS-4 Silinder' : 'KEW.PS-4 Cylinder Ledger',
         'Stock Reconciliation': language === 'ms' ? 'Penyelarasan Stok' : 'Stock Reconciliation',
         'Cylinder Report': language === 'ms' ? 'Laporan Silinder' : 'Cylinder Report',
         'Cylinder Maintenance': language === 'ms' ? 'Penyelenggaraan Silinder' : 'Cylinder Maintenance',
@@ -622,6 +888,11 @@ export const Sidebar: React.FC = () => {
         'Alerts': language === 'ms' ? 'Amaran' : 'Alerts',
         'Audit Logs': language === 'ms' ? 'Log Audit' : 'Audit Logs',
         'Settings': language === 'ms' ? 'Tetapan' : 'Settings',
+        'Carta Organisasi': language === 'ms' ? 'Carta Organisasi' : 'Organizational Chart',
+        'Organizational Chart': language === 'ms' ? 'Carta Organisasi' : 'Organizational Chart',
+        'Log Pergerakan': language === 'ms' ? 'Log Pergerakan' : 'Movement Log',
+        'Log Event': language === 'ms' ? 'Log Event' : 'Event Log',
+        'Kalendar Jabatan': language === 'ms' ? 'Kalendar Jabatan' : 'Department Calendar',
       }
       return map[label] || label
     }

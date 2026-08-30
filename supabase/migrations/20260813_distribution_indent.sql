@@ -4,8 +4,8 @@
 -- 1. Department Indent Entitlements Configuration
 CREATE TABLE IF NOT EXISTS public.distribution_indent_entitlements (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  hospital_id UUID NOT NULL,
-  department_id UUID NOT NULL,
+  hospital_id UUID NOT NULL REFERENCES public.hospitals(id) ON DELETE CASCADE,
+  department_id UUID NOT NULL REFERENCES public.departments(id) ON DELETE CASCADE,
   item_type TEXT NOT NULL CHECK (item_type IN ('drug', 'non_drug')),
   item_id UUID NOT NULL,
   item_code TEXT,
@@ -21,9 +21,9 @@ CREATE TABLE IF NOT EXISTS public.distribution_indent_entitlements (
 CREATE TABLE IF NOT EXISTS public.distribution_indent_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   indent_number TEXT UNIQUE NOT NULL,
-  hospital_id UUID NOT NULL,
-  requesting_department_id UUID NOT NULL,
-  requested_by UUID NOT NULL,
+  hospital_id UUID NOT NULL REFERENCES public.hospitals(id) ON DELETE CASCADE,
+  requesting_department_id UUID NOT NULL REFERENCES public.departments(id) ON DELETE CASCADE,
+  requested_by UUID,
   request_date TIMESTAMPTZ DEFAULT now(),
   required_date DATE,
   status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','pending','approved','rejected','issued','completed','cancelled')),
@@ -62,13 +62,15 @@ CREATE TABLE IF NOT EXISTS public.distribution_indent_request_items (
 CREATE INDEX IF NOT EXISTS idx_indent_requests_hosp_dept ON public.distribution_indent_requests (hospital_id, requesting_department_id);
 CREATE INDEX IF NOT EXISTS idx_indent_requests_status ON public.distribution_indent_requests (status);
 CREATE INDEX IF NOT EXISTS idx_indent_entitlements_hosp_dept ON public.distribution_indent_entitlements (hospital_id, department_id);
+CREATE INDEX IF NOT EXISTS idx_indent_items_req_id ON public.distribution_indent_request_items (indent_request_id);
 
 -- Enable RLS
 ALTER TABLE public.distribution_indent_entitlements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.distribution_indent_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.distribution_indent_request_items ENABLE ROW LEVEL SECURITY;
 
--- Permissive policies for authenticated users
-CREATE POLICY "Allow all authenticated users full access to distribution_indent_entitlements" ON public.distribution_indent_entitlements FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow all authenticated users full access to distribution_indent_requests" ON public.distribution_indent_requests FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow all authenticated users full access to distribution_indent_request_items" ON public.distribution_indent_request_items FOR ALL USING (auth.role() = 'authenticated');
+-- Permissive policies
+CREATE POLICY "Allow all access to distribution_indent_entitlements" ON public.distribution_indent_entitlements FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all access to distribution_indent_requests" ON public.distribution_indent_requests FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all access to distribution_indent_request_items" ON public.distribution_indent_request_items FOR ALL USING (true) WITH CHECK (true);
+

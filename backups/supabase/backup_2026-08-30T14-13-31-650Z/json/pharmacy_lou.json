@@ -1,0 +1,44 @@
+[
+  {
+    "id": "c2579f6c-886c-4f2c-bc9a-a0a67cd4ea1e",
+    "lpo_id": "a75b84bb-fe87-44f4-a238-76178eba4fa6",
+    "receiving_id": "4df0c03a-7016-44cd-b13a-6f80ac6f64ab",
+    "requires_lou": true,
+    "lou_reason": "Items flagged for LOU during receiving",
+    "lou_letter_url": null,
+    "merged_pdf_url": null,
+    "email_sent_at": null,
+    "email_sent_to": null,
+    "status": "pending",
+    "created_at": "2026-01-27T00:55:00.148+00:00",
+    "updated_at": "2026-01-27T00:55:00.616726+00:00",
+    "po_number": "PO-2026-0046",
+    "lpo_number": "CO260000000067949",
+    "do_numbers": [
+      "1622150872"
+    ],
+    "items_count": 1,
+    "supplier_name": "Pharmaniaga Logistics Sdn Bhd"
+  },
+  {
+    "id": "92813f08-f503-45c0-9014-b1bbc6eb6109",
+    "lpo_id": "c32308df-f7f6-4682-8fa3-93f907b64646",
+    "receiving_id": "98a86801-2474-4c75-b52e-588a4117c769",
+    "requires_lou": true,
+    "lou_reason": "Items flagged for LOU during receiving",
+    "lou_letter_url": null,
+    "merged_pdf_url": null,
+    "email_sent_at": null,
+    "email_sent_to": null,
+    "status": "pending",
+    "created_at": "2026-01-27T00:38:03.451+00:00",
+    "updated_at": "2026-01-27T00:38:03.978778+00:00",
+    "po_number": "PO-2026-0048",
+    "lpo_number": "CO260000000067929",
+    "do_numbers": [
+      "1622596325"
+    ],
+    "items_count": 3,
+    "supplier_name": "Pharmaniaga Logistics Sdn Bhd"
+  }
+]

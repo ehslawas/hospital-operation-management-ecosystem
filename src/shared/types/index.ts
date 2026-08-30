@@ -50,6 +50,7 @@ export type {
   StockBatchWithRelations,
   StockTransaction,
   StockTransactionWithRelations,
+  StoreVerificationRecord,
   InventorySummary,
   StockLevelSummary,
   ExpiryItem,
@@ -94,6 +95,8 @@ export type {
 export * from './mykunci'
 export * from './mytransporter'
 export * from './mycrossborder'
+export * from './mystaff'
+export * from './myporter'
 
 
 

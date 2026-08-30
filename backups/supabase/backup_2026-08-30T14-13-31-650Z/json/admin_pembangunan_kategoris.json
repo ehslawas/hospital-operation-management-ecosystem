@@ -1,0 +1,56 @@
+[
+  {
+    "program_code": "P42",
+    "objek_code": "01100 117 4002",
+    "kategori_code": "24000",
+    "kategori_name": "Sewaan Peralatan Perubatan",
+    "description": "Medical Equipment Rental",
+    "is_active": true,
+    "created_at": "2026-01-29T10:01:12.790812+00:00"
+  },
+  {
+    "program_code": "P42",
+    "objek_code": "01200 117 1002",
+    "kategori_code": "28000,29000",
+    "kategori_name": "Penyelenggaraan & Sokongan Perkhidmatan Hospital",
+    "description": "Combined maintenance and hospital support services",
+    "is_active": true,
+    "created_at": "2026-02-01T23:20:33.461999+00:00"
+  },
+  {
+    "program_code": "P42",
+    "objek_code": "01100 117 4002",
+    "kategori_code": "24000-GA",
+    "kategori_name": "GA Machine With Patient Monitor",
+    "description": "Code: 24000",
+    "is_active": true,
+    "created_at": "2026-02-06T06:28:22.917151+00:00"
+  },
+  {
+    "program_code": "P42",
+    "objek_code": "01100 117 4002",
+    "kategori_code": "24000-US",
+    "kategori_name": "Ultrasound Medium End Radio",
+    "description": "Code: 24000",
+    "is_active": true,
+    "created_at": "2026-02-06T06:28:22.917151+00:00"
+  },
+  {
+    "program_code": "P42",
+    "objek_code": "01100 117 4002",
+    "kategori_code": "24000-HD",
+    "kategori_name": "Mesin Haemodialisis",
+    "description": "Code: 24000",
+    "is_active": true,
+    "created_at": "2026-02-06T06:28:22.917151+00:00"
+  },
+  {
+    "program_code": "P42",
+    "objek_code": "00105 106 1105",
+    "kategori_code": "29000",
+    "kategori_name": "Latihan Dalam Perkhidmatan (LDP)",
+    "description": "Latihan Dalam Perkhidmatan",
+    "is_active": true,
+    "created_at": "2026-02-06T06:28:22.917151+00:00"
+  }
+]

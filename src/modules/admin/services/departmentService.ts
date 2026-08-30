@@ -378,6 +378,7 @@ const SOFTWARE_MODULE_KEYWORDS = [
   'myperhimpunan',
   'mykunci',
   'mycuti',
+  'mystaff',
   'mysuhu',
   'mymsds',
   'myphis',

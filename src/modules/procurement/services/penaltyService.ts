@@ -1,8 +1,9 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import { supabase, isSupabaseConfigured } from '@/services/supabase'
 import type { ApiResponse } from '@/types'
 import type { SupplierPenalty, PenaltyStatus } from '@/types/pharmacy'
 import { getPurchaseOrderById as getPurchaseOrder } from './procurementService'
+import { isApplOrder } from '@/shared/lib/utils'
 
 export interface PenaltyFilter {
   status?: string
@@ -503,14 +504,7 @@ export async function checkAndCreateLatePenalty(
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 
       // Dynamically resolve penalty type ('appl' or 'cc') based on the PO's vote code or category
-      let penaltyType = 'cc' // Default to CC
-      const voteCode = po.vote_code || po.manual_vote_code
-      const category = po.category || po.manual_category
-      if (voteCode === '990102' || category?.toUpperCase() === 'APPL') {
-        penaltyType = 'appl'
-      } else if (voteCode === '080702' || category?.toUpperCase() === 'CC') {
-        penaltyType = 'cc'
-      }
+      let penaltyType = isApplOrder(po) ? 'appl' : 'cc'
 
       const penaltyData: Partial<SupplierPenalty> = {
         hospital_id: hospitalId,

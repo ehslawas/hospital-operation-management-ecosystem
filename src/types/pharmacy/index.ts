@@ -41,6 +41,7 @@ export type StockTransactionType =
   | 'dispose'
   | 'check_found'
   | 'bring_forward'
+  | 'store_verification'
 
 export type POStatus = 
   | 'draft'
@@ -377,6 +378,39 @@ export interface StockTransactionWithRelations extends StockTransaction {
   approved_by_user?: User
 }
 
+export interface StoreVerificationRecord {
+  id: string
+  hospital_id: string
+  item_id: string
+  item_type: 'drug' | 'non_drug'
+  item_code: string
+  item_name: string
+  unit_of_measure: string
+  packaging_description?: string
+  location_name?: string
+  verification_year: number
+  verification_date: string
+  physical_stock: number
+  kew_ps4_stock: number
+  phis_stock: number
+  is_tally: boolean
+  discrepancy_physical_kew: number
+  discrepancy_physical_phis: number
+  discrepancy_kew_phis: number
+  verifier_name: string
+  verifier_staff_id?: string
+  verifier_designation: string
+  verifier_department: string
+  appointment_ref?: string
+  declaration_confirmed: boolean
+  status: 'tally' | 'discrepancy_adjusted' | 'discrepancy_flagged'
+  remarks?: string
+  corrective_action?: string
+  adjust_kew_ps4: boolean
+  transaction_id?: string
+  created_at: string
+}
+
 // =====================================================
 // INVENTORY SUMMARY TYPES
 // =====================================================
@@ -444,6 +478,8 @@ export interface ExpiryItem {
   days_to_expiry: number
   location_name: string
   status: 'valid' | 'near_expiry' | 'expired'
+  packaging?: string
+  unit_cost?: number
 }
 
 export interface SlowMovingItem {
@@ -843,9 +879,9 @@ export interface BudgetSummary {
 // WARRANT TYPES
 // =====================================================
 
-export type WarrantVoteCode = '080702' | '990102'
+export type WarrantVoteCode = '080702' | '990102' | 'others' | string
 
-export type WarrantVoteActivity = '27401' | '27499' | '27404' | '27403' | '27402' | '27501'
+export type WarrantVoteActivity = '27401' | '27499' | '27404' | '27403' | '27402' | '27501' | string
 
 export type WarrantCategory = 
   | 'drug'
@@ -860,6 +896,8 @@ export type WarrantCategory =
   | 'pathologist'
   | 'medical_cylinder'
   | 'x_ray'
+  | 'duit_khas'
+  | string
 
 export type WarrantDepartment =
   | 'pharmacy'
@@ -2152,6 +2190,8 @@ export interface IndentEntitlement {
   item_id: string
   item_code?: string
   item_name: string
+  unit?: string
+  packaging?: string
   max_qty_per_request?: number
   is_active: boolean
   created_by?: string
@@ -2181,6 +2221,7 @@ export interface IndentRequest {
   indent_number: string
   hospital_id: string
   requesting_department_id: string
+  fulfilling_department_id?: string
   requested_by: string
   request_date: string
   required_date?: string
@@ -2201,6 +2242,7 @@ export interface IndentRequest {
 export interface IndentRequestWithRelations extends IndentRequest {
   items?: IndentRequestItem[]
   requesting_department?: { id?: string; department_name: string }
+  fulfilling_department?: { id?: string; department_name: string }
   requester?: { full_name: string }
   approver?: { full_name: string }
 }

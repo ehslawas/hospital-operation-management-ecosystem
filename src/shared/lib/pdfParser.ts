@@ -190,196 +190,188 @@ export async function extractDatesFromPdf(file: File): Promise<ExtractedLpoDates
 }
 
 /**
- * Parses and extracts serial numbers from a raw string text, formatting them with 'saboxy-' prefix.
- * Scans ALL "Serial No." sections across multiple items in the document and stops reading each section at section boundaries.
+ * Accurately extracts serial numbers from oxygen delivery order documents:
+ * 1. Sanitizes non-serial metadata (dates, batch numbers, postcodes, phone numbers, terms, item sizes).
+ * 2. Works reliably across digital PDF streams, multi-page PDFs, and OCR scanned images.
+ * 3. Extracts all 6-digit (e.g. 006064, 001026, 004047) and standard alphanumeric cylinder tags.
  */
 export function parseSerialsFromText(text: string): string[] {
-  const serialsSet = new Set<string>();
+  const serialsList: string[] = [];
 
-  // Find all section headers like "Serial No.:", "Serial Number", "S/N", "Nomor Siri", etc.
-  const headerRegex = /(?:serial\s*(?:no|number|numbers|s\/n)?|s\/n|silinder\s*sewaan|nomor\s*siri|no\.\s*siri)\s*:?/gi;
+  // Sanitize out non-serial patterns from the raw text to prevent false matches
+  let sanitized = text;
 
-  const matches: { index: number; length: number }[] = [];
-  let match: RegExpExecArray | null;
+  // 1. Remove order/LPO/PO/REQ references like O2-REQ-20260702-2688, PO-2026-0407, DO-2026-9876, etc.
+  sanitized = sanitized.replace(/\b(?:O2-REQ|PO|DO|LPO|CO)[A-Z0-9\-_/]+\b/gi, ' ');
 
-  while ((match = headerRegex.exec(text)) !== null) {
-    matches.push({ index: match.index, length: match[0].length });
-  }
+  // 2. Remove dates DD/MM/YYYY or YYYYMMDD
+  sanitized = sanitized.replace(/\b\d{2}\/\d{2}\/\d{4}\b/g, ' ');
+  sanitized = sanitized.replace(/\b(20\d{6}|19\d{6})\b/g, ' ');
 
-  const textBlocksToScan: string[] = [];
+  // 3. Remove batch numbers like O970/26, 0971/26, O973/26, O975/26, etc.
+  sanitized = sanitized.replace(/\b[A-Z0-9]{2,8}\/\d{2}\b/gi, ' ');
 
-  if (matches.length > 0) {
-    // For each "Serial No." header found, extract raw block up to the next header or end of document
-    for (let i = 0; i < matches.length; i++) {
-      const startPos = matches[i].index + matches[i].length;
-      const endPos = (i + 1 < matches.length) ? matches[i + 1].index : text.length;
-      const rawBlock = text.substring(startPos, endPos);
-      textBlocksToScan.push(rawBlock);
-    }
-  } else {
-    // Fallback: search entire document text if no explicit section header is found
-    textBlocksToScan.push(text);
-  }
+  // 4. Remove company registration / tax IDs like C8870258080 or 199401024117
+  sanitized = sanitized.replace(/\b[A-Z]\d{8,}\b/gi, ' ');
+  sanitized = sanitized.replace(/\b\d{10,}\b/g, ' ');
 
-  // Keywords that signal the end of a serial number section
-  const isStopKeyword = (lowerToken: string): boolean => {
-    return (
-      lowerToken.includes('perihal') ||
-      lowerToken.includes('total') ||
-      lowerToken.includes('jumlah') ||
-      lowerToken.includes('nota') ||
-      lowerToken.includes('catatan') ||
-      lowerToken.includes('notes') ||
-      lowerToken.includes('disediakan') ||
-      lowerToken.includes('disahkan') ||
-      lowerToken.includes('received') ||
-      lowerToken.includes('signature') ||
-      lowerToken.includes('tandatangan') ||
-      lowerToken.includes('terms') ||
-      lowerToken.includes('borneo') ||
-      lowerToken.includes('delivery') ||
-      lowerToken.includes('order') ||
-      lowerToken.includes('hospital') ||
-      lowerToken.includes('batch') ||
-      lowerToken.includes('filling') ||
-      lowerToken.includes('expiry') ||
-      lowerToken.includes('code') ||
-      lowerToken.includes('size') ||
-      lowerToken.includes('silinder') ||
-      lowerToken.includes('101n') ||
-      lowerToken.includes('101f') ||
-      lowerToken.includes('p101hs') ||
-      lowerToken.includes('page') ||
-      lowerToken.includes('halaman') ||
-      lowerToken.includes('attn') ||
-      lowerToken.includes('kuching') ||
-      lowerToken.includes('sarawak') ||
-      lowerToken.includes('malaysia')
-    );
+  // 5. Remove Malaysian postcodes (e.g. 93450 Kuching, 98850 Lawas, 88xxx KK, etc.)
+  sanitized = sanitized.replace(/\b(93|98|95|96|97|88|89|90|91|50|51|52|53|54|55|56|57|58|59|60|68|40|41|42|43|47|48)\d{3}\b/g, ' ');
+
+  // 6. Remove phone numbers / fax numbers e.g. 082-337713, 085-123456, 337713, 334178
+  sanitized = sanitized.replace(/\b08\d[\-\s]?\d{6,8}\b/g, ' ');
+  sanitized = sanitized.replace(/\b33\d{4}\b/g, ' ');
+
+  // 7. Remove item sizes & units like 101-F, 101-N, 101F, 10F, 1.4m3, 80m3, 64m3, 48 UNIT
+  sanitized = sanitized.replace(/\b(?:CODE\s*SIZE\s*:\s*)?[A-Z]?101[\-_]?[A-Z0-9]+\b/gi, ' ');
+  sanitized = sanitized.replace(/\b\d+(\.\d+)?\s*m[3]?\b/gi, ' ');
+  sanitized = sanitized.replace(/\b\d+\s*(?:UNIT|PCS|BATANG)\b/gi, ' ');
+
+  // 8. Remove quantity prefixes before "Serial No." e.g. "10 Serial No.:", "9 Serial No.:", "1 Serial No.:"
+  sanitized = sanitized.replace(/\b\d+\s+(?:Serial\s*No|Nomor\s*Siri|No\.\s*Siri)\b/gi, ' ');
+
+  // 9. Remove payment terms e.g. 30 DAYS, 30DAYS, 60 DAYS
+  sanitized = sanitized.replace(/\b\d+\s*DAYS\b/gi, ' ');
+
+  // Tokenize the sanitized text
+  const tokens = sanitized.split(/[\s,;|]+/);
+
+  const isNoiseWord = (lower: string): boolean => {
+    const meta = new Set([
+      'serial', 'no', 'number', 'numbers', 's/n', 'nomor', 'siri', 'batch',
+      'filling', 'expiry', 'date', 'unit', 'silinder', 'sewaan', 'gas', 'oksigen',
+      'oxygen', 'perihal', 'kegunaan', 'ambulance', 'hospital', 'borneo', 'delivery',
+      'order', 'received', 'signature', 'tandatangan', 'jumlah', 'total',
+      'halaman', 'page', 'code', 'size', 'attn', 'kuching', 'sarawak', 'malaysia',
+      'lawas', 'pending', 'terms', 'nota', 'catatan', 'notes', 'disediakan',
+      'disahkan', 'item', 'customer', 'tel', 'fax', 'days', 'day'
+    ]);
+    return meta.has(lower);
   };
 
-  const isNoiseToken = (str: string): boolean => {
-    const lower = str.toLowerCase();
-    // Filter volume/weight units e.g. 80m3, 8m3, 14m3, 64m3
-    if (/^\d+(\.\d+)?m3?$/i.test(str)) {
-      return true;
-    }
-    // Filter dates (DD/MM/YYYY or YYYYMMDD)
-    if (/^\d{2}\/\d{2}\/\d{4}$/.test(str) || (/^\d{8}$/.test(str) && (str.startsWith('20') || str.startsWith('19')))) {
-      return true;
-    }
-    // Filter PO / DO / REF patterns like O2-REQ-20260805-6477 or D26/08-039 or 199401024117
-    if (/req|lpo|po-|co-|do-/i.test(str)) {
-      return true;
-    }
-    // Filter phone numbers / registration numbers (>10 digits starting with 082, 085, 011, 016, 1994, 3097)
-    if (/^(082|085|011|016|1994|3097)/.test(str)) {
-      return true;
-    }
-    return false;
-  };
+  for (const token of tokens) {
+    // Strip leading/trailing bullets, dashes, tildes, colons
+    const cleaned = token.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '').trim();
+    if (!cleaned) continue;
 
-  for (const block of textBlocksToScan) {
-    // Split by whitespace, commas, semicolons, or pipes
-    const words = block.split(/[\s,;|]+/);
-    let consecutiveNonSerialCount = 0;
+    const lower = cleaned.toLowerCase();
+    if (isNoiseWord(lower)) continue;
 
-    for (let word of words) {
-      // Clean token: strip leading/trailing non-alphanumeric chars (e.g. "- 054610" -> "054610")
-      const cleaned = word.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '').trim();
-      const lowerCleaned = cleaned.toLowerCase();
+    // Genuine cylinder serial pattern:
+    // 1. 6-digit numeric (e.g. 006064, 001026, 004047, 001006)
+    // 2. Or 5-8 digit numeric
+    // 3. Or alphanumeric code of length 5-10 with at least 2 digits
+    const is6Digit = /^\d{6}$/.test(cleaned);
+    const isStandardSerial = /^(00\d{4}|\d{5,8})$/.test(cleaned);
+    const isAlphaNumericTag = /^[A-Z0-9]{5,10}$/i.test(cleaned) && (cleaned.match(/\d/g) || []).length >= 2;
 
-      if (!cleaned) continue;
-
-      // If we encounter a section stop keyword, terminate scanning this block immediately
-      if (isStopKeyword(lowerCleaned)) {
-        break;
-      }
-
-      // Match alphanumeric tokens of length 4 to 14 containing at least 2 digits
-      if (/^[a-zA-Z0-9]{4,14}$/.test(cleaned) && (cleaned.match(/\d/g) || []).length >= 2) {
-        if (isNoiseToken(cleaned)) {
-          consecutiveNonSerialCount++;
-          if (consecutiveNonSerialCount >= 3) break;
-          continue;
-        }
-
-        consecutiveNonSerialCount = 0; // reset counter on valid serial
-
-        let finalSerial = cleaned.toUpperCase();
-        if (/^saboxy-/i.test(finalSerial)) {
-          finalSerial = `saboxy-${finalSerial.substring(7)}`;
-        } else {
-          finalSerial = `saboxy-${finalSerial}`;
-        }
-
-        serialsSet.add(finalSerial);
+    if (is6Digit || isStandardSerial || isAlphaNumericTag) {
+      let finalSerial = cleaned.toUpperCase();
+      if (/^saboxy-/i.test(finalSerial)) {
+        finalSerial = `saboxy-${finalSerial.substring(7)}`;
       } else {
-        consecutiveNonSerialCount++;
-        // If we see 3 non-serial words in a row (when section headers exist), stop reading block
-        if (matches.length > 0 && consecutiveNonSerialCount >= 3) {
-          break;
-        }
+        finalSerial = `saboxy-${finalSerial}`;
       }
+
+      serialsList.push(finalSerial);
     }
   }
 
-  return Array.from(serialsSet);
+  return applySameDoDuplicateSuffix(serialsList);
 }
 
 /**
- * Extracts serial numbers from a PDF or image document using text extraction or Tesseract OCR.
+ * Automatically applies duplicate suffix (-A, -B, etc.) to repeated serial numbers within the same Delivery Order.
+ * e.g. 1st occurrence: 'saboxy-001036', 2nd occurrence: 'saboxy-001036-A'
  */
-export async function extractSerialsFromDocument(file: File): Promise<string[]> {
-  try {
-    if (file.type === 'application/pdf') {
-      // 1. Try digital text extraction first
-      const digitalText = await extractTextFromPdf(file);
-      if (digitalText && digitalText.trim().length > 0) {
-        const digitalSerials = parseSerialsFromText(digitalText);
-        if (digitalSerials.length > 0) {
-          return digitalSerials;
-        }
-      }
-      
-      // 2. Fallback to OCR on rendered pages if digital text extraction yielded nothing
-      const pdfjsLib = await getPdfjs();
-      const arrayBuffer = await file.arrayBuffer();
-      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-      const pdf = await loadingTask.promise;
-      
-      let fullOcrText = '';
-      const pagesToScan = Math.min(pdf.numPages, 10);
-      
-      for (let i = 1; i <= pagesToScan; i++) {
-        const page = await pdf.getPage(i);
-        const viewport = page.getViewport({ scale: 2.0 }); // Higher scale helps OCR accuracy
-        
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        if (context) {
-          canvas.height = viewport.height;
-          canvas.width = viewport.width;
-          
-          await page.render({ canvasContext: context, viewport }).promise;
-          
-          const Tesseract = await getTesseract();
-          const { data: { text: pageText } } = await Tesseract.recognize(canvas, 'eng');
-          fullOcrText += '\n' + pageText;
-        }
-      }
-      
-      return parseSerialsFromText(fullOcrText);
+export function applySameDoDuplicateSuffix(serialsList: string[]): string[] {
+  const countMap = new Map<string, number>();
+  const result: string[] = [];
+
+  for (const serial of serialsList) {
+    const upper = serial.toUpperCase();
+    const count = (countMap.get(upper) || 0) + 1;
+    countMap.set(upper, count);
+
+    if (count === 1) {
+      result.push(serial);
     } else {
-      // Image file OCR
-      const Tesseract = await getTesseract();
-      const { data: { text: ocrText } } = await Tesseract.recognize(file, 'eng');
-      return parseSerialsFromText(ocrText);
+      const letterIndex = count - 2; // 0 for 'A', 1 for 'B', etc.
+      const suffixLetter = String.fromCharCode(65 + (letterIndex % 26));
+      const suffix = letterIndex >= 26 ? `-${suffixLetter}${Math.floor(letterIndex / 26) + 1}` : `-${suffixLetter}`;
+      result.push(`${serial}${suffix}`);
     }
-  } catch (error) {
-    console.error('Error extracting serial numbers from document:', error);
-    throw new Error('Failed to parse document. Please ensure the document is clear and readable.');
   }
+
+  return result;
+}
+
+/**
+ * Extracts serial numbers from a PDF or image document (or multiple documents) using text extraction or Tesseract OCR.
+ */
+export async function extractSerialsFromDocument(files: File | File[]): Promise<string[]> {
+  const fileList = Array.isArray(files) ? files : [files];
+  const combinedSerials: string[] = [];
+
+  for (const file of fileList) {
+    try {
+      if (file.type === 'application/pdf') {
+        // 1. Try digital text extraction first
+        const digitalText = await extractTextFromPdf(file);
+        if (digitalText && digitalText.trim().length > 0) {
+          const digitalSerials = parseSerialsFromText(digitalText);
+          if (digitalSerials.length > 0) {
+            combinedSerials.push(...digitalSerials);
+            continue;
+          }
+        }
+        
+        // 2. Fallback to OCR on rendered pages if digital text extraction yielded nothing
+        const pdfjsLib = await getPdfjs();
+        const arrayBuffer = await file.arrayBuffer();
+        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+        const pdf = await loadingTask.promise;
+        
+        let fullOcrText = '';
+        const pagesToScan = Math.min(pdf.numPages, 10);
+        
+        for (let i = 1; i <= pagesToScan; i++) {
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 2.0 }); // Higher scale helps OCR accuracy
+          
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          if (context) {
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+            
+            await page.render({ canvasContext: context, viewport }).promise;
+            
+            const Tesseract = await getTesseract();
+            const { data: { text: pageText } } = await Tesseract.recognize(canvas, 'eng');
+            fullOcrText += '\n' + pageText;
+          }
+        }
+        
+        const ocrSerials = parseSerialsFromText(fullOcrText);
+        combinedSerials.push(...ocrSerials);
+      } else {
+        // Image file OCR
+        const Tesseract = await getTesseract();
+        const { data: { text: ocrText } } = await Tesseract.recognize(file, 'eng');
+        const imgSerials = parseSerialsFromText(ocrText);
+        combinedSerials.push(...imgSerials);
+      }
+    } catch (error) {
+      console.error(`Error extracting serial numbers from ${file.name}:`, error);
+    }
+  }
+
+  if (combinedSerials.length === 0) {
+    throw new Error('Failed to parse document or no serial numbers detected. Please ensure the document is clear and readable.');
+  }
+
+  return applySameDoDuplicateSuffix(combinedSerials);
 }
 
 

@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 /**
  * CC Allocation Export Service
  * Handles PDF and CSV export for CC allocation data with professional formatting
@@ -68,6 +68,11 @@ function getCategoryLabel(category: string): string {
     insulin: 'Insulin',
     hepc: 'HepC',
     medical_oxygen: 'Medical Oxygen',
+    sglt2: 'SGLT-2',
+    pathologist: 'Pathologist',
+    medical_cylinder: 'Medical Cylinder',
+    x_ray: 'X-Ray',
+    duit_khas: 'Duit Khas',
   }
   return map[category] || category
 }

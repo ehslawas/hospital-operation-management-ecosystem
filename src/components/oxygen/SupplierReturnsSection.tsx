@@ -10,6 +10,7 @@ import {
   deleteRequestDocument,
   updateReturnDocumentCylinders,
   getEmptyCylindersInStore,
+  updateCylinderValveType,
 } from '@/modules/mycylinder/services/oxygenService';
 
 interface SupplierReturnsSectionProps {
@@ -200,6 +201,38 @@ export const SupplierReturnsSection: React.FC<SupplierReturnsSectionProps> = ({
       setSupplierCylinders(combinedSupplier);
     } catch (err) {
       console.error('Error fetching cylinders for editing:', err);
+    }
+  };
+
+  const handleToggleValveType = async (e: React.MouseEvent, cyl: any) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const typeName = cyl.type_info?.type_name || '';
+    const isCurrentlyPI = typeName.includes('PI') || typeName.includes('Pin');
+    const targetType: 'BN' | 'PI' = isCurrentlyPI ? 'BN' : 'PI';
+    const targetTypeId = targetType === 'PI' ? '1874961b-a46d-4cf6-8a47-90b18a1e0fb7' : '3edfc0fe-98fb-4592-9ce1-4229718871a2';
+    
+    const hospId = cyl.hospital_id || selectedDoc?.hospital_id || '85bb6adc-b868-428b-83f4-e5af2f5cf904';
+    const res = await updateCylinderValveType(hospId, cyl.id, targetType);
+    if (!res.error) {
+      let updatedTypeName = typeName;
+      if (isCurrentlyPI) {
+        updatedTypeName = typeName.replace(/\bPI\b/g, 'BN').replace(/Pin Index/gi, 'Bullnose');
+      } else {
+        updatedTypeName = typeName.replace(/\bBN\b/g, 'PI').replace(/Bullnose/gi, 'Pin Index');
+      }
+      if (!updatedTypeName.includes('BN') && !updatedTypeName.includes('PI')) {
+        updatedTypeName = `${typeName} ${targetType}`;
+      }
+
+      setEmptyCylinders(prev => prev.map(c => c.id === cyl.id ? {
+        ...c,
+        cylinder_type_id: targetTypeId,
+        type_info: {
+          ...c.type_info,
+          type_name: updatedTypeName
+        }
+      } : c));
     }
   };
 
@@ -1103,32 +1136,54 @@ export const SupplierReturnsSection: React.FC<SupplierReturnsSectionProps> = ({
                         <div className="grid grid-cols-3 gap-2.5 max-h-56 overflow-y-auto pr-1">
                           {displayedCyls.map((cyl) => {
                             const isSelected = selectedCylIdList.includes(cyl.id);
+                            const typeName = cyl.type_info?.type_name || 'Standard';
+                            const isFSize = typeName.includes('1.4') || typeName.includes('101-F') || (cyl.serial_number || '').includes('101-F');
+                            const isPI = typeName.includes('PI') || typeName.includes('Pin');
+
                             return (
-                              <label
+                              <div
                                 key={cyl.id}
-                                className={`flex items-center gap-2 p-2 border rounded-xl cursor-pointer transition-all select-none hover:bg-slate-100/50 ${
+                                onClick={() => {
+                                  if (isSelected) {
+                                    setSelectedCylIdList(selectedCylIdList.filter(id => id !== cyl.id));
+                                  } else {
+                                    setSelectedCylIdList([...selectedCylIdList, cyl.id]);
+                                  }
+                                }}
+                                className={`flex items-center justify-between gap-2 p-2 border rounded-xl cursor-pointer transition-all select-none hover:bg-slate-100/50 ${
                                   isSelected
                                     ? 'border-rose-400 bg-rose-50/20 text-rose-800 ring-2 ring-rose-500/5'
                                     : 'border-slate-200 bg-white text-slate-700'
                                 }`}
                               >
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={() => {
-                                    if (isSelected) {
-                                      setSelectedCylIdList(selectedCylIdList.filter(id => id !== cyl.id));
-                                    } else {
-                                      setSelectedCylIdList([...selectedCylIdList, cyl.id]);
-                                    }
-                                  }}
-                                  className="rounded border-slate-300 text-rose-600 w-3.5 h-3.5 cursor-pointer"
-                                />
-                                <div className="flex flex-col min-w-0">
-                                  <span className="text-[10px] font-mono font-bold truncate leading-none mb-0.5">{cyl.serial_number}</span>
-                                  <span className="text-[9px] text-slate-400 font-semibold leading-none">{cyl.type_info?.type_name || 'Standard'}</span>
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => {}} // Handled by parent container click
+                                    className="rounded border-slate-300 text-rose-600 w-3.5 h-3.5 cursor-pointer shrink-0"
+                                  />
+                                  <div className="flex flex-col min-w-0">
+                                    <span className="text-[10px] font-mono font-bold truncate leading-none mb-0.5">{cyl.serial_number}</span>
+                                    <span className="text-[9px] text-slate-400 font-semibold leading-none truncate">{typeName}</span>
+                                  </div>
                                 </div>
-                              </label>
+
+                                {isFSize && (
+                                  <button
+                                    type="button"
+                                    title={`Click to switch valve type to ${isPI ? 'Bullnose (BN)' : 'Pin Index (PI)'}`}
+                                    onClick={(e) => handleToggleValveType(e, cyl)}
+                                    className={`shrink-0 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md border transition-all hover:scale-105 active:scale-95 shadow-2xs ${
+                                      isPI 
+                                        ? 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100' 
+                                        : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                                    }`}
+                                  >
+                                    {isPI ? '➔ BN' : '➔ PI'}
+                                  </button>
+                                )}
+                              </div>
                             );
                           })}
                         </div>

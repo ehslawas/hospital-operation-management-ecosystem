@@ -1,0 +1,89 @@
+[
+  {
+    "id": "e438f509-7c94-449a-8c75-d3c38112936e",
+    "resource_code": "pharmacy.inventory.all",
+    "resource_name": "Full Inventory Access",
+    "module": "pharmacy_logistics",
+    "permission_tag": [
+      "Inventory_Manage"
+    ],
+    "description": "Full access to pharmacy inventory",
+    "created_at": "2026-01-18T00:07:40.705546+00:00",
+    "updated_at": "2026-01-18T00:07:40.705546+00:00"
+  },
+  {
+    "id": "f9b336e1-ff49-4e6c-9ab7-afd893741818",
+    "resource_code": "pharmacy.inventory.view",
+    "resource_name": "View Inventory",
+    "module": "pharmacy_logistics",
+    "permission_tag": [
+      "Inventory_View"
+    ],
+    "description": "Read-only access to inventory",
+    "created_at": "2026-01-18T00:07:40.705546+00:00",
+    "updated_at": "2026-01-18T00:07:40.705546+00:00"
+  },
+  {
+    "id": "eb3734ca-4b91-4358-82d6-c48f5b6d185b",
+    "resource_code": "pharmacy.cat.emergency",
+    "resource_name": "Emergency Consumables",
+    "module": "pharmacy_logistics",
+    "permission_tag": [
+      "Emergency_Consumables",
+      "Basic_Medications"
+    ],
+    "description": "Emergency department supplies",
+    "created_at": "2026-01-18T00:07:40.705546+00:00",
+    "updated_at": "2026-01-18T00:07:40.705546+00:00"
+  },
+  {
+    "id": "e3b50399-68fa-4ac9-acf4-0a28e7ca3880",
+    "resource_code": "pharmacy.cat.psychotropic",
+    "resource_name": "Psychotropic Drugs",
+    "module": "pharmacy_logistics",
+    "permission_tag": [
+      "Psychotropic_Drugs",
+      "Controlled"
+    ],
+    "description": "Controlled substances",
+    "created_at": "2026-01-18T00:07:40.705546+00:00",
+    "updated_at": "2026-01-18T00:07:40.705546+00:00"
+  },
+  {
+    "id": "4080f954-38a2-4246-8eb0-33d8ad3e5fdf",
+    "resource_code": "pharmacy.cat.bulk",
+    "resource_name": "Bulk Inventory",
+    "module": "pharmacy_logistics",
+    "permission_tag": [
+      "Bulk_Inventory",
+      "Procurement"
+    ],
+    "description": "Bulk store access",
+    "created_at": "2026-01-18T00:07:40.705546+00:00",
+    "updated_at": "2026-01-18T00:07:40.705546+00:00"
+  },
+  {
+    "id": "55a81e15-7916-4c93-b134-73b2cf1aecd4",
+    "resource_code": "pharmacy.procurement.create",
+    "resource_name": "Create Purchase Order",
+    "module": "pharmacy_logistics",
+    "permission_tag": [
+      "PO_Create"
+    ],
+    "description": "Ability to create purchase orders",
+    "created_at": "2026-01-18T00:07:40.705546+00:00",
+    "updated_at": "2026-01-18T00:07:40.705546+00:00"
+  },
+  {
+    "id": "ba1f06ae-fa11-429d-b269-31d6d465c3f5",
+    "resource_code": "pharmacy.procurement.approve",
+    "resource_name": "Approve Purchase Order",
+    "module": "pharmacy_logistics",
+    "permission_tag": [
+      "PO_Approve"
+    ],
+    "description": "Ability to approve purchase orders",
+    "created_at": "2026-01-18T00:07:40.705546+00:00",
+    "updated_at": "2026-01-18T00:07:40.705546+00:00"
+  }
+]

@@ -271,7 +271,7 @@ const TransporterReportsPage: React.FC = () => {
     doc.text('HOSPITAL LAWAS, SARAWAK', 41, 20.5)
     doc.setFontSize(7.5)
     doc.setFont('Helvetica', 'normal')
-    doc.text('Jalan Hospital, 98850 Lawas, Sarawak | Tel: 085-283122 | Faks: 085-283123 | E-mel: hlawas@moh.gov.my', 41, 25.5)
+    doc.text('Jalan Hospital, 98850 Lawas, Sarawak | Tel: 085 283 781 | E-mel: hospital.lawas@moh.gov.my', 41, 25.5)
 
     // Double-line letterhead divider
     doc.setLineWidth(0.8)

@@ -1,0 +1,12 @@
+[
+  {
+    "id": "dd62fb6b-6532-40e7-8970-a226d98c3391",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "synced_at": "2026-08-17T08:18:25.13175+00:00",
+    "status": "success",
+    "rows_fetched": 512,
+    "drugs_upserted": 512,
+    "error_details": null,
+    "triggered_by": "manual_csv"
+  }
+]

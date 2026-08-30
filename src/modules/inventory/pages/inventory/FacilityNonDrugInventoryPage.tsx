@@ -27,12 +27,20 @@ import {
   TrendingUp,
   BarChart3,
   FileDown,
+  FileSpreadsheet,
   Loader2,
   QrCode,
   Printer,
   Download,
   Copy,
   Check,
+  AlertTriangle,
+  CheckCircle2,
+  Info,
+  Sparkles,
+  Tag,
+  Boxes,
+  HelpCircle,
 } from 'lucide-react'
 import QRCode from 'qrcode'
 import { useAuthStore } from '@/stores/authStore'
@@ -40,8 +48,15 @@ import { useToastStore } from '@/stores/toastStore'
 import { supabase, isSupabaseConfigured } from '@/services/supabase'
 import { Spinner, Modal, Button } from '@/components/ui'
 
-import { getNonDrugs, getNonDrugCategories } from '@/services/pharmacy/inventoryService'
+import {
+  getNonDrugs,
+  getNonDrugCategories,
+  createNonDrug,
+  createOrGetNonDrugCategory,
+} from '@/services/pharmacy/inventoryService'
+import { getSuppliers } from '@/services/pharmacy/procurementService'
 import { generateFormulariPdf } from '@/services/pharmacy/formulariPdfService'
+import { exportFacilityNonDrugInventoryToExcel } from '@/services/pharmacy/facilityInventoryExcelService'
 import {
   loadFacilityNonDrugInventory,
   addToFacilityNonDrugInventory,
@@ -71,6 +86,7 @@ export const FacilityNonDrugInventoryPage: React.FC = () => {
   // Main catalog drugs (for picker modal)
   const [catalogItems, setCatalogDrugs] = useState<NonDrugWithRelations[]>([])
   const [categories, setCategories] = useState<NonDrugCategory[]>([])
+  const [suppliers, setSuppliers] = useState<any[]>([])
   const [isCatalogLoading, setIsCatalogLoading] = useState(false)
 
   // Facility-specific inventory items
@@ -84,6 +100,37 @@ export const FacilityNonDrugInventoryPage: React.FC = () => {
   const [selectedCatalogItemIds, setSelectedCatalogDrugIds] = useState<string[]>([])
   const [initialStockInput, setInitialStockInput] = useState<number>(0)
   const [minBufferInput, setMinBufferInput] = useState<number>(20)
+
+  // Manual Non-Drug Creation Modal states (allowed ONLY if item is NOT in catalog)
+  const [isManualAddOpen, setIsManualAddOpen] = useState(false)
+  const [isSavingManual, setIsSavingManual] = useState(false)
+  const [manualSubLocations, setManualSubLocations] = useState<SubLocationUnit[]>([])
+  const [isLoadingManualSubLocations, setIsLoadingManualSubLocations] = useState(false)
+
+  const initialManualFormState = {
+    item_name: '',
+    item_code: '',
+    category_id: '',
+    new_category_name: '',
+    procurement_vote: (['appl', 'cc', 'lp', 'dp'].includes(currentVoteParam) ? currentVoteParam : 'cc') as 'appl' | 'cc' | 'lp' | 'dp',
+    unit_of_measure: 'PACK',
+    packaging_description: '',
+    price: 0,
+    min_stock_level: 10,
+    max_stock_level: 100,
+    min_buffer_level: 20,
+    facility_stock: 0,
+    store_code: '',
+    rack_name: '',
+    level_name: '',
+    batch_number: '',
+    expiry_date: '',
+    supplier_id: '',
+    cc_contract_number: '',
+    cc_contract_start_date: '',
+    cc_contract_end_date: '',
+  }
+  const [manualForm, setManualForm] = useState(initialManualFormState)
 
   // Edit Drawer state
   const [editingItem, setEditingItem] = useState<FacilityNonDrugItem | null>(null)
@@ -113,6 +160,7 @@ export const FacilityNonDrugInventoryPage: React.FC = () => {
   const [editBatchInput, setEditBatchInput] = useState<string>('')
   const [editExpiryInput, setEditExpiryInput] = useState<string>('')
   const [isExporting, setIsExporting] = useState<boolean>(false)
+  const [isExportingExcel, setIsExportingExcel] = useState<boolean>(false)
 
   // Table Filters
   const [search, setSearch] = useState('')
@@ -127,7 +175,7 @@ export const FacilityNonDrugInventoryPage: React.FC = () => {
 
   const [availableStoreLocations, setAvailableStoreLocations] = useState<any[]>([])
 
-  // Load sub-locations when selectedStoreCode changes
+  // Load sub-locations when selectedStoreCode changes (for Edit Drawer)
   useEffect(() => {
     if (!selectedStoreCode) {
       setStoreSubLocations([])
@@ -160,6 +208,52 @@ export const FacilityNonDrugInventoryPage: React.FC = () => {
     )
   }, [storeSubLocations, selectedRackName])
 
+  // Load sub-locations for Manual Add Modal when manualForm.store_code changes
+  useEffect(() => {
+    if (!isManualAddOpen || !manualForm.store_code) {
+      setManualSubLocations([])
+      return
+    }
+    let isMounted = true
+    setIsLoadingManualSubLocations(true)
+    loadStoreSubLocations(hospitalId, manualForm.store_code).then(locs => {
+      if (isMounted) {
+        setManualSubLocations(locs)
+        setIsLoadingManualSubLocations(false)
+      }
+    })
+    return () => { isMounted = false }
+  }, [hospitalId, isManualAddOpen, manualForm.store_code])
+
+  const manualAvailableRacks = useMemo(() => {
+    if (!manualSubLocations || manualSubLocations.length === 0) return []
+    return manualSubLocations.filter(unit =>
+      unit.type === 'rack' || unit.type === 'cabinet' || unit.type === 'pallet'
+    )
+  }, [manualSubLocations])
+
+  const manualAvailableLevels = useMemo(() => {
+    if (!manualForm.rack_name || !manualSubLocations || manualSubLocations.length === 0) return []
+    return manualSubLocations.filter(unit =>
+      (unit.type === 'level' || unit.type === 'column') && unit.parent_name === manualForm.rack_name
+    )
+  }, [manualSubLocations, manualForm.rack_name])
+
+  // Real-time catalog duplicate checker: Strictly enforce "only if item is NOT available in catalog"
+  const matchingCatalogItem = useMemo(() => {
+    const nameQuery = manualForm.item_name.trim().toLowerCase()
+    const codeQuery = manualForm.item_code.trim().toLowerCase()
+    if (!nameQuery && !codeQuery) return null
+
+    return catalogItems.find(drug => {
+      const dName = (drug.item_name || (drug as any).drug_name || '').trim().toLowerCase()
+      const dCode = (drug.item_code || drug.sku || '').trim().toLowerCase()
+      if (nameQuery && dName === nameQuery) return true
+      if (codeQuery && dCode === codeQuery) return true
+      return false
+    })
+  }, [manualForm.item_name, manualForm.item_code, catalogItems])
+
   // Helper to re-format overall location string when user picks Store, Rack, or Level
   const handleLocationChange = (newStoreCode: string, newRack: string, newLevel: string) => {
     setSelectedStoreCode(newStoreCode)
@@ -182,7 +276,7 @@ export const FacilityNonDrugInventoryPage: React.FC = () => {
     setEditLocationInput(result)
   }
 
-  // ─── Load facility inventory & store locations ──────────────────────────────
+  // ─── Load facility inventory, catalog items, suppliers & store locations ─────
   useEffect(() => {
     let isMounted = true
     setIsLoadingInventory(true)
@@ -194,13 +288,162 @@ export const FacilityNonDrugInventoryPage: React.FC = () => {
     })
     loadStoreLocations(hospitalId).then(locs => {
       if (isMounted) {
-        setAvailableStoreLocations(locs.filter(l => l.is_active && (l.location_type === 'drug' || l.location_type === 'both')))
+        setAvailableStoreLocations(locs.filter(l => l.is_active && (l.location_type === 'non_drug' || l.location_type === 'both' || !l.location_type || l.location_type === 'store' || l.location_type === 'warehouse')))
       }
     })
+    getNonDrugCategories().then(catRes => {
+      if (isMounted && catRes.data) setCategories(catRes.data)
+    })
+    getSuppliers(undefined, 1, 1000).then(res => {
+      if (isMounted && res.data?.data) setSuppliers(res.data.data)
+    }).catch(() => {})
+    getNonDrugs(hospitalId, {}, 1, 1000).then(drugRes => {
+      if (isMounted && drugRes.data?.data) {
+        setCatalogDrugs(drugRes.data.data)
+      }
+    }).catch(() => {})
     return () => { isMounted = false }
   }, [hospitalId])
 
-  // ─── Add Single Item ──────────────────────────────────────────────────────
+  // ─── Open Manual Add Modal ────────────────────────────────────────────────
+  const handleOpenManualAddModal = (presetName?: string) => {
+    const defaultVote = (['appl', 'cc', 'lp', 'dp'].includes(currentVoteParam) ? currentVoteParam : 'cc') as any
+    const defaultStore = availableStoreLocations.length > 0 ? availableStoreLocations[0].location_code : ''
+    setManualForm({
+      ...initialManualFormState,
+      item_name: presetName !== undefined ? presetName : (modalSearch || ''),
+      procurement_vote: defaultVote,
+      store_code: defaultStore,
+    })
+    if (defaultStore) {
+      loadStoreSubLocations(hospitalId, defaultStore).then(setManualSubLocations)
+    } else {
+      setManualSubLocations([])
+    }
+    setIsManualAddOpen(true)
+  }
+
+  // ─── Select existing item from catalog when detected in manual modal ─────
+  const handleSelectExistingFromCatalog = (drug: NonDrugWithRelations) => {
+    setIsManualAddOpen(false)
+    setIsAddModalOpen(true)
+    setSelectedCatalogDrug(drug)
+  }
+
+  // ─── Save Manual Non-Drug Item ───────────────────────────────────────────
+  const handleSaveManualNonDrug = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmedName = manualForm.item_name.trim()
+    if (!trimmedName) {
+      showError('Sila masukkan nama item bukan ubat.')
+      return
+    }
+
+    if (matchingCatalogItem) {
+      showError(`Item '${matchingCatalogItem.item_name}' sudah sedia ada dalam Katalog Utama. Sila pilih item tersebut daripada katalog.`)
+      return
+    }
+
+    setIsSavingManual(true)
+    try {
+      // 1. Category Resolution
+      let finalCategoryId = manualForm.category_id || undefined
+      if (manualForm.category_id === 'NEW' && manualForm.new_category_name.trim()) {
+        const catRes = await createOrGetNonDrugCategory(manualForm.new_category_name.trim(), hospitalId)
+        if (catRes.data) {
+          finalCategoryId = catRes.data.id
+          const catList = await getNonDrugCategories()
+          if (catList.data) setCategories(catList.data)
+        }
+      }
+
+      // 2. Format Location
+      let formattedLocation = ''
+      if (manualForm.store_code) {
+        const storeObj = availableStoreLocations.find(l => l.location_code === manualForm.store_code)
+        const storeName = storeObj ? storeObj.store_name : manualForm.store_code
+        const formattedCode = storeObj?.location_code ? `[${storeObj.location_code}] ` : ''
+        formattedLocation = `${formattedCode}${storeName}`
+        if (manualForm.rack_name) formattedLocation += ` > ${manualForm.rack_name}`
+        if (manualForm.level_name) formattedLocation += ` > ${manualForm.level_name}`
+      }
+
+      const generatedCode = manualForm.item_code.trim() || `ND-${Date.now().toString().slice(-6)}`
+
+      // 3. Create in Master Non-Drug Catalog (non_drugs table)
+      const catalogPayload: any = {
+        hospital_id: hospitalId,
+        item_name: trimmedName,
+        item_code: generatedCode,
+        category_id: finalCategoryId,
+        procurement_vote: manualForm.procurement_vote,
+        unit_of_measure: manualForm.unit_of_measure.trim() || 'UNIT',
+        packaging_description: manualForm.packaging_description.trim() || undefined,
+        price: Number(manualForm.price) || 0,
+        min_stock_level: Number(manualForm.min_stock_level) || 0,
+        max_stock_level: Number(manualForm.max_stock_level) || 100,
+        reorder_level: Number(manualForm.min_buffer_level) || 20,
+        status: 'active',
+        supplier_id: manualForm.supplier_id || undefined,
+        cc_contract_number: manualForm.cc_contract_number.trim() || undefined,
+        cc_contract_start_date: manualForm.cc_contract_start_date || undefined,
+        cc_contract_end_date: manualForm.cc_contract_end_date || undefined,
+      }
+
+      const createRes = await createNonDrug(hospitalId, catalogPayload)
+      if (createRes.error || !createRes.data) {
+        showError(createRes.error || 'Gagal mendaftar item bukan ubat ke katalog.')
+        setIsSavingManual(false)
+        return
+      }
+
+      const createdItem = createRes.data
+
+      // 4. Add to Facility Non-Drug Inventory
+      const addRes = await addToFacilityNonDrugInventory(
+        hospitalId,
+        createdItem,
+        Number(manualForm.facility_stock) || 0,
+        Number(manualForm.min_buffer_level) || 20,
+        formattedLocation
+      )
+
+      if (!addRes.success) {
+        showError(addRes.error || 'Gagal menambah item ke inventori fasiliti.')
+        setIsSavingManual(false)
+        return
+      }
+
+      // 5. Update initial batch/expiry note if provided
+      if (manualForm.batch_number || manualForm.expiry_date) {
+        await updateFacilityNonDrugInventoryItem(hospitalId, createdItem.id, {
+          min_buffer_level: Number(manualForm.min_buffer_level) || 20,
+          location: formattedLocation,
+          notes: `Batch Awal: ${manualForm.batch_number || '-'}, Luput: ${manualForm.expiry_date || '-'}`,
+        })
+      }
+
+      // 6. Refresh Data
+      const [freshCatalog, freshFacility] = await Promise.all([
+        getNonDrugs(hospitalId, {}, 1, 1000),
+        loadFacilityNonDrugInventory(hospitalId)
+      ])
+      if (freshCatalog.data?.data) setCatalogDrugs(freshCatalog.data.data)
+      setFacilityItems(freshFacility)
+
+      showSuccess(`'${trimmedName}' berjaya didaftarkan ke katalog dan dimasukkan ke Inventori Fasiliti.`)
+      setIsManualAddOpen(false)
+      setIsAddModalOpen(false)
+      setManualForm(initialManualFormState)
+    } catch (err: any) {
+      console.error('Error saving manual non-drug item:', err)
+      showError(err.message || 'Ralat semasa menyimpan item bukan ubat manual.')
+    } finally {
+      setIsSavingManual(false)
+    }
+  }
+
+  // ─── Add Single Item from Catalog ─────────────────────────────────────────
   const handleAddItem = async () => {
     if (!selectedCatalogItem) return
     const res = await addToFacilityNonDrugInventory(
@@ -220,7 +463,7 @@ export const FacilityNonDrugInventoryPage: React.FC = () => {
     setIsAddModalOpen(false)
   }
 
-  // ─── Batch Add ────────────────────────────────────────────────────────────
+  // ─── Batch Add from Catalog ───────────────────────────────────────────────
   const handleBatchAddItems = async () => {
     if (selectedCatalogItemIds.length === 0) return
     const drugsToAdd = catalogItems.filter(d => selectedCatalogItemIds.includes(d.id))
@@ -275,18 +518,41 @@ export const FacilityNonDrugInventoryPage: React.FC = () => {
     })
   }, [])
 
-  // Load Catalog Drugs for Modal with scheme filter & high limit (5000)
+  // Load Catalog Drugs for Modal with scheme filter & real-time search (debounced)
   useEffect(() => {
     if (!isAddModalOpen) return
+    let active = true
+
     const loadCatalogData = async () => {
       setIsCatalogLoading(true)
-      const filterObj = modalVoteFilter !== 'all' ? { procurement_vote: modalVoteFilter } : {}
-      const drugRes = await getNonDrugs(hospitalId, filterObj, 1, 5000)
-      if (drugRes.data) setCatalogDrugs(drugRes.data.data)
-      setIsCatalogLoading(false)
+      try {
+        const filterObj: any = {}
+        if (modalVoteFilter !== 'all') {
+          filterObj.procurement_vote = modalVoteFilter
+        }
+        if (modalSearch.trim()) {
+          filterObj.search = modalSearch.trim()
+        }
+        const drugRes = await getNonDrugs(hospitalId, filterObj, 1, 1000)
+        if (active && drugRes.data) {
+          setCatalogDrugs(drugRes.data.data)
+        }
+      } catch (err) {
+        console.error('Error loading non-drug catalog data for modal:', err)
+      } finally {
+        if (active) setIsCatalogLoading(false)
+      }
     }
-    void loadCatalogData()
-  }, [hospitalId, isAddModalOpen, modalVoteFilter])
+
+    const timer = setTimeout(() => {
+      void loadCatalogData()
+    }, 250)
+
+    return () => {
+      active = false
+      clearTimeout(timer)
+    }
+  }, [hospitalId, isAddModalOpen, modalVoteFilter, modalSearch])
 
   // Toggle item selection
   const handleToggleSelectItem = (id: string, e?: React.MouseEvent) => {
@@ -816,15 +1082,15 @@ export const FacilityNonDrugInventoryPage: React.FC = () => {
       return
     }
 
-    // min_stock_level & max_stock_level live on the drugs table — update them separately.
+    // min_stock_level & max_stock_level live on the non_drugs table — update them separately.
     import('@/services/supabase').then(({ supabase, isSupabaseConfigured }) => {
       if (isSupabaseConfigured()) {
         supabase
-          .from('drugs')
+          .from('non_drugs')
           .update({ min_stock_level: minVal, max_stock_level: maxVal, updated_at: new Date().toISOString() })
           .eq('id', editingItem.id)
           .then(({ error }) => {
-            if (error) console.error('[FacilityInventory] Failed to update drugs min/max:', error)
+            if (error) console.error('[FacilityInventory] Failed to update non_drugs min/max:', error)
           })
       }
     })
@@ -835,25 +1101,22 @@ export const FacilityNonDrugInventoryPage: React.FC = () => {
     setEditingItem(null)
   }
 
-  // Generate distinct category options combining therapeutic categories & DB categories
+  // Generate distinct category options combining non-drug categories & DB categories
   const categoryOptions = useMemo(() => {
     const set = new Set<string>()
     const defaults = [
-      'Analgesic',
-      'Anesthetic',
-      'Antibiotic',
-      'Anticoagulant',
-      'Anticonvulsant',
-      'Antidiabetic',
-      'Antiemetic',
-      'Antidote',
-      'Antihistamine',
-      'Antihyperlipidemic',
-      'Antihypertensive',
-      'Antipsychotic',
-      'Corticosteroid',
-      'Ophthalmic',
-      'Supplement'
+      'Pakai Buang / Consumables',
+      'Pembedahan / Surgical Supplies',
+      'Peralatan & Instrumen Perubatan',
+      'PPE / Perlindungan Diri',
+      'Pembalut & Dressing',
+      'Sarung Tangan / Gloves',
+      'Jarum & Picagari / Syringes & Needles',
+      'Kateter & Tiub / Catheters & Tubing',
+      'Jahitan & Sutur / Sutures',
+      'Diagnostik & Ujian Makmal',
+      'Pergigian / Dental',
+      'General'
     ]
     defaults.forEach(d => set.add(d))
 
@@ -932,22 +1195,24 @@ export const FacilityNonDrugInventoryPage: React.FC = () => {
   const filteredCatalogItems = useMemo(() => {
     return catalogItems.filter(drug => {
       // Filter out already added items
-      if (facilityItems.some(f => f.id === drug.id)) return false
+      if (facilityItems.some(f => f.id === drug.id || (f as any).nondrug_id === drug.id)) return false
 
       if (modalVoteFilter !== 'all') {
         const dVote = (drug.procurement_vote || 'appl').toLowerCase()
         if (dVote !== modalVoteFilter.toLowerCase()) return false
       }
 
-      if (modalSearch) {
-        const q = modalSearch.toLowerCase()
-        const code = drug.item_code || drug.item_code || drug.sku || ''
-        const contractNo = drug.cc_contract_number || drug.kkm_contract_number || drug.contract_number || ''
+      if (modalSearch.trim()) {
+        const q = modalSearch.toLowerCase().trim()
+        const code = (drug.item_code || (drug as any).code || drug.sku || (drug as any).appl_kod || (drug as any).appl_code || '').toLowerCase()
+        const name = (drug.item_name || (drug as any).drug_name || '').toLowerCase()
+        const generic = ((drug as any).generic_name || '').toLowerCase()
+        const contractNo = (drug.cc_contract_number || (drug as any).kkm_contract_number || (drug as any).contract_number || '').toLowerCase()
         return (
-          code.toLowerCase().includes(q) ||
-          drug.item_name?.toLowerCase().includes(q) ||
-          drug.generic_name?.toLowerCase().includes(q) ||
-          contractNo.toLowerCase().includes(q)
+          code.includes(q) ||
+          name.includes(q) ||
+          generic.includes(q) ||
+          contractNo.includes(q)
         )
       }
       return true
@@ -1065,6 +1330,42 @@ export const FacilityNonDrugInventoryPage: React.FC = () => {
         </div>
 
         <div className="relative z-10 flex items-center gap-3">
+          {/* Export Excel */}
+          <button
+            onClick={() => {
+              if (isExportingExcel || filteredItems.length === 0) return
+              setIsExportingExcel(true)
+              try {
+                const skimLabel = currentVoteParam === 'all' ? 'SEMUA SKIM' : `SKIM ${currentVoteParam.toUpperCase()}`
+                exportFacilityNonDrugInventoryToExcel(filteredItems, {
+                  skim: skimLabel,
+                  hospitalName: user?.hospital?.hospital_name || (user?.hospital as any)?.name || 'HOSPITAL LAWAS',
+                  departmentName: 'Stor Integrasi Bukan Ubat',
+                  generatedBy: user?.full_name || (user as any)?.name || 'Penyelia Stor',
+                  generatedByTitle: user?.jawatan || (user?.role as any)?.name || 'Penyelia Stor / Pegawai Farmasi',
+                })
+                showSuccess('Eksport Berjaya', `Fail Excel bagi ${filteredItems.length} item inventori bukan ubat berjaya dijana.`)
+              } catch (err: any) {
+                console.error('Export Excel error:', err)
+                showError('Ralat Eksport', err?.message || 'Gagal mengeksport fail Excel.')
+              } finally {
+                setIsExportingExcel(false)
+              }
+            }}
+            disabled={isExportingExcel || filteredItems.length === 0}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg
+              bg-white/10 hover:bg-white/20 border border-white/30 text-white
+              disabled:opacity-50 disabled:cursor-allowed"
+            title="Eksport Inventori Bukan Ubat ke format Excel (.xlsx)"
+          >
+            {isExportingExcel ? (
+              <Loader2 className="w-4 h-4 animate-spin text-emerald-300" />
+            ) : (
+              <FileSpreadsheet className="w-4 h-4 text-emerald-300" />
+            )}
+            <span>Eksport Excel</span>
+          </button>
+
           {/* Export Formulari PDF */}
           <button
             onClick={async () => {
@@ -1076,9 +1377,10 @@ export const FacilityNonDrugInventoryPage: React.FC = () => {
                   setTimeout(() => {
                     generateFormulariPdf(filteredItems, {
                       skim: skimLabel,
-                      preparedBy: user?.full_name || user?.name || 'Penyelia Stor',
+                      preparedBy: user?.full_name || (user as any)?.name || 'Penyelia Stor',
+                      preparedByTitle: user?.jawatan || (user?.role as any)?.name || 'Penyelia Stor / Pegawai Farmasi',
                       approvedBy: 'Pengarah Hospital',
-                      hospitalName: 'HOSPITAL LAWAS',
+                      hospitalName: user?.hospital?.hospital_name || (user?.hospital as any)?.name || 'HOSPITAL LAWAS',
                       department: 'Stor Integrasi Bukan Ubat',
                       isNonDrug: true,
                     })
@@ -1266,16 +1568,27 @@ export const FacilityNonDrugInventoryPage: React.FC = () => {
                       </div>
                       <h3 className="font-bold text-slate-800 text-base">Tiada Item dalam Inventori Fasiliti</h3>
                       <p className="text-xs text-slate-500">
-                        Inventori bukan ubat fasiliti anda masih kosong {currentVoteParam !== 'all' ? `untuk skim ${currentVoteParam.toUpperCase()}` : ''}. Sila klik butang di bawah untuk memilih item bukan ubat daripada Katolog Utama.
+                        Inventori bukan ubat fasiliti anda masih kosong {currentVoteParam !== 'all' ? `untuk skim ${currentVoteParam.toUpperCase()}` : ''}. Sila pilih item daripada Katalog Utama atau tambah manual jika tiada dalam katalog.
                       </p>
-                      <Button
-                        size="sm"
-                        onClick={() => setIsAddModalOpen(true)}
-                        className="bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl"
-                      >
-                        <Plus className="w-4 h-4 mr-1.5" />
-                        Tambah Item dari Katolog
-                      </Button>
+                      <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                        <Button
+                          size="sm"
+                          onClick={() => setIsAddModalOpen(true)}
+                          className="bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl"
+                        >
+                          <Plus className="w-4 h-4 mr-1.5" />
+                          Tambah Item dari Katalog
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleOpenManualAddModal()}
+                          className="bg-white hover:bg-slate-50 text-emerald-700 border-emerald-300 font-medium rounded-xl"
+                        >
+                          <PlusCircle className="w-4 h-4 mr-1.5 text-emerald-600" />
+                          Tambah Manual (Jika Tiada dalam Katalog)
+                        </Button>
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -1412,11 +1725,11 @@ export const FacilityNonDrugInventoryPage: React.FC = () => {
               <div>
                 <div className="flex items-center gap-2 text-xs font-semibold text-blue-300 uppercase tracking-wider mb-1">
                   <Package className="w-4 h-4 text-emerald-400" />
-                  <span>Katolog Utama Hospital</span>
+                  <span>Katalog Utama Hospital</span>
                 </div>
-                <h2 className="text-xl font-bold tracking-tight">Pilih Item Bukan Ubat Daripada Katolog</h2>
+                <h2 className="text-xl font-bold tracking-tight">Pilih Item Bukan Ubat Daripada Katalog</h2>
                 <p className="text-xs text-slate-300 mt-0.5">
-                  Pilih satu atau beberapa item bukan ubat untuk dimasukkan ke dalam pegangan inventori fasiliti anda.
+                  Pilih item bukan ubat daripada katalog utama atau tambah manual jika tiada dalam katalog.
                 </p>
               </div>
               <button
@@ -1441,7 +1754,7 @@ export const FacilityNonDrugInventoryPage: React.FC = () => {
                       <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                       <input
                         type="text"
-                        placeholder="Cari kod barang, nama bukan ubat atau bahan aktif..."
+                        placeholder="Cari kod barang, nama bukan ubat..."
                         value={modalSearch}
                         onChange={e => setModalSearch(e.target.value)}
                         className="w-full pl-9 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
@@ -1461,23 +1774,35 @@ export const FacilityNonDrugInventoryPage: React.FC = () => {
                     </select>
                   </div>
 
-                  {/* Multi-Select Header Toolbar */}
-                  <div className="flex items-center justify-between px-1 py-1">
+                  {/* Multi-Select Header Toolbar with Manual Add helper */}
+                  <div className="flex items-center justify-between px-1 py-1 gap-2 flex-wrap">
                     <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                      Senarai Item Katolog ({filteredCatalogItems.length} dijumpai)
+                      Senarai Item Katalog ({filteredCatalogItems.length} dijumpai)
                     </div>
 
-                    {filteredCatalogItems.length > 0 && (
-                      <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-blue-700 bg-blue-50 px-3 py-1 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors">
-                        <input
-                          type="checkbox"
-                          checked={isAllSelected}
-                          onChange={handleToggleSelectAll}
-                          className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                        />
-                        Pilih Semua ({allFilteredIds.length})
-                      </label>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenManualAddModal(modalSearch)}
+                        className="text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3 py-1 rounded-lg border border-emerald-200 flex items-center gap-1.5 transition-colors"
+                        title="Daftar item bukan ubat secara manual jika tiada dalam katalog"
+                      >
+                        <PlusCircle className="w-3.5 h-3.5" />
+                        <span>Tambah Manual (Jika Tiada)</span>
+                      </button>
+
+                      {filteredCatalogItems.length > 0 && (
+                        <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-blue-700 bg-blue-50 px-3 py-1 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={isAllSelected}
+                            onChange={handleToggleSelectAll}
+                            className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          />
+                          Pilih Semua ({allFilteredIds.length})
+                        </label>
+                      )}
+                    </div>
                   </div>
 
                   {/* Item List */}
@@ -1485,12 +1810,27 @@ export const FacilityNonDrugInventoryPage: React.FC = () => {
                     {isCatalogLoading ? (
                       <div className="py-16 text-center text-slate-400">
                         <Spinner className="w-8 h-8 mx-auto text-blue-600 mb-3" />
-                        <p className="text-sm font-medium text-slate-600">Memuatkan Katolog Bukan Ubat Utama...</p>
+                        <p className="text-sm font-medium text-slate-600">Memuatkan Katalog Bukan Ubat Utama...</p>
                       </div>
                     ) : filteredCatalogItems.length === 0 ? (
-                      <div className="py-16 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl p-6">
-                        <p className="text-sm font-medium text-slate-600">Tiada item Katolog dijumpai.</p>
-                        <p className="text-xs text-slate-400 mt-1">Cuba tukar kata kunci carian atau penapis skim.</p>
+                      <div className="py-12 text-center border-2 border-dashed border-slate-200 rounded-2xl p-6 bg-slate-50/50 space-y-3">
+                        <div className="w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
+                          <Search className="w-6 h-6" />
+                        </div>
+                        <h4 className="text-sm font-bold text-slate-800">
+                          {modalSearch ? `Tiada item ditemui untuk "${modalSearch}"` : 'Tiada item Katalog dijumpai'}
+                        </h4>
+                        <p className="text-xs text-slate-500 max-w-md mx-auto">
+                          Item bukan ubat ini mungkin belum didaftarkan dalam Katalog Utama. Anda dibenarkan untuk mendaftar dan menambahkannya secara manual terus ke inventori fasiliti.
+                        </p>
+                        <Button
+                          size="sm"
+                          onClick={() => handleOpenManualAddModal(modalSearch)}
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-md inline-flex items-center gap-1.5"
+                        >
+                          <PlusCircle className="w-4 h-4" />
+                          <span>Tambah {modalSearch ? `"${modalSearch}"` : 'Item'} Secara Manual</span>
+                        </Button>
                       </div>
                     ) : (
                       <div className="divide-y divide-slate-100 border border-slate-200/80 rounded-2xl bg-white overflow-hidden shadow-sm">
@@ -2334,6 +2674,498 @@ export const FacilityNonDrugInventoryPage: React.FC = () => {
                 Simpan Perubahan
               </Button>
             </div>
+          </div>
+        </>
+      )}
+
+      {/* Manual Non-Drug Item Registration & Facility Addition Drawer */}
+      {isManualAddOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-[95] transition-opacity animate-in fade-in duration-200"
+            onClick={() => {
+              if (!isSavingManual) setIsManualAddOpen(false)
+            }}
+          />
+
+          {/* Slide-Over Drawer */}
+          <div className="fixed inset-y-0 right-0 w-full sm:w-[600px] md:w-[740px] lg:w-[840px] bg-white shadow-2xl z-[100] flex flex-col border-l border-slate-200 animate-in slide-in-from-right duration-300">
+            {/* Drawer Header */}
+            <div className="p-6 bg-gradient-to-r from-teal-950 via-slate-900 to-emerald-950 text-white flex items-center justify-between shadow-md border-b border-emerald-800/40">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400 uppercase tracking-wider">
+                  <Sparkles className="w-4 h-4 text-emerald-400" />
+                  <span>Pendaftaran Item Bukan Ubat Manual</span>
+                </div>
+                <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                  Daftar Item Bukan Ubat Baharu
+                </h2>
+                <p className="text-xs text-slate-300">
+                  Hanya dibenarkan bagi item bukan ubat yang tiada dalam Katalog Utama Hospital Lawas.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  if (!isSavingManual) setIsManualAddOpen(false)
+                }}
+                disabled={isSavingManual}
+                className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all disabled:opacity-50"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Drawer Body / Form */}
+            <form onSubmit={handleSaveManualNonDrug} className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Dynamic Catalog Existence Banner */}
+              {matchingCatalogItem ? (
+                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 space-y-3 animate-in fade-in duration-200">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <AlertTriangle className="w-5 h-5 text-amber-600" />
+                    </div>
+                    <div className="space-y-1 flex-1">
+                      <h4 className="text-sm font-bold text-amber-950">
+                        Item ini sudah sedia wujud dalam Katalog Utama!
+                      </h4>
+                      <p className="text-xs text-amber-800 leading-relaxed">
+                        Item <strong>"{matchingCatalogItem.item_name}"</strong> (Kod: <span className="font-mono font-bold">{matchingCatalogItem.item_code || matchingCatalogItem.sku}</span>) telah didaftarkan dalam Katalog Utama dengan skim <strong>{(matchingCatalogItem.procurement_vote || 'APPL').toUpperCase()}</strong>. Penambahan manual disekat bagi mengelakkan penduaan lejar stok.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-end gap-2 pt-1 border-t border-amber-200/80">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => handleSelectExistingFromCatalog(matchingCatalogItem)}
+                      className="bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-xl shadow-sm inline-flex items-center gap-1.5"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Pilih '{matchingCatalogItem.item_name}' Dari Katalog</span>
+                    </Button>
+                  </div>
+                </div>
+              ) : manualForm.item_name.trim() ? (
+                <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center gap-3 animate-in fade-in duration-200">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  </div>
+                  <div className="text-xs text-emerald-900 leading-relaxed">
+                    <span className="font-bold">Item disahkan tiada dalam Katalog Utama.</span> Anda dibenarkan mendaftar dan menambah item ini secara manual ke inventori fasiliti.
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3.5 rounded-2xl bg-blue-50 border border-blue-200 flex items-center gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center flex-shrink-0">
+                    <Info className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <div className="text-xs text-blue-900 leading-relaxed">
+                    Sila masukkan nama item. Sistem akan menyemak secara langsung sama ada item telah wujud dalam katalog utama hospital.
+                  </div>
+                </div>
+              )}
+
+              {/* Section 1: Maklumat Katalog Bukan Ubat */}
+              <div className="bg-slate-50/80 p-5 rounded-2xl border border-slate-200/80 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                  <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                    <Tag className="w-4 h-4 text-emerald-600" />
+                    1. Maklumat Katalog Bukan Ubat (Master Catalog)
+                  </h3>
+                  <span className="text-[11px] text-slate-400 font-normal">* Wajib diisi</span>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Nama Item Bukan Ubat <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={manualForm.item_name}
+                      onChange={e => setManualForm({ ...manualForm, item_name: e.target.value })}
+                      placeholder="Cth: SYRINGE 5ML WITH NEEDLE 21G, SURGICAL GLOVES SIZE 7.5, GAUZE ROLL 10CM"
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 bg-white font-medium focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all uppercase placeholder:normal-case"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Kod Item Bukan Ubat / SKU <span className="text-[10px] text-slate-400 font-normal">(Pilihan)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={manualForm.item_code}
+                        onChange={e => setManualForm({ ...manualForm, item_code: e.target.value })}
+                        placeholder="Auto-generated jika dibiarkan kosong"
+                        className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 bg-white font-mono uppercase focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Skim Perolehan <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        value={manualForm.procurement_vote}
+                        onChange={e => setManualForm({ ...manualForm, procurement_vote: e.target.value as any })}
+                        className="w-full px-3.5 py-2.5 text-sm font-semibold rounded-xl border border-slate-200 bg-white text-slate-800 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                      >
+                        <option value="appl">APPL (Kontrak Pusat Pharmaniaga)</option>
+                        <option value="cc">CC (Central Contract KKM)</option>
+                        <option value="lp">LP (Pembelian Terus / Local Purchase)</option>
+                        <option value="dp">DP (Direct Purchase / Sebutharga)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Kategori Bukan Ubat
+                      </label>
+                      <select
+                        value={manualForm.category_id}
+                        onChange={e => setManualForm({ ...manualForm, category_id: e.target.value })}
+                        className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
+                      >
+                        <option value="">-- Pilih Kategori --</option>
+                        {categories.map(cat => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.category_name || (cat as any).name}
+                          </option>
+                        ))}
+                        <option value="NEW">+ Tambah Kategori Baharu...</option>
+                      </select>
+                    </div>
+
+                    {manualForm.category_id === 'NEW' && (
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Nama Kategori Baharu <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={manualForm.new_category_name}
+                          onChange={e => setManualForm({ ...manualForm, new_category_name: e.target.value })}
+                          placeholder="Cth: Dressing, Jarum, Tiub"
+                          className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                        />
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Unit Ukuran / Bentuk (UOM)
+                      </label>
+                      <input
+                        type="text"
+                        list="manual-uom-list"
+                        value={manualForm.unit_of_measure}
+                        onChange={e => setManualForm({ ...manualForm, unit_of_measure: e.target.value.toUpperCase() })}
+                        placeholder="PACK, BOX, UNIT, ROLL, SET, PCS"
+                        className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 bg-white font-mono uppercase focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                      />
+                      <datalist id="manual-uom-list">
+                        <option value="PACK" />
+                        <option value="BOX" />
+                        <option value="UNIT" />
+                        <option value="ROLL" />
+                        <option value="SET" />
+                        <option value="PCS" />
+                        <option value="BTL" />
+                        <option value="VIAL" />
+                        <option value="TUB" />
+                        <option value="PAIR" />
+                        <option value="CAN" />
+                      </datalist>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Keterangan Pembungkusan
+                      </label>
+                      <input
+                        type="text"
+                        value={manualForm.packaging_description}
+                        onChange={e => setManualForm({ ...manualForm, packaging_description: e.target.value })}
+                        placeholder="Cth: 100 pcs/box, 50 rolls/carton"
+                        className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Harga Seunit (RM)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={manualForm.price || ''}
+                        onChange={e => setManualForm({ ...manualForm, price: parseFloat(e.target.value) || 0 })}
+                        placeholder="0.00"
+                        className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 bg-white font-mono focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Supplier dropdown */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Pembekal (Supplier)
+                    </label>
+                    <select
+                      value={manualForm.supplier_id}
+                      onChange={e => setManualForm({ ...manualForm, supplier_id: e.target.value })}
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
+                    >
+                      <option value="">-- Pilihan Pembekal (Jika Ada) --</option>
+                      {suppliers.map(sup => (
+                        <option key={sup.id} value={sup.id}>
+                          {sup.company_name || sup.supplier_name || 'Pembekal'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Conditional Central Contract (CC) fields */}
+                  {manualForm.procurement_vote === 'cc' && (
+                    <div className="p-4 rounded-xl bg-purple-50/70 border border-purple-200 space-y-3">
+                      <div className="text-xs font-bold text-purple-900 uppercase flex items-center gap-1.5">
+                        <ShieldCheck className="w-4 h-4 text-purple-600" />
+                        Butiran Kontrak Pusat (Central Contract)
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">No. Kontrak CC</label>
+                          <input
+                            type="text"
+                            value={manualForm.cc_contract_number}
+                            onChange={e => setManualForm({ ...manualForm, cc_contract_number: e.target.value })}
+                            placeholder="Cth: KKM/CC/2026/089"
+                            className="w-full px-3 py-2 text-xs rounded-lg border border-purple-200 bg-white font-mono focus:ring-2 focus:ring-purple-500/20"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">Tarikh Mula Kontrak</label>
+                          <input
+                            type="date"
+                            value={manualForm.cc_contract_start_date}
+                            onChange={e => setManualForm({ ...manualForm, cc_contract_start_date: e.target.value })}
+                            className="w-full px-3 py-2 text-xs rounded-lg border border-purple-200 bg-white font-mono focus:ring-2 focus:ring-purple-500/20"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">Tarikh Tamat Kontrak</label>
+                          <input
+                            type="date"
+                            value={manualForm.cc_contract_end_date}
+                            onChange={e => setManualForm({ ...manualForm, cc_contract_end_date: e.target.value })}
+                            className="w-full px-3 py-2 text-xs rounded-lg border border-purple-200 bg-white font-mono focus:ring-2 focus:ring-purple-500/20"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Section 2: Konfigurasi Stok & Penempatan Stor Fasiliti */}
+              <div className="bg-slate-50/80 p-5 rounded-2xl border border-slate-200/80 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                  <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                    <Boxes className="w-4 h-4 text-blue-600" />
+                    2. Konfigurasi Stok & Penempatan Stor Fasiliti
+                  </h3>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Stok Fizikal Awal Fasiliti
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={manualForm.facility_stock}
+                      onChange={e => setManualForm({ ...manualForm, facility_stock: parseInt(e.target.value) || 0 })}
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 bg-white font-mono font-bold text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                    />
+                    <span className="text-[11px] text-slate-400 mt-0.5 block">Kuantiti fizikal semasa di stor fasiliti</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Paras Penimbal Minimum (Min Buffer)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={manualForm.min_buffer_level}
+                      onChange={e => setManualForm({ ...manualForm, min_buffer_level: parseInt(e.target.value) || 0 })}
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 bg-white font-mono font-bold text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                    />
+                    <span className="text-[11px] text-slate-400 mt-0.5 block">Paras amaran pesanan semula fasiliti</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Paras Minimum Stok (Min Stock Level)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={manualForm.min_stock_level}
+                      onChange={e => setManualForm({ ...manualForm, min_stock_level: parseInt(e.target.value) || 0 })}
+                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 bg-white font-mono focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Paras Maksimum Stok (Max Stock Level)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={manualForm.max_stock_level}
+                      onChange={e => setManualForm({ ...manualForm, max_stock_level: parseInt(e.target.value) || 0 })}
+                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 bg-white font-mono focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+                </div>
+
+                {/* Storage Location Picker */}
+                <div className="space-y-2 pt-2 border-t border-slate-200">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Lokasi Simpanan di Stor Fasiliti
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-500 mb-1">Stor / Unit</label>
+                      <select
+                        value={manualForm.store_code}
+                        onChange={e => setManualForm({ ...manualForm, store_code: e.target.value, rack_name: '', level_name: '' })}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-800 font-medium"
+                      >
+                        <option value="">-- Pilih Stor --</option>
+                        {availableStoreLocations.map(loc => (
+                          <option key={loc.id || loc.location_code} value={loc.location_code}>
+                            [{loc.location_code}] {loc.store_name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-500 mb-1">Rak / Kabinet</label>
+                      <select
+                        value={manualForm.rack_name}
+                        onChange={e => setManualForm({ ...manualForm, rack_name: e.target.value, level_name: '' })}
+                        disabled={!manualForm.store_code || manualAvailableRacks.length === 0}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-800 disabled:bg-slate-100 disabled:opacity-60"
+                      >
+                        <option value="">-- Pilihan Rak --</option>
+                        {manualAvailableRacks.map(r => (
+                          <option key={r.id || r.name} value={r.name}>
+                            {r.name} ({r.type})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-500 mb-1">Tingkat / Slot</label>
+                      <select
+                        value={manualForm.level_name}
+                        onChange={e => setManualForm({ ...manualForm, level_name: e.target.value })}
+                        disabled={!manualForm.rack_name || manualAvailableLevels.length === 0}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-800 disabled:bg-slate-100 disabled:opacity-60"
+                      >
+                        <option value="">-- Pilihan Tingkat --</option>
+                        {manualAvailableLevels.map(lvl => (
+                          <option key={lvl.id || lvl.name} value={lvl.name}>
+                            {lvl.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Initial Batch & Expiry Date (Optional) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-200">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      No. Batch Permulaan <span className="text-[10px] text-slate-400 font-normal">(Pilihan)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={manualForm.batch_number}
+                      onChange={e => setManualForm({ ...manualForm, batch_number: e.target.value })}
+                      placeholder="Cth: B260817-A"
+                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 bg-white font-mono uppercase focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Tarikh Luput Permulaan <span className="text-[10px] text-slate-400 font-normal">(Pilihan)</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={manualForm.expiry_date}
+                      onChange={e => setManualForm({ ...manualForm, expiry_date: e.target.value })}
+                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 bg-white font-mono focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Drawer Footer Actions */}
+              <div className="p-4 -mx-6 -mb-6 bg-slate-50 border-t border-slate-200 flex items-center justify-between sticky bottom-0 z-10">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isSavingManual}
+                  onClick={() => setIsManualAddOpen(false)}
+                >
+                  Batal
+                </Button>
+
+                <Button
+                  type="submit"
+                  size="md"
+                  disabled={isSavingManual || !!matchingCatalogItem || !manualForm.item_name.trim()}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 rounded-xl shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSavingManual ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Menyimpan Item...</span>
+                    </>
+                  ) : matchingCatalogItem ? (
+                    <>
+                      <AlertTriangle className="w-4 h-4" />
+                      <span>Item Sudah Ada Dalam Katalog</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4" />
+                      <span>Daftar & Tambah ke Inventori</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
           </div>
         </>
       )}

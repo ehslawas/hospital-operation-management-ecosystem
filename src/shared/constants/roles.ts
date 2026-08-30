@@ -16,6 +16,9 @@ export const SYSTEM_ROLES = {
   STAFF: 'staff',
   TRANSPORT_DRIVER: 'transport_driver',
   TRANSPORT_ADMIN: 'transport_admin',
+  PORTER_STAFF: 'porter_staff',
+  PORTER_SUPERVISOR: 'porter_supervisor',
+  PORTER_ADMIN: 'porter_admin',
 } as const
 
 export const ROLE_DISPLAY_NAMES: Record<string, string> = {
@@ -36,5 +39,8 @@ export const ROLE_DISPLAY_NAMES: Record<string, string> = {
   [SYSTEM_ROLES.STAFF]: 'Staff',
   [SYSTEM_ROLES.TRANSPORT_DRIVER]: 'Transport Driver',
   [SYSTEM_ROLES.TRANSPORT_ADMIN]: 'Transport Admin',
+  [SYSTEM_ROLES.PORTER_STAFF]: 'Porter (PPK)',
+  [SYSTEM_ROLES.PORTER_SUPERVISOR]: 'Penyelia Porter (PPK Supervisor)',
+  [SYSTEM_ROLES.PORTER_ADMIN]: 'Porter Admin',
 } as const
 

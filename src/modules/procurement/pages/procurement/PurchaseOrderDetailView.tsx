@@ -42,7 +42,7 @@ import { generatePurchaseOrderPdf, openPdfForPrint, cleanupPdfUrl } from '@/serv
 import { getBudgetForPO } from '@/services/pharmacy/budgetEngine'
 import type { PurchaseOrderWithRelations, PurchaseOrderItem } from '@/types/pharmacy'
 import { ROUTES } from '@/lib/constants'
-import { cn, formatCurrency, formatDateTime, isContractExpired } from '@/lib/utils'
+import { cn, formatCurrency, formatDateTime, isContractExpired, isApplOrder } from '@/lib/utils'
 
 const getStatusColor = (status: string) => {
   switch (status || '') {
@@ -1017,7 +1017,7 @@ export const PurchaseOrderDetailView: React.FC<PurchaseOrderDetailViewProps> = (
                     <p className="text-[10.5pt] font-bold text-gray-900">
                       {order?.po_type === 'sq'
                         ? (order?.inv_sq_number || '-')
-                        : (order?.vote_code === '990102' || order?.po_type === 'manual'
+                        : (isApplOrder(order) || order?.po_type === 'manual'
                           ? '-'
                           : (() => {
                               const refD = order?.order_date || order?.created_at;
@@ -1130,7 +1130,7 @@ export const PurchaseOrderDetailView: React.FC<PurchaseOrderDetailViewProps> = (
                   <td className="border border-gray-800 px-1 py-1 text-center font-bold text-[9pt]">{index + 1}</td>
                   <td className="border border-gray-800 px-2 py-1">
                     <div className="font-bold text-[9.5pt] mb-0.5">{item.item_name}</div>
-                    {order?.vote_code !== '990102' && order?.po_type !== 'manual' && order?.po_type !== 'sq' && contractNo && !contractIsExpired && (
+                    {!isApplOrder(order) && order?.po_type !== 'manual' && order?.po_type !== 'sq' && contractNo && !contractIsExpired && (
                       <div className="space-y-0 text-[7.5pt] leading-tight text-gray-700 italic">
                         <p><span className="font-bold not-italic">No. Kontrak:</span> {contractNo}</p>
                         <p><span className="font-bold not-italic">Tempoh Serahan:</span> {deliveryPeriod}</p>

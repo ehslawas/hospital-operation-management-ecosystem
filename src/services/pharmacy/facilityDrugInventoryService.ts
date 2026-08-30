@@ -35,6 +35,11 @@ export interface FacilityDrugItem extends DrugWithRelations {
   expiry_date?: string
   exp_date?: string
   location?: string
+  item_code?: string
+  item_name?: string
+  uom?: string
+  is_active?: boolean
+  notes?: string
 }
 
 // ─── Local Cache Helpers ─────────────────────────────────────────────────────

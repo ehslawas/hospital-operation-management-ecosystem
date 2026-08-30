@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useEffect, useState } from 'react'
-import { useLocation, Link } from 'react-router-dom'
+import { useLocation, Link, useNavigate } from 'react-router-dom'
 import { 
   Activity, 
   AirVent, 
@@ -35,8 +35,10 @@ import {
   EyeOff,
   Building2,
   MapPin,
-  CheckCheck
+  CheckCheck,
+  ScrollText
 } from 'lucide-react'
+import { ROUTES } from '@/shared/constants/routes'
 import { useAuthStore } from '@/stores/authStore'
 import { useLanguage } from '@/shared/contexts/LanguageContext'
 import { Spinner, StatCard, Table, Badge, DataTable } from '@/components/ui'
@@ -125,6 +127,7 @@ export const OxygenDashboardPage: React.FC = () => {
   const { language } = useLanguage()
   const hospitalId = user?.hospital_id
   const location = useLocation()
+  const navigate = useNavigate()
   const currentPath = location.pathname
 
   // Existing distribution and inventory states
@@ -153,6 +156,7 @@ export const OxygenDashboardPage: React.FC = () => {
   const [isLedgerLoading, setIsLedgerLoading] = useState(false)
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false)
   const [isScanOpen, setIsScanOpen] = useState(false)
+  const [selectedDepleteCombo, setSelectedDepleteCombo] = useState<any | null>(null)
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false)
   const [sessionScannedCylinders, setSessionScannedCylinders] = useState<OxygenCylinderWithRelations[]>([])
   const [printDocId, setPrintDocId] = useState<string | null>(null)
@@ -177,7 +181,7 @@ export const OxygenDashboardPage: React.FC = () => {
   const [supplierTagRows, setSupplierTagRows] = useState<string[]>([''])
 
   // OCR Auto-Extraction States
-  const [deliveryDocFile, setDeliveryDocFile] = useState<File | null>(null)
+  const [deliveryDocFiles, setDeliveryDocFiles] = useState<File[]>([])
   const [isOcrProcessing, setIsOcrProcessing] = useState(false)
   const [ocrExtractedTags, setOcrExtractedTags] = useState<{ serial: string; selected: boolean }[]>([])
   const [showOcrReview, setShowOcrReview] = useState(false)
@@ -185,20 +189,20 @@ export const OxygenDashboardPage: React.FC = () => {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setDeliveryDocFile(e.target.files[0])
+      setDeliveryDocFiles(Array.from(e.target.files))
       setOcrError(null)
       setShowOcrReview(false)
     }
   }
 
   const handleRunOcr = async () => {
-    if (!deliveryDocFile) return
+    if (deliveryDocFiles.length === 0) return
     setIsOcrProcessing(true)
     setOcrError(null)
     setShowOcrReview(false)
     
     try {
-      const serials = await extractSerialsFromDocument(deliveryDocFile)
+      const serials = await extractSerialsFromDocument(deliveryDocFiles)
       setOcrExtractedTags(serials.map(s => ({ serial: s, selected: true })))
       setShowOcrReview(true)
     } catch (err: any) {
@@ -217,27 +221,27 @@ export const OxygenDashboardPage: React.FC = () => {
     if (selectedTags.length > 0) {
       setSupplierTagRows(selectedTags)
       setShowOcrReview(false)
-      setDeliveryDocFile(null)
+      setDeliveryDocFiles([])
     }
   }
 
   useEffect(() => {
     if (selectedTypeId) {
       const type = cylinderTypes.find(t => t.id === selectedTypeId)
-      const isLoan = type ? (type.type_name.toLowerCase().includes('loan') || type.type_code.startsWith('101-')) : false
+      const isLoan = type ? (((type.type_name || '').toLowerCase().includes('loan')) || (type.type_code || '').startsWith('101-')) : false
       if (isLoan) {
         setGenerateQuantity(1)
       }
     }
     setSupplierTagRows([''])
-    setDeliveryDocFile(null)
+    setDeliveryDocFiles([])
     setOcrExtractedTags([])
     setShowOcrReview(false)
     setOcrError(null)
   }, [selectedTypeId, cylinderTypes])
 
   const selectedType = cylinderTypes.find(t => t.id === selectedTypeId)
-  const isLoanSelected = selectedType ? (selectedType.type_name.toLowerCase().includes('loan') || selectedType.type_code.startsWith('101-')) : false
+  const isLoanSelected = selectedType ? (((selectedType.type_name || '').toLowerCase().includes('loan')) || (selectedType.type_code || '').startsWith('101-')) : false
   const isOcrEligible = selectedType ? (selectedType.type_code === '101-N' || selectedType.type_code === '101-F') : false
 
   // Reconciliation Audit States
@@ -255,14 +259,23 @@ export const OxygenDashboardPage: React.FC = () => {
   const [isAuditScanOpen, setIsAuditScanOpen] = useState(false)
   const [isAuditReviewOpen, setIsAuditReviewOpen] = useState(false)
 
-  const isStoreLocation = (loc?: string | null) => {
+  const isStoreLocation = (loc?: any) => {
     if (!loc) return true;
-    const lower = loc.toLowerCase().trim();
+    let locStr = '';
+    if (typeof loc === 'string') {
+      locStr = loc;
+    } else if (typeof loc === 'object') {
+      locStr = loc?.location_name || loc?.name || loc?.department_name || '';
+    } else {
+      locStr = String(loc);
+    }
+    if (!locStr) return true;
+    const lower = locStr.toLowerCase().trim();
     return lower.includes('store') || lower.includes('farmasi') || lower.includes('depot') || lower === 'pharmacy' || lower === 'main store' || lower === 'pharmacy store' || lower === 'central store';
   };
 
-  const normalizeStatusForReconciliation = (status: string) => {
-    const s = (status || '').toLowerCase();
+  const normalizeStatusForReconciliation = (status?: any) => {
+    const s = (typeof status === 'string' ? status : String(status || '')).toLowerCase();
     if (s === 'available' || s === 'full') return 'available';
     if (s === 'used' || s === 'in_use' || s === 'issued') return 'used';
     if (s === 'empty') return 'empty';
@@ -271,8 +284,9 @@ export const OxygenDashboardPage: React.FC = () => {
   };
 
   const getExpectedStateForCylinder = (cyl: any, locationOverride?: string) => {
-    const loc = locationOverride || physicalLocations[cyl?.id] || cyl?.scanned_location || cyl?.current_location || cyl?.assigned_ward?.department_name || cyl?.department?.department_name;
-    const rawStatus = (cyl?.status || '').toLowerCase();
+    const rawLoc = locationOverride || physicalLocations[cyl?.id] || cyl?.scanned_location || cyl?.current_location || cyl?.assigned_ward?.department_name || cyl?.department?.department_name;
+    const loc = typeof rawLoc === 'object' ? (rawLoc?.location_name || rawLoc?.name || rawLoc?.department_name || '') : rawLoc;
+    const rawStatus = (typeof cyl?.status === 'string' ? cyl?.status : String(cyl?.status || '')).toLowerCase();
 
     // Explicit empty or return states
     if (rawStatus === 'empty') return 'empty';
@@ -313,7 +327,10 @@ export const OxygenDashboardPage: React.FC = () => {
     const loc = cyl?.scanned_location || cyl?.current_location;
     if (loc) {
       if (typeof loc === 'string' && loc.trim()) return loc;
-      if (typeof loc === 'object' && loc?.location_name) return loc.location_name;
+      if (typeof loc === 'object') {
+        const name = loc?.location_name || loc?.name || loc?.department_name;
+        if (name) return name;
+      }
     }
     if (cyl?.assigned_ward?.department_name) return cyl.assigned_ward.department_name;
     if (cyl?.department?.department_name) return cyl.department.department_name;
@@ -522,7 +539,7 @@ export const OxygenDashboardPage: React.FC = () => {
 
   const isLindeSupplier = (name?: string | null) => {
     if (!name) return true
-    return name.toLowerCase().includes('linde')
+    return String(name).toLowerCase().includes('linde')
   }
 
   const isSupplierMatch = (configSupplier: string | null | undefined, selectedSupplier: string) => {
@@ -530,7 +547,7 @@ export const OxygenDashboardPage: React.FC = () => {
     if (isLindeSupplier(selectedSupplier)) {
       return isLindeSupplier(configSupplier)
     }
-    return (configSupplier || '').trim().toLowerCase() === selectedSupplier.trim().toLowerCase()
+    return String(configSupplier || '').trim().toLowerCase() === String(selectedSupplier || '').trim().toLowerCase()
   }
 
   const realSupplierOptions = Array.from(
@@ -545,7 +562,7 @@ export const OxygenDashboardPage: React.FC = () => {
       ...dbSuppliers.map((s) => s.company_name)
     ].filter((name): name is string => {
       if (!name) return false;
-      const lower = name.toLowerCase();
+      const lower = String(name).toLowerCase();
       return lower.includes('linde') || lower.includes('borneo indah');
     }))
   )
@@ -579,38 +596,155 @@ export const OxygenDashboardPage: React.FC = () => {
     setEditedPrices(priceMap)
   }, [selectedModalSupplier, isAddingNewSupplier, customSupplierInput, pricingConfigs])
 
+  /**
+   * Consolidates received cylinder items for a single reception record or a monthly consolidated record.
+   * Handles per-reception breakdown so that un-itemized legacy records or mixed-record months are
+   * accurately aggregated without dropping any deliveries.
+   */
+  const fetchAndConsolidateReceptionItems = async (
+    targetRecord: OxygenReceptionRecord | any,
+    targetSupplierName: string
+  ): Promise<OxygenPdfItem[]> => {
+    // 1. Gather all reception IDs for this record or month
+    const idSet = new Set<string>()
+
+    // Add direct targetRecord id if not a synthetic monthly key
+    if (targetRecord.id && typeof targetRecord.id === 'string' && !targetRecord.id.startsWith('monthly-')) {
+      idSet.add(targetRecord.id)
+    }
+
+    // Add all IDs in targetRecord.ids
+    if (Array.isArray(targetRecord.ids)) {
+      targetRecord.ids.forEach((id: string) => { if (id && typeof id === 'string' && !id.startsWith('monthly-')) idSet.add(id) })
+    }
+
+    // Flatten all sub-records and their nested ids
+    if (Array.isArray(targetRecord.records)) {
+      targetRecord.records.forEach((rec: any) => {
+        if (rec.id && typeof rec.id === 'string' && !rec.id.startsWith('monthly-')) idSet.add(rec.id)
+        if (Array.isArray(rec.ids)) {
+          rec.ids.forEach((subId: string) => { if (subId && typeof subId === 'string' && !subId.startsWith('monthly-')) idSet.add(subId) })
+        }
+      })
+    }
+
+    // If monthKey is present, query ALL reception IDs for this month directly from DB for 100% completeness
+    const monthKey: string | undefined = targetRecord.monthKey
+    const targetHospitalId = targetRecord.hospital_id || hospitalId
+    if (monthKey && targetHospitalId) {
+      const [yrStr, moStr] = monthKey.split('-')
+      const year = parseInt(yrStr, 10)
+      const month = parseInt(moStr, 10)
+      const startDate = `${year}-${String(month).padStart(2, '0')}-01`
+      const lastDay = new Date(year, month, 0).getDate()
+      const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+      const { data: monthRecs } = await supabase
+        .from('pharmacy_oxygen_reception_records')
+        .select('id')
+        .eq('hospital_id', targetHospitalId)
+        .gte('reception_date', startDate)
+        .lte('reception_date', endDate)
+      if (monthRecs && monthRecs.length > 0) {
+        monthRecs.forEach((r: any) => { if (r.id) idSet.add(r.id) })
+      }
+    }
+
+    const allRecIds = Array.from(idSet)
+
+    // 2. Fetch raw items from DB for all receptions
+    const { data: rawItems } = await supabase
+      .from('pharmacy_oxygen_reception_items')
+      .select('*, size_info:pharmacy_oxygen_cylinder_sizes(*)')
+      .in('reception_id', allRecIds)
+
+    // 3. Build a lookup of loan rates from pricingConfigs for this supplier
+    //    Key: size_code (e.g. "101-N"), Value: loan rate per cylinder (e.g. 15.00)
+    const supplierLoanRates: Record<string, number> = {}
+    pricingConfigs
+      .filter(c => isSupplierMatch(c.supplier_name, targetSupplierName))
+      .forEach(c => {
+        if (c.loan_rate != null && c.loan_rate > 0) {
+          supplierLoanRates[c.cylinder_size_code] = Number(c.loan_rate)
+        }
+      })
+
+    // 4. For each item row, determine is_loan using this logic:
+    //    - If size_info.is_loan is FALSE on the size: it is ALWAYS a refill (Standard Refill)
+    //    - If size_info.is_loan is TRUE on the size: compare unit_price against the known
+    //      loan rate for that size. If unit_price <= loanRate * 1.5, it is a loan fee row.
+    //      If unit_price >> loanRate (i.e. matches the refill price), it is a refill.
+    //    This is necessary because the schema stores 101-N cylinder type as is_loan=true
+    //    but it also receives actual refill gas (at RM 250) plus a separate loan fee (at RM 15).
+    const resolveIsLoan = (itm: any): boolean => {
+      const sizeIsLoan: boolean = itm.size_info?.is_loan === true
+      if (!sizeIsLoan) return false // P101-D, P101-E, P101-F, P101-HS → always refill
+
+      // For 101-N and 101-F (marked as loan sizes):
+      // A loan FEE row has a very low unit_price (e.g. RM 15 for cylinder hire)
+      // A refill row has the full gas price (e.g. RM 250 for 101-N refill)
+      const sizeCode = itm.size_info?.code || ''
+      const unitPrice = Number(itm.unit_price || 0)
+      const knownLoanRate = supplierLoanRates[sizeCode] ?? 0
+
+      if (knownLoanRate > 0) {
+        // Loan fee rows are at or near the known loan rate; refills are much higher
+        return unitPrice <= knownLoanRate * 2
+      }
+      // Fallback: if loan rate is unknown but unit_price is very low (<= 50), treat as loan fee
+      return unitPrice <= 50
+    }
+
+    // 5. Consolidated aggregation: key → { size_code, is_loan, qty, price }
+    const groupMap: Record<string, { size_code: string; is_loan: boolean; qty: number; price: number }> = {}
+
+    ;(rawItems || []).forEach((itm: any) => {
+      const sizeCode = itm.size_info?.code || 'Standard'
+      const unitPrice = Number(itm.unit_price || 0)
+      const isLoan = resolveIsLoan(itm)
+      const key = `${sizeCode}-${isLoan ? 'loan' : 'refill'}`
+
+      if (!groupMap[key]) {
+        groupMap[key] = {
+          size_code: sizeCode,
+          is_loan: isLoan,
+          qty: 1,
+          price: unitPrice
+        }
+      } else {
+        groupMap[key].qty += 1
+      }
+    })
+
+    // 6. Format final items list using contract prices from pricingConfigs
+    const formattedItems: OxygenPdfItem[] = []
+    Object.values(groupMap).forEach((val) => {
+      let cleanPrice = val.price
+      if (!val.is_loan) {
+        const contractPrice = getActivePrice(val.size_code, targetSupplierName)
+        if (contractPrice > 0) cleanPrice = contractPrice
+      } else {
+        const lRate = getActiveLoanRate(val.size_code, targetSupplierName)
+        if (lRate > 0) cleanPrice = lRate
+      }
+
+      formattedItems.push({
+        size_code: val.size_code,
+        is_loan: val.is_loan,
+        quantity: val.qty,
+        unit_price: cleanPrice,
+        total_price: val.qty * cleanPrice
+      })
+    })
+
+    return formattedItems
+  }
+
   useEffect(() => {
     if (!isPoPreviewModalOpen || !previewRecord) return
 
     let active = true
     const generatePreview = async () => {
       try {
-        const { data: rawItems } = await supabase
-          .from('pharmacy_oxygen_reception_items')
-          .select('*, size_info:pharmacy_oxygen_cylinder_sizes(*)')
-          .in('reception_id', previewRecord.ids || [previewRecord.id])
-
-        const formattedItems: OxygenPdfItem[] = []
-        const groupMap: Record<string, { size_code: string; is_loan: boolean; qty: number; price: number }> = {}
-        
-        ;(rawItems || []).forEach((itm: any) => {
-          const sizeCode = itm.size_info?.code || 'Standard'
-          const priceVal = Number(itm.unit_price || 0)
-          const isLoan = priceVal > 0 ? priceVal <= 30.0 : false
-          const key = `${sizeCode}-${isLoan}`
-          
-          if (!groupMap[key]) {
-            groupMap[key] = {
-              size_code: sizeCode,
-              is_loan: isLoan,
-              qty: 1,
-              price: Number(itm.unit_price)
-            }
-          } else {
-            groupMap[key].qty += 1
-          }
-        })
-
         // Dynamic supplier lookup for PO PDF
         const targetSupName = previewRecord.supplier_name || selectedReceiveSupplier || 'LINDE EOX SDN BHD (CAW. MIRI)'
         const matchedSup = dbSuppliers.find(s => isSupplierMatch(s.company_name, targetSupName))
@@ -621,46 +755,7 @@ export const OxygenDashboardPage: React.FC = () => {
           .filter(c => isSupplierMatch(c.supplier_name, targetSupName))
           .forEach(c => { if (c.loan_rate != null) supplierLoanRates[c.cylinder_size_code] = c.loan_rate })
 
-        if (Object.keys(groupMap).length === 0 && (previewRecord.refill_amount > 0 || previewRecord.total_amount > 0)) {
-          const hsPrice = getActivePrice('HS', targetSupName) || 250
-          const estimatedHsQty = Math.max(1, Math.round(previewRecord.refill_amount / hsPrice))
-          formattedItems.push({
-            size_code: 'HS',
-            is_loan: false,
-            quantity: estimatedHsQty,
-            unit_price: hsPrice,
-            total_price: estimatedHsQty * hsPrice
-          })
-          if (previewRecord.loan_amount > 0) {
-            const loanRate = getActiveLoanRate('101-N', targetSupName) || 18.36
-            const estimatedLoanQty = Math.max(1, Math.round(previewRecord.loan_amount / loanRate))
-            formattedItems.push({
-              size_code: '101-N',
-              is_loan: true,
-              quantity: estimatedLoanQty,
-              unit_price: loanRate,
-              total_price: previewRecord.loan_amount
-            })
-          }
-        } else {
-          Object.values(groupMap).forEach((val) => {
-            let cleanPrice = val.price
-            if (!val.is_loan) {
-              const contractPrice = getActivePrice(val.size_code, targetSupName)
-              if (contractPrice > 0) cleanPrice = contractPrice
-            } else {
-              const lRate = getActiveLoanRate(val.size_code, targetSupName)
-              if (lRate > 0) cleanPrice = lRate
-            }
-            formattedItems.push({
-              size_code: val.size_code,
-              is_loan: val.is_loan,
-              quantity: val.qty,
-              unit_price: cleanPrice,
-              total_price: val.qty * cleanPrice
-            })
-          })
-        }
+        const formattedItems = await fetchAndConsolidateReceptionItems(previewRecord, targetSupName)
 
         const totalAmount = formattedItems.reduce((sum, item) => sum + item.total_price, 0)
         const currentBalance = financials?.current_balance ?? 274000.0
@@ -1073,8 +1168,10 @@ export const OxygenDashboardPage: React.FC = () => {
         if (!cyl) return null;
         const normalizedOld = getExpectedStateForCylinder(cyl);
         const normalizedNew = physicalCounts[cylId] ? normalizeStatusForReconciliation(physicalCounts[cylId]) : normalizedOld;
-        const oldLocation = getCylinderLocation(cyl, normalizedOld);
-        const newLocation = physicalLocations[cylId] || getCylinderLocation(cyl, normalizedNew);
+        const rawOldLocation = getCylinderLocation(cyl, normalizedOld);
+        const rawNewLocation = physicalLocations[cylId] || getCylinderLocation(cyl, normalizedNew);
+        const oldLocation = typeof rawOldLocation === 'object' ? (rawOldLocation?.location_name || rawOldLocation?.name || 'Pharmacy Store') : (rawOldLocation || 'Pharmacy Store');
+        const newLocation = typeof rawNewLocation === 'object' ? (rawNewLocation?.location_name || rawNewLocation?.name || 'Pharmacy Store') : (rawNewLocation || 'Pharmacy Store');
 
         const statusChanged = normalizedOld !== normalizedNew;
         const locationChanged = Boolean(physicalLocations[cylId]);
@@ -1135,7 +1232,8 @@ export const OxygenDashboardPage: React.FC = () => {
 
         const normalizedOld = getExpectedStateForCylinder(cyl);
         const normalizedNew = physicalCounts[cylId] || normalizedOld;
-        const newLocation = physicalLocations[cylId] || getCylinderLocation(cyl, normalizedNew);
+        const rawNewLocation = physicalLocations[cylId] || getCylinderLocation(cyl, normalizedNew);
+        const newLocation = typeof rawNewLocation === 'object' ? (rawNewLocation?.location_name || rawNewLocation?.name || 'Pharmacy Store') : (rawNewLocation || 'Pharmacy Store');
         const dbStatus = mapReconciliationToDbStatus(normalizedNew, newLocation);
 
         if (isSupabaseConfigured()) {
@@ -1286,33 +1384,6 @@ export const OxygenDashboardPage: React.FC = () => {
     if (e) e.preventDefault()
     if (!previewRecord) return
     try {
-      // Fetch received items dynamically
-      const { data: rawItems } = await supabase
-        .from('pharmacy_oxygen_reception_items')
-        .select('*, size_info:pharmacy_oxygen_cylinder_sizes(*)')
-        .in('reception_id', previewRecord.ids || [previewRecord.id])
-
-      const formattedItems: OxygenPdfItem[] = []
-      const groupMap: Record<string, { size_code: string; is_loan: boolean; qty: number; price: number }> = {}
-      
-      ;(rawItems || []).forEach((itm: any) => {
-        const sizeCode = itm.size_info?.code || 'Standard'
-        const priceVal = Number(itm.unit_price || 0)
-        const isLoan = priceVal > 0 ? priceVal <= 30.0 : false
-        const key = `${sizeCode}-${isLoan}`
-        
-        if (!groupMap[key]) {
-          groupMap[key] = {
-            size_code: sizeCode,
-            is_loan: isLoan,
-            qty: 1,
-            price: Number(itm.unit_price)
-          }
-        } else {
-          groupMap[key].qty += 1
-        }
-      })
-
       const poSupplierName = previewRecord.supplier_name || 'LINDE EOX SDN BHD (CAW. MIRI)'
       const poMatchedSup = dbSuppliers.find(s => isSupplierMatch(s.company_name, poSupplierName))
 
@@ -1322,46 +1393,7 @@ export const OxygenDashboardPage: React.FC = () => {
         .filter(c => isSupplierMatch(c.supplier_name, poSupplierName))
         .forEach(c => { if (c.loan_rate != null) poLoanRates[c.cylinder_size_code] = c.loan_rate })
 
-      if (Object.keys(groupMap).length === 0 && (previewRecord.refill_amount > 0 || previewRecord.total_amount > 0)) {
-        const hsPrice = getActivePrice('HS', poSupplierName) || 250
-        const estimatedHsQty = Math.max(1, Math.round(previewRecord.refill_amount / hsPrice))
-        formattedItems.push({
-          size_code: 'HS',
-          is_loan: false,
-          quantity: estimatedHsQty,
-          unit_price: hsPrice,
-          total_price: estimatedHsQty * hsPrice
-        })
-        if (previewRecord.loan_amount > 0) {
-          const loanRate = getActiveLoanRate('101-N', poSupplierName) || 18.36
-          const estimatedLoanQty = Math.max(1, Math.round(previewRecord.loan_amount / loanRate))
-          formattedItems.push({
-            size_code: '101-N',
-            is_loan: true,
-            quantity: estimatedLoanQty,
-            unit_price: loanRate,
-            total_price: previewRecord.loan_amount
-          })
-        }
-      } else {
-        Object.values(groupMap).forEach((val) => {
-          let cleanPrice = val.price
-          if (!val.is_loan) {
-            const contractPrice = getActivePrice(val.size_code, poSupplierName)
-            if (contractPrice > 0) cleanPrice = contractPrice
-          } else {
-            const lRate = getActiveLoanRate(val.size_code, poSupplierName)
-            if (lRate > 0) cleanPrice = lRate
-          }
-          formattedItems.push({
-            size_code: val.size_code,
-            is_loan: val.is_loan,
-            quantity: val.qty,
-            unit_price: cleanPrice,
-            total_price: val.qty * cleanPrice
-          })
-        })
-      }
+      const formattedItems = await fetchAndConsolidateReceptionItems(previewRecord, poSupplierName)
 
       const totalAmount = formattedItems.reduce((sum, item) => sum + item.total_price, 0)
       const currentBalance = financials?.current_balance ?? 274000.0
@@ -1438,14 +1470,22 @@ export const OxygenDashboardPage: React.FC = () => {
     return qtyLoaned * rate
   }
 
+  const getActiveSizeCodes = (): string[] => {
+    const fromConfigs = pricingConfigs
+      .filter((c) => isSupplierMatch(c.supplier_name, selectedReceiveSupplier) || isLindeSupplier(c.supplier_name))
+      .map(c => c.cylinder_size_code)
+    const fromInputs = [...Object.keys(receiveQuantities), ...Object.keys(receiveLoans)]
+    return Array.from(new Set([...fromConfigs, ...fromInputs]))
+  }
+
   const calculateFormRefillTotal = (): number => {
-    return Object.keys(editedPrices).reduce((sum, sizeCode) => {
+    return getActiveSizeCodes().reduce((sum, sizeCode) => {
       return sum + getRefillCostForSize(sizeCode)
     }, 0)
   }
 
   const calculateFormLoanTotal = (): number => {
-    return Object.keys(editedPrices).reduce((sum, sizeCode) => {
+    return getActiveSizeCodes().reduce((sum, sizeCode) => {
       return sum + getLoanCostForSize(sizeCode)
     }, 0)
   }
@@ -1472,11 +1512,12 @@ export const OxygenDashboardPage: React.FC = () => {
       const { data: typesList } = await supabase.from('pharmacy_oxygen_cylinder_types').select('*')
       const defaultType = typesList?.[0]?.id || ''
 
-      for (const sizeCode of Object.keys(editedPrices)) {
+      for (const sizeCode of getActiveSizeCodes()) {
         const qtyRefilled = receiveQuantities[sizeCode] || 0
         const qtyLoaned = receiveLoans[sizeCode] || 0
+        if (qtyRefilled === 0 && qtyLoaned === 0) continue
         
-        const sizeObj = sizesList?.find(s => s.code === sizeCode)
+        const sizeObj = sizesList?.find(s => s.code === sizeCode || s.code === sizeCode.replace(/^P/, '') || `P${s.code}` === sizeCode)
         if (!sizeObj) continue
 
         const basePrice = getActivePrice(sizeCode, selectedReceiveSupplier)
@@ -1554,73 +1595,7 @@ export const OxygenDashboardPage: React.FC = () => {
       const poSupplierName = record.supplier_name || selectedReceiveSupplier || 'LINDE EOX SDN BHD (CAW. MIRI)'
       const matchedSup = dbSuppliers.find(s => isSupplierMatch(s.company_name, poSupplierName))
 
-      // Fetch received items dynamically
-      const { data: rawItems } = await supabase
-        .from('pharmacy_oxygen_reception_items')
-        .select('*, size_info:pharmacy_oxygen_cylinder_sizes(*)')
-        .in('reception_id', record.ids || [record.id])
-
-      const formattedItems: OxygenPdfItem[] = []
-      const groupMap: Record<string, { size_code: string; is_loan: boolean; qty: number; price: number }> = {}
-      
-      ;(rawItems || []).forEach((itm: any) => {
-        const sizeCode = itm.size_info?.code || 'Standard'
-        const priceVal = Number(itm.unit_price || 0)
-        const isLoan = priceVal > 0 ? priceVal <= 30.0 : false
-        const key = `${sizeCode}-${isLoan}`
-        
-        if (!groupMap[key]) {
-          groupMap[key] = {
-            size_code: sizeCode,
-            is_loan: isLoan,
-            qty: 1,
-            price: Number(itm.unit_price)
-          }
-        } else {
-          groupMap[key].qty += 1
-        }
-      })
-
-      if (Object.keys(groupMap).length === 0 && (record.refill_amount > 0 || record.total_amount > 0)) {
-        const hsPrice = getActivePrice('HS', poSupplierName) || 250
-        const estimatedHsQty = Math.max(1, Math.round(record.refill_amount / hsPrice))
-        formattedItems.push({
-          size_code: 'HS',
-          is_loan: false,
-          quantity: estimatedHsQty,
-          unit_price: hsPrice,
-          total_price: estimatedHsQty * hsPrice
-        })
-        if (record.loan_amount > 0) {
-          const loanRate = getActiveLoanRate('101-N', poSupplierName) || 18.36
-          const estimatedLoanQty = Math.max(1, Math.round(record.loan_amount / loanRate))
-          formattedItems.push({
-            size_code: '101-N',
-            is_loan: true,
-            quantity: estimatedLoanQty,
-            unit_price: loanRate,
-            total_price: record.loan_amount
-          })
-        }
-      } else {
-        Object.values(groupMap).forEach((val) => {
-          let cleanPrice = val.price
-          if (!val.is_loan) {
-            const contractPrice = getActivePrice(val.size_code, poSupplierName)
-            if (contractPrice > 0) cleanPrice = contractPrice
-          } else {
-            const lRate = getActiveLoanRate(val.size_code, poSupplierName)
-            if (lRate > 0) cleanPrice = lRate
-          }
-          formattedItems.push({
-            size_code: val.size_code,
-            is_loan: val.is_loan,
-            quantity: val.qty,
-            unit_price: cleanPrice,
-            total_price: val.qty * cleanPrice
-          })
-        })
-      }
+      const formattedItems = await fetchAndConsolidateReceptionItems(record, poSupplierName)
 
       const totalAmount = formattedItems.reduce((sum, item) => sum + item.total_price, 0)
       const currentBalance = financials?.current_balance ?? 274000.0
@@ -1659,73 +1634,7 @@ export const OxygenDashboardPage: React.FC = () => {
     try {
       const reportSupplierName = record.supplier_name || selectedReceiveSupplier || 'LINDE EOX SDN BHD (CAW. MIRI)'
 
-      // Fetch received items dynamically
-      const { data: rawItems } = await supabase
-        .from('pharmacy_oxygen_reception_items')
-        .select('*, size_info:pharmacy_oxygen_cylinder_sizes(*)')
-        .in('reception_id', record.ids || [record.id])
-
-      const formattedItems: OxygenPdfItem[] = []
-      const groupMap: Record<string, { size_code: string; is_loan: boolean; qty: number; price: number }> = {}
-      
-      ;(rawItems || []).forEach((itm: any) => {
-        const sizeCode = itm.size_info?.code || 'Standard'
-        const priceVal = Number(itm.unit_price || 0)
-        const isLoan = priceVal > 0 ? priceVal <= 30.0 : false
-        const key = `${sizeCode}-${isLoan}`
-        
-        if (!groupMap[key]) {
-          groupMap[key] = {
-            size_code: sizeCode,
-            is_loan: isLoan,
-            qty: 1,
-            price: Number(itm.unit_price)
-          }
-        } else {
-          groupMap[key].qty += 1
-        }
-      })
-
-      if (Object.keys(groupMap).length === 0 && (record.refill_amount > 0 || record.total_amount > 0)) {
-        const hsPrice = getActivePrice('HS', reportSupplierName) || 250
-        const estimatedHsQty = Math.max(1, Math.round(record.refill_amount / hsPrice))
-        formattedItems.push({
-          size_code: 'HS',
-          is_loan: false,
-          quantity: estimatedHsQty,
-          unit_price: hsPrice,
-          total_price: estimatedHsQty * hsPrice
-        })
-        if (record.loan_amount > 0) {
-          const loanRate = getActiveLoanRate('101-N', reportSupplierName) || 18.36
-          const estimatedLoanQty = Math.max(1, Math.round(record.loan_amount / loanRate))
-          formattedItems.push({
-            size_code: '101-N',
-            is_loan: true,
-            quantity: estimatedLoanQty,
-            unit_price: loanRate,
-            total_price: record.loan_amount
-          })
-        }
-      } else {
-        Object.values(groupMap).forEach((val) => {
-          let cleanPrice = val.price
-          if (!val.is_loan) {
-            const contractPrice = getActivePrice(val.size_code, reportSupplierName)
-            if (cleanPrice > 0) cleanPrice = contractPrice
-          } else {
-            const lRate = getActiveLoanRate(val.size_code, reportSupplierName)
-            if (lRate > 0) cleanPrice = lRate
-          }
-          formattedItems.push({
-            size_code: val.size_code,
-            is_loan: val.is_loan,
-            quantity: val.qty,
-            unit_price: cleanPrice,
-            total_price: val.qty * cleanPrice
-          })
-        })
-      }
+      const formattedItems = await fetchAndConsolidateReceptionItems(record, reportSupplierName)
 
       const reportLoanRates: Record<string, number> = {}
       pricingConfigs
@@ -1781,28 +1690,15 @@ export const OxygenDashboardPage: React.FC = () => {
       return
     }
 
-    // Check for duplicates within the current entry list
-    const seen = new Set<string>()
-    const duplicates = new Set<string>()
-    cleanedTags.forEach(tag => {
-      const upper = tag.toUpperCase()
-      if (seen.has(upper)) {
-        duplicates.add(upper)
-      }
-      seen.add(upper)
-    })
-
-    if (duplicates.size > 0) {
-      alert(`Please remove duplicates from your list: ${Array.from(duplicates).join(', ')}`)
-      return
-    }
+    // Deduplicate tags for database insertion
+    const uniqueTags = Array.from(new Set(cleanedTags.map(t => t.toUpperCase())))
 
     setIsAssigningTag(true)
     try {
       const res = await addSupplierTaggedLoanCylinders(
         hospitalId,
         selectedTypeId,
-        cleanedTags,
+        uniqueTags,
         user.id
       )
       if (res.data) {
@@ -1973,7 +1869,10 @@ export const OxygenDashboardPage: React.FC = () => {
               <StoreBalanceGrid
                 data={cylinderAggregates}
                 onQuickIssue={() => setIsManualModalOpen(true)}
-                onQuickScanEmpty={() => setIsScanOpen(true)}
+                onQuickScanEmpty={(combo) => {
+                  setSelectedDepleteCombo(combo)
+                  setIsScanOpen(true)
+                }}
                 onQuickCreateReturn={() => setIsReturnModalOpen(true)}
               />
             )}
@@ -2025,7 +1924,11 @@ export const OxygenDashboardPage: React.FC = () => {
           <ScanEmptyCylinderModal
             hospitalId={hospitalId || ''}
             isOpen={isScanOpen}
-            onClose={() => setIsScanOpen(false)}
+            targetCombo={selectedDepleteCombo}
+            onClose={() => {
+              setIsScanOpen(false)
+              setSelectedDepleteCombo(null)
+            }}
             sessionScannedCylinders={sessionScannedCylinders}
             setSessionScannedCylinders={setSessionScannedCylinders}
             onSuccess={async () => {
@@ -2427,6 +2330,7 @@ export const OxygenDashboardPage: React.FC = () => {
                           <div className="border-2 border-dashed border-slate-200 hover:border-[#00a68a]/50 rounded-xl p-5 text-center cursor-pointer transition-all bg-slate-50/30 hover:bg-teal-50/10 flex flex-col items-center justify-center gap-2 relative">
                             <input
                               type="file"
+                              multiple
                               accept="image/*,application/pdf"
                               onChange={handleFileChange}
                               className="absolute inset-0 opacity-0 cursor-pointer"
@@ -2434,13 +2338,15 @@ export const OxygenDashboardPage: React.FC = () => {
                             <div className="p-2.5 bg-teal-50 text-[#00a68a] rounded-full">
                               <FileText className="w-5 h-5" />
                             </div>
-                            {deliveryDocFile ? (
+                            {deliveryDocFiles.length > 0 ? (
                               <div className="text-xs font-semibold text-slate-700 truncate max-w-full px-2">
-                                {deliveryDocFile.name} ({(deliveryDocFile.size / 1024).toFixed(1)} KB)
+                                {deliveryDocFiles.length === 1
+                                  ? `${deliveryDocFiles[0].name} (${(deliveryDocFiles[0].size / 1024).toFixed(1)} KB)`
+                                  : `${deliveryDocFiles.length} files selected (${deliveryDocFiles.map(f => f.name).join(', ')})`}
                               </div>
                             ) : (
                               <div className="text-[11px] text-slate-500">
-                                {language === 'ms' ? 'Klik atau tarik PDF / Imej ke sini' : 'Click or drag & drop PDF / Image here'}
+                                {language === 'ms' ? 'Klik atau tarik PDF / Imej ke sini (boleh pilih lebih daripada 1 imej)' : 'Click or drag & drop PDF / Images here (can select multiple pages)'}
                               </div>
                             )}
                           </div>
@@ -2461,7 +2367,7 @@ export const OxygenDashboardPage: React.FC = () => {
                             <button
                               type="button"
                               onClick={handleRunOcr}
-                              disabled={!deliveryDocFile}
+                              disabled={deliveryDocFiles.length === 0}
                               className="w-full py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 disabled:opacity-50 disabled:from-slate-200 disabled:to-slate-200 disabled:text-slate-400 text-white rounded-xl text-xs font-black shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center justify-center gap-1.5"
                             >
                               <RefreshCw className="w-3.5 h-3.5" />
@@ -2951,7 +2857,8 @@ export const OxygenDashboardPage: React.FC = () => {
 
           const expectedNorm = getExpectedStateForCylinder(cyl);
           const normalizedNew = physicalCounts[cylId] ? normalizeStatusForReconciliation(physicalCounts[cylId]) : expectedNorm;
-          const newLocation = physicalLocations[cylId] || cyl.scanned_location || getCylinderLocation(cyl, normalizedNew);
+          const rawNewLoc = physicalLocations[cylId] || cyl.scanned_location || getCylinderLocation(cyl, normalizedNew);
+          const newLocation = typeof rawNewLoc === 'object' ? (rawNewLoc?.location_name || rawNewLoc?.name || 'Pharmacy Store') : (rawNewLoc || 'Pharmacy Store');
           const dbStatus = mapReconciliationToDbStatus(normalizedNew, newLocation);
           const auditorName = physicalScannedBy[cylId]?.user || cyl.scanned_by_name || user?.full_name || 'AMRI AMIT';
 
@@ -3170,7 +3077,8 @@ export const OxygenDashboardPage: React.FC = () => {
                         const expectedNorm = getExpectedStateForCylinder(cyl);
                         const currentPhysical = physicalCounts[cyl.id] || expectedNorm;
                         const isMatched = normalizeStatusForReconciliation(currentPhysical) === expectedNorm;
-                        const locationLabel = physicalLocations[cyl.id] || cyl.scanned_location || getCylinderLocation(cyl, currentPhysical);
+                        const rawLoc = physicalLocations[cyl.id] || cyl.scanned_location || getCylinderLocation(cyl, currentPhysical);
+                        const locationLabel = typeof rawLoc === 'object' ? (rawLoc?.location_name || rawLoc?.name || 'Pharmacy Store') : (rawLoc || 'Pharmacy Store');
                         const isScanned = isCylinderScanned(cyl);
                         const isVerified = isCylinderVerified(cyl);
                         const scannerInfo = physicalScannedBy[cyl.id];
@@ -3272,7 +3180,8 @@ export const OxygenDashboardPage: React.FC = () => {
                             const expectedNorm = getExpectedStateForCylinder(cyl);
                             const currentPhysical = physicalCounts[cyl.id] || expectedNorm;
                             const isMatched = normalizeStatusForReconciliation(currentPhysical) === expectedNorm;
-                            const locationLabel = physicalLocations[cyl.id] || cyl.scanned_location || getCylinderLocation(cyl, currentPhysical);
+                            const rawLoc = physicalLocations[cyl.id] || cyl.scanned_location || getCylinderLocation(cyl, currentPhysical);
+                            const locationLabel = typeof rawLoc === 'object' ? (rawLoc?.location_name || rawLoc?.name || 'Pharmacy Store') : (rawLoc || 'Pharmacy Store');
                             const isScanned = isCylinderScanned(cyl);
                             const isVerified = isCylinderVerified(cyl);
                             const scannerInfo = physicalScannedBy[cyl.id];
@@ -3687,8 +3596,15 @@ export const OxygenDashboardPage: React.FC = () => {
 
           <div className="flex flex-wrap items-center gap-3">
             <button 
+              onClick={() => navigate(ROUTES.PHARMACY_OXYGEN_LEDGER)}
+              className="px-5 py-3.5 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-2xl text-xs font-black tracking-wider uppercase shadow-md active:scale-95 transition-all flex items-center gap-2 border border-slate-700 cursor-pointer"
+            >
+              <ScrollText className="w-4 h-4 text-teal-400" />
+              {language === 'ms' ? 'Buka Lejar KEW.PS-4' : 'Open KEW.PS-4 Ledger'}
+            </button>
+            <button 
               onClick={() => setIsReceiveModalOpen(true)}
-              className="px-6 py-3.5 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white rounded-2xl text-xs font-black tracking-wider uppercase shadow-md shadow-emerald-500/10 active:scale-95 transition-all flex items-center gap-2"
+              className="px-6 py-3.5 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white rounded-2xl text-xs font-black tracking-wider uppercase shadow-md shadow-emerald-500/10 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               {language === 'ms' ? 'Daftar Penerimaan Oksigen' : 'Key In Received Oxygen'}

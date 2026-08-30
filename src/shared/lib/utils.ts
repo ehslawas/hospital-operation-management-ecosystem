@@ -169,6 +169,46 @@ export function isContractExpired(itemOrOrder: any, referenceDateVal?: string | 
   return false
 }
 
+/**
+ * Checks whether a vote code represents APPL
+ */
+export function isApplVote(voteCode?: string | null): boolean {
+  if (!voteCode) return false
+  const clean = String(voteCode).trim().toUpperCase()
+  return clean === '990102' || clean.includes('APPL')
+}
+
+/**
+ * Checks whether a vote code represents CC (Contract Central)
+ */
+export function isCcVote(voteCode?: string | null): boolean {
+  if (!voteCode) return false
+  const clean = String(voteCode).trim().toUpperCase()
+  return clean === '080702' || clean.includes('CC') || clean.includes('CONTRACT CENTRAL')
+}
+
+/**
+ * Checks whether a purchase order or record represents APPL
+ */
+export function isApplOrder(order?: { 
+  vote_code?: string | null; 
+  manual_vote_code?: string | null; 
+  category?: string | null; 
+  manual_category?: string | null;
+  supplier?: { company_name?: string | null } | null;
+  manual_supplier_name?: string | null;
+} | null): boolean {
+  if (!order) return false
+  if (isApplVote(order.vote_code) || isApplVote(order.manual_vote_code)) return true
+  const cat = String(order.category || order.manual_category || '').trim().toUpperCase()
+  if (cat === 'APPL') return true
+  const supp = String(order.supplier?.company_name || order.manual_supplier_name || '').toLowerCase()
+  if (supp.includes('pharmaniaga') && (String(order.vote_code).includes('080600') || String(order.manual_vote_code).includes('080600'))) {
+    return true
+  }
+  return false
+}
+
 
 /**
  * Format date with time

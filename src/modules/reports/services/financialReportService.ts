@@ -135,6 +135,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   pathologist: 'Pathologist',
   medical_cylinder: 'Medical Cylinder',
   x_ray: 'X-Ray',
+  duit_khas: 'Duit Khas',
 }
 
 function normalizeCategory(cat: string | null): string {
@@ -153,6 +154,7 @@ function normalizeCategory(cat: string | null): string {
   if (['pathologist', 'patologi'].includes(normalized)) return 'pathologist'
   if (['medical_cylinder', 'silinder'].includes(normalized)) return 'medical_cylinder'
   if (['x_ray', 'xray', 'x-ray'].includes(normalized)) return 'x_ray'
+  if (['duit_khas', 'duit khas', 'duit-khas', 'khas'].includes(normalized)) return 'duit_khas'
   
   const isStationery = /tulis|alat|pejabat|cetak|printing|stationery|paper|kertas/i.test(normalized)
   const isComputer = /komputer|computer|it|software|hardware/i.test(normalized)

@@ -51,7 +51,7 @@ export const IndentEntitlementPage: React.FC = () => {
   const { success: showSuccess, error: showError } = useToastStore()
 
   const [departments, setDepartments] = useState<any[]>([])
-  const [selectedDeptId, setSelectedDeptId] = useState<string>('dept-nephro')
+  const [selectedDeptId, setSelectedDeptId] = useState<string>('')
   const [entitlements, setEntitlements] = useState<IndentEntitlement[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -76,11 +76,20 @@ export const IndentEntitlementPage: React.FC = () => {
 
   useEffect(() => {
     getDepartments(hospitalId).then((res) => {
-      if (res.data) setDepartments(res.data)
+      if (res.data && res.data.length > 0) {
+        setDepartments(res.data)
+        setSelectedDeptId((prev) => {
+          if (prev && res.data?.some((d: any) => d.id === prev)) {
+            return prev
+          }
+          return res.data[0].id
+        })
+      }
     })
   }, [hospitalId])
 
   const loadEntitlements = async () => {
+    if (!selectedDeptId) return
     setIsLoading(true)
     const res = await getIndentEntitlements(hospitalId, selectedDeptId)
     if (res.data) setEntitlements(res.data)
@@ -169,6 +178,8 @@ export const IndentEntitlementPage: React.FC = () => {
         item_type: config.item.item_type,
         item_code: config.item.item_code,
         item_name: config.item.item_name,
+        unit: config.item.unit,
+        packaging: (config.item as any).packaging || config.item.unit,
         max_qty_per_request: config.maxQty,
         is_active: true,
       })
@@ -191,7 +202,7 @@ export const IndentEntitlementPage: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to remove this item from department entitlement?')) return
-    const res = await deleteIndentEntitlement(id)
+    const res = await deleteIndentEntitlement(id, hospitalId)
     if (res.error) {
       showError(res.error)
     } else {

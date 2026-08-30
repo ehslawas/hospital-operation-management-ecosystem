@@ -78,7 +78,7 @@ export const SlowMovingPage: React.FC = () => {
   }
 
   return (
-    <div className="p-6 md:p-8 space-y-8 max-w-[1600px] mx-auto min-h-screen bg-slate-950 text-slate-100">
+    <div className="w-full space-y-8 text-slate-100">
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-slate-900/80 backdrop-blur-xl p-6 rounded-2xl border border-slate-800/80 shadow-2xl relative overflow-hidden">
         <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />

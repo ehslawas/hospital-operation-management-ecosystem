@@ -1,8 +1,8 @@
 // @ts-nocheck
 import React, { useState, useEffect, useRef } from 'react';
 import jsQR from 'jsqr';
-import { X, QrCode, AlertCircle, RefreshCw, CheckCircle2, Trash2, Camera, Keyboard, Check, Volume2, VolumeX, Search, Database } from 'lucide-react';
-import { getCylinderByQrOrSerial, markCylinderAsEmpty } from '@/services/pharmacy/oxygenService';
+import { X, QrCode, AlertCircle, AlertTriangle, RefreshCw, CheckCircle2, Trash2, Camera, Keyboard, Check, Volume2, VolumeX, Search, Database } from 'lucide-react';
+import { getCylinderByQrOrSerial, markCylinderAsEmpty, markMultipleCylindersAsEmpty } from '@/services/pharmacy/oxygenService';
 import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/services/supabase';
 import type { OxygenCylinderWithRelations } from '@/types/pharmacy';
@@ -14,6 +14,7 @@ interface ScanEmptyCylinderModalProps {
   onSuccess: () => void;
   sessionScannedCylinders: OxygenCylinderWithRelations[];
   setSessionScannedCylinders: React.Dispatch<React.SetStateAction<OxygenCylinderWithRelations[]>>;
+  targetCombo?: any;
 }
 
 export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
@@ -23,6 +24,7 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
   onSuccess,
   sessionScannedCylinders,
   setSessionScannedCylinders,
+  targetCombo,
 }) => {
   // Navigation tabs for the 2 modes
   const { user } = useAuthStore();
@@ -46,6 +48,24 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
   // Cylinder Quick Picker pagination page state
   const [pickerPage, setPickerPage] = useState(1);
 
+  // Auto configure for targetCombo when modal opens
+  useEffect(() => {
+    if (isOpen && targetCombo) {
+      setActiveTab('manual');
+      setShowDemoShortcuts(true);
+      
+      const name = (targetCombo.display_name || '').toUpperCase();
+      if (name.includes('101-F') || name.includes('P101-F')) setSelectedSizeFilter('P101-F');
+      else if (name.includes('101-E') || name.includes('P101-E')) setSelectedSizeFilter('P101-E');
+      else if (name.includes('101-D') || name.includes('P101-D')) setSelectedSizeFilter('P101-D');
+      else if (name.includes('101-N')) setSelectedSizeFilter('101-N');
+      else if (name.includes('101-HS')) setSelectedSizeFilter('101-HS');
+
+      if (name.includes('BN') || name.includes('BULLNOSE')) setSelectedTypeFilter('BN');
+      else if (name.includes('PI') || name.includes('PIN INDEX')) setSelectedTypeFilter('PI');
+    }
+  }, [isOpen, targetCombo]);
+
   // Reset picker page when search input or filter changes
   useEffect(() => {
     setPickerPage(1);
@@ -66,7 +86,7 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
   const [isRendered, setIsRendered] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
 
-  // Fetch real active/allocated cylinders from Supabase (excluding 101-N and 101-F loan items)
+  // Fetch real active/allocated cylinders from Supabase (including issued ward cylinders)
   useEffect(() => {
     const fetchActiveCylinders = async () => {
       setIsDbLoading(true);
@@ -80,7 +100,7 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
             department:departments(*)
           `)
           .eq('hospital_id', hospitalId)
-          .in('status', ['available', 'allocated', 'in_use', 'full']) // retrieve active scannable cylinders
+          .in('status', ['available', 'allocated', 'in_use', 'full', 'issued']) // retrieve active and deployed cylinders
           .limit(1000);
 
         if (!error && data) {
@@ -110,7 +130,9 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
                 size_code: sizeCode,
                 assigned_ward: c.department ? {
                   department_name: c.department.department_name || c.department.name
-                } : null
+                } : (c.current_location && c.current_location !== 'Store' && c.current_location !== 'Pharmacy Store' ? {
+                  department_name: c.current_location
+                } : null)
               };
             });
           setActiveCylinders(normalized);
@@ -345,11 +367,11 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
             }
             batchSeenIds.add(targetCylinder.id);
 
-            if (targetCylinder.status !== 'issued') {
+            if (targetCylinder.status !== 'empty') {
               const creatorId = user?.id || localStorage.getItem('userId') || 'fbbd44d1-f322-4fdb-a367-a18e5371e205';
               const updateRes = await markCylinderAsEmpty(hospitalId, targetCylinder.id, creatorId);
               if (!updateRes.error) {
-                targetCylinder = { ...targetCylinder, status: 'issued' };
+                targetCylinder = { ...targetCylinder, status: 'empty', current_location: { location_name: 'Pharmacy Store' } };
               }
             }
             newScannedBatch.push(targetCylinder);
@@ -368,12 +390,16 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
           const toAdd = newScannedBatch.filter(c => !existingIds.has(c.id));
           return [...prev, ...toAdd];
         });
+        // Remove processed cylinders from active database list
+        const processedIds = new Set(newScannedBatch.map(c => c.id));
+        setActiveCylinders(prev => prev.filter(c => !processedIds.has(c.id)));
+
         playBeep('success');
         setSuccessFlash(true);
         setTimeout(() => setSuccessFlash(false), 500);
         setStatusMessage({ 
           type: 'success', 
-          text: `Processed ${successCount} unique cylinders from bulk scan!${errorCount > 0 ? ` (${errorCount} skipped/duplicates/failed)` : ''}` 
+          text: `Processed ${successCount} unique cylinders marked as depleted / empty!${errorCount > 0 ? ` (${errorCount} skipped/duplicates/failed)` : ''}` 
         });
         setQrInput('');
         onSuccess();
@@ -400,7 +426,7 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
         const cyl = res.data;
         if (isBulkScanMode) {
           let targetCylinder = cyl;
-          if (cyl.status !== 'issued') {
+          if (cyl.status !== 'empty') {
             const creatorId = user?.id || localStorage.getItem('userId') || 'fbbd44d1-f322-4fdb-a367-a18e5371e205';
             const updateRes = await markCylinderAsEmpty(hospitalId, cyl.id, creatorId);
             if (updateRes.error) {
@@ -409,16 +435,18 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
               setIsSubmitting(false);
               return;
             }
-            targetCylinder = { ...cyl, status: 'issued' };
+            targetCylinder = { ...cyl, status: 'empty', current_location: { location_name: 'Pharmacy Store' } };
           }
           setSessionScannedCylinders(prev => {
             if (prev.some(c => c.id === targetCylinder.id)) return prev;
             return [...prev, targetCylinder];
           });
+          // Remove from active list
+          setActiveCylinders(prev => prev.filter(c => c.id !== targetCylinder.id));
           playBeep('success');
           setSuccessFlash(true);
           setTimeout(() => setSuccessFlash(false), 500);
-          setStatusMessage({ type: 'success', text: `Scanned: ${targetCylinder.serial_number}` });
+          setStatusMessage({ type: 'success', text: `Marked as Depleted (Empty): ${targetCylinder.serial_number}` });
           setQrInput('');
           // Reset cooldown so camera is immediately ready for the NEXT cylinder
           lastScannedRef.current = null;
@@ -444,7 +472,7 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
     setIsSubmitting(true);
 
     try {
-      if (matchedCylinder.status === 'issued') {
+      if (matchedCylinder.status === 'empty') {
         setSessionScannedCylinders(prev => {
           if (prev.some(c => c.id === matchedCylinder.id)) return prev;
           return [...prev, matchedCylinder];
@@ -458,11 +486,12 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
         if (res.error) {
           setStatusMessage({ type: 'error', text: res.error });
         } else {
-          const updated = { ...matchedCylinder, status: 'issued' };
+          const updated = { ...matchedCylinder, status: 'empty', current_location: { location_name: 'Pharmacy Store' } };
           setSessionScannedCylinders(prev => {
             if (prev.some(c => c.id === updated.id)) return prev;
             return [...prev, updated];
           });
+          setActiveCylinders(prev => prev.filter(c => c.id !== updated.id));
           setStatusMessage({ type: 'success', text: `Cylinder "${matchedCylinder.serial_number}" marked empty & added.` });
           setMatchedCylinder(null);
           setQrInput('');
@@ -471,6 +500,45 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleBatchDepleteAll = async (cylsToDeplete: any[]) => {
+    if (isSubmitting || !cylsToDeplete || cylsToDeplete.length === 0) return;
+    setIsSubmitting(true);
+    try {
+      const creatorId = user?.id || localStorage.getItem('userId') || 'fbbd44d1-f322-4fdb-a367-a18e5371e205';
+      const ids = cylsToDeplete.map(c => c.id);
+      const res = await markMultipleCylindersAsEmpty(hospitalId, ids, creatorId);
+      if (!res.error) {
+        const updatedList = cylsToDeplete.map(c => ({
+          ...c,
+          status: 'empty',
+          current_location: { location_name: 'Pharmacy Store' }
+        }));
+        setSessionScannedCylinders(prev => {
+          const existingIds = new Set(prev.map(c => c.id));
+          const toAdd = updatedList.filter(c => !existingIds.has(c.id));
+          return [...prev, ...toAdd];
+        });
+        setActiveCylinders(prev => prev.filter(c => !ids.includes(c.id)));
+        playBeep('success');
+        setSuccessFlash(true);
+        setTimeout(() => setSuccessFlash(false), 500);
+        setStatusMessage({
+          type: 'success',
+          text: `Successfully marked ${cylsToDeplete.length} cylinders as depleted / empty!`
+        });
+        onSuccess();
+      } else {
+        playBeep('error');
+        setStatusMessage({ type: 'error', text: `Failed to mark cylinders depleted: ${res.error}` });
+      }
+    } catch (err) {
+      console.error(err);
+      playBeep('error');
     } finally {
       setIsSubmitting(false);
     }
@@ -834,6 +902,48 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
                           </div>
                         </div>
 
+                        {/* Quick Batch Deplete Banner for Active Ward Cylinders */}
+                        {(() => {
+                          const matchingInUse = filteredActiveCylinders.filter(c => 
+                            c.status === 'issued' || c.status === 'in_use' || (c.assigned_ward && c.assigned_ward.department_name)
+                          );
+                          if (matchingInUse.length === 0) return null;
+
+                          return (
+                            <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-amber-50 border border-blue-200/80 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs animate-[dropdown-enter_180ms_var(--ease-enter)]">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-sm shrink-0">
+                                  <AlertTriangle className="w-5 h-5 text-white" />
+                                </div>
+                                <div>
+                                  <h4 className="text-xs font-black text-slate-900 tracking-tight">
+                                    {targetCombo ? `Ward Deployment: ${targetCombo.display_name}` : 'Active Ward Deployment'}
+                                  </h4>
+                                  <p className="text-[10px] text-slate-600 font-semibold mt-0.5">
+                                    <strong className="text-blue-700 font-bold tabular-nums">{matchingInUse.length}</strong> cylinders in active use in ward.
+                                  </p>
+                                </div>
+                              </div>
+
+                              <button
+                                type="button"
+                                disabled={isSubmitting}
+                                onClick={() => handleBatchDepleteAll(matchingInUse)}
+                                className="w-full sm:w-auto px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                              >
+                                {isSubmitting ? (
+                                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <>
+                                    <AlertTriangle className="w-3.5 h-3.5" />
+                                    <span>Mark All ({matchingInUse.length}) as Depleted</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          );
+                        })()}
+
                         {/* Paginated Grid - Grouped under headers */}
                         {paginatedPickerCylinders.length === 0 ? (
                           <div className="text-center py-12 text-[10px] text-slate-455 italic font-semibold bg-white border border-slate-150 rounded-2xl">
@@ -850,31 +960,41 @@ export const ScanEmptyCylinderModal: React.FC<ScanEmptyCylinderModalProps> = ({
                                   <div className="h-px bg-slate-200/60 flex-1" />
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                  {paginatedGroupedCylinders[groupKey].map((c) => (
-                                    <button
-                                      key={c.id}
-                                      type="button"
-                                      onClick={() => handleCodeInput(c.serial_number)}
-                                      className="inline-flex items-center px-4 py-3 bg-white hover:bg-[#00a68a] hover:text-white border border-slate-200 hover:border-[#00a68a] text-left rounded-xl transition-all cursor-pointer shadow-xs active:scale-95 group justify-between"
-                                      title={`Location: ${c.assigned_ward?.department_name || 'Store'}`}
-                                    >
-                                      <div className="flex items-center gap-2.5 min-w-0">
-                                        <span className="w-2 h-2 rounded-full bg-[#00a68a] group-hover:bg-white flex-shrink-0 animate-pulse" />
-                                        <div className="flex flex-col min-w-0">
-                                          <span className="font-mono text-[11px] font-bold text-slate-800 group-hover:text-white whitespace-nowrap">
-                                            {(c.serial_number || '').replace(/\s*\(\d+(?:\.\d+)?\s*(?:m3|m³)\)/gi, '')}
-                                          </span>
+                                  {paginatedGroupedCylinders[groupKey].map((c) => {
+                                    const isWardCyl = c.status === 'issued' || c.status === 'in_use' || (c.assigned_ward && c.assigned_ward.department_name);
+                                    return (
+                                      <button
+                                        key={c.id}
+                                        type="button"
+                                        onClick={() => handleCodeInput(c.serial_number)}
+                                        className="inline-flex items-center px-4 py-3 bg-white hover:bg-blue-600 hover:text-white border border-slate-200 hover:border-blue-600 text-left rounded-xl transition-all cursor-pointer shadow-xs active:scale-95 group justify-between"
+                                        title={`Location: ${c.assigned_ward?.department_name || 'Store'}`}
+                                      >
+                                        <div className="flex items-center gap-2.5 min-w-0">
+                                          <span className={`w-2 h-2 rounded-full ${isWardCyl ? 'bg-blue-600' : 'bg-emerald-500'} group-hover:bg-white flex-shrink-0 animate-pulse`} />
+                                          <div className="flex flex-col min-w-0">
+                                            <span className="font-mono text-[11px] font-bold text-slate-800 group-hover:text-white whitespace-nowrap">
+                                              {(c.serial_number || '').replace(/\s*\(\d+(?:\.\d+)?\s*(?:m3|m³)\)/gi, '')}
+                                            </span>
 
-                                          <span className="text-[9px] text-slate-455 group-hover:text-emerald-100 font-semibold truncate leading-tight mt-0.5">
-                                            Location: {c.assigned_ward?.department_name || 'Store'}
+                                            <span className="text-[9px] text-slate-500 group-hover:text-blue-100 font-semibold truncate leading-tight mt-0.5">
+                                              {c.assigned_ward?.department_name ? `Ward: ${c.assigned_ward.department_name}` : 'Location: Store'}
+                                            </span>
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="text-[9px] text-slate-500 group-hover:text-blue-100 font-extrabold border border-slate-150 group-hover:border-blue-400/30 px-2 py-0.5 rounded bg-slate-50 group-hover:bg-blue-700/40 font-mono">
+                                            {c.size_info?.capacity ? `${c.size_info.capacity}M³` : '0.7M³'}
+                                          </span>
+                                          <span className={`text-[8px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                                            isWardCyl ? 'bg-blue-100 text-blue-800 group-hover:bg-white group-hover:text-blue-700' : 'bg-emerald-100 text-emerald-800 group-hover:bg-white group-hover:text-emerald-700'
+                                          }`}>
+                                            {isWardCyl ? 'Deplete' : 'Mark'}
                                           </span>
                                         </div>
-                                      </div>
-                                      <span className="text-[9px] text-slate-500 group-hover:text-emerald-100 font-extrabold border border-slate-150 group-hover:border-emerald-400/30 px-2 py-0.5 rounded bg-slate-50 group-hover:bg-emerald-600/30 font-mono">
-                                        {c.size_info?.capacity ? `${c.size_info.capacity}M³` : '0.7M³'}
-                                      </span>
-                                    </button>
-                                  ))}
+                                      </button>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             ))}

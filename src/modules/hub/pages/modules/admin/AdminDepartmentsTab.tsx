@@ -25,6 +25,7 @@ const SOFTWARE_MODULE_CODES = new Set([
   'system_perhimpunan',
   'system_kunci',
   'system_cuti',
+  'system_staff',
   'pharmacy_logistics',
   'pharmacy_formulari',
   'billing',
@@ -50,6 +51,7 @@ const isSoftwareModule = (code: string, name: string) => {
       'myperhimpunan',
       'mykunci',
       'mycuti',
+      'mystaff',
       'mysuhu',
       'mymsds',
       'myphis',
@@ -98,7 +100,7 @@ export const AdminDepartmentsTab: React.FC = () => {
       ids: Set<string>
     }>()
 
-    // Exclude software system modules (MyPorter, MyPriviledging, MyTempahan, MyTransporter, MyWarrant, MyCuti, MyFormulari, MyKunci, MyPerhimpunan, etc.)
+    // Exclude software system modules (MyPorter, MyPriviledging, MyTempahan, MyTransporter, MyWarrant, MyStaff, MyCuti, MyFormulari, MyKunci, MyPerhimpunan, etc.)
     const realHospitalDepts = departments.filter((d) => !isSoftwareModule(d.department_code, d.department_name))
 
     realHospitalDepts.forEach((d) => {

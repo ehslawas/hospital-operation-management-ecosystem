@@ -12,6 +12,8 @@ import type {
 import { uploadLpoDocument } from '@/services/pharmacy/uploadService'
 import { createOrderTrackingForLPO } from './orderTrackingService'
 
+const ALLOWED_MEDICAL_VOTE_CODES = ['080702', '990102', '080600 (APPL)', '080600 (CC)', '080600']
+
 /**
  * Get LPO statistics (counts for approved POs, pending LPOs, sent/verified LPOs)
  */
@@ -26,7 +28,7 @@ export async function getLPOStats(
         .select('id, status, total_amount, category, vote_code, po_number')
         .eq('hospital_id', hospitalId)
         .in('status', ['approved', 'completed', 'partial_received'])
-        .in('vote_code', ['080702', '990102'])
+        .in('vote_code', ALLOWED_MEDICAL_VOTE_CODES)
         .not('po_number', 'ilike', 'SQ-%')
         .not('po_number', 'ilike', 'INV-%')
         .not('category', 'in', '("ALAT TULIS", "Alat Tulis", "PRINTING SERVICE", "BEKALAN MAKANAN")')
@@ -39,7 +41,7 @@ export async function getLPOStats(
         .select('po_id, status, po:pharmacy_purchase_orders!inner(status, category, vote_code, po_number)')
         .eq('hospital_id', hospitalId)
         .in('po.status', ['approved', 'completed', 'partial_received'])
-        .in('po.vote_code', ['080702', '990102'])
+        .in('po.vote_code', ALLOWED_MEDICAL_VOTE_CODES)
         .not('po.po_number', 'ilike', 'SQ-%')
         .not('po.po_number', 'ilike', 'INV-%')
         .not('po.category', 'in', '("ALAT TULIS", "Alat Tulis", "PRINTING SERVICE", "BEKALAN MAKANAN")')
@@ -47,10 +49,10 @@ export async function getLPOStats(
       if (lpoError) throw lpoError
 
       const relevantPOs = (poData || [])
-        .filter(po => po.vote_code === '080702' || po.vote_code === '990102')
+        .filter(po => ALLOWED_MEDICAL_VOTE_CODES.includes(po.vote_code))
         .filter(po => !po.po_number?.toUpperCase().startsWith('SQ-') && !po.po_number?.toUpperCase().startsWith('INV-'))
       const lpos = (lpoData || [])
-        .filter((lpo: any) => lpo.po?.vote_code === '080702' || lpo.po?.vote_code === '990102')
+        .filter((lpo: any) => ALLOWED_MEDICAL_VOTE_CODES.includes(lpo.po?.vote_code))
         .filter((lpo: any) => !lpo.po?.po_number?.toUpperCase().startsWith('SQ-') && !lpo.po?.po_number?.toUpperCase().startsWith('INV-'))
       
       const lpoPoIds = new Set(lpos.map(lpo => lpo.po_id))
@@ -126,7 +128,7 @@ export async function getLPOList(
           .select('id, po_number, po_type, order_date, total_amount, vote_code, category, department, manual_supplier_name, supplier:suppliers(company_name), items:pharmacy_purchase_order_items(item_name)')
           .eq('hospital_id', hospitalId)
           .eq('status', 'approved')
-          .in('vote_code', ['080702', '990102'])
+          .in('vote_code', ALLOWED_MEDICAL_VOTE_CODES)
           .not('po_number', 'ilike', 'SQ-%')
           .not('po_number', 'ilike', 'INV-%')
 
@@ -146,7 +148,7 @@ export async function getLPOList(
         if (poError) throw poError
 
         // 3. Filter out POs that already have LPOs and enforce allowed vote codes
-        let pendingPOs = (poData || []).filter(po => !lpoPoIds.includes(po.id) && (po.vote_code === '080702' || po.vote_code === '990102'))
+        let pendingPOs = (poData || []).filter(po => !lpoPoIds.includes(po.id) && ALLOWED_MEDICAL_VOTE_CODES.includes(po.vote_code))
 
         // Map to standard format
         let results: LPOListItem[] = pendingPOs.map(po => {
@@ -198,7 +200,7 @@ export async function getLPOList(
           `, { count: 'exact' })
           .eq('hospital_id', hospitalId)
           .in('po.status', ['approved', 'completed', 'partial_received'])
-          .in('po.vote_code', ['080702', '990102'])
+          .in('po.vote_code', ALLOWED_MEDICAL_VOTE_CODES)
           .not('po.category', 'in', '("ALAT TULIS", "Alat Tulis", "PRINTING SERVICE", "BEKALAN MAKANAN")')
 
         // Apply filters - we'll do the search filtering post-fetch for robust cross-table support
@@ -215,7 +217,7 @@ export async function getLPOList(
         if (lpoError) throw lpoError
 
         let results: LPOListItem[] = (lpoData || [])
-          .filter((lpo: any) => lpo.po?.vote_code === '080702' || lpo.po?.vote_code === '990102')
+          .filter((lpo: any) => ALLOWED_MEDICAL_VOTE_CODES.includes(lpo.po?.vote_code))
           .map((lpo: any) => {
             const po = lpo.po || {}
           const supplierData = Array.isArray(po.supplier) ? po.supplier[0] : po.supplier;

@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
@@ -883,8 +883,8 @@ export function APPLPenaltyDetailPage({ penalty, onRefresh }: Props) {
 
                 {/* Total Penalty */}
                 <div className="bg-gradient-to-br from-indigo-50 to-indigo-100/50 border border-indigo-200 rounded-xl p-4 text-center space-y-1">
-                  <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block">Total APPL Penalty</span>
-                  <span className="text-3xl font-black text-indigo-955 block tabular-nums">
+                  <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider block">Total APPL Penalty</span>
+                  <span className="text-3xl font-black text-indigo-950 block tabular-nums">
                     RM {calculation.total.toFixed(2)}
                   </span>
                 </div>

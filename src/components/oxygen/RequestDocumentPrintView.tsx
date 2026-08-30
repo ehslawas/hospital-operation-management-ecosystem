@@ -54,11 +54,6 @@ export const RequestDocumentPrintView: React.FC<RequestDocumentPrintViewProps> =
 
     const docCreatedDate = new Date(doc.created_at).toLocaleDateString('en-MY').replace(/\//g, '-');
     const docCreatedTime = new Date(doc.created_at).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/:/g, '-');
-    try {
-      printWindow.history.replaceState(null, '', `/print/request-document/${doc.document_number}/created-at/${docCreatedDate}_${docCreatedTime}`);
-    } catch (e) {
-      console.error(e);
-    }
 
     const logoUrl = window.location.origin + '/512px-Jata_MalaysiaV2.svg.png';
     const totalQty = doc.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;

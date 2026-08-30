@@ -1226,7 +1226,7 @@ export function CCPenaltyDetailPage({ penalty, onRefresh }: Props) {
                   value={editReason}
                   onChange={(e) => setEditReason(e.target.value)}
                   placeholder="e.g., Correcting incorrect quantity received after supplier consultation..."
-                  className="w-full px-3 py-2 bg-white border border-slate-355 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
                 />
               </div>
               

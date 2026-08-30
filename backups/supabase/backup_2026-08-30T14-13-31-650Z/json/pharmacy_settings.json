@@ -1,0 +1,287 @@
+[
+  {
+    "id": "76a8b2d5-9e0c-46f7-9ac5-06b41cdef11f",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "setting_key": "pharmacy_po_signatures",
+    "setting_value": {
+      "headName": "MOHD FATHURLLAH BIN ISMAIL",
+      "headPosition": "JURUTEKNOLOGI MAKMAL PERUBATAN U6",
+      "applicantName": "AJ JOSHUA ANAK DATO",
+      "applicantPosition": "JURUTEKNOLOGI MAKMAL PERUBATAN U6"
+    },
+    "updated_by": "a889bf79-fe10-4ae3-871e-99e2d63f3055",
+    "created_at": "2026-01-28T01:06:17.085887+00:00",
+    "updated_at": "2026-05-12T13:24:14.709+00:00",
+    "department_id": "laboratory_pathology"
+  },
+  {
+    "id": "bcf9fcbf-abb7-404e-90af-f39e09957350",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "setting_key": "pharmacy_po_signatures",
+    "setting_value": {
+      "headName": "MOHAMAD AIMAN BIN MAT ZAKI ",
+      "headPosition": "PEGAWAI FARMASI UF9",
+      "applicantName": "MOHAMMAD ANNAS BIN BOING",
+      "applicantPosition": "PENOLONG PEGAWAI PERUBATAN U6"
+    },
+    "updated_by": "5a2e226f-8ebe-4ee6-8e33-6ec7687ef9d2",
+    "created_at": "2026-01-28T04:45:14.793919+00:00",
+    "updated_at": "2026-07-17T01:24:38+00:00",
+    "department_id": "nephrology"
+  },
+  {
+    "id": "7c3deea8-1aca-4c45-80f9-bb641fbe9ef0",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "setting_key": "pharmacy_po_signatures",
+    "setting_value": {
+      "headName": "MOHAMAD AIMAN BIN MAT ZAKI ",
+      "headPosition": "PEGAWAI FARMASI UF9",
+      "applicantName": "RAZAMAH BINTI DULLAH ",
+      "applicantPosition": "JURURAWAT U6 "
+    },
+    "updated_by": "5a2e226f-8ebe-4ee6-8e33-6ec7687ef9d2",
+    "created_at": "2026-02-16T07:48:36.978182+00:00",
+    "updated_at": "2026-08-13T06:58:52.38+00:00",
+    "department_id": "cssu_cssd"
+  },
+  {
+    "id": "5b5fe362-37db-42a1-903e-67c6137bd71b",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "setting_key": "pharmacy_po_signatures",
+    "setting_value": {
+      "headName": "MOHAMAD AIMAN BIN MAT ZAKI ",
+      "headPosition": "PEGAWAI FARMASI UF9",
+      "applicantName": "SHAMSURY MOHAMAD MAJIDI",
+      "applicantPosition": "PENOLONG PEGAWAI PERUBATAN U6"
+    },
+    "updated_by": "5a2e226f-8ebe-4ee6-8e33-6ec7687ef9d2",
+    "created_at": "2026-02-06T07:04:58.820312+00:00",
+    "updated_at": "2026-08-13T07:23:06+00:00",
+    "department_id": "emergency_trauma"
+  },
+  {
+    "id": "ced3f80e-b4b6-4d96-94bb-f74e15f6e053",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "setting_key": "pharmacy_po_signatures",
+    "setting_value": {
+      "headName": "TAN YUANG ZHANG",
+      "headPosition": "PEGAWAI FARMASI UF 12",
+      "applicantName": "KAMRIAH BT HAJI MAIL",
+      "applicantPosition": "PENOLONG PEGAWAI FARMASI U7 TBK 2"
+    },
+    "updated_by": "a889bf79-fe10-4ae3-871e-99e2d63f3055",
+    "created_at": "2026-04-06T15:55:55.601404+00:00",
+    "updated_at": "2026-04-14T05:46:06.75+00:00",
+    "department_id": "PERUBATAN TRANSFUSI DARAH"
+  },
+  {
+    "id": "2786d296-6989-4b28-9a31-81af3d80c0a2",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "setting_key": "pharmacy_po_signatures",
+    "setting_value": {
+      "headName": "TAN YUANG ZHANG",
+      "headPosition": "PEGAWAI FARMASI UF 12",
+      "applicantName": "KAMRIAH BT HAJI MAIL",
+      "applicantPosition": "PENOLONG PEGAWAI FARMASI U7 TBK 2"
+    },
+    "updated_by": "a889bf79-fe10-4ae3-871e-99e2d63f3055",
+    "created_at": "2026-02-25T02:35:55.279679+00:00",
+    "updated_at": "2026-02-25T02:35:54.432+00:00",
+    "department_id": "Pengurusan"
+  },
+  {
+    "id": "b0bb47a0-3afe-4aac-96d8-f6620bf3fb30",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "setting_key": "pharmacy_po_signatures",
+    "setting_value": {
+      "headName": "TAN YUANG ZHANG",
+      "headPosition": "PEGAWAI FARMASI UF 12",
+      "applicantName": "KAMRIAH BT HAJI MAIL",
+      "applicantPosition": "PENOLONG PEGAWAI FARMASI U7 TBK 2"
+    },
+    "updated_by": "a889bf79-fe10-4ae3-871e-99e2d63f3055",
+    "created_at": "2026-01-28T02:32:07.621351+00:00",
+    "updated_at": "2026-04-14T05:53:19.712+00:00",
+    "department_id": "ADMIN"
+  },
+  {
+    "id": "05cd7fd4-08f3-4c56-a3dc-5384ca5c6c0a",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "setting_key": "pharmacy_po_signatures",
+    "setting_value": {
+      "headName": "TAN YUANG ZHANG",
+      "headPosition": "PEGAWAI FARMASI UF 12",
+      "applicantName": "KAMRIAH BT HAJI MAIL",
+      "applicantPosition": "PENOLONG PEGAWAI FARMASI U7 TBK 2"
+    },
+    "updated_by": "d92476aa-f753-4da1-ab8e-5e7bce53f5d3",
+    "created_at": "2026-02-27T02:28:09.190479+00:00",
+    "updated_at": "2026-03-10T00:39:51.833+00:00",
+    "department_id": "wound_care"
+  },
+  {
+    "id": "a68f5408-1e64-46f6-a8fe-83db6f7220d3",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "setting_key": "pharmacy_po_signatures",
+    "setting_value": {
+      "headName": "TAN YUANG ZHANG",
+      "headPosition": "PEGAWAI FARMASI UF 12",
+      "applicantName": "KAMRIAH BT HAJI MAIL",
+      "applicantPosition": "PENOLONG PEGAWAI FARMASI U7 TBK 2"
+    },
+    "updated_by": null,
+    "created_at": "2026-01-22T13:36:49.259546+00:00",
+    "updated_at": "2026-01-22T13:36:49.259546+00:00",
+    "department_id": "hospital_admin"
+  },
+  {
+    "id": "e55b447d-da37-4aa6-b276-e7d80e13093d",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "setting_key": "pharmacy_po_signatures",
+    "setting_value": {
+      "headName": "TAN YUANG ZHANG",
+      "headPosition": "PEGAWAI FARMASI UF 12",
+      "applicantName": "KAMRIAH BT HAJI MAIL",
+      "applicantPosition": "PENOLONG PEGAWAI FARMASI U7 TBK 2"
+    },
+    "updated_by": "d92476aa-f753-4da1-ab8e-5e7bce53f5d3",
+    "created_at": "2026-03-11T07:45:13.846504+00:00",
+    "updated_at": "2026-03-11T07:45:12.209+00:00",
+    "department_id": "Maternity"
+  },
+  {
+    "id": "89fad36a-bd23-42d8-8890-da7bb9150cdc",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "setting_key": "pharmacy_po_signatures",
+    "setting_value": {
+      "headName": "TAN YUANG ZHANG",
+      "headPosition": "PEGAWAI FARMASI UF 12",
+      "applicantName": "KAMRIAH BT HAJI MAIL",
+      "applicantPosition": "PENOLONG PEGAWAI FARMASI U7 TBK 2"
+    },
+    "updated_by": "d92476aa-f753-4da1-ab8e-5e7bce53f5d3",
+    "created_at": "2026-03-11T07:53:20.591531+00:00",
+    "updated_at": "2026-03-11T07:53:19.03+00:00",
+    "department_id": "Paediatric"
+  },
+  {
+    "id": "fd76b699-5863-45e9-bd80-cfa0fb428e47",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "setting_key": "pharmacy_po_signatures",
+    "setting_value": {
+      "headName": "TAN YUANG ZHANG",
+      "headPosition": "PEGAWAI FARMASI UF 12",
+      "applicantName": "KAMRIAH BT HAJI MAIL",
+      "applicantPosition": "PENOLONG PEGAWAI FARMASI U7 TBK 2"
+    },
+    "updated_by": "d92476aa-f753-4da1-ab8e-5e7bce53f5d3",
+    "created_at": "2026-01-23T08:44:38.88072+00:00",
+    "updated_at": "2026-01-23T08:44:37.121+00:00",
+    "department_id": "radiology_radiography"
+  },
+  {
+    "id": "7c2893d8-edbe-49e4-84ac-72355905d93f",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "setting_key": "pharmacy_po_signatures",
+    "setting_value": {
+      "headName": "TAN YUANG ZHANG",
+      "headPosition": "PEGAWAI FARMASI UF 12",
+      "applicantName": "KAMRIAH BT HAJI MAIL",
+      "applicantPosition": "PENOLONG PEGAWAI FARMASI U7 TBK 2"
+    },
+    "updated_by": "a889bf79-fe10-4ae3-871e-99e2d63f3055",
+    "created_at": "2026-01-09T00:14:25.944839+00:00",
+    "updated_at": "2026-01-22T06:39:32.787+00:00",
+    "department_id": "pharmacy_logistics"
+  },
+  {
+    "id": "7584bcfa-ae7d-4963-871f-f5146074082a",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "setting_key": "pharmacy_po_signatures",
+    "setting_value": {
+      "headName": "TAN YUANG ZHANG",
+      "headPosition": "PEGAWAI FARMASI UF 12",
+      "applicantName": "KAMRIAH BT HAJI MAIL",
+      "applicantPosition": "PENOLONG PEGAWAI FARMASI U7 TBK 2"
+    },
+    "updated_by": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "created_at": "2026-01-23T00:36:55.156184+00:00",
+    "updated_at": "2026-01-23T00:41:31.487+00:00",
+    "department_id": "PHARMACY_LOGISTIC"
+  },
+  {
+    "id": "7e4f6325-353c-49ca-a810-c1c27d2f46cd",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "setting_key": "pharmacy_po_signatures",
+    "setting_value": {
+      "headName": "TAN YUANG ZHANG",
+      "headPosition": "PEGAWAI FARMASI UF 12",
+      "applicantName": "KAMRIAH BT HAJI MAIL",
+      "applicantPosition": "PENOLONG PEGAWAI FARMASI U7 TBK 2"
+    },
+    "updated_by": "d92476aa-f753-4da1-ab8e-5e7bce53f5d3",
+    "created_at": "2026-05-04T04:43:39.4413+00:00",
+    "updated_at": "2026-05-05T08:29:35.613+00:00",
+    "department_id": "anaesthesiology"
+  },
+  {
+    "id": "4344eba5-6c6c-4586-8aba-217bd466879d",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "setting_key": "pharmacy_po_signatures",
+    "setting_value": {
+      "headName": "MOHAMAD AIMAN BIN MAT ZAKI ",
+      "headPosition": "PEGAWAI FARMASI UF9",
+      "applicantName": "SHARIZAH BINTI WARNO",
+      "applicantPosition": "JURUPULIH PERUBATAN FISIOTERAPI U6"
+    },
+    "updated_by": "5a2e226f-8ebe-4ee6-8e33-6ec7687ef9d2",
+    "created_at": "2026-05-14T04:09:20.531132+00:00",
+    "updated_at": "2026-06-23T04:38:25.44+00:00",
+    "department_id": "rehabilitation"
+  },
+  {
+    "id": "4d09fbe9-ea34-42ba-8269-373a143a0402",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "setting_key": "pharmacy_po_signatures",
+    "setting_value": {
+      "headName": "MOHD FATHURLLAH BIN ISMAIL",
+      "headPosition": "JURUTEKNOLOGI MAKMAL PERUBATAN U6",
+      "applicantName": "AJ JOSHUA ANAK DATO",
+      "applicantPosition": "JURUTEKNOLOGI MAKMAL PERUBATAN U6"
+    },
+    "updated_by": "a889bf79-fe10-4ae3-871e-99e2d63f3055",
+    "created_at": "2026-01-22T13:36:49.259546+00:00",
+    "updated_at": "2026-06-29T13:55:31.271+00:00",
+    "department_id": "pathology"
+  },
+  {
+    "id": "7eb64c0d-ffb4-4cbe-b536-a11bd73b49ae",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "setting_key": "pharmacy_po_signatures",
+    "setting_value": {
+      "headName": "MOHAMAD AIMAN BIN MAT ZAKI ",
+      "headPosition": "PEGAWAI FARMASI UF9",
+      "applicantName": "KAMRIAH BT HAJI MAIL",
+      "applicantPosition": "PENOLONG PEGAWAI FARMASI U7 TBK 2"
+    },
+    "updated_by": "5a2e226f-8ebe-4ee6-8e33-6ec7687ef9d2",
+    "created_at": "2026-01-23T00:44:30.672412+00:00",
+    "updated_at": "2026-08-26T08:31:45.4+00:00",
+    "department_id": "pharmacy"
+  },
+  {
+    "id": "3ede0423-fe81-427c-9c0a-3e1364e5506e",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "setting_key": "pharmacy_po_signatures",
+    "setting_value": {
+      "headName": "MOHAMAD AIMAN BIN MAT ZAKI ",
+      "headPosition": "PEGAWAI FARMASI UF9",
+      "applicantName": "KAMARIAH BINTI MOHAMAD ALI",
+      "applicantPosition": "JURURAWAT U6"
+    },
+    "updated_by": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "created_at": "2026-02-20T07:03:57.889944+00:00",
+    "updated_at": "2026-08-20T06:09:40.602+00:00",
+    "department_id": "general_ward"
+  }
+]

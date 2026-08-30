@@ -1,0 +1,22 @@
+[
+  {
+    "id": "7f85b47e-5718-47af-a5cf-26f03e84a888",
+    "kunci_id": "2cc6f5a1-bc47-4c34-aa13-8d47e1aeddcd",
+    "peminjam_id": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "pegawai_penyerah_id": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "pegawai_saksi_id": null,
+    "tarikh_masa_ambil": "2026-07-09T08:06:21.046+00:00",
+    "jangka_masa_pulang": "2026-07-10T08:06:21.046+00:00",
+    "tarikh_masa_pulang": null,
+    "pegawai_penerima_id": null,
+    "keadaan_kunci": null,
+    "keadaan_mangga": null,
+    "catatan_penggunaan": null,
+    "duration_seconds": null,
+    "is_overdue": false,
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "created_at": "2026-07-09T08:06:35.251832+00:00",
+    "updated_at": "2026-07-09T08:06:35.251832+00:00",
+    "tujuan": "kira oksigen"
+  }
+]

@@ -1,0 +1,19 @@
+[
+  {
+    "id": "2cc6f5a1-bc47-4c34-aa13-8d47e1aeddcd",
+    "kod_kunci": "PHAR-LOG-01",
+    "nama_kunci": "Stor Silinder Oksigen",
+    "department_id": "7a3bd6c4-c8e6-491b-8441-0ee9bd73f880",
+    "lokasi_fizikal": "Farmasi Logistik",
+    "jenis_kunci": "room",
+    "tahap_kawalan": "normal",
+    "status": "available",
+    "nombor_peti": "Farmasi Logistik",
+    "status_sampul": "not_applicable",
+    "penjaga_id": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "created_by": null,
+    "created_at": "2026-07-09T07:58:17.8168+00:00",
+    "updated_at": "2026-07-13T01:57:42.299442+00:00"
+  }
+]

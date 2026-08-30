@@ -1,0 +1,102 @@
+[
+  {
+    "id": "594cbe13-35b6-4cec-a329-7d497c10b793",
+    "unit_id": "a8385a43-0185-48ab-9c16-ff3a49204003",
+    "min_suhu": 2,
+    "max_suhu": 8,
+    "effective_from": "2026-06-22T06:55:17.171408+00:00",
+    "effective_until": null,
+    "created_by": null,
+    "created_at": "2026-06-22T06:55:17.171408+00:00"
+  },
+  {
+    "id": "da93c50c-6089-4e0c-9b08-27f53cfc1cd0",
+    "unit_id": "a8385a43-0185-48ab-9c16-ff3a49204004",
+    "min_suhu": 2,
+    "max_suhu": 8,
+    "effective_from": "2026-06-22T06:55:17.171408+00:00",
+    "effective_until": null,
+    "created_by": null,
+    "created_at": "2026-06-22T06:55:17.171408+00:00"
+  },
+  {
+    "id": "421a0ffc-ef27-4803-9c19-8302cc12b2e9",
+    "unit_id": "a8385a43-0185-48ab-9c16-ff3a49204001",
+    "min_suhu": -25,
+    "max_suhu": -15,
+    "effective_from": "2026-06-22T06:55:17.171408+00:00",
+    "effective_until": "2026-07-07T08:16:37.668+00:00",
+    "created_by": null,
+    "created_at": "2026-06-22T06:55:17.171408+00:00"
+  },
+  {
+    "id": "f98502aa-7b2d-4c3f-9690-1028f6dac97a",
+    "unit_id": "a8385a43-0185-48ab-9c16-ff3a49204001",
+    "min_suhu": 2,
+    "max_suhu": 8,
+    "effective_from": "2026-07-07T08:16:37.668+00:00",
+    "effective_until": null,
+    "created_by": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "created_at": "2026-07-07T08:16:49.816808+00:00"
+  },
+  {
+    "id": "cee8740b-9442-46ad-99f5-c956bd5bb5e0",
+    "unit_id": "a8385a43-0185-48ab-9c16-ff3a49204002",
+    "min_suhu": 2,
+    "max_suhu": 8,
+    "effective_from": "2026-06-22T06:55:17.171408+00:00",
+    "effective_until": "2026-07-07T08:34:10.534+00:00",
+    "created_by": null,
+    "created_at": "2026-06-22T06:55:17.171408+00:00"
+  },
+  {
+    "id": "98df2a45-db36-431a-ae81-6da83c4a18ba",
+    "unit_id": "a8385a43-0185-48ab-9c16-ff3a49204002",
+    "min_suhu": 2,
+    "max_suhu": 8,
+    "effective_from": "2026-07-07T08:34:10.534+00:00",
+    "effective_until": null,
+    "created_by": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "created_at": "2026-07-07T08:34:22.568923+00:00"
+  },
+  {
+    "id": "6bede6e2-188d-40f8-8541-85cb69f5273d",
+    "unit_id": "baf7ad36-0435-4abe-86b6-8e3a3d85b10e",
+    "min_suhu": 18,
+    "max_suhu": 25,
+    "effective_from": "2026-07-07T08:36:11.455268+00:00",
+    "effective_until": null,
+    "created_by": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "created_at": "2026-07-07T08:36:11.455268+00:00"
+  },
+  {
+    "id": "4aa77f82-c0a2-4297-8d0d-b2dd1a01857f",
+    "unit_id": "2b9b14d5-f4ba-4001-aada-0b7b85969510",
+    "min_suhu": 2,
+    "max_suhu": 8,
+    "effective_from": "2026-07-07T08:39:10.493299+00:00",
+    "effective_until": null,
+    "created_by": "88dc2fa7-e943-45ba-a889-8756c0265b48",
+    "created_at": "2026-07-07T08:39:10.493299+00:00"
+  },
+  {
+    "id": "97b7a85f-a118-431e-a044-f8aec0b9d2cf",
+    "unit_id": "2906e578-ae45-4b33-9b9c-710d6cbe9970",
+    "min_suhu": 2,
+    "max_suhu": 8,
+    "effective_from": "2026-07-08T07:01:19.536687+00:00",
+    "effective_until": null,
+    "created_by": "38af6719-4ac7-4f08-a38a-b98907ebccbd",
+    "created_at": "2026-07-08T07:01:19.536687+00:00"
+  },
+  {
+    "id": "0ee55baf-dde7-40ab-b306-2084a5ad3dcc",
+    "unit_id": "9747eb7e-a7a7-4f20-afc5-bcf178040716",
+    "min_suhu": 18,
+    "max_suhu": 25,
+    "effective_from": "2026-07-08T07:09:12.488299+00:00",
+    "effective_until": null,
+    "created_by": "38af6719-4ac7-4f08-a38a-b98907ebccbd",
+    "created_at": "2026-07-08T07:09:12.488299+00:00"
+  }
+]

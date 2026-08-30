@@ -1328,11 +1328,9 @@ export const LPOListPage: React.FC = () => {
               className="bg-white border border-slate-200 text-slate-700 text-sm rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-sm"
             >
               <option value="">All Vote Codes</option>
-               {metadata.voteCodes
-                .filter(code => code === '080702' || code === '990102')
-                .map(code => (
-                  <option key={code} value={code}>{code}</option>
-                ))}
+              {metadata.voteCodes.map(code => (
+                <option key={code} value={code}>{code}</option>
+              ))}
             </select>
 
             <select

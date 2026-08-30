@@ -2,7 +2,7 @@
 import { PDFDocument } from 'pdf-lib'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import { isContractExpired } from '@/shared/lib/utils'
+import { isContractExpired, isApplOrder } from '@/shared/lib/utils'
 import { drawHospitalHeader } from '@/lib/pdfHeader'
 
 console.error('!!! PO_PDF_SERVICE_LOADED !!!');
@@ -201,7 +201,7 @@ async function compileVectorPO(options: VectorPDFOptions): Promise<ArrayBuffer> 
 
     const isOrderContractExpired = anyItemExpired || orderLevelExpired || purchasedUnderSQ;
 
-    const rawContractNo = (order.vote_code === '990102' || order.po_type === 'manual') 
+    const rawContractNo = (isApplOrder(order) || order.po_type === 'manual') 
       ? '-' 
       : (order.kkm_contract_number || order.supplier?.contract_number || '-');
 
@@ -323,7 +323,7 @@ async function compileVectorPO(options: VectorPDFOptions): Promise<ArrayBuffer> 
     // Per-item expiry: check item's own contract_end_date (available from catalog lookup)
     const itemExpired = purchasedUnderSQ || isContractExpired(item, refDate) || isContractExpired(order, refDate) || isContractExpired(order.supplier, refDate);
 
-    if (order.vote_code !== '990102' && order.po_type !== 'manual' && order.po_type !== 'sq' && !itemExpired) {
+    if (!isApplOrder(order) && order.po_type !== 'manual' && order.po_type !== 'sq' && !itemExpired) {
          const contractNo = item.contract_number || order.kkm_contract_number || order.supplier?.contract_number;
          if (contractNo) {
              const rawDeliveryPeriod = item.delivery_period || order.supplier?.delivery_period;

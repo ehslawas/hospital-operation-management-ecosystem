@@ -1,0 +1,23 @@
+[
+  {
+    "id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "hospital_code": "HLWS",
+    "hospital_name": "HOSPITAL LAWAS",
+    "address": "JALAN HOSPITAL,98850 LAWAS,SARAWAK",
+    "state": "SARAWAK",
+    "phone": "085-283781",
+    "email": "hosplws@gmail.com",
+    "logo_url": null,
+    "status": "active",
+    "created_at": "2026-01-06T11:11:20.418637+00:00",
+    "updated_at": "2026-01-07T05:39:01.399414+00:00",
+    "admin_id": "6dc71c77-546a-4c9b-b126-71859df7a4c8",
+    "license_valid_until": null,
+    "max_users": 100,
+    "subscription_tier": "basic",
+    "license_key": null,
+    "subscription_status": "trial",
+    "subscription_expires_at": null,
+    "metadata": {}
+  }
+]

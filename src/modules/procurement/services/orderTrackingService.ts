@@ -1,8 +1,11 @@
 // @ts-nocheck
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import { formatDate } from '@/lib/utils'
+import { formatDate, isApplOrder } from '@/lib/utils'
 import { supabase, isSupabaseConfigured } from '@/services/supabase'
+
+const ALLOWED_MEDICAL_VOTE_CODES = ['080702', '990102', '080600 (APPL)', '080600 (CC)', '080600']
+
 import { drawHospitalHeader } from '@/lib/pdfHeader'
 import { addDays, parseISO, format, isValid, differenceInDays } from 'date-fns'
 import type { ApiResponse, PaginatedResponse } from '@/types'
@@ -53,43 +56,59 @@ export async function getOrderTrackingStats(hospitalId: string): Promise<ApiResp
     // It is fully delivered if all items are delivered.
     // Otherwise it's pending (or partially delivered).
     
-    // First get raw item-level data
-    // Fetch all tracking items for this hospital
-    // We join with pharmacy_lpo and pharmacy_purchase_orders to include 'approved' and 'cancelled' ones
-    const { data: items, error } = await supabase
-      .from('pharmacy_order_tracking')
-      .select(`
-        lpo_id, 
-        status, 
-        expected_delivery_date,
-        reminder_count,
-        lpo:pharmacy_lpo!inner(
-          lpo_number,
-          document_url,
-          status,
-          po:pharmacy_purchase_orders!inner(status, category, po_number, vote_code)
-        )
-      `)
-      .eq('hospital_id', hospitalId)
-      .eq('lpo.status', 'verified')
-      .in('lpo.po.vote_code', ['080702', '990102'])
-      .not('lpo.document_url', 'is', null)
-      .not('lpo.po.category', 'in', '("ALAT TULIS", "Alat Tulis", "PRINTING SERVICE", "BEKALAN MAKANAN")')
-      .in('lpo.po.status', ['approved', 'cancelled', 'completed', 'partial_received'])
+    // First get raw item-level data across all batches (to bypass PostgREST 1000-row limit)
+    const batchSize = 1000
+    let items: any[] = []
+    let from = 0
+    let hasMore = true
 
-    if (error) throw error
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from('pharmacy_order_tracking')
+        .select(`
+          lpo_id, 
+          status, 
+          expected_delivery_date,
+          reminder_count,
+          lpo:pharmacy_lpo!inner(
+            lpo_number,
+            document_url,
+            status,
+            po:pharmacy_purchase_orders!inner(status, category, po_number, vote_code)
+          )
+        `)
+        .eq('hospital_id', hospitalId)
+        .eq('lpo.status', 'verified')
+        .in('lpo.po.vote_code', ALLOWED_MEDICAL_VOTE_CODES)
+        .not('lpo.document_url', 'is', null)
+        .not('lpo.po.category', 'in', '("ALAT TULIS", "Alat Tulis", "PRINTING SERVICE", "BEKALAN MAKANAN")')
+        .in('lpo.po.status', ['approved', 'cancelled', 'completed', 'partial_received'])
+        .range(from, from + batchSize - 1)
+
+      if (error) throw error
+
+      if (data && data.length > 0) {
+        items = items.concat(data)
+        from += batchSize
+        if (data.length < batchSize) {
+          hasMore = false
+        }
+      } else {
+        hasMore = false
+      }
+    }
 
     // Group by LPO
     const lpoStatusMap = new Map<string, { total: number, delivered: number, hasOverdue: boolean, isCancelled: boolean }>()
     const today = new Date().toISOString().split('T')[0]
     let totalReminders = 0
     
-    for (const item of (items || [])) {
+    for (const item of items) {
       const lpo = item.lpo as any
       const po = lpo?.po
       
       // Strict Filter: Only include in tracking if we have a verified LPO, allowed vote code and a document is present
-      if (!lpo || !po || !lpo.document_url || lpo.status !== 'verified' || (po.vote_code !== '080702' && po.vote_code !== '990102')) {
+      if (!lpo || !po || !lpo.document_url || lpo.status !== 'verified' || !ALLOWED_MEDICAL_VOTE_CODES.includes(po.vote_code)) {
         continue
       }
 
@@ -97,7 +116,7 @@ export async function getOrderTrackingStats(hospitalId: string): Promise<ApiResp
         lpoStatusMap.set(item.lpo_id, { 
           total: 0, 
           delivered: 0, 
-          hasOverdue: false,
+          hasOverdue: false, 
           isCancelled: po.status === 'cancelled'
         })
       }
@@ -163,65 +182,82 @@ export async function getOrderTrackingList(
       }
     }
 
-    // Step 1: Query the tracking table joined with LPO, PO and Supplier
-    let query = supabase
-      .from('pharmacy_order_tracking')
-      .select(`
-        id,
-        lpo_id,
-        expected_delivery_date,
-        status,
-        days_overdue,
-        reminder_count,
-        last_reminder_sent,
-        item_name,
-        lpo:pharmacy_lpo!inner(
-          id, 
-          lpo_number, 
-          status,
-          document_date,
-          document_url,
+    // Step 1: Query the tracking table joined with LPO, PO and Supplier (with batching to bypass PostgREST 1000 row limit)
+    const batchSize = 1000
+    let trackingData: any[] = []
+    let from = 0
+    let hasMore = true
+
+    while (hasMore) {
+      let query = supabase
+        .from('pharmacy_order_tracking')
+        .select(`
+          id,
+          lpo_id,
           expected_delivery_date,
-          po:pharmacy_purchase_orders!inner(
-            id,
-            po_number,
-            vote_code,
-            category,
-            kkm_contract_number,
-            manual_supplier_name,
-            supplier:suppliers(
+          status,
+          days_overdue,
+          reminder_count,
+          last_reminder_sent,
+          item_name,
+          lpo:pharmacy_lpo!inner(
+            id, 
+            lpo_number, 
+            status,
+            document_date,
+            document_url,
+            expected_delivery_date,
+            po:pharmacy_purchase_orders!inner(
               id,
-              company_name,
-              email
+              po_number,
+              vote_code,
+              category,
+              kkm_contract_number,
+              manual_supplier_name,
+              status,
+              supplier:suppliers(
+                id,
+                company_name,
+                email
+              )
             )
           )
-        )
-      `)
-      .eq('hospital_id', hospitalId)
-      .eq('lpo.status', 'verified')
-      .in('lpo.po.vote_code', ['080702', '990102'])
-      .not('lpo.document_url', 'is', null)
-      .not('lpo.po.category', 'in', '("ALAT TULIS", "Alat Tulis", "PRINTING SERVICE", "BEKALAN MAKANAN")')
-      .in('lpo.po.status', ['approved', 'cancelled', 'completed', 'partial_received'])
+        `)
+        .eq('hospital_id', hospitalId)
+        .eq('lpo.status', 'verified')
+        .in('lpo.po.vote_code', ALLOWED_MEDICAL_VOTE_CODES)
+        .not('lpo.document_url', 'is', null)
+        .not('lpo.po.category', 'in', '("ALAT TULIS", "Alat Tulis", "PRINTING SERVICE", "BEKALAN MAKANAN")')
+        .in('lpo.po.status', ['approved', 'cancelled', 'completed', 'partial_received'])
 
-    // Optional filters applied to the PO
-    if (filter?.category) {
-      if (filter.category === 'APPL') {
-        query = query.eq('lpo.po.vote_code', '990102')
-      } else if (filter.category === 'CC') {
-        query = query.eq('lpo.po.vote_code', '080702')
+      // Optional filters applied to the PO
+      if (filter?.category) {
+        if (filter.category === 'APPL') {
+          query = query.eq('lpo.po.vote_code', '990102')
+        } else if (filter.category === 'CC') {
+          query = query.eq('lpo.po.vote_code', '080702')
+        } else {
+          query = query.eq('lpo.po.category', filter.category)
+        }
+      }
+      
+      if (filter?.vote_code) {
+        query = query.eq('lpo.po.vote_code', filter.vote_code)
+      }
+
+      const { data, error } = await query.range(from, from + batchSize - 1)
+      if (error) throw error
+
+      if (data && data.length > 0) {
+        trackingData = trackingData.concat(data)
+        from += batchSize
+        if (data.length < batchSize) {
+          hasMore = false
+        }
       } else {
-        query = query.eq('lpo.po.category', filter.category)
+        hasMore = false
       }
     }
-    
-    if (filter?.vote_code) {
-      query = query.eq('lpo.po.vote_code', filter.vote_code)
-    }
-
-    const { data: trackingData, error } = await query
-
-    if (error) throw error
 
     // Step 2: Aggregate by LPO ID manually in JS (since Supabase doesn't easily do complex GROUP BY across joins)
     const lpoMap = new Map<string, any>()
@@ -235,30 +271,30 @@ export async function getOrderTrackingList(
       const poInfo = lpoInfo.po
       
       // Strict Filter: Only include in tracking if we have a verified LPO, allowed vote code and a document is present.
-      if (!lpoInfo.document_url || lpoInfo.status !== 'verified' || (poInfo.vote_code !== '080702' && poInfo.vote_code !== '990102')) {
+      if (!lpoInfo.document_url || lpoInfo.status !== 'verified' || !ALLOWED_MEDICAL_VOTE_CODES.includes(poInfo.vote_code)) {
         continue
       }
 
       const supplierName = poInfo.supplier?.company_name || poInfo.manual_supplier_name || 'Unknown Supplier'
       const supplierEmail = poInfo.supplier?.email || ''
       
-        if (!lpoMap.has(item.lpo_id)) {
-          lpoMap.set(item.lpo_id, {
-            lpo_id: item.lpo_id,
-            lpo_number: lpoInfo.lpo_number,
-            lpo_date: lpoInfo.document_date,
-            document_url: lpoInfo.document_url,
-            po_number: poInfo.po_number,
-            vote_code: poInfo.vote_code,
-            category: poInfo.category,
-            kkm_contract_number: poInfo.kkm_contract_number,
-            supplier_name: supplierName,
-            supplier_email: supplierEmail,
-            total_items: 0,
-            delivered_items: 0,
-            earliest_eta: lpoInfo.expected_delivery_date || item.expected_delivery_date,
-            latest_eta: lpoInfo.expected_delivery_date || item.expected_delivery_date,
-            max_days_overdue: item.days_overdue || 0,
+      if (!lpoMap.has(item.lpo_id)) {
+        lpoMap.set(item.lpo_id, {
+          lpo_id: item.lpo_id,
+          lpo_number: lpoInfo.lpo_number,
+          lpo_date: lpoInfo.document_date,
+          document_url: lpoInfo.document_url,
+          po_number: poInfo.po_number,
+          vote_code: poInfo.vote_code,
+          category: poInfo.category,
+          kkm_contract_number: poInfo.kkm_contract_number,
+          supplier_name: supplierName,
+          supplier_email: supplierEmail,
+          total_items: 0,
+          delivered_items: 0,
+          earliest_eta: lpoInfo.expected_delivery_date || item.expected_delivery_date,
+          latest_eta: lpoInfo.expected_delivery_date || item.expected_delivery_date,
+          max_days_overdue: item.days_overdue || 0,
           reminder_count: item.reminder_count || 0,
           last_reminder_sent: item.last_reminder_sent,
           has_overdue: false,
@@ -366,8 +402,8 @@ export async function getOrderTrackingList(
     // Pagination
     const total = results.length
     const totalPages = Math.ceil(total / pageSize)
-    const from = (page - 1) * pageSize
-    const data = results.slice(from, from + pageSize)
+    const fromIndex = (page - 1) * pageSize
+    const data = results.slice(fromIndex, fromIndex + pageSize)
 
     return {
       data: { data, total, page, pageSize, totalPages },
@@ -1115,11 +1151,26 @@ export async function recalculateOverdueStatus(
     // ─── PHASE 0 (ULTRA-FAST BATCH): Per-item sync of delivered status ─────────
     if (onProgress) onProgress('Phase 0: Cross-matching delivered items from GR and Credit Notes...')
     try {
-      const { data: staleItems } = await supabase
-        .from('pharmacy_order_tracking')
-        .select('id, lpo_id, item_id, item_code, item_name, status, is_overdue')
-        .eq('hospital_id', hospitalId)
-        .in('status', ['pending', 'overdue'])
+      let staleItems: any[] = []
+      let fromStale = 0
+      let hasMoreStale = true
+      while (hasMoreStale) {
+        const { data: chunk, error: chunkErr } = await supabase
+          .from('pharmacy_order_tracking')
+          .select('id, lpo_id, item_id, item_code, item_name, status, is_overdue')
+          .eq('hospital_id', hospitalId)
+          .in('status', ['pending', 'overdue'])
+          .range(fromStale, fromStale + 999)
+
+        if (chunkErr) throw chunkErr
+        if (chunk && chunk.length > 0) {
+          staleItems = staleItems.concat(chunk)
+          fromStale += 1000
+          if (chunk.length < 1000) hasMoreStale = false
+        } else {
+          hasMoreStale = false
+        }
+      }
 
       if (staleItems && staleItems.length > 0) {
         const lpoIds = [...new Set(staleItems.map(i => i.lpo_id))]
@@ -1244,12 +1295,27 @@ export async function recalculateOverdueStatus(
 
     // ─── STEP 1: Promote past due pending items to overdue (BULK) ─────────────
     if (onProgress) onProgress('Step 1: Checking overdue delivery dates...')
-    const { data: pastDuePending } = await supabase
-      .from('pharmacy_order_tracking')
-      .select('id, expected_delivery_date')
-      .eq('hospital_id', hospitalId)
-      .eq('status', 'pending')
-      .lt('expected_delivery_date', today)
+    let pastDuePending: any[] = []
+    let fromPast = 0
+    let hasMorePast = true
+    while (hasMorePast) {
+      const { data: chunk, error: chunkErr } = await supabase
+        .from('pharmacy_order_tracking')
+        .select('id, expected_delivery_date')
+        .eq('hospital_id', hospitalId)
+        .eq('status', 'pending')
+        .lt('expected_delivery_date', today)
+        .range(fromPast, fromPast + 999)
+
+      if (chunkErr) throw chunkErr
+      if (chunk && chunk.length > 0) {
+        pastDuePending = pastDuePending.concat(chunk)
+        fromPast += 1000
+        if (chunk.length < 1000) hasMorePast = false
+      } else {
+        hasMorePast = false
+      }
+    }
 
     if (pastDuePending && pastDuePending.length > 0) {
       if (onProgress) onProgress(`Step 1: Updating ${pastDuePending.length} overdue items...`)
@@ -1367,8 +1433,7 @@ export async function createOrderTrackingForLPO(lpoId: string): Promise<ApiRespo
     }
 
     // 2. Determine category (APPL vs CC)
-    // APPL = 990102, CC = 080702
-    const itemCategory = po.vote_code === '990102' ? 'APPL' : 'CC'
+    const itemCategory = isApplOrder(po) ? 'APPL' : 'CC'
 
     // 3. Check for existing tracking records to avoid duplicates
     const { data: existing } = await supabase
@@ -1467,11 +1532,26 @@ export async function backfillMissingTrackingRecords(
     if (lpoError) throw lpoError
     if (!verifiedLPOs || verifiedLPOs.length === 0) return { data: { processed: 0, created: 0 }, error: null }
 
-    // 2. Get LPOs that already have tracking records
-    const { data: existingTracking } = await supabase
-      .from('pharmacy_order_tracking')
-      .select('lpo_id')
-      .eq('hospital_id', hospitalId)
+    // 2. Get LPOs that already have tracking records (batched to overcome 1000 row limit)
+    let existingTracking: any[] = []
+    let fromTrack = 0
+    let hasMoreTrack = true
+    while (hasMoreTrack) {
+      const { data: chunk, error: trackError } = await supabase
+        .from('pharmacy_order_tracking')
+        .select('lpo_id')
+        .eq('hospital_id', hospitalId)
+        .range(fromTrack, fromTrack + 999)
+      
+      if (trackError) throw trackError
+      if (chunk && chunk.length > 0) {
+        existingTracking = existingTracking.concat(chunk)
+        fromTrack += 1000
+        if (chunk.length < 1000) hasMoreTrack = false
+      } else {
+        hasMoreTrack = false
+      }
+    }
     
     const trackedLpoIds = new Set(existingTracking?.map(t => t.lpo_id) || [])
 

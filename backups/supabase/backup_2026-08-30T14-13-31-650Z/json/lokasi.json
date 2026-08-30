@@ -1,0 +1,67 @@
+[
+  {
+    "id": "bc4853bb-4e92-485f-bbfa-739af3c36369",
+    "kod_lokasi": "LOK-FL",
+    "nama_lokasi": "Farmasi Logistik",
+    "jabatan": "Farmasi",
+    "deskripsi": null,
+    "status": "active",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "created_by": null,
+    "created_at": "2026-06-22T06:53:22.926031+00:00",
+    "updated_at": "2026-07-07T07:40:42.789904+00:00",
+    "department_id": "7a3bd6c4-c8e6-491b-8441-0ee9bd73f880"
+  },
+  {
+    "id": "fe954fa2-9dae-48f8-b3a6-7db14f30ca65",
+    "kod_lokasi": "LOK-SF",
+    "nama_lokasi": "Satelit Farmasi",
+    "jabatan": "Farmasi",
+    "deskripsi": null,
+    "status": "active",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "created_by": null,
+    "created_at": "2026-06-22T06:53:22.926031+00:00",
+    "updated_at": "2026-07-07T07:40:42.789904+00:00",
+    "department_id": "0c6c6f1b-d3b6-4779-91c3-536956858fca"
+  },
+  {
+    "id": "62558364-e63b-4992-9729-15ed9c73b149",
+    "kod_lokasi": "LOK-GW",
+    "nama_lokasi": "General Ward",
+    "jabatan": "Wad",
+    "deskripsi": null,
+    "status": "active",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "created_by": null,
+    "created_at": "2026-06-22T06:53:22.926031+00:00",
+    "updated_at": "2026-07-07T07:40:42.789904+00:00",
+    "department_id": "2fa7312e-8d31-4612-b66b-045706fc6401"
+  },
+  {
+    "id": "1dcf2f17-5fb9-4de5-b5ba-d4457a9e96df",
+    "kod_lokasi": "LOK-PW",
+    "nama_lokasi": "Paediatric Ward",
+    "jabatan": "Wad",
+    "deskripsi": null,
+    "status": "active",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "created_by": null,
+    "created_at": "2026-06-22T06:53:22.926031+00:00",
+    "updated_at": "2026-07-07T07:40:42.789904+00:00",
+    "department_id": "9e864dc8-6a6c-47c6-9d74-57d87ccd06e9"
+  },
+  {
+    "id": "3ad46a96-f74e-4c45-99fc-60bcd748a869",
+    "kod_lokasi": "LOK-ET",
+    "nama_lokasi": "Emergency & Trauma",
+    "jabatan": "Kecemasan",
+    "deskripsi": null,
+    "status": "active",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "created_by": null,
+    "created_at": "2026-06-22T06:53:22.926031+00:00",
+    "updated_at": "2026-07-07T07:40:42.789904+00:00",
+    "department_id": "6135bb5c-864e-4926-b3d7-59394884abd4"
+  }
+]

@@ -601,10 +601,12 @@ export const StoreLocationManagementPage: React.FC = () => {
 
       const allMatchedItems = [...matchedDrugs, ...matchedNonDrugs]
       generateStoreLocationPdf(loc, allMatchedItems, {
-        hospitalName: 'HOSPITAL LAWAS',
+        hospitalName: user?.hospital?.hospital_name || (user?.hospital as any)?.name || 'HOSPITAL LAWAS',
         department: `Jabatan Farmasi / Unit Logistik Stor (${loc.department || 'LOG'})`,
-        preparedBy: user?.full_name ? `${user.full_name} (${user.jawatan || 'Penyelia Stor'})` : 'Pegawai Farmasi / Storekeeper',
+        preparedBy: user?.full_name || (user as any)?.name || 'Pegawai Farmasi / Storekeeper',
+        preparedByTitle: user?.jawatan || 'Penyelia Stor / Pegawai Farmasi',
         approvedBy: 'Ketua Unit Stor / Pegawai Farmasi Y/M',
+        approvedByTitle: 'Ketua Unit Stor / Pegawai Farmasi Y/M',
       })
     } catch (err) {
       console.error('Error exporting store location PDF:', err)

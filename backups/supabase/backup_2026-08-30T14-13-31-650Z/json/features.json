@@ -1,0 +1,674 @@
+[
+  {
+    "id": "0432ca5e-7e0f-4681-b53e-df51441576a1",
+    "module_id": "91d58886-fe08-416e-b9b2-fc8e183636ba",
+    "feature_name": "View Drug Catalog",
+    "feature_code": "drug.view",
+    "description": "View drug catalog list",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "a06d7f93-776d-4b93-941d-f3fce75db28b",
+    "module_id": "91d58886-fe08-416e-b9b2-fc8e183636ba",
+    "feature_name": "Add Drug",
+    "feature_code": "drug.create",
+    "description": "Create new drug entries",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "40dc7c1b-aa79-4711-ab61-74936f14ef00",
+    "module_id": "91d58886-fe08-416e-b9b2-fc8e183636ba",
+    "feature_name": "Edit Drug",
+    "feature_code": "drug.edit",
+    "description": "Modify drug details",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "38771dc4-5b96-436d-b7ae-c8579a9e0c18",
+    "module_id": "91d58886-fe08-416e-b9b2-fc8e183636ba",
+    "feature_name": "Delete Drug",
+    "feature_code": "drug.delete",
+    "description": "Remove drug entries",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "5ac3a215-a067-4d0a-aafa-3af0b2667d6f",
+    "module_id": "91d58886-fe08-416e-b9b2-fc8e183636ba",
+    "feature_name": "Import Drugs",
+    "feature_code": "drug.import",
+    "description": "Bulk import from Excel",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "24a975fc-bd4b-4d28-aa12-8d4ae2d0e2a5",
+    "module_id": "91d58886-fe08-416e-b9b2-fc8e183636ba",
+    "feature_name": "View Non-Drug",
+    "feature_code": "nondrug.view",
+    "description": "View non-drug items",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "dbb61543-fb42-414b-8d46-d007b2959d4d",
+    "module_id": "91d58886-fe08-416e-b9b2-fc8e183636ba",
+    "feature_name": "Add Non-Drug",
+    "feature_code": "nondrug.create",
+    "description": "Create non-drug entries",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "3eb2bc02-f579-45f2-a5d2-46f9918e0053",
+    "module_id": "91d58886-fe08-416e-b9b2-fc8e183636ba",
+    "feature_name": "Import Non-Drug",
+    "feature_code": "nondrug.import",
+    "description": "Bulk import",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "9603f1fc-3340-4cc9-8ac3-d2cb88585ea9",
+    "module_id": "91d58886-fe08-416e-b9b2-fc8e183636ba",
+    "feature_name": "View Suppliers",
+    "feature_code": "supplier.view",
+    "description": "View supplier list",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "363c02e9-3a0c-4428-82d3-066ae846741b",
+    "module_id": "91d58886-fe08-416e-b9b2-fc8e183636ba",
+    "feature_name": "Add Supplier",
+    "feature_code": "supplier.create",
+    "description": "Create supplier",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "8cd6b70a-d71f-4a5f-b4a7-e6d896175267",
+    "module_id": "91d58886-fe08-416e-b9b2-fc8e183636ba",
+    "feature_name": "Edit Supplier",
+    "feature_code": "supplier.edit",
+    "description": "Modify supplier",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "3a585aa2-6d92-471e-8c7c-76683a5ab2cf",
+    "module_id": "91d58886-fe08-416e-b9b2-fc8e183636ba",
+    "feature_name": "View Contracts",
+    "feature_code": "contract.view",
+    "description": "View contracts",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "d843253a-9eff-4285-bf5c-b70ea1e131e0",
+    "module_id": "91d58886-fe08-416e-b9b2-fc8e183636ba",
+    "feature_name": "Add Contract",
+    "feature_code": "contract.create",
+    "description": "Create contract",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "e1982359-54ed-4647-93e0-f04f559d99e0",
+    "module_id": "91d58886-fe08-416e-b9b2-fc8e183636ba",
+    "feature_name": "View Facilities",
+    "feature_code": "facility.view",
+    "description": "View facilities",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "9905a156-3e13-4305-9c0d-ef3dd9ce130c",
+    "module_id": "91d58886-fe08-416e-b9b2-fc8e183636ba",
+    "feature_name": "Add Facility",
+    "feature_code": "facility.create",
+    "description": "Create facility",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "ff6e056c-0531-4e36-8585-0f1495bc6a95",
+    "module_id": "91d58886-fe08-416e-b9b2-fc8e183636ba",
+    "feature_name": "View Reagents",
+    "feature_code": "reagent.view",
+    "description": "View reagents",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "8328c0f3-4117-4e9b-be29-1197ef7f2c33",
+    "module_id": "91d58886-fe08-416e-b9b2-fc8e183636ba",
+    "feature_name": "Add Reagent",
+    "feature_code": "reagent.create",
+    "description": "Create reagent",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "155c850e-483a-4e2a-b858-4f46bedb307b",
+    "module_id": "91d58886-fe08-416e-b9b2-fc8e183636ba",
+    "feature_name": "View APPL Catalog",
+    "feature_code": "appl.view",
+    "description": "Government procurement catalog",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "c6290943-fd2e-4428-8297-c4e261f085a3",
+    "module_id": "91d58886-fe08-416e-b9b2-fc8e183636ba",
+    "feature_name": "View LP Catalog",
+    "feature_code": "lp.view",
+    "description": "Local purchase catalog",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "daa62d73-0cf7-467f-9742-21c4bd414c53",
+    "module_id": "d70f2d2b-9d77-43f1-a9f7-8c1f889feae8",
+    "feature_name": "View Units",
+    "feature_code": "unit.view",
+    "description": "View UOM catalog",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "ba3516f3-60f1-4a2a-b357-2613ca9b47ff",
+    "module_id": "d70f2d2b-9d77-43f1-a9f7-8c1f889feae8",
+    "feature_name": "Add Unit",
+    "feature_code": "unit.create",
+    "description": "Create UOM",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "e140878f-7f52-487c-9e9f-4a52ad472d6a",
+    "module_id": "d70f2d2b-9d77-43f1-a9f7-8c1f889feae8",
+    "feature_name": "Manage Locations",
+    "feature_code": "location.manage",
+    "description": "Stock locations",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "f5c78a89-9f3c-4645-894c-c37ad8bb26fd",
+    "module_id": "d70f2d2b-9d77-43f1-a9f7-8c1f889feae8",
+    "feature_name": "Stock Verification",
+    "feature_code": "verification.manage",
+    "description": "Verify stock",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "c35459dd-9f8c-4288-9926-dcf2f396ffcd",
+    "module_id": "a6d50b7d-929d-46ba-bc21-9298aba517b1",
+    "feature_name": "View Dashboard",
+    "feature_code": "view",
+    "description": "View analytics dashboard",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "31e4c696-f2e3-4aec-b230-2895207bbcf2",
+    "module_id": "44d1c3cc-7dbb-4f62-9d3e-54c3fafcdd08",
+    "feature_name": "View Readings",
+    "feature_code": "view_temp_readings",
+    "description": "View temperature logs",
+    "created_at": "2026-01-19T04:58:56.266002+00:00"
+  },
+  {
+    "id": "053d8ef7-949b-4dae-8df1-3e9e4e24aabc",
+    "module_id": "7de94b10-465f-4ef9-86c1-d40ac2cf5276",
+    "feature_name": "View Purchase Orders",
+    "feature_code": "po.view",
+    "description": "View purchase order list and details",
+    "created_at": "2026-01-18T08:12:58.788415+00:00"
+  },
+  {
+    "id": "0c8ca575-819e-451a-a960-c4606e642fb8",
+    "module_id": "7de94b10-465f-4ef9-86c1-d40ac2cf5276",
+    "feature_name": "Create Purchase Order",
+    "feature_code": "po.create",
+    "description": "Create new purchase orders",
+    "created_at": "2026-01-18T08:12:58.788415+00:00"
+  },
+  {
+    "id": "d2c85b25-25e6-4734-988c-7bf6551df274",
+    "module_id": "7de94b10-465f-4ef9-86c1-d40ac2cf5276",
+    "feature_name": "Edit Purchase Order",
+    "feature_code": "po.edit",
+    "description": "Modify draft purchase orders",
+    "created_at": "2026-01-18T08:12:58.788415+00:00"
+  },
+  {
+    "id": "c30dd81d-cbd4-449a-b1c7-d2c527390fba",
+    "module_id": "7de94b10-465f-4ef9-86c1-d40ac2cf5276",
+    "feature_name": "Cancel Purchase Order",
+    "feature_code": "po.delete",
+    "description": "Cancel or delete purchase orders",
+    "created_at": "2026-01-18T08:12:58.788415+00:00"
+  },
+  {
+    "id": "29cb8ac8-db25-4688-b58e-c936c3ad43b5",
+    "module_id": "7de94b10-465f-4ef9-86c1-d40ac2cf5276",
+    "feature_name": "Approve Purchase Order",
+    "feature_code": "po.approve",
+    "description": "Approve pending purchase orders",
+    "created_at": "2026-01-18T08:12:58.788415+00:00"
+  },
+  {
+    "id": "7544d52d-a582-4a86-905f-b8fb5a3b0a58",
+    "module_id": "7de94b10-465f-4ef9-86c1-d40ac2cf5276",
+    "feature_name": "Receive Goods (GRN)",
+    "feature_code": "po.receive",
+    "description": "Process goods received notes",
+    "created_at": "2026-01-18T08:12:58.788415+00:00"
+  },
+  {
+    "id": "4c9a71b3-9ed1-41a0-825f-ba5bb1143f93",
+    "module_id": "44d1c3cc-7dbb-4f62-9d3e-54c3fafcdd08",
+    "feature_name": "Add Reading",
+    "feature_code": "add_temp_reading",
+    "description": "Record new temperature",
+    "created_at": "2026-01-19T04:58:56.266002+00:00"
+  },
+  {
+    "id": "c45bce72-c017-4e1c-8435-26346584d09e",
+    "module_id": "44d1c3cc-7dbb-4f62-9d3e-54c3fafcdd08",
+    "feature_name": "Delete Reading",
+    "feature_code": "delete_temp_reading",
+    "description": "Delete records",
+    "created_at": "2026-01-19T04:58:56.266002+00:00"
+  },
+  {
+    "id": "78c3ae2f-83c8-4c65-9952-51cb3952203d",
+    "module_id": "44d1c3cc-7dbb-4f62-9d3e-54c3fafcdd08",
+    "feature_name": "Generate Report",
+    "feature_code": "generate_temp_report",
+    "description": "Print/PDF reports",
+    "created_at": "2026-01-19T04:58:56.266002+00:00"
+  },
+  {
+    "id": "c3e5099e-cbcc-4958-8542-ad415de8dca4",
+    "module_id": "7de94b10-465f-4ef9-86c1-d40ac2cf5276",
+    "feature_name": "View Procurement",
+    "feature_code": "procurement_view",
+    "description": "Access Procurement Module",
+    "created_at": "2026-01-28T13:47:15.705841+00:00"
+  },
+  {
+    "id": "6c76ff20-dd59-461f-bc50-5ca0719642d6",
+    "module_id": "eac2510a-5fcf-4399-b042-4f7c0d65a7c1",
+    "feature_name": "View Financials",
+    "feature_code": "financial_view",
+    "description": "Access Financial Module",
+    "created_at": "2026-01-28T13:47:15.705841+00:00"
+  },
+  {
+    "id": "284d4e0d-a73b-4ec3-92d3-d1afa05b9327",
+    "module_id": "58215e1a-c1b5-4e9c-8040-82ae695c9c89",
+    "feature_name": "View Distribution",
+    "feature_code": "distribution_view",
+    "description": "Access Distribution Module",
+    "created_at": "2026-01-28T13:47:15.705841+00:00"
+  },
+  {
+    "id": "62700f3d-b642-45e8-bbf1-06b48d63e3b1",
+    "module_id": "74d6c9ba-bb72-46cd-b4d3-11176ee3805c",
+    "feature_name": "View Logistics Inventory",
+    "feature_code": "inventory_view",
+    "description": "Access Pharmacy Inventory",
+    "created_at": "2026-01-28T13:47:15.705841+00:00"
+  },
+  {
+    "id": "4d4425bf-10f0-402b-b6e7-fd440567154d",
+    "module_id": "03154050-7cf5-4bd9-870a-971e380ab210",
+    "feature_name": "View Global Reports",
+    "feature_code": "reports_view",
+    "description": "Access Pharmacy Reports",
+    "created_at": "2026-01-28T13:47:15.705841+00:00"
+  },
+  {
+    "id": "669d4140-8dac-4fbe-9f7d-01e27132fb26",
+    "module_id": "8422d928-02ab-43a3-82e9-5e3c3ff23126",
+    "feature_name": "View Dashboard",
+    "feature_code": "dashboard.view",
+    "description": "Oxygen analytics",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "d5e6aaf8-bcd4-4115-ba06-53b284bf201b",
+    "module_id": "a58a51c6-9c98-44a8-b894-3b1398db346a",
+    "feature_name": "View Cylinders",
+    "feature_code": "cylinder.view",
+    "description": "View cylinder inventory",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "70f6cf11-be3d-4a17-b982-1dd71fb4049d",
+    "module_id": "a58a51c6-9c98-44a8-b894-3b1398db346a",
+    "feature_name": "Issue to Department",
+    "feature_code": "issue.create",
+    "description": "Issue cylinders",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "f2224c85-b164-4dfa-970f-eb0f5b33e097",
+    "module_id": "a58a51c6-9c98-44a8-b894-3b1398db346a",
+    "feature_name": "Supplier Return",
+    "feature_code": "supplier_return.create",
+    "description": "Return to supplier",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "680fb1df-6226-4012-814b-8fa52b83490a",
+    "module_id": "59369ea5-6ec5-44c2-bac6-776ca0dc1bbf",
+    "feature_name": "Request Cylinder",
+    "feature_code": "cylinder.request",
+    "description": "Create request",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "3f4ca5ba-f5b9-43b9-ae71-5e6c089df91e",
+    "module_id": "5122d381-acdd-41ba-85ec-6aa76f498d06",
+    "feature_name": "Generate QR",
+    "feature_code": "qr.generate",
+    "description": "Create QR codes",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "083c217d-4551-4321-b668-485bbe255ad4",
+    "module_id": "fcd8191e-12c1-45d0-8b00-433178500b0b",
+    "feature_name": "Return from Dept",
+    "feature_code": "return.process",
+    "description": "Process returns",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "5fd6257d-33ad-48d0-857f-c34c4d192608",
+    "module_id": "7de94b10-465f-4ef9-86c1-d40ac2cf5276",
+    "feature_name": "View Stock Quotations",
+    "feature_code": "sq.view",
+    "description": "View stock quotation list",
+    "created_at": "2026-01-18T08:12:58.788415+00:00"
+  },
+  {
+    "id": "74b385ee-c1db-423a-bd1a-1e7909a24323",
+    "module_id": "7de94b10-465f-4ef9-86c1-d40ac2cf5276",
+    "feature_name": "Create Stock Quotation",
+    "feature_code": "sq.create",
+    "description": "Create new stock quotations",
+    "created_at": "2026-01-18T08:12:58.788415+00:00"
+  },
+  {
+    "id": "b70dc100-4c29-4107-92e4-464f8f158227",
+    "module_id": "7de94b10-465f-4ef9-86c1-d40ac2cf5276",
+    "feature_name": "Convert SQ to PO",
+    "feature_code": "sq.convert",
+    "description": "Convert quotation to purchase order",
+    "created_at": "2026-01-18T08:12:58.788415+00:00"
+  },
+  {
+    "id": "2a0d230e-e2e5-455a-87fe-f8710b03a4c6",
+    "module_id": "7de94b10-465f-4ef9-86c1-d40ac2cf5276",
+    "feature_name": "View Payments",
+    "feature_code": "payment.view",
+    "description": "View payment records",
+    "created_at": "2026-01-18T08:12:58.788415+00:00"
+  },
+  {
+    "id": "46740344-5fb5-4947-a285-07554035a787",
+    "module_id": "7de94b10-465f-4ef9-86c1-d40ac2cf5276",
+    "feature_name": "Process Payment",
+    "feature_code": "payment.process",
+    "description": "Process supplier payments",
+    "created_at": "2026-01-18T08:12:58.788415+00:00"
+  },
+  {
+    "id": "bd274f8d-4d6c-470d-90a7-b3df95605db3",
+    "module_id": "7de94b10-465f-4ef9-86c1-d40ac2cf5276",
+    "feature_name": "View Penalties",
+    "feature_code": "penalty.view",
+    "description": "View supplier penalty records",
+    "created_at": "2026-01-18T08:12:58.788415+00:00"
+  },
+  {
+    "id": "add465fa-954f-432c-a65a-d40217399353",
+    "module_id": "7de94b10-465f-4ef9-86c1-d40ac2cf5276",
+    "feature_name": "Manage Penalties",
+    "feature_code": "penalty.manage",
+    "description": "Create and manage supplier penalties",
+    "created_at": "2026-01-18T08:12:58.788415+00:00"
+  },
+  {
+    "id": "2ae18183-025c-4cb4-a70e-598c1f908d6e",
+    "module_id": "7de94b10-465f-4ef9-86c1-d40ac2cf5276",
+    "feature_name": "View LOU",
+    "feature_code": "lou.view",
+    "description": "View letters of undertaking",
+    "created_at": "2026-01-18T08:12:58.788415+00:00"
+  },
+  {
+    "id": "6cfa8e80-8fb4-441b-a065-ce165687a221",
+    "module_id": "7de94b10-465f-4ef9-86c1-d40ac2cf5276",
+    "feature_name": "Manage LOU",
+    "feature_code": "lou.manage",
+    "description": "Create and manage LOU",
+    "created_at": "2026-01-18T08:12:58.788415+00:00"
+  },
+  {
+    "id": "08c0bfe1-e973-4576-a8c4-6f0a6129a246",
+    "module_id": "7de94b10-465f-4ef9-86c1-d40ac2cf5276",
+    "feature_name": "Track Orders",
+    "feature_code": "tracking.view",
+    "description": "Track order status and delivery",
+    "created_at": "2026-01-18T08:12:58.788415+00:00"
+  },
+  {
+    "id": "f1a39017-fa83-4ef8-8642-83a8ead1ca47",
+    "module_id": "74d6c9ba-bb72-46cd-b4d3-11176ee3805c",
+    "feature_name": "View Inventory",
+    "feature_code": "view",
+    "description": "View stock levels",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "0767dbb5-6154-43d5-bae4-2b7ebeb2f82a",
+    "module_id": "74d6c9ba-bb72-46cd-b4d3-11176ee3805c",
+    "feature_name": "Adjust Stock",
+    "feature_code": "adjust",
+    "description": "Manual adjustments",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "d6b1d2dd-fbec-4aad-ab22-c20c73347b44",
+    "module_id": "74d6c9ba-bb72-46cd-b4d3-11176ee3805c",
+    "feature_name": "Transfer Stock",
+    "feature_code": "transfer",
+    "description": "Inter-location transfers",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "0a4667bf-26b4-49a5-8ad7-9eaaf685cd34",
+    "module_id": "74d6c9ba-bb72-46cd-b4d3-11176ee3805c",
+    "feature_name": "View Near Expiry",
+    "feature_code": "expiry.view",
+    "description": "Monitor expiring items",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "ee36433f-720f-4236-8d8c-efa4b40611e9",
+    "module_id": "74d6c9ba-bb72-46cd-b4d3-11176ee3805c",
+    "feature_name": "Dispose Expired",
+    "feature_code": "expiry.dispose",
+    "description": "Process disposal",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "65f8201c-57d4-4fee-adf6-53bb15f90a51",
+    "module_id": "74d6c9ba-bb72-46cd-b4d3-11176ee3805c",
+    "feature_name": "View Slow Moving",
+    "feature_code": "slowmoving.view",
+    "description": "Monitor slow stock",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "4da1e63f-ad6d-41c3-a679-6a5b211222b1",
+    "module_id": "74d6c9ba-bb72-46cd-b4d3-11176ee3805c",
+    "feature_name": "Create Stock Take",
+    "feature_code": "stocktake.create",
+    "description": "Initiate stock count",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "e718619a-8b7b-4caf-a669-b316e1b9bcf1",
+    "module_id": "74d6c9ba-bb72-46cd-b4d3-11176ee3805c",
+    "feature_name": "Verify Stock Take",
+    "feature_code": "stocktake.verify",
+    "description": "Verify count",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "0f0fa540-f3a0-48d1-af4b-5fd37b4e6790",
+    "module_id": "eac2510a-5fcf-4399-b042-4f7c0d65a7c1",
+    "feature_name": "View Budget",
+    "feature_code": "budget.view",
+    "description": "View budget allocation",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "880292fe-d6d9-4565-b136-c1892ab031b2",
+    "module_id": "eac2510a-5fcf-4399-b042-4f7c0d65a7c1",
+    "feature_name": "View Warrants",
+    "feature_code": "warrant.view",
+    "description": "View warrants",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "9fe80192-fa62-460c-a930-ab883c0277ea",
+    "module_id": "eac2510a-5fcf-4399-b042-4f7c0d65a7c1",
+    "feature_name": "Create Warrant",
+    "feature_code": "warrant.create",
+    "description": "Create warrants",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "326f66d3-8992-4e4c-aa68-7ec8200d2576",
+    "module_id": "eac2510a-5fcf-4399-b042-4f7c0d65a7c1",
+    "feature_name": "Allocate APPL",
+    "feature_code": "appl.allocate",
+    "description": "Government allocation",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "57930932-6290-48f2-b93d-a79a06f70e74",
+    "module_id": "eac2510a-5fcf-4399-b042-4f7c0d65a7c1",
+    "feature_name": "Allocate Cost Center",
+    "feature_code": "cc.allocate",
+    "description": "CC allocation",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "aeea9049-6e27-4c1e-98b5-83d82b7859a1",
+    "module_id": "eac2510a-5fcf-4399-b042-4f7c0d65a7c1",
+    "feature_name": "View PO Breakdown",
+    "feature_code": "po.breakdown",
+    "description": "Purchase analysis",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "64153823-5b3d-4f04-a51e-85c645adb08d",
+    "module_id": "58215e1a-c1b5-4e9c-8040-82ae695c9c89",
+    "feature_name": "View Transfer Requests",
+    "feature_code": "transfer.view",
+    "description": "View transfer list",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "98a8dde4-4089-4e2a-9ea8-5ac1292f1b1b",
+    "module_id": "58215e1a-c1b5-4e9c-8040-82ae695c9c89",
+    "feature_name": "Create Transfer",
+    "feature_code": "transfer.create",
+    "description": "Initiate transfer",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "918f44c1-f5b5-4503-8296-5b962e5040ca",
+    "module_id": "58215e1a-c1b5-4e9c-8040-82ae695c9c89",
+    "feature_name": "Approve Transfer",
+    "feature_code": "transfer.approve",
+    "description": "Approve requests",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "ed86adb8-3269-4dcf-a5bf-77eb65146362",
+    "module_id": "03154050-7cf5-4bd9-870a-971e380ab210",
+    "feature_name": "Generate Reports",
+    "feature_code": "generate",
+    "description": "Create reports",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "b94ecfb6-15fe-4d25-a488-b07b1e53e654",
+    "module_id": "03154050-7cf5-4bd9-870a-971e380ab210",
+    "feature_name": "Export Reports",
+    "feature_code": "export",
+    "description": "Export to PDF/Excel",
+    "created_at": "2026-01-18T08:13:29.891+00:00"
+  },
+  {
+    "id": "bce7531c-7be6-4403-bbe1-7558a5e96ab1",
+    "module_id": "04dff2ed-bacb-4696-be04-50a02483299b",
+    "feature_name": "Admin Pembangunan Management",
+    "feature_code": "admin_pembangunan",
+    "description": "Manage P42 Pembangunan budgets",
+    "created_at": "2026-01-29T10:01:12.790812+00:00"
+  },
+  {
+    "id": "a15cc8a4-2c26-40a7-9e15-812f6a57ecf0",
+    "module_id": "dfb54e9d-de89-4472-a3b5-d3281de81c62",
+    "feature_name": "View Intra-Facility",
+    "feature_code": "dist_intra_view",
+    "description": "View intra-facility distribution records",
+    "created_at": "2026-02-02T16:32:23.463356+00:00"
+  },
+  {
+    "id": "0393b777-bda2-450a-985c-e2924b4d5fab",
+    "module_id": "dfb54e9d-de89-4472-a3b5-d3281de81c62",
+    "feature_name": "Create Intra-Facility",
+    "feature_code": "dist_intra_create",
+    "description": "Create intra-facility requests",
+    "created_at": "2026-02-02T16:32:23.463356+00:00"
+  },
+  {
+    "id": "7d1b3030-4140-4819-a782-6466526d0adf",
+    "module_id": "dfb54e9d-de89-4472-a3b5-d3281de81c62",
+    "feature_name": "Approve Intra-Facility",
+    "feature_code": "dist_intra_approve",
+    "description": "Approve intra-facility requests",
+    "created_at": "2026-02-02T16:32:23.463356+00:00"
+  },
+  {
+    "id": "13d97a80-3676-4d61-8285-6f040de91ec7",
+    "module_id": "9b85bd93-94bc-475f-8fd5-1bfed83e082e",
+    "feature_name": "View Inter-Facility",
+    "feature_code": "dist_inter_view",
+    "description": "View inter-facility distribution records",
+    "created_at": "2026-02-02T16:32:23.463356+00:00"
+  },
+  {
+    "id": "da756d54-8795-4b6e-9d52-3571d768f604",
+    "module_id": "9b85bd93-94bc-475f-8fd5-1bfed83e082e",
+    "feature_name": "Create Inter-Facility",
+    "feature_code": "dist_inter_create",
+    "description": "Create inter-facility requests",
+    "created_at": "2026-02-02T16:32:23.463356+00:00"
+  },
+  {
+    "id": "266ac966-3d4c-4bce-967e-757fa110d0d8",
+    "module_id": "9b85bd93-94bc-475f-8fd5-1bfed83e082e",
+    "feature_name": "Approve Inter-Facility",
+    "feature_code": "dist_inter_approve",
+    "description": "Approve inter-facility requests",
+    "created_at": "2026-02-02T16:32:23.463356+00:00"
+  },
+  {
+    "id": "28df6fb2-d932-42eb-9d43-0f4938e08b6b",
+    "module_id": "73aaedf5-4c4d-4cbb-b78b-dd740b7781bf",
+    "feature_name": "View Approvals",
+    "feature_code": "dist_approval_view",
+    "description": "View department transfer approvals",
+    "created_at": "2026-02-03T00:12:49.758456+00:00"
+  },
+  {
+    "id": "5ce0995e-555f-4b95-aa83-382bebea0c98",
+    "module_id": "73aaedf5-4c4d-4cbb-b78b-dd740b7781bf",
+    "feature_name": "Approve Transfers",
+    "feature_code": "dist_approval_manage",
+    "description": "Approve or reject transfer requests",
+    "created_at": "2026-02-03T00:12:49.758456+00:00"
+  }
+]

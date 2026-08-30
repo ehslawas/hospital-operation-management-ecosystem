@@ -276,11 +276,61 @@ export const TransferRequestListPage: React.FC = () => {
       {!isLoading && !error && (
         <>
           <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-            <Table
-              data={transfers}
-              columns={columns}
-              emptyMessage="No transfer requests found."
-            />
+            {transfers.length === 0 ? (
+              <div className="py-12 text-center text-sm text-gray-500">
+                No transfer requests found.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm text-gray-700">
+                  <thead className="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <tr>
+                      <th className="p-3.5 pl-4">Transfer No.</th>
+                      <th className="p-3.5">Type</th>
+                      <th className="p-3.5">From → To</th>
+                      <th className="p-3.5">Request Date</th>
+                      <th className="p-3.5">Required Date</th>
+                      <th className="p-3.5 text-center">Priority</th>
+                      <th className="p-3.5 text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {transfers.map((row) => (
+                      <tr key={row.id} className="hover:bg-gray-50/80 transition-colors">
+                        <td className="p-3.5 pl-4 font-mono text-xs text-purple-600 font-medium">
+                          {row.transfer_number}
+                        </td>
+                        <td className="p-3.5 text-xs uppercase text-gray-500">
+                          <div className="flex items-center gap-1">
+                            <ArrowRightLeft className="w-3 h-3" />
+                            {row.transfer_type === 'inter_facility' ? 'Inter' : 'Intra'}
+                          </div>
+                        </td>
+                        <td className="p-3.5 text-sm text-gray-900">
+                          <span>
+                            {row.from_hospital?.nama || row.from_department?.department_name || '—'}
+                            <span className="text-gray-400 mx-1">→</span>
+                            {row.to_hospital?.nama || row.to_department?.department_name || '—'}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-sm text-gray-600">
+                          {formatDate(row.request_date)}
+                        </td>
+                        <td className="p-3.5 text-sm text-gray-600">
+                          {formatDate(row.required_date)}
+                        </td>
+                        <td className="p-3.5 text-center">
+                          {renderPriorityBadge(String(row.priority))}
+                        </td>
+                        <td className="p-3.5 text-center">
+                          {renderStatusBadge(row.status as TransferStatus)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           {/* Pagination */}

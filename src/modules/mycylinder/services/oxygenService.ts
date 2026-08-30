@@ -1224,20 +1224,10 @@ export async function getCylinderInventoryByType(
             available++
           } else if (c.status === 'returned_to_supplier' || loc === 'supplier') {
             returned++
-          } else if (c.status === 'issued' || c.status === 'in_use') {
-            if (loc === 'store' || loc === 'pharmacy store') {
-              empty++
-            } else {
-              // Time-based heuristic for empty vs in-use in department
-              const updatedAt = new Date(c.updated_at)
-              if (updatedAt < thirtyDaysAgo) {
-                empty++
-              } else {
-                in_use++
-              }
-            }
-          } else if (c.status === 'empty') {
+          } else if (c.status === 'empty' || ((c.status === 'issued' || c.status === 'in_use') && (loc === 'store' || loc === 'pharmacy store'))) {
             empty++
+          } else if (c.status === 'issued' || c.status === 'in_use') {
+            in_use++
           }
         })
 
@@ -3137,7 +3127,7 @@ export async function registerScannedCylinderOnTheFly(
 }
 
 /**
- * Updates a cylinder status to 'issued' (meaning empty / ready for return)
+ * Updates a cylinder status to 'empty' (ready for supplier return)
  */
 export async function markCylinderAsEmpty(
   hospitalId: string,
@@ -3155,11 +3145,13 @@ export async function markCylinderAsEmpty(
 
       if (fetchErr) throw fetchErr
 
-      // 2. Update status to issued
+      // 2. Update status to empty and relocate to Store
       const { data: updated, error: updateErr } = await supabase
         .from('pharmacy_oxygen_cylinder_inventory')
         .update({
-          status: 'issued',
+          status: 'empty',
+          current_location: 'Pharmacy Store',
+          department_id: null,
           updated_at: new Date().toISOString()
         })
         .eq('id', cylinderId)
@@ -3176,11 +3168,11 @@ export async function markCylinderAsEmpty(
           cylinder_id: cylinderId,
           movement_type: 'returned_from_dept',
           from_location: cyl.current_location || 'Department',
-          to_location: cyl.current_location || 'Department',
+          to_location: 'Pharmacy Store',
           department_id: cyl.department_id,
           moved_by: userId,
           moved_at: new Date().toISOString(),
-          remarks: 'Reported as empty via scanning portal.'
+          remarks: 'Reported as depleted / empty from Ward.'
         })
 
       if (moveErr) console.error('Error logging cylinder empty movement:', moveErr)
@@ -3191,7 +3183,8 @@ export async function markCylinderAsEmpty(
     // Mock implementation fallback
     const matched = mockOxygenCylinders.find(c => c.id === cylinderId)
     if (matched) {
-      matched.status = 'issued'
+      matched.status = 'empty'
+      matched.current_location = { location_name: 'Pharmacy Store' }
       return { data: matched, error: null }
     }
 
@@ -3201,6 +3194,77 @@ export async function markCylinderAsEmpty(
     return {
       data: null,
       error: error instanceof Error ? error.message : 'Failed to update cylinder status to empty.'
+    }
+  }
+}
+
+/**
+ * Batch updates multiple cylinders to 'empty' (ready for supplier return)
+ */
+export async function markMultipleCylindersAsEmpty(
+  hospitalId: string,
+  cylinderIds: string[],
+  userId: string
+): Promise<ApiResponse<number>> {
+  try {
+    if (!cylinderIds || cylinderIds.length === 0) {
+      return { data: 0, error: null }
+    }
+
+    if (isSupabaseConfigured()) {
+      const { data: cyls, error: fetchErr } = await supabase
+        .from('pharmacy_oxygen_cylinder_inventory')
+        .select('id, current_location, department_id')
+        .in('id', cylinderIds)
+
+      if (fetchErr) throw fetchErr
+
+      const { error: updateErr } = await supabase
+        .from('pharmacy_oxygen_cylinder_inventory')
+        .update({
+          status: 'empty',
+          current_location: 'Pharmacy Store',
+          department_id: null,
+          updated_at: new Date().toISOString()
+        })
+        .in('id', cylinderIds)
+
+      if (updateErr) throw updateErr
+
+      const movements = (cyls || []).map(cyl => ({
+        hospital_id: hospitalId,
+        cylinder_id: cyl.id,
+        movement_type: 'returned_from_dept',
+        from_location: cyl.current_location || 'Department',
+        to_location: 'Pharmacy Store',
+        department_id: cyl.department_id,
+        moved_by: userId,
+        moved_at: new Date().toISOString(),
+        remarks: 'Reported as depleted / empty from Ward.'
+      }))
+
+      if (movements.length > 0) {
+        await supabase.from('pharmacy_oxygen_cylinder_movements').insert(movements)
+      }
+
+      return { data: cylinderIds.length, error: null }
+    }
+
+    // Mock fallback
+    cylinderIds.forEach(id => {
+      const matched = mockOxygenCylinders.find(c => c.id === id)
+      if (matched) {
+        matched.status = 'empty'
+        matched.current_location = { location_name: 'Pharmacy Store' }
+      }
+    })
+
+    return { data: cylinderIds.length, error: null }
+  } catch (error) {
+    console.error('Error batch marking cylinders as empty:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to mark cylinders as empty.'
     }
   }
 }
@@ -3603,6 +3667,54 @@ export async function clearCylinderInventory(
     return { data: false, error: err.message || 'Failed to clear inventory' }
   }
 }
+
+/**
+ * Updates a cylinder's valve type (e.g. between Bullnose 'BN' and Pin Index 'PI')
+ */
+export async function updateCylinderValveType(
+  hospitalId: string,
+  cylinderId: string,
+  targetTypeCode: 'BN' | 'PI'
+): Promise<ApiResponse<any>> {
+  try {
+    if (isSupabaseConfigured()) {
+      // 1. Get type ID for targetTypeCode
+      const { data: typeRow, error: typeErr } = await supabase
+        .from('pharmacy_oxygen_cylinder_types')
+        .select('id')
+        .eq('code', targetTypeCode)
+        .single()
+
+      if (typeErr || !typeRow) throw new Error(typeErr?.message || `Type ${targetTypeCode} not found`)
+
+      // 2. Update cylinder
+      const { data, error } = await supabase
+        .from('pharmacy_oxygen_cylinder_inventory')
+        .update({
+          cylinder_type_id: typeRow.id,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', cylinderId)
+        .select(`
+          *,
+          size_info:pharmacy_oxygen_cylinder_sizes(*),
+          type_info:pharmacy_oxygen_cylinder_types(*)
+        `)
+        .single()
+
+      if (error) throw error
+      return { data, error: null }
+    }
+    return { data: null, error: null }
+  } catch (err) {
+    console.error('Error updating cylinder valve type:', err)
+    return {
+      data: null,
+      error: err instanceof Error ? err.message : 'Failed to update valve type'
+    }
+  }
+}
+
 
 
 

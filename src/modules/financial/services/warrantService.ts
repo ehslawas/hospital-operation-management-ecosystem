@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 /**
  * Pharmacy Warrant Service
  * Handles government allocated funds (warrants) for hospital pharmacy use
@@ -574,6 +574,9 @@ function calculateWarrantSummary(
 export const WARRANT_VOTE_CODES = [
   { value: '080702', label: '080702' },
   { value: '990102', label: '990102' },
+  { value: '080600 (APPL)', label: '080600 (APPL)' },
+  { value: '080600 (CC)', label: '080600 (CC)' },
+  { value: 'others', label: 'Others+' },
 ] as const
 
 export const WARRANT_VOTE_ACTIVITIES = [
@@ -598,6 +601,7 @@ export const WARRANT_CATEGORIES = [
   { value: 'pathologist', label: 'Pathologist' },
   { value: 'medical_cylinder', label: 'Medical Cylinder' },
   { value: 'x_ray', label: 'X-Ray' },
+  { value: 'duit_khas', label: 'Duit Khas' },
 ] as const
 
 export const WARRANT_DEPARTMENTS = [

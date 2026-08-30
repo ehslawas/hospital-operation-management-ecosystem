@@ -755,7 +755,7 @@ export const DrugInventoryPage: React.FC = () => {
                       </>
                     )}
                     <Table.Cell className="text-sm text-slate-700 font-mono font-bold text-right">
-                      {drug.price !== null && drug.price !== undefined ? `RM ${Number(drug.price).toFixed(2)}` : '—'}
+                      {drug.price !== null && drug.price !== undefined && Number(drug.price) > 0 ? `RM ${Number(drug.price).toFixed(2)}` : '—'}
                     </Table.Cell>
                     {procurementVote !== 'cc' && (
                       <Table.Cell className="text-xs text-slate-500 font-medium">
@@ -983,6 +983,8 @@ export const DrugInventoryPage: React.FC = () => {
           <form onSubmit={async (e) => {
             e.preventDefault()
             const fd = new FormData(e.currentTarget)
+            const supplierId = fd.get('supplier_id') as string
+            const matchedSupplier = suppliers.find(s => s.id === supplierId)
             const rawFields: Record<string, any> = {
               drug_code: fd.get('drug_code'),
               drug_name: fd.get('drug_name'),
@@ -992,7 +994,8 @@ export const DrugInventoryPage: React.FC = () => {
               strength: fd.get('strength'),
               unit_of_measure: fd.get('unit_of_measure'),
               category_id: fd.get('category_id'),
-              supplier_id: fd.get('supplier_id'),
+              supplier_id: supplierId,
+              cc_supplier_name: matchedSupplier ? matchedSupplier.company_name : (supplierId ? undefined : null),
               procurement_vote: fd.get('procurement_vote'),
               price: fd.get('price') ? parseFloat(fd.get('price') as string) : undefined,
               status: fd.get('status'),
@@ -1005,7 +1008,9 @@ export const DrugInventoryPage: React.FC = () => {
             const updated: Record<string, any> = {}
             Object.entries(rawFields).forEach(([k, v]) => {
               if (v !== null && v !== undefined && v !== '') {
-                updated[k] = v
+                updated[k] = typeof v === 'string' ? v.trim() : v
+              } else if (k === 'category_id' || k === 'supplier_id' || k === 'cc_supplier_name' || k.endsWith('_date')) {
+                updated[k] = null
               }
             })
             await handleSaveDrug(updated)
@@ -1048,10 +1053,38 @@ export const DrugInventoryPage: React.FC = () => {
             {/* Price & Contract */}
             <div className="space-y-3">
               <h3 className="text-xs font-black uppercase text-indigo-600 tracking-wider">Harga & Kontrak</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Harga Unit (RM)</label>
                   <Input name="price" type="number" step="0.01" defaultValue={selectedDrugForEdit.price || 0} />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Nama Pembekal (Supplier)</label>
+                  <Select
+                    name="supplier_id"
+                    defaultValue={
+                      selectedDrugForEdit.supplier_id ||
+                      selectedDrugForEdit.supplier?.id ||
+                      suppliers.find(
+                        (s) =>
+                          s.company_name?.toLowerCase().trim() ===
+                            (selectedDrugForEdit.cc_supplier_name || selectedDrugForEdit.supplier?.company_name || '').toLowerCase().trim()
+                      )?.id ||
+                      ''
+                    }
+                  >
+                    <option value="">-- Pilih Pembekal Dalam Sistem --</option>
+                    {suppliers.map((sup) => (
+                      <option key={sup.id} value={sup.id}>
+                        {sup.company_name || (sup as any).supplier_name || 'Pembekal'} {sup.supplier_code ? `(${sup.supplier_code})` : ''}
+                      </option>
+                    ))}
+                  </Select>
+                  {selectedDrugForEdit.cc_supplier_name && !suppliers.some(s => s.company_name?.toLowerCase().trim() === selectedDrugForEdit.cc_supplier_name?.toLowerCase().trim() || s.id === selectedDrugForEdit.supplier_id) && (
+                    <p className="text-[11px] text-amber-600 font-medium mt-1">
+                      Rekod asal pembekal: <span className="font-bold">{selectedDrugForEdit.cc_supplier_name}</span> (belum dipadankan dalam senarai pembekal berdaftar)
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">No. Kontrak (CC)</label>

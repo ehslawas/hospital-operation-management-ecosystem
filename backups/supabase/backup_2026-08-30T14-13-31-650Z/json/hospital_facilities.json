@@ -1,0 +1,2942 @@
+[
+  {
+    "id": "a395fd4b-ea76-40de-b95b-dc7d5f13b6c5",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Alor Gajah",
+    "address": "Pejabat Hospital, Hospital Alor Gajah",
+    "city": "Alor Gajah",
+    "state": "Melaka",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-30",
+    "status": "active",
+    "metadata": {
+      "moh_id": "30",
+      "imported_at": "2026-01-10T17:45:03.576Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:45:04.734204+00:00",
+    "updated_at": "2026-01-10T17:45:04.734204+00:00"
+  },
+  {
+    "id": "7e631ccc-8144-417c-a1dc-cf06b11b2e8f",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Ampang",
+    "address": "Jalan Mewah Utara",
+    "city": "Ampang",
+    "state": "Selangor",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-116",
+    "status": "active",
+    "metadata": {
+      "moh_id": "116",
+      "imported_at": "2026-01-10T17:45:03.821Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:45:04.973353+00:00",
+    "updated_at": "2026-01-10T17:45:04.973353+00:00"
+  },
+  {
+    "id": "a81790ce-9678-491a-ba96-5fdd2358e006",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Bahagia Ulu Kinta",
+    "address": "Tanjong Rambutan",
+    "city": "Ulu Kinta",
+    "state": "Perak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-134",
+    "status": "active",
+    "metadata": {
+      "moh_id": "134",
+      "imported_at": "2026-01-10T17:45:04.028Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:45:05.186633+00:00",
+    "updated_at": "2026-01-10T17:45:05.186633+00:00"
+  },
+  {
+    "id": "3e154f0f-5b12-43ec-b551-8d8b27ce4c65",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Balik Pulau",
+    "address": "Balik Pulau",
+    "city": "Balik Pulau",
+    "state": "Pulau Pinang",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-64",
+    "status": "active",
+    "metadata": {
+      "moh_id": "64",
+      "imported_at": "2026-01-10T17:45:04.253Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:45:05.402051+00:00",
+    "updated_at": "2026-01-10T17:45:05.402051+00:00"
+  },
+  {
+    "id": "880e297e-e001-4644-ba52-fa09b40b5648",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Baling",
+    "address": "Jala Hospital",
+    "city": "Baling",
+    "state": "Kedah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-12",
+    "status": "active",
+    "metadata": {
+      "moh_id": "12",
+      "imported_at": "2026-01-10T17:45:04.458Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:45:05.609329+00:00",
+    "updated_at": "2026-01-10T17:45:05.609329+00:00"
+  },
+  {
+    "id": "2d8be4a6-fc45-48c9-baf2-ad9c7ba13d25",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Banting",
+    "address": "Jalan Sultan Alam Shah",
+    "city": "Banting",
+    "state": "Selangor",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-120",
+    "status": "active",
+    "metadata": {
+      "moh_id": "120",
+      "imported_at": "2026-01-10T17:45:04.667Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:45:05.818717+00:00",
+    "updated_at": "2026-01-10T17:45:05.818717+00:00"
+  },
+  {
+    "id": "9060fac4-1f45-4f4c-ae67-0313c15f48b5",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Batu Gajah",
+    "address": "Jalan Changkat",
+    "city": "Batu Gajah",
+    "state": "Perak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-54",
+    "status": "active",
+    "metadata": {
+      "moh_id": "54",
+      "imported_at": "2026-01-10T17:45:04.880Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:45:06.031842+00:00",
+    "updated_at": "2026-01-10T17:45:06.031842+00:00"
+  },
+  {
+    "id": "779a441b-7b4e-4ef1-bf2b-0498894e65d6",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Bau",
+    "address": "Batu 1 ½,  Jalan Bau-Lundu",
+    "city": "Bau",
+    "state": "Sarawak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-93",
+    "status": "active",
+    "metadata": {
+      "moh_id": "93",
+      "imported_at": "2026-01-10T17:45:05.091Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:45:06.243506+00:00",
+    "updated_at": "2026-01-10T17:45:06.243506+00:00"
+  },
+  {
+    "id": "9604c22a-4dfb-4f39-8c12-09c6cb53ecc8",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Beaufort",
+    "address": "Peti Surat 40",
+    "city": "Beaufort",
+    "state": "Sabah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-70",
+    "status": "active",
+    "metadata": {
+      "moh_id": "70",
+      "imported_at": "2026-01-10T17:45:05.298Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:45:06.450255+00:00",
+    "updated_at": "2026-01-10T17:45:06.450255+00:00"
+  },
+  {
+    "id": "efe28421-31be-443e-b3b5-7d4fc3311cb6",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Beluran",
+    "address": "Karung Berkunci No : 02",
+    "city": "Beluran",
+    "state": "Sabah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-71",
+    "status": "active",
+    "metadata": {
+      "moh_id": "71",
+      "imported_at": "2026-01-10T17:45:05.519Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:45:06.668146+00:00",
+    "updated_at": "2026-01-10T17:45:06.668146+00:00"
+  },
+  {
+    "id": "4cab11d0-de49-4ed0-bd31-891c2f76253c",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Bentong",
+    "address": "28700 Bentong",
+    "city": "Bentong",
+    "state": "Pahang",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-39",
+    "status": "active",
+    "metadata": {
+      "moh_id": "39",
+      "imported_at": "2026-01-10T17:45:05.737Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:45:06.891858+00:00",
+    "updated_at": "2026-01-10T17:45:06.891858+00:00"
+  },
+  {
+    "id": "78ffcb50-1c8c-4e81-93a2-24b70eb0f531",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Besut",
+    "address": "Jalan Pasir Akar, Jerteh",
+    "city": "Besut",
+    "state": "Terengganu",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-124",
+    "status": "active",
+    "metadata": {
+      "moh_id": "124",
+      "imported_at": "2026-01-10T17:45:05.944Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:45:07.097771+00:00",
+    "updated_at": "2026-01-10T17:45:07.097771+00:00"
+  },
+  {
+    "id": "82d5c9ea-d846-44c6-954c-67738c83f373",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Betong",
+    "address": "Jalan Betong",
+    "city": "Betong",
+    "state": "Sarawak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-94",
+    "status": "active",
+    "metadata": {
+      "moh_id": "94",
+      "imported_at": "2026-01-10T17:45:06.165Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:45:07.319652+00:00",
+    "updated_at": "2026-01-10T17:45:07.319652+00:00"
+  },
+  {
+    "id": "f7c2af5a-9d21-4f2e-b44a-561fadb62585",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Bintulu",
+    "address": "Jalan Nyabau",
+    "city": "Bintulu",
+    "state": "Sarawak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-95",
+    "status": "active",
+    "metadata": {
+      "moh_id": "95",
+      "imported_at": "2026-01-10T17:45:06.391Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:45:07.548294+00:00",
+    "updated_at": "2026-01-10T17:45:07.548294+00:00"
+  },
+  {
+    "id": "7fb5e4d2-4e07-4dec-8acf-fa14c2d4eedf",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Bukit Mertajam",
+    "address": "Jalan Kulim, Bukit Mertajam",
+    "city": "Bukit Mertajam",
+    "state": "Pulau Pinang",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-66",
+    "status": "active",
+    "metadata": {
+      "moh_id": "66",
+      "imported_at": "2026-01-10T17:45:06.608Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:45:07.76608+00:00",
+    "updated_at": "2026-01-10T17:45:07.76608+00:00"
+  },
+  {
+    "id": "1e52eb10-ad18-4f3e-8f40-6d24bff1af5c",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Dalat",
+    "address": "Jalan Oya-Dalat",
+    "city": "Dalat",
+    "state": "Sarawak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-96",
+    "status": "active",
+    "metadata": {
+      "moh_id": "96",
+      "imported_at": "2026-01-10T17:45:06.826Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:45:07.978951+00:00",
+    "updated_at": "2026-01-10T17:45:07.978951+00:00"
+  },
+  {
+    "id": "98af1928-1d9d-4d0d-980e-49ba6eb96aa0",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Daro",
+    "address": "Jalan Itol",
+    "city": "Daro",
+    "state": "Sarawak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-97",
+    "status": "active",
+    "metadata": {
+      "moh_id": "97",
+      "imported_at": "2026-01-10T17:45:07.039Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:45:08.188319+00:00",
+    "updated_at": "2026-01-10T17:45:08.188319+00:00"
+  },
+  {
+    "id": "35c964d0-7115-4d6f-9430-0dc17d279ced",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Duchess Of Kent",
+    "address": "KM 3.2, Jalan Utara",
+    "city": "Sandakan",
+    "state": "Sabah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-86",
+    "status": "active",
+    "metadata": {
+      "moh_id": "86",
+      "imported_at": "2026-01-10T17:45:07.244Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:45:08.398015+00:00",
+    "updated_at": "2026-01-10T17:45:08.398015+00:00"
+  },
+  {
+    "id": "04dfccf5-d9a0-4625-9b1f-bd4db3f21795",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Dungun",
+    "address": "Hospital Dungun",
+    "city": "Dungun",
+    "state": "Terengganu",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-125",
+    "status": "active",
+    "metadata": {
+      "moh_id": "125",
+      "imported_at": "2026-01-10T17:45:07.457Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:45:08.611297+00:00",
+    "updated_at": "2026-01-10T17:45:08.611297+00:00"
+  },
+  {
+    "id": "d1ad9b30-dc2a-4676-9b62-2c35d40085fa",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Enche' Besar Hajjah Kalsom, Kluang",
+    "address": "KM 5, Jln Kota Tinggi",
+    "city": "Kluang",
+    "state": "Johor",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-4",
+    "status": "active",
+    "metadata": {
+      "moh_id": "4",
+      "imported_at": "2026-01-10T17:45:07.661Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:45:08.811542+00:00",
+    "updated_at": "2026-01-10T17:45:08.811542+00:00"
+  },
+  {
+    "id": "70a3d782-c3e6-4da6-9052-ab8183c890c6",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Gerik",
+    "address": "Jalan Intan",
+    "city": "Grik",
+    "state": "Perak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-52",
+    "status": "active",
+    "metadata": {
+      "moh_id": "52",
+      "imported_at": "2026-01-10T17:45:07.874Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:45:09.027918+00:00",
+    "updated_at": "2026-01-10T17:45:09.027918+00:00"
+  },
+  {
+    "id": "5c5c3124-0859-4415-b78f-635b33c60177",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Gua Musang",
+    "address": "Bandar Baru",
+    "city": "Gua Musang",
+    "state": "Kelantan",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-21",
+    "status": "active",
+    "metadata": {
+      "moh_id": "21",
+      "imported_at": "2026-01-10T17:45:08.087Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:45:09.239464+00:00",
+    "updated_at": "2026-01-10T17:45:09.239464+00:00"
+  },
+  {
+    "id": "05b999d2-0cc0-4e32-9cbc-d627fa91882f",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Hulu Terengganu",
+    "address": "Batu 23, Jalan Kuala Berang",
+    "city": "Kuala Berang",
+    "state": "Terengganu",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-126",
+    "status": "active",
+    "metadata": {
+      "moh_id": "126",
+      "imported_at": "2026-01-10T17:45:08.314Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:45:09.464979+00:00",
+    "updated_at": "2026-01-10T17:45:09.464979+00:00"
+  },
+  {
+    "id": "59fcac38-bba7-4209-9acb-5fe1bdf22a44",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Jasin",
+    "address": "77000 Jasin",
+    "city": "Jasin",
+    "state": "Melaka",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-31",
+    "status": "active",
+    "metadata": {
+      "moh_id": "31",
+      "imported_at": "2026-01-10T17:45:08.535Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:45:09.683391+00:00",
+    "updated_at": "2026-01-10T17:45:09.683391+00:00"
+  },
+  {
+    "id": "b35498db-6159-49c8-812f-71c0cf3331e6",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Jelebu",
+    "address": "71600 Jelebu",
+    "city": "Jelebu",
+    "state": "Negeri Sembilan",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-33",
+    "status": "active",
+    "metadata": {
+      "moh_id": "33",
+      "imported_at": "2026-01-10T17:45:08.740Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:45:09.894229+00:00",
+    "updated_at": "2026-01-10T17:45:09.894229+00:00"
+  },
+  {
+    "id": "d87cbac5-aedb-49a3-b0a3-12c8e508c2d3",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Jeli",
+    "address": "17600 Jeli",
+    "city": "Jeli",
+    "state": "Kelantan",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-22",
+    "status": "active",
+    "metadata": {
+      "moh_id": "22",
+      "imported_at": "2026-01-10T17:53:21.991Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:53:23.145384+00:00",
+    "updated_at": "2026-01-10T17:53:23.145384+00:00"
+  },
+  {
+    "id": "05d935e3-5b2f-4621-9c7f-d7b815da74f0",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Jempol",
+    "address": "Bandar Seri Jempol",
+    "city": "Bandar Seri Jempol",
+    "state": "Negeri Sembilan",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-34",
+    "status": "active",
+    "metadata": {
+      "moh_id": "34",
+      "imported_at": "2026-01-10T17:53:22.708Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:53:23.860666+00:00",
+    "updated_at": "2026-01-10T17:53:23.860666+00:00"
+  },
+  {
+    "id": "ea48633b-e788-4af2-b41e-677c7a697bc5",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Jengka",
+    "address": "26400 Bandar Jengka",
+    "city": "Maran",
+    "state": "Pahang",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-44",
+    "status": "active",
+    "metadata": {
+      "moh_id": "44",
+      "imported_at": "2026-01-10T17:53:23.392Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:53:24.540058+00:00",
+    "updated_at": "2026-01-10T17:53:24.540058+00:00"
+  },
+  {
+    "id": "d804a485-d0aa-44f3-bc35-a164794f8733",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Jerantut",
+    "address": "27000 Jerantut",
+    "city": "Jerantut",
+    "state": "Pahang",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-41",
+    "status": "active",
+    "metadata": {
+      "moh_id": "41",
+      "imported_at": "2026-01-10T17:53:24.060Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:53:25.20926+00:00",
+    "updated_at": "2026-01-10T17:53:25.20926+00:00"
+  },
+  {
+    "id": "be8f6712-3beb-4953-8602-e7d7aed67fa1",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Jitra",
+    "address": "Jalan Changlun, Jitra Kedah",
+    "city": "Jitra",
+    "state": "Kedah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-15",
+    "status": "active",
+    "metadata": {
+      "moh_id": "15",
+      "imported_at": "2026-01-10T17:53:24.741Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:53:25.887592+00:00",
+    "updated_at": "2026-01-10T17:53:25.887592+00:00"
+  },
+  {
+    "id": "0489acc9-8fe9-47ad-b2f9-7fd866abc484",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Kajang",
+    "address": "Jalan Semenyih",
+    "city": "Kajang",
+    "state": "Selangor",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-117",
+    "status": "active",
+    "metadata": {
+      "moh_id": "117",
+      "imported_at": "2026-01-10T17:53:25.420Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:53:26.572538+00:00",
+    "updated_at": "2026-01-10T17:53:26.572538+00:00"
+  },
+  {
+    "id": "302c4c18-2383-4719-a78a-3f228c6f7cde",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Kampar",
+    "address": "Jalan Hospital",
+    "city": "Kampar",
+    "state": "Perak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-55",
+    "status": "active",
+    "metadata": {
+      "moh_id": "55",
+      "imported_at": "2026-01-10T17:53:26.097Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:53:27.250426+00:00",
+    "updated_at": "2026-01-10T17:53:27.250426+00:00"
+  },
+  {
+    "id": "8dcb9c69-fed9-4f6d-a246-abb7bd4602ea",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Kanowit",
+    "address": "Jalan Kanowit/ Durin",
+    "city": "Kanowit",
+    "state": "Sarawak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-98",
+    "status": "active",
+    "metadata": {
+      "moh_id": "98",
+      "imported_at": "2026-01-10T17:53:26.755Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:53:27.901524+00:00",
+    "updated_at": "2026-01-10T17:53:27.901524+00:00"
+  },
+  {
+    "id": "271c8bd3-bdae-4f48-862f-4c975463f328",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Kapit",
+    "address": "Jalan Memora",
+    "city": "Kapit",
+    "state": "Sarawak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-99",
+    "status": "active",
+    "metadata": {
+      "moh_id": "99",
+      "imported_at": "2026-01-10T17:53:27.436Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:53:28.582556+00:00",
+    "updated_at": "2026-01-10T17:53:28.582556+00:00"
+  },
+  {
+    "id": "5b38a017-9101-47a9-b131-3e8e3991763a",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Kemaman",
+    "address": "Jalan Da' Omar, Cukai",
+    "city": "Kemaman",
+    "state": "Terengganu",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-127",
+    "status": "active",
+    "metadata": {
+      "moh_id": "127",
+      "imported_at": "2026-01-10T17:53:28.108Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:53:29.261688+00:00",
+    "updated_at": "2026-01-10T17:53:29.261688+00:00"
+  },
+  {
+    "id": "b249435e-f3bf-4eca-be18-0d15c0783203",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Keningau",
+    "address": "Peti Surat 11",
+    "city": "Keningau",
+    "state": "Sabah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-72",
+    "status": "active",
+    "metadata": {
+      "moh_id": "72",
+      "imported_at": "2026-01-10T17:53:28.795Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:53:29.951907+00:00",
+    "updated_at": "2026-01-10T17:53:29.951907+00:00"
+  },
+  {
+    "id": "e379b7b5-000a-4fe7-afbe-58ff408df147",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Kepala Batas",
+    "address": "Jalan Bertam, Kepala Batas",
+    "city": "Kepala Batas",
+    "state": "Pulau Pinang",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-68",
+    "status": "active",
+    "metadata": {
+      "moh_id": "68",
+      "imported_at": "2026-01-10T17:53:29.542Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:53:30.7095+00:00",
+    "updated_at": "2026-01-10T17:53:30.7095+00:00"
+  },
+  {
+    "id": "02bd9c5a-8331-4b87-85d5-644ee3a2e563",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Kinabatangan",
+    "address": "W.D.T 200",
+    "city": "Kinabatangan",
+    "state": "Sabah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-73",
+    "status": "active",
+    "metadata": {
+      "moh_id": "73",
+      "imported_at": "2026-01-10T17:53:30.270Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:53:31.427581+00:00",
+    "updated_at": "2026-01-10T17:53:31.427581+00:00"
+  },
+  {
+    "id": "2a1d2a90-c420-468f-86ee-00b69f41fbf6",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Kota Belud",
+    "address": "Peti Surat 159",
+    "city": "Kota Belud",
+    "state": "Sabah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-74",
+    "status": "active",
+    "metadata": {
+      "moh_id": "74",
+      "imported_at": "2026-01-10T17:53:30.988Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:53:32.142831+00:00",
+    "updated_at": "2026-01-10T17:53:32.142831+00:00"
+  },
+  {
+    "id": "295f34e1-c3d9-4ce6-a623-71c389597b90",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Kota Marudu",
+    "address": "Peti Surat 255",
+    "city": "Kota Marudu",
+    "state": "Sabah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-78",
+    "status": "active",
+    "metadata": {
+      "moh_id": "78",
+      "imported_at": "2026-01-10T17:53:31.693Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:53:32.848127+00:00",
+    "updated_at": "2026-01-10T17:53:32.848127+00:00"
+  },
+  {
+    "id": "318c4b55-eb09-4bfa-8330-08273333908f",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Kota Tinggi",
+    "address": "Jalan Tun Habah",
+    "city": "Kota Tinggi",
+    "state": "Johor",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-5",
+    "status": "active",
+    "metadata": {
+      "moh_id": "5",
+      "imported_at": "2026-01-10T17:53:32.408Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:53:33.555881+00:00",
+    "updated_at": "2026-01-10T17:53:33.555881+00:00"
+  },
+  {
+    "id": "7ab87832-cada-4212-a441-64c7d64edf83",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Kuala Kangsar",
+    "address": "Jalan Sultan Idris Shah 1",
+    "city": "Kuala Kangsar",
+    "state": "Perak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-57",
+    "status": "active",
+    "metadata": {
+      "moh_id": "57",
+      "imported_at": "2026-01-10T17:53:33.129Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:53:34.279773+00:00",
+    "updated_at": "2026-01-10T17:53:34.279773+00:00"
+  },
+  {
+    "id": "7b8e3030-2487-4c85-9944-e15524e1871d",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Kuala Kubu Bharu",
+    "address": "Jalan Hospital",
+    "city": "Kuala Kubu Bharu",
+    "state": "Selangor",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-118",
+    "status": "active",
+    "metadata": {
+      "moh_id": "118",
+      "imported_at": "2026-01-10T17:53:33.878Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:53:35.024089+00:00",
+    "updated_at": "2026-01-10T17:53:35.024089+00:00"
+  },
+  {
+    "id": "695311e1-7f56-4b35-ac89-6df880f798d6",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Kuala Lipis",
+    "address": "27200 K.Lipis",
+    "city": "Kuala Lipis",
+    "state": "Pahang",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-43",
+    "status": "active",
+    "metadata": {
+      "moh_id": "43",
+      "imported_at": "2026-01-10T17:53:34.620Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:53:35.770299+00:00",
+    "updated_at": "2026-01-10T17:53:35.770299+00:00"
+  },
+  {
+    "id": "3975c0cb-4299-4936-b2ef-4cd9a3f1787e",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Kuala Lumpur",
+    "address": "Jalan Pahang",
+    "city": "Kuala Lumpur",
+    "state": "WP Kuala Lumpur",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-130",
+    "status": "active",
+    "metadata": {
+      "moh_id": "130",
+      "imported_at": "2026-01-10T17:53:35.477Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:53:36.634575+00:00",
+    "updated_at": "2026-01-10T17:53:36.634575+00:00"
+  },
+  {
+    "id": "204cb9b6-2bef-45bc-ad2b-05f8ce75097d",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Kuala Nerang",
+    "address": "Kuala Nerang",
+    "city": "Kuala Nerang",
+    "state": "Kedah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-18",
+    "status": "active",
+    "metadata": {
+      "moh_id": "18",
+      "imported_at": "2026-01-10T17:53:36.202Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:53:37.358089+00:00",
+    "updated_at": "2026-01-10T17:53:37.358089+00:00"
+  },
+  {
+    "id": "69e8d848-7067-43e7-97e8-ce0c89529062",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Kuala Penyu",
+    "address": "W.D.T. 35",
+    "city": "Kuala Penyu",
+    "state": "Sabah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-79",
+    "status": "active",
+    "metadata": {
+      "moh_id": "79",
+      "imported_at": "2026-01-10T17:53:36.964Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:53:38.115526+00:00",
+    "updated_at": "2026-01-10T17:53:38.115526+00:00"
+  },
+  {
+    "id": "9be9384d-0c41-4459-8225-c2498a03da06",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Kudat",
+    "address": "Peti Surat 22",
+    "city": "Kudat",
+    "state": "Sabah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-80",
+    "status": "active",
+    "metadata": {
+      "moh_id": "80",
+      "imported_at": "2026-01-10T17:53:37.836Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:53:38.988348+00:00",
+    "updated_at": "2026-01-10T17:53:38.988348+00:00"
+  },
+  {
+    "id": "f50760e1-e448-4b1d-8117-2b1dd4ada078",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Kulim",
+    "address": "Jalan Mahang, Kulim",
+    "city": "Kulim",
+    "state": "Kedah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-16",
+    "status": "active",
+    "metadata": {
+      "moh_id": "16",
+      "imported_at": "2026-01-10T17:53:38.551Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:53:39.704705+00:00",
+    "updated_at": "2026-01-10T17:53:39.704705+00:00"
+  },
+  {
+    "id": "b387664b-1b0e-41fd-8709-581d0667493d",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Kunak",
+    "address": "W.D.T. 150",
+    "city": "Kunak",
+    "state": "Sabah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-81",
+    "status": "active",
+    "metadata": {
+      "moh_id": "81",
+      "imported_at": "2026-01-10T17:53:39.298Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T17:53:40.452415+00:00",
+    "updated_at": "2026-01-10T17:53:40.452415+00:00"
+  },
+  {
+    "id": "9f8dc7b2-0fc3-42b5-b755-816b024762b3",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Labuan",
+    "address": "Peti Surat 81006",
+    "city": "Labuan",
+    "state": "WP Labuan",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-131",
+    "status": "active",
+    "metadata": {
+      "moh_id": "131",
+      "imported_at": "2026-01-10T18:03:47.564Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:03:48.707963+00:00",
+    "updated_at": "2026-01-10T18:03:48.707963+00:00"
+  },
+  {
+    "id": "428323f0-78af-4758-abfe-c32fa1c4fde6",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Lahad Datu",
+    "address": "Peti Surat 60065",
+    "city": "Lahad Datu",
+    "state": "Sabah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-82",
+    "status": "active",
+    "metadata": {
+      "moh_id": "82",
+      "imported_at": "2026-01-10T18:03:48.316Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:03:49.458958+00:00",
+    "updated_at": "2026-01-10T18:03:49.458958+00:00"
+  },
+  {
+    "id": "06361582-832b-430e-9df4-509377e74bfd",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Langkawi",
+    "address": "Bukit Tekuh,Jalan Padang Maksirat",
+    "city": "Langkawi",
+    "state": "Kedah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-17",
+    "status": "active",
+    "metadata": {
+      "moh_id": "17",
+      "imported_at": "2026-01-10T18:03:49.035Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:03:50.174457+00:00",
+    "updated_at": "2026-01-10T18:03:50.174457+00:00"
+  },
+  {
+    "id": "afcbe4b0-b95f-42d8-b221-339f3cda4e98",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Lawas",
+    "address": "Jalan Hospital",
+    "city": "Lawas",
+    "state": "Sarawak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-102",
+    "status": "active",
+    "metadata": {
+      "moh_id": "102",
+      "imported_at": "2026-01-10T18:03:49.796Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:03:50.937224+00:00",
+    "updated_at": "2026-01-10T18:03:50.937224+00:00"
+  },
+  {
+    "id": "cfb956e4-dce9-47d7-b210-2774b59addca",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Limbang",
+    "address": "Jalan Pandaruan",
+    "city": "Limbang",
+    "state": "Sarawak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-103",
+    "status": "active",
+    "metadata": {
+      "moh_id": "103",
+      "imported_at": "2026-01-10T18:03:50.508Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:03:51.65225+00:00",
+    "updated_at": "2026-01-10T18:03:51.65225+00:00"
+  },
+  {
+    "id": "e42747d4-8d19-4a4b-a649-0cb91c5cb1c0",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Lundu",
+    "address": "Jalan Sekambal",
+    "city": "Lundu",
+    "state": "Sarawak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-104",
+    "status": "active",
+    "metadata": {
+      "moh_id": "104",
+      "imported_at": "2026-01-10T18:03:51.222Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:03:52.363607+00:00",
+    "updated_at": "2026-01-10T18:03:52.363607+00:00"
+  },
+  {
+    "id": "5e4b774d-ed8b-4163-805b-d151ce8ffa85",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Machang",
+    "address": "Jalan Pasir Puteh",
+    "city": "Machang",
+    "state": "Kelantan",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-25",
+    "status": "active",
+    "metadata": {
+      "moh_id": "25",
+      "imported_at": "2026-01-10T18:03:51.950Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:03:53.090481+00:00",
+    "updated_at": "2026-01-10T18:03:53.090481+00:00"
+  },
+  {
+    "id": "1e441cdb-a3bb-41e0-a4d0-2da07f5d8f1d",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Marudi",
+    "address": "Jalan Pungor",
+    "city": "Marudi",
+    "state": "Sarawak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-105",
+    "status": "active",
+    "metadata": {
+      "moh_id": "105",
+      "imported_at": "2026-01-10T18:03:52.690Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:03:53.834382+00:00",
+    "updated_at": "2026-01-10T18:03:53.834382+00:00"
+  },
+  {
+    "id": "ada4a96d-159c-448d-8b8d-18d14b20a69f",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Melaka",
+    "address": "Jalan Mufti Haji Khalil",
+    "city": "Melaka",
+    "state": "Melaka",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-32",
+    "status": "active",
+    "metadata": {
+      "moh_id": "32",
+      "imported_at": "2026-01-10T18:03:53.726Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:03:54.870511+00:00",
+    "updated_at": "2026-01-10T18:03:54.870511+00:00"
+  },
+  {
+    "id": "2aab73bc-dd9a-4083-9155-08e4d2aeac55",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Mersing",
+    "address": "Jalan Ismail",
+    "city": "Mersing",
+    "state": "Johor",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-8",
+    "status": "active",
+    "metadata": {
+      "moh_id": "8",
+      "imported_at": "2026-01-10T18:03:54.442Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:03:55.586321+00:00",
+    "updated_at": "2026-01-10T18:03:55.586321+00:00"
+  },
+  {
+    "id": "2a778828-eab9-4ff5-9bfd-811760fdf03d",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Mesra Bukit Padang",
+    "address": "Peti Surat 11342",
+    "city": "Kota Kinabalu",
+    "state": "Sabah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-135",
+    "status": "active",
+    "metadata": {
+      "moh_id": "135",
+      "imported_at": "2026-01-10T18:03:55.180Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:03:56.321831+00:00",
+    "updated_at": "2026-01-10T18:03:56.321831+00:00"
+  },
+  {
+    "id": "47eefbc9-bfd1-406a-b9a9-bc9a99682b62",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Miri",
+    "address": "Jalan Cahaya",
+    "city": "Miri",
+    "state": "Sarawak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-106",
+    "status": "active",
+    "metadata": {
+      "moh_id": "106",
+      "imported_at": "2026-01-10T18:03:55.898Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:03:57.041901+00:00",
+    "updated_at": "2026-01-10T18:03:57.041901+00:00"
+  },
+  {
+    "id": "86d445df-00a5-4e69-a55a-89977d948aca",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Muadzam Shah",
+    "address": "26700 Muadzam Shah",
+    "city": "Rompin",
+    "state": "Pahang",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-47",
+    "status": "active",
+    "metadata": {
+      "moh_id": "47",
+      "imported_at": "2026-01-10T18:03:56.663Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:03:57.806692+00:00",
+    "updated_at": "2026-01-10T18:03:57.806692+00:00"
+  },
+  {
+    "id": "b655aa04-2602-4ddc-a688-fcb9e07af12f",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Mukah",
+    "address": "Jalan Haji Mohamed Pauzi",
+    "city": "Mukah",
+    "state": "Sarawak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-107",
+    "status": "active",
+    "metadata": {
+      "moh_id": "107",
+      "imported_at": "2026-01-10T18:03:57.377Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:03:58.51808+00:00",
+    "updated_at": "2026-01-10T18:03:58.51808+00:00"
+  },
+  {
+    "id": "29539002-3c0d-4123-9de4-4f3e96195d68",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Orang Asli",
+    "address": "KM 24, Jalan Pahang Lama, 53100 Gombak, Selangor",
+    "city": "Gombak",
+    "state": "Selangor",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-141",
+    "status": "active",
+    "metadata": {
+      "moh_id": "141",
+      "imported_at": "2026-01-10T18:03:58.116Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:03:59.260349+00:00",
+    "updated_at": "2026-01-10T18:03:59.260349+00:00"
+  },
+  {
+    "id": "1a3e6596-41c4-42f2-9acc-20b340a76693",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Pakar Sultanah Fatimah",
+    "address": "Jalan Salleh",
+    "city": "Muar",
+    "state": "Johor",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-9",
+    "status": "active",
+    "metadata": {
+      "moh_id": "9",
+      "imported_at": "2026-01-10T18:03:58.926Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:00.067781+00:00",
+    "updated_at": "2026-01-10T18:04:00.067781+00:00"
+  },
+  {
+    "id": "84a8a87c-b787-48b7-b8b3-715fd095455e",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Papar",
+    "address": "Peti Surat No. 6,",
+    "city": "Papar",
+    "state": "Sabah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-83",
+    "status": "active",
+    "metadata": {
+      "moh_id": "83",
+      "imported_at": "2026-01-10T18:04:00.178Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:01.325693+00:00",
+    "updated_at": "2026-01-10T18:04:01.325693+00:00"
+  },
+  {
+    "id": "197f6e1b-a23b-41b3-9d6d-27203693cd3d",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Parit Buntar",
+    "address": "Jalan Sempadan",
+    "city": "Parit Buntar",
+    "state": "Perak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-53",
+    "status": "active",
+    "metadata": {
+      "moh_id": "53",
+      "imported_at": "2026-01-10T18:04:01.257Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:02.409407+00:00",
+    "updated_at": "2026-01-10T18:04:02.409407+00:00"
+  },
+  {
+    "id": "1c01c915-9ff4-4f3e-9ffa-6f1ede21e3a0",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Pasir Mas",
+    "address": "Jalan Meranti",
+    "city": "Pasir Mas",
+    "state": "Kelantan",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-26",
+    "status": "active",
+    "metadata": {
+      "moh_id": "26",
+      "imported_at": "2026-01-10T18:04:02.205Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:03.349609+00:00",
+    "updated_at": "2026-01-10T18:04:03.349609+00:00"
+  },
+  {
+    "id": "4118d087-ecdf-4940-9d2e-a6ffe35eb03f",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Pekan",
+    "address": "26600 Pekan",
+    "city": "Pekan",
+    "state": "Pahang",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-45",
+    "status": "active",
+    "metadata": {
+      "moh_id": "45",
+      "imported_at": "2026-01-10T18:04:02.955Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:04.098571+00:00",
+    "updated_at": "2026-01-10T18:04:04.098571+00:00"
+  },
+  {
+    "id": "d43447bc-0c80-4634-a05b-4291ad08a0d6",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Pendang",
+    "address": "Kampung Manggol Pauh, 06700 Pendang, Kedah",
+    "city": "Pendang",
+    "state": "Kedah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-150",
+    "status": "active",
+    "metadata": {
+      "moh_id": "150",
+      "imported_at": "2026-01-10T18:04:03.686Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:04.833118+00:00",
+    "updated_at": "2026-01-10T18:04:04.833118+00:00"
+  },
+  {
+    "id": "da9c819b-6178-4d91-a868-14fd33475e54",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Permai",
+    "address": "Jalan Tampoi",
+    "city": "Johor Bahru",
+    "state": "Johor",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-133",
+    "status": "active",
+    "metadata": {
+      "moh_id": "133",
+      "imported_at": "2026-01-10T18:04:04.415Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:05.558624+00:00",
+    "updated_at": "2026-01-10T18:04:05.558624+00:00"
+  },
+  {
+    "id": "7fcb97e5-2d35-4794-ae63-29d7705bd80a",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Pitas",
+    "address": "Peti Surat 88",
+    "city": "Pitas",
+    "state": "Sabah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-84",
+    "status": "active",
+    "metadata": {
+      "moh_id": "84",
+      "imported_at": "2026-01-10T18:04:05.151Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:06.293881+00:00",
+    "updated_at": "2026-01-10T18:04:06.293881+00:00"
+  },
+  {
+    "id": "0746ac02-8a78-402d-9429-d2e41583473a",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Pontian",
+    "address": "Jalan Alsagoff",
+    "city": "Pontian",
+    "state": "Johor",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-10",
+    "status": "active",
+    "metadata": {
+      "moh_id": "10",
+      "imported_at": "2026-01-10T18:04:05.891Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:07.035462+00:00",
+    "updated_at": "2026-01-10T18:04:07.035462+00:00"
+  },
+  {
+    "id": "b28a6577-e074-41b5-9ac1-8dfe67c4a8be",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Port Dickson",
+    "address": "KM 11, Jalan Pantai",
+    "city": "Port Dickson",
+    "state": "Negeri Sembilan",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-36",
+    "status": "active",
+    "metadata": {
+      "moh_id": "36",
+      "imported_at": "2026-01-10T18:04:06.625Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:07.774666+00:00",
+    "updated_at": "2026-01-10T18:04:07.774666+00:00"
+  },
+  {
+    "id": "13fe0676-d68e-4ada-a6e6-157118f95ce3",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Pulau Pinang",
+    "address": "Jalan Residensi",
+    "city": "Pulau Pinang",
+    "state": "Pulau Pinang",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-69",
+    "status": "active",
+    "metadata": {
+      "moh_id": "69",
+      "imported_at": "2026-01-10T18:04:07.366Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:08.508459+00:00",
+    "updated_at": "2026-01-10T18:04:08.508459+00:00"
+  },
+  {
+    "id": "3220bb48-ccce-4801-9adb-5ccfdbacc8f9",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Putrajaya",
+    "address": "Pusat Pentadbiran Kerajaan Persekutuan, presint 7",
+    "city": "Putrajaya",
+    "state": "WP Putrajaya",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-132",
+    "status": "active",
+    "metadata": {
+      "moh_id": "132",
+      "imported_at": "2026-01-10T18:04:08.138Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:09.29063+00:00",
+    "updated_at": "2026-01-10T18:04:09.29063+00:00"
+  },
+  {
+    "id": "80036eee-e2ce-4fb7-9fd9-ecd627f717e6",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Queen Elizabeth",
+    "address": "Karung Berkunci N0.2029",
+    "city": "Kota Kinabalu",
+    "state": "Sabah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-76",
+    "status": "active",
+    "metadata": {
+      "moh_id": "76",
+      "imported_at": "2026-01-10T18:04:08.886Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:10.029195+00:00",
+    "updated_at": "2026-01-10T18:04:10.029195+00:00"
+  },
+  {
+    "id": "efb49b30-4c4f-47fe-b392-7d7a297a991d",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Queen Elizabeth II",
+    "address": "Lorong Bersatu, Jalan Damai Luyang, Kota Kinabalu",
+    "city": "Kota Kinabalu",
+    "state": "Sabah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-75",
+    "status": "active",
+    "metadata": {
+      "moh_id": "75",
+      "imported_at": "2026-01-10T18:04:09.608Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:10.755042+00:00",
+    "updated_at": "2026-01-10T18:04:10.755042+00:00"
+  },
+  {
+    "id": "45411563-27e2-469e-85ed-1281138e04bd",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Raja Perempuan Zainab II",
+    "address": "Jalan Hospital",
+    "city": "Kota Bharu",
+    "state": "Kelantan",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-23",
+    "status": "active",
+    "metadata": {
+      "moh_id": "23",
+      "imported_at": "2026-01-10T18:04:10.327Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:11.482203+00:00",
+    "updated_at": "2026-01-10T18:04:11.482203+00:00"
+  },
+  {
+    "id": "f6129390-625c-45ad-9f4f-0faaf3eff20b",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Raja Permaisuri Bainun",
+    "address": "Jalan Hospital",
+    "city": "Ipoh",
+    "state": "Perak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-56",
+    "status": "active",
+    "metadata": {
+      "moh_id": "56",
+      "imported_at": "2026-01-10T18:04:11.100Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:12.245773+00:00",
+    "updated_at": "2026-01-10T18:04:12.245773+00:00"
+  },
+  {
+    "id": "4c896ebc-abb2-4f07-974c-d89758b16a4e",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Rajah Charles Brooke Memorial",
+    "address": "Bt 13, Jalan Puncak Borneo, Kota Padawan",
+    "city": "Kuching",
+    "state": "Sarawak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-100",
+    "status": "active",
+    "metadata": {
+      "moh_id": "100",
+      "imported_at": "2026-01-10T18:04:11.852Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:12.996212+00:00",
+    "updated_at": "2026-01-10T18:04:12.996212+00:00"
+  },
+  {
+    "id": "975129a5-10c1-48bd-9f79-5b46cbb2bc27",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Ranau",
+    "address": "Peti Surat 65",
+    "city": "Ranau",
+    "state": "Sabah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-85",
+    "status": "active",
+    "metadata": {
+      "moh_id": "85",
+      "imported_at": "2026-01-10T18:04:12.620Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:13.762499+00:00",
+    "updated_at": "2026-01-10T18:04:13.762499+00:00"
+  },
+  {
+    "id": "41260bf3-409e-4f23-b4b5-db7de43b065e",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Raub",
+    "address": "Jalan Tengku Abd Samad",
+    "city": "Raub",
+    "state": "Pahang",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-46",
+    "status": "active",
+    "metadata": {
+      "moh_id": "46",
+      "imported_at": "2026-01-10T18:04:13.338Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:14.486638+00:00",
+    "updated_at": "2026-01-10T18:04:14.486638+00:00"
+  },
+  {
+    "id": "4d15a1d9-2647-41a8-bc05-30ee6590d675",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Rehabilitasi Cheras",
+    "address": "Jalan Yaacob Latif, Bandar Tun Razak Cheras 56000 Kuala Lumpur\nWP Kuala Lumpur",
+    "city": "Kuala Lumpur",
+    "state": "WP Kuala Lumpur",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-144",
+    "status": "active",
+    "metadata": {
+      "moh_id": "144",
+      "imported_at": "2026-01-10T18:04:14.100Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:15.248206+00:00",
+    "updated_at": "2026-01-10T18:04:15.248206+00:00"
+  },
+  {
+    "id": "50337cbf-791a-4a8f-bd40-451c7bda235c",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Rembau",
+    "address": "71300 Pedas",
+    "city": "Rembau",
+    "state": "Negeri Sembilan",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-151",
+    "status": "active",
+    "metadata": {
+      "moh_id": "151",
+      "imported_at": "2026-01-10T18:04:14.956Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:16.10594+00:00",
+    "updated_at": "2026-01-10T18:04:16.10594+00:00"
+  },
+  {
+    "id": "a0d18dba-b9ea-4406-b03f-f0e17ebc0bad",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Rompin",
+    "address": "Jalan Kg Kolam Kuala Rompin\n26800 Rompin\nPahang",
+    "city": "Rompin",
+    "state": "Pahang",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-147",
+    "status": "active",
+    "metadata": {
+      "moh_id": "147",
+      "imported_at": "2026-01-10T18:04:15.879Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:17.024912+00:00",
+    "updated_at": "2026-01-10T18:04:17.024912+00:00"
+  },
+  {
+    "id": "42cee2bc-88dd-4904-90b1-14782c973e5c",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Saratok",
+    "address": "KM 1, Jalan Saratok",
+    "city": "Saratok",
+    "state": "Sarawak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-108",
+    "status": "active",
+    "metadata": {
+      "moh_id": "108",
+      "imported_at": "2026-01-10T18:04:16.692Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:17.842217+00:00",
+    "updated_at": "2026-01-10T18:04:17.842217+00:00"
+  },
+  {
+    "id": "01ed778c-0562-4de5-9171-bcbf5d0e0e05",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Sarikei",
+    "address": "Jalan Rentap",
+    "city": "Sarikei",
+    "state": "Sarawak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-109",
+    "status": "active",
+    "metadata": {
+      "moh_id": "109",
+      "imported_at": "2026-01-10T18:04:17.505Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:18.650691+00:00",
+    "updated_at": "2026-01-10T18:04:18.650691+00:00"
+  },
+  {
+    "id": "2449a3d8-dfac-4e43-8c0d-eb7f7a547503",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Seberang Jaya",
+    "address": "Jln Tun Hussein Onn, Perai",
+    "city": "Perai",
+    "state": "Pulau Pinang",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-67",
+    "status": "active",
+    "metadata": {
+      "moh_id": "67",
+      "imported_at": "2026-01-10T18:04:18.254Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:19.399389+00:00",
+    "updated_at": "2026-01-10T18:04:19.399389+00:00"
+  },
+  {
+    "id": "76f6ee8a-318c-4e2d-8230-381fc07a6b2b",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Segamat",
+    "address": "KM 6 Jalan Genuang,",
+    "city": "Segamat",
+    "state": "Johor",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-11",
+    "status": "active",
+    "metadata": {
+      "moh_id": "11",
+      "imported_at": "2026-01-10T18:04:19.017Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:20.164837+00:00",
+    "updated_at": "2026-01-10T18:04:20.164837+00:00"
+  },
+  {
+    "id": "7280708a-03a0-4297-b8a5-4dd445f1e799",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Selama",
+    "address": "Jalan Taiping",
+    "city": "Selama",
+    "state": "Perak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-59",
+    "status": "active",
+    "metadata": {
+      "moh_id": "59",
+      "imported_at": "2026-01-10T18:04:19.805Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:20.950806+00:00",
+    "updated_at": "2026-01-10T18:04:20.950806+00:00"
+  },
+  {
+    "id": "f820c5a0-64d4-4c9e-97de-21b7b08f5e02",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Selayang",
+    "address": "Lebuhraya Selayang-Kepong",
+    "city": "Batu Caves",
+    "state": "Selangor",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-114",
+    "status": "active",
+    "metadata": {
+      "moh_id": "114",
+      "imported_at": "2026-01-10T18:04:20.585Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:21.729438+00:00",
+    "updated_at": "2026-01-10T18:04:21.729438+00:00"
+  },
+  {
+    "id": "c265778c-00c5-4b51-bd40-5b6f90dad598",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Semporna",
+    "address": "Peti Surat 80",
+    "city": "Semporna",
+    "state": "Sabah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-87",
+    "status": "active",
+    "metadata": {
+      "moh_id": "87",
+      "imported_at": "2026-01-10T18:04:21.324Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:22.475439+00:00",
+    "updated_at": "2026-01-10T18:04:22.475439+00:00"
+  },
+  {
+    "id": "e35f7ff2-c830-477e-84db-800e6bc77fe4",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Sentosa",
+    "address": "Batu 7, Jalan Penenrisen",
+    "city": "Kuching",
+    "state": "Sarawak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-136",
+    "status": "active",
+    "metadata": {
+      "moh_id": "136",
+      "imported_at": "2026-01-10T18:04:22.083Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:23.227287+00:00",
+    "updated_at": "2026-01-10T18:04:23.227287+00:00"
+  },
+  {
+    "id": "7c296901-3580-4747-bbd2-77e7e35e5831",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Serdang",
+    "address": "Jalan Puchong",
+    "city": "Kajang",
+    "state": "Selangor",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-123",
+    "status": "active",
+    "metadata": {
+      "moh_id": "123",
+      "imported_at": "2026-01-10T18:04:22.826Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:23.983336+00:00",
+    "updated_at": "2026-01-10T18:04:23.983336+00:00"
+  },
+  {
+    "id": "cab5002b-a567-45a5-8dab-d54374d23fab",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Seri Iskandar",
+    "address": "Seri Iskandar",
+    "city": "Bota",
+    "state": "Perak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-62",
+    "status": "active",
+    "metadata": {
+      "moh_id": "62",
+      "imported_at": "2026-01-10T18:04:23.585Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:24.734207+00:00",
+    "updated_at": "2026-01-10T18:04:24.734207+00:00"
+  },
+  {
+    "id": "74071a43-002e-4e3d-bbfc-cc1db480dcb7",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Seri Manjung",
+    "address": "Seri Manjung",
+    "city": "Seri Manjung",
+    "state": "Perak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-61",
+    "status": "active",
+    "metadata": {
+      "moh_id": "61",
+      "imported_at": "2026-01-10T18:04:24.311Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:25.456394+00:00",
+    "updated_at": "2026-01-10T18:04:25.456394+00:00"
+  },
+  {
+    "id": "0c16214c-1716-4362-af8b-5f1dc4e697f4",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Serian",
+    "address": "94700 Serian",
+    "city": "Serian",
+    "state": "Sarawak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-110",
+    "status": "active",
+    "metadata": {
+      "moh_id": "110",
+      "imported_at": "2026-01-10T18:04:25.052Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:26.199601+00:00",
+    "updated_at": "2026-01-10T18:04:26.199601+00:00"
+  },
+  {
+    "id": "e566b635-474e-4b7a-a9ff-4953814ad2db",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Setiu",
+    "address": "Bandar Permaisuri",
+    "city": "Setiu",
+    "state": "Terengganu",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-129",
+    "status": "active",
+    "metadata": {
+      "moh_id": "129",
+      "imported_at": "2026-01-10T18:04:25.792Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:26.933077+00:00",
+    "updated_at": "2026-01-10T18:04:26.933077+00:00"
+  },
+  {
+    "id": "259b7714-efa5-4b96-919f-a83d50735866",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Shah Alam",
+    "address": "Hospital Shah Alam\nPersiaran Kayangan, Seksyen 7\n40000 Shah Alam\nSelangor",
+    "city": "Shah Alam",
+    "state": "Selangor",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-145",
+    "status": "active",
+    "metadata": {
+      "moh_id": "145",
+      "imported_at": "2026-01-10T18:04:26.654Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:27.801523+00:00",
+    "updated_at": "2026-01-10T18:04:27.801523+00:00"
+  },
+  {
+    "id": "5fab3d68-5656-482d-9c4f-a23161bbd82c",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Sibu",
+    "address": "Batu 5 ½,  Jalan Ulu Oya",
+    "city": "Sibu",
+    "state": "Sarawak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-111",
+    "status": "active",
+    "metadata": {
+      "moh_id": "111",
+      "imported_at": "2026-01-10T18:04:27.398Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:28.538302+00:00",
+    "updated_at": "2026-01-10T18:04:28.538302+00:00"
+  },
+  {
+    "id": "64314941-bd3a-4e9b-8faf-363d2297ad94",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Sik",
+    "address": "08200 Sik",
+    "city": "Sik",
+    "state": "Kedah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-19",
+    "status": "active",
+    "metadata": {
+      "moh_id": "19",
+      "imported_at": "2026-01-10T18:04:28.143Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:29.283651+00:00",
+    "updated_at": "2026-01-10T18:04:29.283651+00:00"
+  },
+  {
+    "id": "218a6d97-6075-452f-bbef-96c86a8ed78c",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Simunjan",
+    "address": "Jalan Gunung Ngeli",
+    "city": "Simunjan",
+    "state": "Sarawak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-112",
+    "status": "active",
+    "metadata": {
+      "moh_id": "112",
+      "imported_at": "2026-01-10T18:04:28.858Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:30.00074+00:00",
+    "updated_at": "2026-01-10T18:04:30.00074+00:00"
+  },
+  {
+    "id": "289d53ce-d572-434d-bdee-472931120b0a",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Sipitang",
+    "address": "Peti Surat 250",
+    "city": "Sipitang",
+    "state": "Sabah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-88",
+    "status": "active",
+    "metadata": {
+      "moh_id": "88",
+      "imported_at": "2026-01-10T18:04:29.787Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:30.941201+00:00",
+    "updated_at": "2026-01-10T18:04:30.941201+00:00"
+  },
+  {
+    "id": "710c5f01-d4f3-476f-be7a-2957f4cf8e05",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Slim River",
+    "address": "",
+    "city": "Slim River",
+    "state": "Perak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-49",
+    "status": "active",
+    "metadata": {
+      "moh_id": "49",
+      "imported_at": "2026-01-10T18:04:30.534Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:31.681226+00:00",
+    "updated_at": "2026-01-10T18:04:31.681226+00:00"
+  },
+  {
+    "id": "5d8c8004-4901-4390-b6be-e529d5bf4b69",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Sri Aman",
+    "address": "Jalan Hospital",
+    "city": "Sri Aman",
+    "state": "Sarawak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-113",
+    "status": "active",
+    "metadata": {
+      "moh_id": "113",
+      "imported_at": "2026-01-10T18:04:31.272Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:32.414547+00:00",
+    "updated_at": "2026-01-10T18:04:32.414547+00:00"
+  },
+  {
+    "id": "cf55cef9-626f-444f-ae64-5a9b689d36ac",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Sultan Abdul Halim",
+    "address": "Jalan Lencongan Timur Bandar Amanjaya, Sungai Petani",
+    "city": "Sungai Petani",
+    "state": "Kedah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-14",
+    "status": "active",
+    "metadata": {
+      "moh_id": "14",
+      "imported_at": "2026-01-10T18:04:32.046Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:33.18877+00:00",
+    "updated_at": "2026-01-10T18:04:33.18877+00:00"
+  },
+  {
+    "id": "b1d12494-89aa-4615-bdcb-a53bc44f6df7",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Sultan Hj Ahmad Shah",
+    "address": "Jalan Maran",
+    "city": "Temerloh",
+    "state": "Pahang",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-48",
+    "status": "active",
+    "metadata": {
+      "moh_id": "48",
+      "imported_at": "2026-01-10T18:04:32.800Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:33.953805+00:00",
+    "updated_at": "2026-01-10T18:04:33.953805+00:00"
+  },
+  {
+    "id": "1a05f62e-92b2-449e-8999-1e60a5bd94f2",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Sultan Ismail",
+    "address": "Jalan Persiaran Mutiara Emas Utama, Taman Miount Austin",
+    "city": "Johor Bahru",
+    "state": "Johor",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-3",
+    "status": "active",
+    "metadata": {
+      "moh_id": "3",
+      "imported_at": "2026-01-10T18:04:33.567Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:34.715547+00:00",
+    "updated_at": "2026-01-10T18:04:34.715547+00:00"
+  },
+  {
+    "id": "c11f2100-3759-48b6-a7b3-62f252b4c2ef",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Sultan Ismail Petra",
+    "address": "KM 6, Jalan Kuala Krai - Gua Musang",
+    "city": "Kuala Krai",
+    "state": "Kelantan",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-24",
+    "status": "active",
+    "metadata": {
+      "moh_id": "24",
+      "imported_at": "2026-01-10T18:04:34.299Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:35.44421+00:00",
+    "updated_at": "2026-01-10T18:04:35.44421+00:00"
+  },
+  {
+    "id": "b44ddefc-e9a4-4f5e-a976-f691d69a6137",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Sultanah Aminah",
+    "address": "Johor Bahru",
+    "city": "Johor Bahru",
+    "state": "Johor",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-2",
+    "status": "active",
+    "metadata": {
+      "moh_id": "2",
+      "imported_at": "2026-01-10T18:04:35.066Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:36.22069+00:00",
+    "updated_at": "2026-01-10T18:04:36.22069+00:00"
+  },
+  {
+    "id": "0563308b-1f80-405f-b448-d0c8758aea78",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Sultanah Bahiyah",
+    "address": "KM 6, Jln Langgar, Alor Setar",
+    "city": "Alor Setar",
+    "state": "Kedah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-13",
+    "status": "active",
+    "metadata": {
+      "moh_id": "13",
+      "imported_at": "2026-01-10T18:04:35.821Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:36.966681+00:00",
+    "updated_at": "2026-01-10T18:04:36.966681+00:00"
+  },
+  {
+    "id": "a9337aa2-5ed6-4f17-a8d4-50f9f4bff1b7",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Sultanah Hajjah Kalsom",
+    "address": "Tanah Rata,",
+    "city": "Cameron Highlands",
+    "state": "Pahang",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-40",
+    "status": "active",
+    "metadata": {
+      "moh_id": "40",
+      "imported_at": "2026-01-10T18:04:36.580Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:37.724829+00:00",
+    "updated_at": "2026-01-10T18:04:37.724829+00:00"
+  },
+  {
+    "id": "90c5f7d5-291d-4190-a8c9-d3987c276b7d",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Sultanah Nora Ismail",
+    "address": "Jalan Korma,83000 Batu Pahat",
+    "city": "Batu Pahat",
+    "state": "Johor",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-1",
+    "status": "active",
+    "metadata": {
+      "moh_id": "1",
+      "imported_at": "2026-01-10T18:04:37.329Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:38.472956+00:00",
+    "updated_at": "2026-01-10T18:04:38.472956+00:00"
+  },
+  {
+    "id": "d18adff4-b407-4307-92bd-1b38d4fc3284",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Sultanah Nur Zahirah",
+    "address": "Jalan Sultan Mahmud, Kuala Terengganu",
+    "city": "Kuala Terengganu",
+    "state": "Terengganu",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-128",
+    "status": "active",
+    "metadata": {
+      "moh_id": "128",
+      "imported_at": "2026-01-10T18:04:38.100Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:39.249315+00:00",
+    "updated_at": "2026-01-10T18:04:39.249315+00:00"
+  },
+  {
+    "id": "7f04aa40-6fe4-41c1-b35d-fb482d9a5d75",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Sungai Bakap",
+    "address": "Sungai Jawi, Seberang Perai Selatan",
+    "city": "Sungai Jawi",
+    "state": "Pulau Pinang",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-65",
+    "status": "active",
+    "metadata": {
+      "moh_id": "65",
+      "imported_at": "2026-01-10T18:04:38.881Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:40.029239+00:00",
+    "updated_at": "2026-01-10T18:04:40.029239+00:00"
+  },
+  {
+    "id": "d6f3ec91-56b4-4d54-9aa1-69667dcf6543",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Sungai Buloh",
+    "address": "Jalan Hospital",
+    "city": "Sungai Buluh",
+    "state": "Selangor",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-115",
+    "status": "active",
+    "metadata": {
+      "moh_id": "115",
+      "imported_at": "2026-01-10T18:04:39.634Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:40.780741+00:00",
+    "updated_at": "2026-01-10T18:04:40.780741+00:00"
+  },
+  {
+    "id": "bb36222b-6ed4-4f58-8385-ac4bc3b3aad0",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Sungai Siput",
+    "address": "Jalan Felda Lasah",
+    "city": "Sungai Siput",
+    "state": "Perak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-58",
+    "status": "active",
+    "metadata": {
+      "moh_id": "58",
+      "imported_at": "2026-01-10T18:04:40.382Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:41.52797+00:00",
+    "updated_at": "2026-01-10T18:04:41.52797+00:00"
+  },
+  {
+    "id": "b91188ec-a7ed-4984-a2cb-96be59561165",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Taiping",
+    "address": "Jalan Taming Sari",
+    "city": "Taiping",
+    "state": "Perak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-60",
+    "status": "active",
+    "metadata": {
+      "moh_id": "60",
+      "imported_at": "2026-01-10T18:04:41.148Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:42.292065+00:00",
+    "updated_at": "2026-01-10T18:04:42.292065+00:00"
+  },
+  {
+    "id": "dcb7fdeb-bdc6-4ffe-93c7-3b2dea7546b7",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Tambunan",
+    "address": "Peti Surat 10",
+    "city": "Tambunan",
+    "state": "Sabah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-89",
+    "status": "active",
+    "metadata": {
+      "moh_id": "89",
+      "imported_at": "2026-01-10T18:04:41.889Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:43.036707+00:00",
+    "updated_at": "2026-01-10T18:04:43.036707+00:00"
+  },
+  {
+    "id": "cf64c1b9-6add-4e47-bb36-dcc094c9a1a7",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Tampin",
+    "address": "Jalan Haji Ahmad Zainuddin, Tampin",
+    "city": "Tampin",
+    "state": "Negeri Sembilan",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-38",
+    "status": "active",
+    "metadata": {
+      "moh_id": "38",
+      "imported_at": "2026-01-10T18:04:42.646Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:43.790538+00:00",
+    "updated_at": "2026-01-10T18:04:43.790538+00:00"
+  },
+  {
+    "id": "e9d0b9e1-88dd-4ebb-bb76-3e4e6b80e483",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Tanah Merah",
+    "address": "17500 Tanah Merah",
+    "city": "Tanah Merah",
+    "state": "Kelantan",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-28",
+    "status": "active",
+    "metadata": {
+      "moh_id": "28",
+      "imported_at": "2026-01-10T18:04:43.400Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:44.545226+00:00",
+    "updated_at": "2026-01-10T18:04:44.545226+00:00"
+  },
+  {
+    "id": "01aa8457-7453-4c56-9d62-c941d9487f33",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Tangkak",
+    "address": "Jalan Hospital,  Tangkak Muar",
+    "city": "Tangkak",
+    "state": "Johor",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-7",
+    "status": "active",
+    "metadata": {
+      "moh_id": "7",
+      "imported_at": "2026-01-10T18:04:44.158Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:45.305275+00:00",
+    "updated_at": "2026-01-10T18:04:45.305275+00:00"
+  },
+  {
+    "id": "bd394034-b41d-4a15-8cfb-24caebcad2d6",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Tanjung Karang",
+    "address": "Tanjung Karang",
+    "city": "Tanjung Karang",
+    "state": "Selangor",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-121",
+    "status": "active",
+    "metadata": {
+      "moh_id": "121",
+      "imported_at": "2026-01-10T18:04:44.950Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:46.102651+00:00",
+    "updated_at": "2026-01-10T18:04:46.102651+00:00"
+  },
+  {
+    "id": "7ff2f097-d186-4f7c-80f2-5f9ca894dab1",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Tapah",
+    "address": "Jalan Temoh",
+    "city": "Tapah",
+    "state": "Perak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-50",
+    "status": "active",
+    "metadata": {
+      "moh_id": "50",
+      "imported_at": "2026-01-10T18:04:45.743Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:46.892125+00:00",
+    "updated_at": "2026-01-10T18:04:46.892125+00:00"
+  },
+  {
+    "id": "24381774-893e-4872-9c69-50e8eeb38799",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Tawau",
+    "address": "Peti Surat 80",
+    "city": "Tawau",
+    "state": "Sabah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-90",
+    "status": "active",
+    "metadata": {
+      "moh_id": "90",
+      "imported_at": "2026-01-10T18:04:46.492Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:47.651607+00:00",
+    "updated_at": "2026-01-10T18:04:47.651607+00:00"
+  },
+  {
+    "id": "a2fd8567-e656-42b1-9d1d-676bcac068d9",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Teluk Intan",
+    "address": "Jalan Changkat Jong",
+    "city": "Teluk Intan",
+    "state": "Perak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-51",
+    "status": "active",
+    "metadata": {
+      "moh_id": "51",
+      "imported_at": "2026-01-10T18:04:47.270Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:48.415514+00:00",
+    "updated_at": "2026-01-10T18:04:48.415514+00:00"
+  },
+  {
+    "id": "b7e2a74a-4f7a-439a-99c3-3bf2f71e0721",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Temenggong Seri Maharaja Tun Ibrahim",
+    "address": "Hospital Temenggong Seri Maharaja Tun Ibrahim, 81000 Kulai",
+    "city": "Kulaijaya",
+    "state": "Johor",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-6",
+    "status": "active",
+    "metadata": {
+      "moh_id": "6",
+      "imported_at": "2026-01-10T18:04:48.019Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:49.165627+00:00",
+    "updated_at": "2026-01-10T18:04:49.165627+00:00"
+  },
+  {
+    "id": "fe6d60ee-a211-45a6-9c02-29b7930a6e14",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Tengku Ampuan Afzan",
+    "address": "Jalan Air Putih",
+    "city": "Kuantan",
+    "state": "Pahang",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-42",
+    "status": "active",
+    "metadata": {
+      "moh_id": "42",
+      "imported_at": "2026-01-10T18:04:48.799Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:49.964346+00:00",
+    "updated_at": "2026-01-10T18:04:49.964346+00:00"
+  },
+  {
+    "id": "ec314016-7022-4325-8f9c-ba4d3999a3d3",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Tengku Ampuan Jemaah",
+    "address": "45200 Sabak Bernam",
+    "city": "Sabak Bernam",
+    "state": "Selangor",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-122",
+    "status": "active",
+    "metadata": {
+      "moh_id": "122",
+      "imported_at": "2026-01-10T18:04:49.583Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:50.737273+00:00",
+    "updated_at": "2026-01-10T18:04:50.737273+00:00"
+  },
+  {
+    "id": "2a2357be-6c18-45f3-9492-d8c84a3039ad",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Tengku Ampuan Rahimah",
+    "address": "Jalan Langat,41200 Klang",
+    "city": "Klang",
+    "state": "Selangor",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-119",
+    "status": "active",
+    "metadata": {
+      "moh_id": "119",
+      "imported_at": "2026-01-10T18:04:50.379Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:51.525143+00:00",
+    "updated_at": "2026-01-10T18:04:51.525143+00:00"
+  },
+  {
+    "id": "64070bb7-5980-4fe1-9ea0-c53ad84de2f8",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Tengku Anis",
+    "address": "Jalan Pasir Puteh",
+    "city": "Pasir Puteh",
+    "state": "Kelantan",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-27",
+    "status": "active",
+    "metadata": {
+      "moh_id": "27",
+      "imported_at": "2026-01-10T18:04:51.143Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:52.28985+00:00",
+    "updated_at": "2026-01-10T18:04:52.28985+00:00"
+  },
+  {
+    "id": "2ec7879b-868d-4278-bda5-10d51eab494b",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Tenom",
+    "address": "Peti surat 97",
+    "city": "Tenom",
+    "state": "Sabah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-91",
+    "status": "active",
+    "metadata": {
+      "moh_id": "91",
+      "imported_at": "2026-01-10T18:04:51.918Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:53.063102+00:00",
+    "updated_at": "2026-01-10T18:04:53.063102+00:00"
+  },
+  {
+    "id": "f9cfddca-5fed-4fa2-867a-84dca0e9c8e2",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Tuanku Ampuan Najihah",
+    "address": "KM 3 Jalan Melang",
+    "city": "Kuala Pilah",
+    "state": "Negeri Sembilan",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-35",
+    "status": "active",
+    "metadata": {
+      "moh_id": "35",
+      "imported_at": "2026-01-10T18:04:52.692Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:53.837803+00:00",
+    "updated_at": "2026-01-10T18:04:53.837803+00:00"
+  },
+  {
+    "id": "f5c79304-5899-4bcd-957f-0194c2203fce",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Tuanku Fauziah",
+    "address": "Jalan Kolam, 01000 Kangar",
+    "city": "Kangar",
+    "state": "Perlis",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-63",
+    "status": "active",
+    "metadata": {
+      "moh_id": "63",
+      "imported_at": "2026-01-10T18:04:53.462Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:54.603807+00:00",
+    "updated_at": "2026-01-10T18:04:54.603807+00:00"
+  },
+  {
+    "id": "46cc640c-d64a-49e8-8118-3e10d391a80f",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Tuanku Ja'afar Seremban",
+    "address": "Jalan Rasah",
+    "city": "Seremban",
+    "state": "Negeri Sembilan",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-37",
+    "status": "active",
+    "metadata": {
+      "moh_id": "37",
+      "imported_at": "2026-01-10T18:04:54.215Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:55.363021+00:00",
+    "updated_at": "2026-01-10T18:04:55.363021+00:00"
+  },
+  {
+    "id": "c07ca673-f88b-4c8b-ab0e-2bb1385e0884",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Tuaran",
+    "address": "Peti surat 996, 89207 Tuaran Sabah",
+    "city": "Tuaran",
+    "state": "Sabah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-92",
+    "status": "active",
+    "metadata": {
+      "moh_id": "92",
+      "imported_at": "2026-01-10T18:04:54.979Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:56.122184+00:00",
+    "updated_at": "2026-01-10T18:04:56.122184+00:00"
+  },
+  {
+    "id": "174b1a9c-c04a-49ca-8d70-2d6a6c0f14e0",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Tumpat",
+    "address": "Jalan Kelaburan",
+    "city": "Tumpat",
+    "state": "Kelantan",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-29",
+    "status": "active",
+    "metadata": {
+      "moh_id": "29",
+      "imported_at": "2026-01-10T18:04:55.756Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:56.899249+00:00",
+    "updated_at": "2026-01-10T18:04:56.899249+00:00"
+  },
+  {
+    "id": "15411cf9-3adc-4b66-bc8f-65ea550e477e",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Tunku Azizah (Wanita Dan Kanak-Kanak)",
+    "address": "Jalan Raja Muda Abdul Aziz",
+    "city": "Kuala Lumpur",
+    "state": "WP Kuala Lumpur",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-149",
+    "status": "active",
+    "metadata": {
+      "moh_id": "149",
+      "imported_at": "2026-01-10T18:04:56.517Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:57.661248+00:00",
+    "updated_at": "2026-01-10T18:04:57.661248+00:00"
+  },
+  {
+    "id": "8d352bf6-849e-4043-a074-4b3a0017c075",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Umum Sarawak",
+    "address": "Jalan Hospital",
+    "city": "Kuching",
+    "state": "Sarawak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-101",
+    "status": "active",
+    "metadata": {
+      "moh_id": "101",
+      "imported_at": "2026-01-10T18:04:57.361Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:58.514153+00:00",
+    "updated_at": "2026-01-10T18:04:58.514153+00:00"
+  },
+  {
+    "id": "71287aa7-df9b-4378-9382-daa4482c6926",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Wanita dan Kanak-Kanak Sabah",
+    "address": "Karung Berkunci 187",
+    "city": "Kota Kinabalu",
+    "state": "Sabah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-77",
+    "status": "active",
+    "metadata": {
+      "moh_id": "77",
+      "imported_at": "2026-01-10T18:04:58.183Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:04:59.324768+00:00",
+    "updated_at": "2026-01-10T18:04:59.324768+00:00"
+  },
+  {
+    "id": "caf1e949-86ad-4b44-8a9f-34a786ed9da0",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Hospital Yan",
+    "address": "Batu 25 Jalan Yan",
+    "city": "Yan",
+    "state": "Kedah",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-20",
+    "status": "active",
+    "metadata": {
+      "moh_id": "20",
+      "imported_at": "2026-01-10T18:04:58.914Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:05:00.074524+00:00",
+    "updated_at": "2026-01-10T18:05:00.074524+00:00"
+  },
+  {
+    "id": "1e4551ee-4b11-42e9-baf3-f87e4c817990",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Institut Kanser Negara",
+    "address": "No 4, Jalan P7, Presint 7\n62250 Putrajaya\nWP Putrajaya",
+    "city": "Putrajaya",
+    "state": "WP Putrajaya",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-142",
+    "status": "active",
+    "metadata": {
+      "moh_id": "142",
+      "imported_at": "2026-01-10T18:04:59.773Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:05:00.92863+00:00",
+    "updated_at": "2026-01-10T18:05:00.92863+00:00"
+  },
+  {
+    "id": "c4447fd5-c104-447b-b978-63b3232c995c",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Institut Perubatan Respiratori",
+    "address": "Jalan Pahang",
+    "city": "Kuala Lumpur",
+    "state": "WP Kuala Lumpur",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-138",
+    "status": "active",
+    "metadata": {
+      "moh_id": "138",
+      "imported_at": "2026-01-10T18:05:00.510Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:05:01.662884+00:00",
+    "updated_at": "2026-01-10T18:05:01.662884+00:00"
+  },
+  {
+    "id": "d83437be-a53e-4c3e-8e8b-f21bb7516b30",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Pusat Jantung Sarawak",
+    "address": "Jalan Expressway Kota Samarahan\n94300 Samarahan\nSarawak",
+    "city": "Samarahan",
+    "state": "Sarawak",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-146",
+    "status": "active",
+    "metadata": {
+      "moh_id": "146",
+      "imported_at": "2026-01-10T18:05:01.296Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:05:02.441056+00:00",
+    "updated_at": "2026-01-10T18:05:02.441056+00:00"
+  },
+  {
+    "id": "2c768fa0-c52f-455f-a206-d705910a34c3",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "name": "Pusat Kawalan Kusta Negara",
+    "address": "Sungai Buluh",
+    "city": "Sungai Buluh",
+    "state": "Selangor",
+    "phone": null,
+    "email": null,
+    "facility_code": "MOH-137",
+    "status": "active",
+    "metadata": {
+      "moh_id": "137",
+      "imported_at": "2026-01-10T18:05:02.166Z",
+      "imported_from": "MOH website"
+    },
+    "moh_id": null,
+    "created_at": "2026-01-10T18:05:03.311777+00:00",
+    "updated_at": "2026-01-10T18:05:03.311777+00:00"
+  }
+]

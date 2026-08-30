@@ -1,0 +1,38 @@
+[
+  {
+    "id": "8c74923f-98c8-4809-ba40-9993d22a3a57",
+    "workflow_id": "af0bb9b9-7771-4275-bf6d-c6ff282fd4f7",
+    "step_order": 1,
+    "approver_role_id": "38fc9449-4d05-4ea3-aeb8-05de39913f25",
+    "approver_department_id": "7a3bd6c4-c8e6-491b-8441-0ee9bd73f880",
+    "approver_user_id": null,
+    "is_required": true,
+    "can_reject": true,
+    "created_at": "2026-01-20T07:16:52.605078+00:00",
+    "is_requester_department": false
+  },
+  {
+    "id": "759041f6-13c4-4366-83b8-9cbe441f6221",
+    "workflow_id": "f8b34f63-9abe-49d5-a72b-ec3310543be9",
+    "step_order": 1,
+    "approver_role_id": "f4cf610c-a5f5-4d33-b846-5b2157c989b7",
+    "approver_department_id": "02e3cd83-f756-4f27-8b77-a8df2ac2516c",
+    "approver_user_id": null,
+    "is_required": true,
+    "can_reject": true,
+    "created_at": "2026-01-20T07:44:11.982396+00:00",
+    "is_requester_department": false
+  },
+  {
+    "id": "004028bb-22bd-4404-b1eb-096240c48716",
+    "workflow_id": "248804b6-fbb5-4640-b127-60562d59eb7c",
+    "step_order": 1,
+    "approver_role_id": "47813ac3-1c82-487c-8598-ec3e14ee66c9",
+    "approver_department_id": null,
+    "approver_user_id": null,
+    "is_required": true,
+    "can_reject": true,
+    "created_at": "2026-01-28T17:04:42.664414+00:00",
+    "is_requester_department": false
+  }
+]

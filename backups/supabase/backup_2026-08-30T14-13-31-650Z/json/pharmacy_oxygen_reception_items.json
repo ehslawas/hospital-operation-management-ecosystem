@@ -1,0 +1,2090 @@
+[
+  {
+    "id": "1677ebd9-5d20-4a4c-9e95-24b7f7a62066",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T02:33:46.222744+00:00"
+  },
+  {
+    "id": "76668191-9639-4430-9cfe-b313759a5e6e",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T02:33:46.222744+00:00"
+  },
+  {
+    "id": "1e4a2373-c73c-42fe-8e02-2abba4e0a9f6",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T02:33:46.222744+00:00"
+  },
+  {
+    "id": "d61353eb-6f34-457d-b8fa-908d3e6bab79",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T02:33:46.222744+00:00"
+  },
+  {
+    "id": "5a9e64ce-56c2-4269-b0cf-c5e2718e263c",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T02:33:46.222744+00:00"
+  },
+  {
+    "id": "a7589b1e-7412-4730-a05f-fc0cea6446dd",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T02:33:46.222744+00:00"
+  },
+  {
+    "id": "81b8f87e-fcf5-4018-bf11-5d12a678c69f",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T02:33:46.222744+00:00"
+  },
+  {
+    "id": "49de951e-1cd5-43af-b8e6-e7837f4ea92d",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T02:33:46.222744+00:00"
+  },
+  {
+    "id": "39b5cbb3-e0d6-4edb-95fe-8c24a8c4a4cc",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T02:33:46.222744+00:00"
+  },
+  {
+    "id": "c7466dfd-aed5-43f6-af3d-47fc3ebd5499",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T02:33:46.222744+00:00"
+  },
+  {
+    "id": "a493ddf6-eb68-4ff3-b038-34800ea2699d",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T02:33:46.222744+00:00"
+  },
+  {
+    "id": "f5df8f39-f688-48e5-9da8-d8538e561a03",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T02:33:46.222744+00:00"
+  },
+  {
+    "id": "42d85983-7f9e-4041-b796-838593b43deb",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T02:33:46.222744+00:00"
+  },
+  {
+    "id": "da582424-763e-4349-aa82-aa1fd99d443d",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T02:33:46.222744+00:00"
+  },
+  {
+    "id": "cf694f13-dd0a-400b-8732-515eb964f35a",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T02:33:46.222744+00:00"
+  },
+  {
+    "id": "33131b43-22ed-4f65-8134-97c7e693ef5f",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T02:33:46.222744+00:00"
+  },
+  {
+    "id": "2ccdc3bb-e6d1-499a-b5e9-96352edabaa5",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T02:33:46.222744+00:00"
+  },
+  {
+    "id": "c0aa8f3c-02b6-49df-b582-3d16fd887154",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T02:33:46.222744+00:00"
+  },
+  {
+    "id": "80cb17bc-2088-4978-9c7a-cf092c92c139",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T02:33:46.222744+00:00"
+  },
+  {
+    "id": "c80bebd1-d133-4321-b036-750fc986bb2d",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T02:33:46.222744+00:00"
+  },
+  {
+    "id": "4b53f81d-aba9-4a25-8774-fc0f6d7fd92c",
+    "reception_id": "8d913290-6ac0-4906-95ea-a56f29ae2030",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-19T02:34:35.420701+00:00"
+  },
+  {
+    "id": "708d84d6-e8b7-4f06-bd96-846c86d207f6",
+    "reception_id": "8d913290-6ac0-4906-95ea-a56f29ae2030",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-19T02:34:35.420701+00:00"
+  },
+  {
+    "id": "c64934bc-4622-40b8-902a-62dc2dd4b655",
+    "reception_id": "8d913290-6ac0-4906-95ea-a56f29ae2030",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-19T02:34:35.420701+00:00"
+  },
+  {
+    "id": "6507976b-319e-41fa-9b41-7827b1a55a2e",
+    "reception_id": "8d913290-6ac0-4906-95ea-a56f29ae2030",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-19T02:34:35.420701+00:00"
+  },
+  {
+    "id": "82bdf4c5-219b-4606-9298-e4a290194d95",
+    "reception_id": "8d913290-6ac0-4906-95ea-a56f29ae2030",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-19T02:34:35.420701+00:00"
+  },
+  {
+    "id": "714029ab-ee59-4f3a-86cf-0d07cfc3a782",
+    "reception_id": "8d913290-6ac0-4906-95ea-a56f29ae2030",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-19T02:34:35.420701+00:00"
+  },
+  {
+    "id": "3f4760b7-cc05-4b2d-8975-d296348e2e3d",
+    "reception_id": "8d913290-6ac0-4906-95ea-a56f29ae2030",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-19T02:34:35.420701+00:00"
+  },
+  {
+    "id": "4f08fa3f-4597-45d0-ba79-030a9b157e32",
+    "reception_id": "8d913290-6ac0-4906-95ea-a56f29ae2030",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-19T02:34:35.420701+00:00"
+  },
+  {
+    "id": "40a5748d-24d3-4b9a-b441-1138179331a4",
+    "reception_id": "8d913290-6ac0-4906-95ea-a56f29ae2030",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-19T02:34:35.420701+00:00"
+  },
+  {
+    "id": "21d3e4db-f799-47c3-bab1-3133b5e3a4fb",
+    "reception_id": "8d913290-6ac0-4906-95ea-a56f29ae2030",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-19T02:34:35.420701+00:00"
+  },
+  {
+    "id": "afeada29-5ccd-43ff-9038-b8b9360cf6d9",
+    "reception_id": "8d913290-6ac0-4906-95ea-a56f29ae2030",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-19T02:34:35.420701+00:00"
+  },
+  {
+    "id": "047282da-7f81-4412-91a2-289e9499cc13",
+    "reception_id": "8d913290-6ac0-4906-95ea-a56f29ae2030",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-19T02:34:35.420701+00:00"
+  },
+  {
+    "id": "53bb96f3-79d0-4dd0-b1db-dac1e0b1cfb3",
+    "reception_id": "8d913290-6ac0-4906-95ea-a56f29ae2030",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-19T02:34:35.420701+00:00"
+  },
+  {
+    "id": "549a06bf-1aea-47d8-8f11-c71f736b1efe",
+    "reception_id": "8d913290-6ac0-4906-95ea-a56f29ae2030",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-19T02:34:35.420701+00:00"
+  },
+  {
+    "id": "f22ab9b9-7dd7-47e6-928f-dae0cc9b65fa",
+    "reception_id": "8d913290-6ac0-4906-95ea-a56f29ae2030",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-19T02:34:35.420701+00:00"
+  },
+  {
+    "id": "e2aacb0b-f02c-4b65-86e8-6b25ef8c3390",
+    "reception_id": "8d913290-6ac0-4906-95ea-a56f29ae2030",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-19T02:34:35.420701+00:00"
+  },
+  {
+    "id": "cec440d0-584d-4c24-857b-adc1ab7f716b",
+    "reception_id": "3ca7cfca-6a73-4b5e-b4c2-89c5fca2fba1",
+    "cylinder_id": null,
+    "cylinder_size_id": "f5a38d74-4d0d-49c4-af20-1dab5f5cb852",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 69,
+    "created_at": "2026-08-19T02:40:52.983347+00:00"
+  },
+  {
+    "id": "1da6e1c6-fc23-4c3b-8b91-10fc006db219",
+    "reception_id": "3ca7cfca-6a73-4b5e-b4c2-89c5fca2fba1",
+    "cylinder_id": null,
+    "cylinder_size_id": "f5a38d74-4d0d-49c4-af20-1dab5f5cb852",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 69,
+    "created_at": "2026-08-19T02:40:52.983347+00:00"
+  },
+  {
+    "id": "1f5882c1-6237-47b3-bfd5-a4bb11e6c040",
+    "reception_id": "3ca7cfca-6a73-4b5e-b4c2-89c5fca2fba1",
+    "cylinder_id": null,
+    "cylinder_size_id": "16207ded-639a-4240-92ad-a2a06d95a0a5",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 79,
+    "created_at": "2026-08-19T02:40:52.983347+00:00"
+  },
+  {
+    "id": "b3b563b9-edc2-4002-a8d8-5f281da635e1",
+    "reception_id": "3ca7cfca-6a73-4b5e-b4c2-89c5fca2fba1",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-19T02:40:52.983347+00:00"
+  },
+  {
+    "id": "81033631-36c3-4dac-a316-1725d8f7da4b",
+    "reception_id": "3ca7cfca-6a73-4b5e-b4c2-89c5fca2fba1",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-19T02:40:52.983347+00:00"
+  },
+  {
+    "id": "bd485389-2f4f-4a49-80ad-666ed420c6bb",
+    "reception_id": "3ca7cfca-6a73-4b5e-b4c2-89c5fca2fba1",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-19T02:40:52.983347+00:00"
+  },
+  {
+    "id": "5d126d86-55ee-4ed4-8dd1-28d2cbc60239",
+    "reception_id": "3ca7cfca-6a73-4b5e-b4c2-89c5fca2fba1",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-19T02:40:52.983347+00:00"
+  },
+  {
+    "id": "3fe403eb-feea-4c94-9871-452972cee2ed",
+    "reception_id": "3ca7cfca-6a73-4b5e-b4c2-89c5fca2fba1",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-19T02:40:52.983347+00:00"
+  },
+  {
+    "id": "a57084fb-453f-459a-9b64-7073ba840032",
+    "reception_id": "3ca7cfca-6a73-4b5e-b4c2-89c5fca2fba1",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-19T02:40:52.983347+00:00"
+  },
+  {
+    "id": "cdc970de-1ad3-4d8d-b59e-d26baf22eadc",
+    "reception_id": "3ca7cfca-6a73-4b5e-b4c2-89c5fca2fba1",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-19T02:40:52.983347+00:00"
+  },
+  {
+    "id": "abc62067-6aa4-487c-80f8-f725bc1ecc54",
+    "reception_id": "3ca7cfca-6a73-4b5e-b4c2-89c5fca2fba1",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-19T02:40:52.983347+00:00"
+  },
+  {
+    "id": "7d8a5df9-f3ce-4f4f-b099-b461c6c772c6",
+    "reception_id": "3ca7cfca-6a73-4b5e-b4c2-89c5fca2fba1",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-19T02:40:52.983347+00:00"
+  },
+  {
+    "id": "c0e2d187-5cba-4974-be6e-f0244bb8050e",
+    "reception_id": "3ca7cfca-6a73-4b5e-b4c2-89c5fca2fba1",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-19T02:40:52.983347+00:00"
+  },
+  {
+    "id": "fb4c8e4e-d659-474a-9ebf-2d31a08c2164",
+    "reception_id": "3ca7cfca-6a73-4b5e-b4c2-89c5fca2fba1",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-19T02:40:52.983347+00:00"
+  },
+  {
+    "id": "9ce84121-8e9d-4147-a840-469fd8d2c832",
+    "reception_id": "3ca7cfca-6a73-4b5e-b4c2-89c5fca2fba1",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-19T02:40:52.983347+00:00"
+  },
+  {
+    "id": "95bf17ec-e358-48db-9e15-2971c3e52548",
+    "reception_id": "3ca7cfca-6a73-4b5e-b4c2-89c5fca2fba1",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-19T02:40:52.983347+00:00"
+  },
+  {
+    "id": "6ad8b980-a084-4b0a-85f6-fb7eb8c4bcbc",
+    "reception_id": "3ca7cfca-6a73-4b5e-b4c2-89c5fca2fba1",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-19T02:40:52.983347+00:00"
+  },
+  {
+    "id": "f0b199cb-7b5b-40b6-a441-d8f5b4d703a5",
+    "reception_id": "3ca7cfca-6a73-4b5e-b4c2-89c5fca2fba1",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-19T02:40:52.983347+00:00"
+  },
+  {
+    "id": "d478ab03-4a3c-4d49-8dc5-eca5ba0f6778",
+    "reception_id": "3ca7cfca-6a73-4b5e-b4c2-89c5fca2fba1",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-19T02:40:52.983347+00:00"
+  },
+  {
+    "id": "05999128-01c1-47d5-bac7-a53e5ca63113",
+    "reception_id": "3ca7cfca-6a73-4b5e-b4c2-89c5fca2fba1",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-19T02:40:52.983347+00:00"
+  },
+  {
+    "id": "8e92cd3c-587a-4a88-b1c7-f5371fb1653e",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "7ad17d93-25b7-4f42-b3d9-fbe30a2afb60",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "fe83edbb-71fe-4472-a2dc-1e7fe21e3b7f",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "d55996a0-1d72-4d7e-b2d0-60b17e6c834d",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "783e17c9-b626-4450-b115-133108939e68",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "6f0bc57b-2986-4c72-a65f-3926d733b352",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "3495403d-e79a-4c9a-8e68-570da546ba19",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "104a4d98-c88e-422e-8041-a45cfd644236",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "92b17aae-9f68-4f39-aa7f-afee2f64e391",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "ecd1dca8-441a-47a5-8d77-781ca184c48e",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "83019a5e-f3d8-455f-91e7-a31680394150",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "79663d1a-1e0d-40fc-8e53-ca27f0b83e7a",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "4474cfc3-bbd5-4e8b-a0bf-10e4e6810088",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "c05c143c-5473-4362-96dc-368c7a6275d6",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "db28f029-92e0-4997-aae5-bfd5697db9d7",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "5b6674ba-0f22-4ff8-a141-6aed8730a9f7",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "030aeda5-dc13-4402-8c5e-48be0654ebcf",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "e7cf5bee-5e78-4ca4-978c-85612c67a243",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "4d601506-b061-4b54-a0eb-5ac18926abf6",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "d08eb5f5-e87e-46e3-b34e-5c58d7c4ddb7",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "ce05e179-2db3-445e-85a8-121d2d138049",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "b3cd202f-b7f1-4758-b084-9e23ba5fd946",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "7ddaf67c-7925-4cf2-845b-1a1def708fc7",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "b8e9a98e-579e-4e4c-a4c5-0593b8926181",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "1eb2f5d1-7bb7-427b-aee8-8d565e6beb0c",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "3323266b-e66a-4236-a2e3-d3b517de07b2",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "3ff4f802-f005-438f-9f23-0174478da96a",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "11b2298e-bb68-4492-82a5-7804fb027179",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "1b2b4c67-23cc-471a-b7a9-49db474dc5f8",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "a2f1ef01-50a4-4ce4-b0fe-f3fec1271865",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "2f2d6152-a1ab-4f80-b98a-9c9c9a087b13",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "853d7d93-eb67-4cff-a616-432848777d72",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "5cf96f02-baa5-412b-9729-7605860a3c40",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "b7b42003-6af1-4489-9818-b5f37b564704",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "1a4cec96-c2df-47fb-88a5-1cdb804e1d99",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "acc562a8-46d3-4b56-8fc8-a1be3eb5f051",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "14c5efb8-7ab5-46cc-a2df-e85764e9ccca",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "2056b03b-27b1-4048-8dc2-71d82c320882",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "02ab539d-30fe-47c8-8280-c5617664cb5f",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "82e711be-521e-4b39-bcf2-d14b413ee13d",
+    "reception_id": "27ffacf9-ed3c-4514-9ad1-dc200b16d480",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "c5332833-2ebd-4fc4-a844-06adf4bad1c3",
+    "reception_id": "532baf4f-9ea3-4a04-abef-c9e5b54f1f1f",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "ea5fe0e1-41d2-4b3e-815b-a3f35bc0a926",
+    "reception_id": "532baf4f-9ea3-4a04-abef-c9e5b54f1f1f",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "ef6eca6a-7000-405f-b4c6-021a734eef81",
+    "reception_id": "532baf4f-9ea3-4a04-abef-c9e5b54f1f1f",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "b5b493a8-f6b2-4a02-bd26-c817412d1151",
+    "reception_id": "532baf4f-9ea3-4a04-abef-c9e5b54f1f1f",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "c5e9617a-8cd8-4fcd-99de-4516485dd25c",
+    "reception_id": "532baf4f-9ea3-4a04-abef-c9e5b54f1f1f",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "5c0cd290-2537-4ff5-b052-d1ac57597484",
+    "reception_id": "532baf4f-9ea3-4a04-abef-c9e5b54f1f1f",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "184443b5-cb2b-4627-8b75-7dfd6a57828e",
+    "reception_id": "532baf4f-9ea3-4a04-abef-c9e5b54f1f1f",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "93fbccaf-0443-48af-9237-089b8eb785d5",
+    "reception_id": "532baf4f-9ea3-4a04-abef-c9e5b54f1f1f",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "c0b1f5f2-10b5-498d-8f66-8246c7664503",
+    "reception_id": "532baf4f-9ea3-4a04-abef-c9e5b54f1f1f",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "ee24e897-7e69-440b-a827-b66ac8b6a726",
+    "reception_id": "532baf4f-9ea3-4a04-abef-c9e5b54f1f1f",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "f827e8ad-fdd5-4d40-abfc-8a76be539595",
+    "reception_id": "532baf4f-9ea3-4a04-abef-c9e5b54f1f1f",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "99bd815c-8342-45ef-8eef-35015d0be4d7",
+    "reception_id": "532baf4f-9ea3-4a04-abef-c9e5b54f1f1f",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "2dcbf0d0-7a4e-484e-97ef-91da8f3440b2",
+    "reception_id": "532baf4f-9ea3-4a04-abef-c9e5b54f1f1f",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "fef4e1f6-3593-452a-9366-7f1ea205d3f5",
+    "reception_id": "532baf4f-9ea3-4a04-abef-c9e5b54f1f1f",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "7b5473db-6985-4fa9-8c10-98d06f77430f",
+    "reception_id": "532baf4f-9ea3-4a04-abef-c9e5b54f1f1f",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "cc976c83-3bc1-4a73-88f9-d8cc0c5aabf8",
+    "reception_id": "532baf4f-9ea3-4a04-abef-c9e5b54f1f1f",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "c1801f70-f08c-4c3b-83f5-34716935d84d",
+    "reception_id": "532baf4f-9ea3-4a04-abef-c9e5b54f1f1f",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "f6261646-3c4b-4e66-ad49-267df159ad58",
+    "reception_id": "532baf4f-9ea3-4a04-abef-c9e5b54f1f1f",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "61fb6a0d-27c7-4284-a956-081315c84b62",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "7f43e92d-49ec-40a4-962f-9ef585fb4c36",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "b353d72c-48e8-49ac-940c-b734335e7a9e",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "b5d9c67f-2201-40ef-8699-34c1418ac5b9",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "4890647f-7e9d-4fe9-93dc-149fc2e08bf8",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "4633d9ab-ba1c-4588-add0-dd9f63a147bf",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "f43479f1-1773-4aaa-b65e-5745a2b06b3a",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "d6eac3b4-11d6-40f8-a09b-456a3dca5daf",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "b60b8bdf-4343-4b65-9167-6a7a5c23817f",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "4bd0ea85-99f9-4b1f-9f09-39cba100d425",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "57762e08-80f9-4ebc-9b8a-4ad3aed5059b",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "a308b15f-e533-405d-9acf-b8264830fbc0",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "e320377d-7a3f-4dea-bcbd-eb4da4dba3ae",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "b458d0f3-f7fe-4d35-8465-3ccc922c174d",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "e31294ba-9c5e-4556-a2ca-81f455f76055",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "df43e205-3754-4f1c-a9d3-2608a070740c",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "75f4522a-4f79-49f1-a477-f2da0ced7074",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "74b3c6ef-33a1-48e4-9ced-b010fc1ddb01",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "f522c4c2-4ccb-48bb-a5b2-5ed67923825e",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "0d4f1cd3-2a99-4791-b9e4-24ba369a6d29",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "8082b581-3965-436a-8ba3-3f01d6632fd8",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "9f5ac7c0-d226-4644-ae86-4bfc6f823adb",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "fc966f66-0d15-4da9-8561-c5dc56cc9bfe",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "82ec281c-878e-41f6-b43d-0c1a3548704b",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "3815afb2-e239-44ef-98ce-476f8c12a213",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "49cbfe33-2ba7-4cf9-9741-076de895d3f9",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "89881f1e-7006-41a4-9708-148b473a6a51",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "27dd84d0-1571-4c9c-81e1-4e8dff97e0a0",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "6a469128-cd13-4f01-9e24-ba382c65c4d9",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "1d4d4914-1f3a-40c9-ad35-6cab187a096d",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 250,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "a4dc7b1e-4d8a-4b63-b605-4357c61edbb2",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "55127752-2b87-4273-af16-93dd4135145d",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "05b5864e-ff90-49de-a562-6897fa6aeb91",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "cb0dd639-0c7c-469d-9844-c68f9efc158b",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "61617afa-44d3-4777-8567-f246f886cae8",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "57def54f-6227-46b2-bd14-bfd0641a87eb",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "70363fd7-c849-472f-975d-7ed107db5b84",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "178d858b-9825-4b2d-98fa-86765ac10a92",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "46671e7b-28f8-4279-8eb4-0e2f4931f2d4",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "6685412f-c230-421b-9465-408ff47b1996",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "9b9e1f44-ad6b-4cbd-8182-dec5355e97c3",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "d38a04dd-62a0-49c4-bcf9-63fd4d9572ea",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "8ec8aa29-0a08-464e-8270-6e316237ce4b",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "c4d52abb-b7e1-4af2-abbb-5fe9bfcbf80b",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "5df6cd9e-7d7f-489b-a68e-7d50c7077bda",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "7b188a32-cbfc-4440-9340-6f690317e6e5",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "f7a882dd-aab9-4f34-94c5-1110edf68ba6",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "35207bdf-9a30-47b0-be81-bf942aef9470",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "9bcdd513-ef42-4114-86f0-07cc44ec994b",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "f7bec51d-fc2a-4451-a814-584f7955547a",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "00c59a96-5e9f-44d4-9056-667afaefc7e6",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "31d15fd6-9757-4237-90ec-24d41de4c4c9",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "7e8398a3-2175-4e83-988d-97963fb10bae",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "615f7d12-501a-4a08-ae06-34e85607bbde",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "9a3c9edb-c2f0-4627-8b3d-faf81ff3a219",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "5eccf3ab-6367-4cc1-8db9-14ecdd616f96",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "d6332e32-2053-40bd-8cd9-15f08478670c",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "31d0fe60-f234-448a-801b-8e1c88ecfde6",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "b32c8c9e-8991-4ab5-8c56-045b831e4232",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "77f86b09-a713-4c66-b255-ec3932607f0b",
+    "reception_id": "e4d111a1-c3c6-4c58-bd25-ee1a431a1981",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:05.570731+00:00"
+  },
+  {
+    "id": "661fba16-1947-4b80-8770-89301d27b4e0",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:19.30564+00:00"
+  },
+  {
+    "id": "9fad4309-6aa3-4c28-b7d1-cbe38caa4d1e",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:19.30564+00:00"
+  },
+  {
+    "id": "d6d615db-dbef-4c4c-b967-b461534f86f1",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:19.30564+00:00"
+  },
+  {
+    "id": "2863613f-3f18-49d7-bf48-d4dd4738bdab",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:19.30564+00:00"
+  },
+  {
+    "id": "c9205ce1-a134-4127-a64b-1de64b270eb5",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:19.30564+00:00"
+  },
+  {
+    "id": "41957214-0a88-4c60-a69c-c2d14fac0427",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:19.30564+00:00"
+  },
+  {
+    "id": "86e80c99-fcba-414f-9ae9-cb35ba5560ef",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:19.30564+00:00"
+  },
+  {
+    "id": "b194a170-507b-4715-8ad7-fdc13f9040e0",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:19.30564+00:00"
+  },
+  {
+    "id": "10a5538a-ec36-441d-a7db-8e98395e6177",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:19.30564+00:00"
+  },
+  {
+    "id": "ba0b5408-3437-48c7-b9b7-01167ef848a5",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:19.30564+00:00"
+  },
+  {
+    "id": "294f7bc1-d022-4b7c-b90e-5396c85ed464",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:19.30564+00:00"
+  },
+  {
+    "id": "dc1589f0-89c8-405c-b14c-2355fd985c30",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:19.30564+00:00"
+  },
+  {
+    "id": "a8faf7cd-11c7-4f7d-b087-cf88eb7d9b2d",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:19.30564+00:00"
+  },
+  {
+    "id": "d79aa2b4-c9c7-476c-a87b-00c6a64f28e2",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:19.30564+00:00"
+  },
+  {
+    "id": "5f1c4fee-8862-4ea1-9e07-0d1af46c0881",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:19.30564+00:00"
+  },
+  {
+    "id": "2b71ab31-e77a-47e2-a5a4-949fe99f4306",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:19.30564+00:00"
+  },
+  {
+    "id": "8c4bd597-e564-4d6b-a601-f98962c730fc",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:19.30564+00:00"
+  },
+  {
+    "id": "a1f097c6-4645-459c-a531-ab3b722c756a",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:19.30564+00:00"
+  },
+  {
+    "id": "fa170ea1-ccc5-4c58-a1c8-bbb95f54e6d0",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:19.30564+00:00"
+  },
+  {
+    "id": "be1e34ee-4f13-4fc2-a013-4beaca1117bb",
+    "reception_id": "655a9b77-7a8e-42af-980c-62bd68b684ed",
+    "cylinder_id": null,
+    "cylinder_size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 15,
+    "created_at": "2026-08-19T03:11:19.30564+00:00"
+  },
+  {
+    "id": "66f472e4-61d5-4269-9e60-dec60656ef70",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "3cbd9645-90a0-4220-97fc-f19c7cb67ef0",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "18e1861a-2d62-494f-a913-c46ffc652a1f",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "46c1a393-62e5-4a75-803e-0b9e2ae51281",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "f140eb2f-bb86-4ff6-abe1-fdc0287a0dcc",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "5d92742d-4924-48f6-babe-406d99c45fd4",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "e87764ae-0772-47bb-88a0-8cde718f9b94",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "fc9cc5d7-5e64-40ab-84c6-d9f7660f3882",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "43aa97cf-e175-45a6-ac3c-6b6baa5c81f9",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "0330b2fd-8537-4717-9b67-947ea1ea9c24",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "497d7be3-d0dc-4d2a-be0f-ec80db474ebc",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "e282fecb-410e-4c0a-83aa-df4e51da38ae",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "fc3f49fc-ca91-45bd-ab8c-39828e881cf2",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "ded782d3-3b04-4558-91b1-cac7e5928e8b",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "75898235-81ce-404d-a4aa-3092476c414c",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "b8629111-d998-4342-bd75-304ec1c9ac0b",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "a5059f75-3a43-482b-8271-f24a812749ba",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "b7e74896-f617-4094-b3f4-e5c51607898d",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "a3e263e2-b298-440f-812d-ffa7201b9ae9",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "ebabc42e-d1c5-480a-aa5f-7c3187fb1d3f",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "b2515afc-f84f-48b5-bbd1-fca3363a81a0",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "140784f5-b677-401f-8dc8-c3f98084e24b",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "7fd5dbdd-2b81-4e5d-8820-84aaaebe4a31",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "50fe25ef-a464-402b-8c04-564d6b9fbced",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "ad623c9c-1564-4876-87e1-7df3b163128d",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "7bdddd58-5122-45e3-b0b2-7913b72c9217",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "c17acfd9-6e18-4c73-96a9-c4803aefc445",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "79b74f6a-54f6-47a7-90a3-184cfe99020a",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 118,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "c37e9898-3768-45b8-873b-f53dcc74dff8",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "09df5156-4513-4a75-bd24-1e82454c3442",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "b6721fd9-4275-4556-a51d-bb0e32e0077e",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "76f8a9b3-a96e-49e8-b946-e6da40c66e48",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "cylinder_type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "unit_price": 169,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "1ffbbb73-d422-4544-96aa-9cff57b936ad",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "f5a38d74-4d0d-49c4-af20-1dab5f5cb852",
+    "cylinder_type_id": "1874961b-a46d-4cf6-8a47-90b18a1e0fb7",
+    "unit_price": 69,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "9752a70e-62de-472b-b3ec-f2f9275e813f",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "f5a38d74-4d0d-49c4-af20-1dab5f5cb852",
+    "cylinder_type_id": "1874961b-a46d-4cf6-8a47-90b18a1e0fb7",
+    "unit_price": 69,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "ec70353e-008f-4d1b-bb60-6aca9cb4ea73",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "f5a38d74-4d0d-49c4-af20-1dab5f5cb852",
+    "cylinder_type_id": "1874961b-a46d-4cf6-8a47-90b18a1e0fb7",
+    "unit_price": 69,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "9c84a812-42b4-4139-95bf-8a9aaed533e1",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "f5a38d74-4d0d-49c4-af20-1dab5f5cb852",
+    "cylinder_type_id": "1874961b-a46d-4cf6-8a47-90b18a1e0fb7",
+    "unit_price": 69,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "16eda239-153f-4ba5-9942-13543e69403d",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "f5a38d74-4d0d-49c4-af20-1dab5f5cb852",
+    "cylinder_type_id": "1874961b-a46d-4cf6-8a47-90b18a1e0fb7",
+    "unit_price": 69,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  },
+  {
+    "id": "b87bf92a-5f7c-427a-96f7-8044cc0033df",
+    "reception_id": "37ccace1-b569-4785-a681-6e3e39134a78",
+    "cylinder_id": null,
+    "cylinder_size_id": "16207ded-639a-4240-92ad-a2a06d95a0a5",
+    "cylinder_type_id": "1874961b-a46d-4cf6-8a47-90b18a1e0fb7",
+    "unit_price": 79,
+    "created_at": "2026-08-20T07:19:12.383237+00:00"
+  }
+]

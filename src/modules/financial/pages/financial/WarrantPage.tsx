@@ -56,15 +56,15 @@ import { cn, formatCurrency } from '@/lib/utils'
 const warrantSchema = z.object({
   warrant_date: z.string().min(1, 'Date is required'),
   document_no: z.string().min(1, 'Document number is required'),
-  vote_code: z.enum(['080702', '990102'], { required_error: 'Vote code is required' }),
-  vote_activity: z.enum(['27401', '27499', '27404', '27403', '27402', '27501'], { required_error: 'Vote activity is required' }),
-  category: z.enum(['drug', 'non_drug', 'non_standard', 'reagent', 'vaccine', 'insulin', 'hepc', 'medical_oxygen', 'sglt2', 'pathologist', 'medical_cylinder', 'x_ray'], { required_error: 'Category is required' }),
-  department: z.enum(['pharmacy', 'nephrology', 'radiology_radiography', 'emergency_trauma', 'cssu_cssd', 'operation_theater', 'laboratory_pathology', 'general_ward', 'wound_care', 'rehabilitation', 'anaesthesiology', 'paediatric_ward', 'maternity_ward', 'klinik_pakar'], { required_error: 'Department is required' }),
+  vote_code: z.string().min(1, 'Vote code is required'),
+  vote_activity: z.string().min(1, 'Vote activity is required'),
+  category: z.string().min(1, 'Category is required'),
+  department: z.string().min(1, 'Department is required'),
   amount: z.number({ required_error: 'Amount is required' }).positive('Amount must be positive'),
 })
 
 // Category colors for visual distinction
-const CATEGORY_COLORS: Record<WarrantCategory, string> = {
+const CATEGORY_COLORS: Record<string, string> = {
   drug: 'bg-blue-50 text-blue-750 border-blue-150',
   non_drug: 'bg-purple-50 text-purple-750 border-purple-150',
   non_standard: 'bg-amber-50 text-amber-750 border-amber-150',
@@ -77,6 +77,7 @@ const CATEGORY_COLORS: Record<WarrantCategory, string> = {
   pathologist: 'bg-orange-50 text-orange-750 border-orange-150',
   medical_cylinder: 'bg-slate-50 text-slate-750 border-slate-150',
   x_ray: 'bg-zinc-50 text-zinc-755 border-zinc-150',
+  duit_khas: 'bg-amber-100/80 text-amber-900 border-amber-300 font-black',
 }
 
 // Department colors
@@ -116,7 +117,11 @@ export const WarrantPage: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [filterCategory, setFilterCategory] = useState<string>('')
   const [filterDepartment, setFilterDepartment] = useState<string>('')
+  const [filterVoteCode, setFilterVoteCode] = useState<string>('')
   const [formattedAmount, setFormattedAmount] = useState<string>('')
+  const [selectedVoteCodeOption, setSelectedVoteCodeOption] = useState<string>('')
+  const [customVoteCode, setCustomVoteCode] = useState<string>('')
+  const [voteCodeCustomError, setVoteCodeCustomError] = useState<string>('')
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1)
@@ -163,9 +168,50 @@ export const WarrantPage: React.FC = () => {
     setValue('amount', numericValue, { shouldValidate: true, shouldDirty: true })
   }
 
+  const handleVoteCodeSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value
+    setSelectedVoteCodeOption(val)
+    setVoteCodeCustomError('')
+    if (val === 'others') {
+      setValue('vote_code', customVoteCode.trim(), { shouldValidate: true })
+    } else {
+      setValue('vote_code', val, { shouldValidate: true })
+    }
+  }
+
+  const handleCustomVoteCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value
+    setCustomVoteCode(val)
+    setVoteCodeCustomError('')
+    setValue('vote_code', val.trim(), { shouldValidate: true })
+  }
+
+  const resetModalForm = () => {
+    setIsFormOpen(false)
+    setIsEditing(false)
+    setSelectedWarrant(null)
+    setSelectedVoteCodeOption('')
+    setCustomVoteCode('')
+    setVoteCodeCustomError('')
+    setFormattedAmount('')
+    reset()
+  }
+
   useEffect(() => {
-    if (!isFormOpen) setFormattedAmount('')
+    if (!isFormOpen) {
+      setFormattedAmount('')
+      setSelectedVoteCodeOption('')
+      setCustomVoteCode('')
+      setVoteCodeCustomError('')
+    }
   }, [isFormOpen])
+
+  // Compute available vote codes for filter
+  const availableFilterVoteCodes = useMemo(() => {
+    const defaultCodes = ['080702', '990102']
+    const fromWarrants = Array.from(new Set(warrants.map(w => w.vote_code).filter(Boolean)))
+    return Array.from(new Set([...defaultCodes, ...fromWarrants]))
+  }, [warrants])
 
   // Load data
   const loadData = async () => {
@@ -179,10 +225,12 @@ export const WarrantPage: React.FC = () => {
         endDate: `${selectedYear}-12-31`,
         category: filterCategory as WarrantCategory | undefined,
         department: filterDepartment as WarrantDepartment | undefined,
+        voteCode: (filterVoteCode as any) || undefined,
       }),
       getWarrantSummary(hospitalId, selectedYear, {
         category: filterCategory as WarrantCategory | undefined,
         department: filterDepartment as WarrantDepartment | undefined,
+        voteCode: (filterVoteCode as any) || undefined,
       }),
     ])
 
@@ -195,7 +243,7 @@ export const WarrantPage: React.FC = () => {
 
   useEffect(() => {
     void loadData()
-  }, [hospitalId, selectedYear, filterCategory, filterDepartment])
+  }, [hospitalId, selectedYear, filterCategory, filterDepartment, filterVoteCode])
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-MY', {
@@ -214,6 +262,7 @@ export const WarrantPage: React.FC = () => {
         const query = searchQuery.toLowerCase()
         return (
           w.document_no.toLowerCase().includes(query) ||
+          (w.vote_code && w.vote_code.toLowerCase().includes(query)) ||
           getCategoryLabel(w.category).toLowerCase().includes(query) ||
           getDepartmentLabel(w.department).toLowerCase().includes(query)
         )
@@ -236,6 +285,16 @@ export const WarrantPage: React.FC = () => {
 
   const onSubmit = async (data: WarrantFormData) => {
     if (!hospitalId || !user?.id) return
+
+    // Custom vote code validation and assignment
+    if (selectedVoteCodeOption === 'others') {
+      if (!customVoteCode.trim()) {
+        setVoteCodeCustomError('Custom vote code is required')
+        return
+      }
+      data.vote_code = customVoteCode.trim() as any
+    }
+
     setIsSubmitting(true)
     let result
     if (isEditing && selectedWarrant) result = await updateWarrant(selectedWarrant.id, data)
@@ -245,12 +304,7 @@ export const WarrantPage: React.FC = () => {
       showError(`Failed to ${isEditing ? 'update' : 'create'} warrant`, result.error)
     } else {
       showSuccess(`Warrant ${isEditing ? 'updated' : 'created'} successfully`)
-      setIsFormOpen(false)
-      setIsDetailsOpen(false)
-      setIsEditing(false)
-      setSelectedWarrant(null)
-      setFormattedAmount('')
-      reset()
+      resetModalForm()
       void loadData()
     }
     setIsSubmitting(false)
@@ -273,7 +327,18 @@ export const WarrantPage: React.FC = () => {
     setIsFormOpen(true)
     setValue('warrant_date', selectedWarrant.warrant_date)
     setValue('document_no', selectedWarrant.document_no)
-    setValue('vote_code', selectedWarrant.vote_code)
+
+    const vCode = selectedWarrant.vote_code
+    if (vCode === '080702' || vCode === '990102') {
+      setSelectedVoteCodeOption(vCode)
+      setCustomVoteCode('')
+      setValue('vote_code', vCode)
+    } else {
+      setSelectedVoteCodeOption('others')
+      setCustomVoteCode(vCode || '')
+      setValue('vote_code', vCode || '')
+    }
+
     setValue('vote_activity', selectedWarrant.vote_activity)
     setValue('category', selectedWarrant.category)
     setValue('department', selectedWarrant.department)
@@ -411,6 +476,15 @@ export const WarrantPage: React.FC = () => {
               className="h-11 px-4 bg-slate-50 border border-slate-150 rounded-2xl text-xs font-black text-slate-705 focus:ring-2 focus:ring-slate-900/10 outline-none"
             >
               {years.map(y => <option key={y} value={y}>FY {y}</option>)}
+            </select>
+
+            <select
+              value={filterVoteCode}
+              onChange={(e) => setFilterVoteCode(e.target.value)}
+              className="h-11 px-4 bg-slate-50 border border-slate-150 rounded-2xl text-xs font-black text-slate-705 focus:ring-2 focus:ring-slate-900/10 outline-none"
+            >
+              <option value="">All Vote Codes</option>
+              {availableFilterVoteCodes.map(vc => <option key={vc} value={vc}>{vc}</option>)}
             </select>
 
             <select
@@ -1006,12 +1080,7 @@ export const WarrantPage: React.FC = () => {
       {/* Add/Edit Form Modal */}
       <Modal
         isOpen={isFormOpen}
-        onClose={() => {
-          setIsFormOpen(false)
-          setIsEditing(false)
-          setSelectedWarrant(null)
-          reset()
-        }}
+        onClose={resetModalForm}
         title={isEditing ? 'Edit Warrant Record' : 'Create New Warrant Record'}
         size="xl"
       >
@@ -1027,10 +1096,42 @@ export const WarrantPage: React.FC = () => {
             </div>
             <div className="space-y-2">
               <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Vote Code</label>
-              <select {...register('vote_code')} className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm font-semibold focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 outline-none bg-white">
+              <select 
+                value={selectedVoteCodeOption} 
+                onChange={handleVoteCodeSelectChange}
+                className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm font-semibold focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 outline-none bg-white"
+              >
                 <option value="">Select Vote Code</option>
-                {WARRANT_VOTE_CODES.map(v => <option key={v.value} value={v.value}>{v.label} ({v.value})</option>)}
+                {WARRANT_VOTE_CODES.map(v => (
+                  <option key={v.value} value={v.value}>
+                    {v.value === 'others' ? 'Others+' : `${v.label} (${v.value})`}
+                  </option>
+                ))}
               </select>
+              {errors.vote_code && !selectedVoteCodeOption && (
+                <p className="text-xs text-rose-500 mt-1">{errors.vote_code.message}</p>
+              )}
+
+              {selectedVoteCodeOption === 'others' && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="pt-2 space-y-1.5"
+                >
+                  <label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-indigo-500" />
+                    Enter Custom Vote Code
+                  </label>
+                  <Input
+                    type="text"
+                    value={customVoteCode}
+                    onChange={handleCustomVoteCodeChange}
+                    placeholder="e.g. 080703 or VOT-KHAS-01"
+                    className="rounded-xl border-indigo-200 focus:border-indigo-500 focus:ring-indigo-500/20 h-11 text-sm font-bold font-mono bg-indigo-50/20"
+                    error={voteCodeCustomError}
+                  />
+                </motion.div>
+              )}
             </div>
             <div className="space-y-2">
               <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Vote Activity</label>
@@ -1038,6 +1139,7 @@ export const WarrantPage: React.FC = () => {
                 <option value="">Select Activity</option>
                 {WARRANT_VOTE_ACTIVITIES.map(a => <option key={a.value} value={a.value}>{a.label} ({a.value})</option>)}
               </select>
+              {errors.vote_activity && <p className="text-xs text-rose-500 mt-1">{errors.vote_activity.message}</p>}
             </div>
             <div className="space-y-2">
               <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Category</label>
@@ -1045,6 +1147,7 @@ export const WarrantPage: React.FC = () => {
                 <option value="">Select Category</option>
                 {WARRANT_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
+              {errors.category && <p className="text-xs text-rose-500 mt-1">{errors.category.message}</p>}
             </div>
             <div className="space-y-2">
               <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Department</label>
@@ -1052,6 +1155,7 @@ export const WarrantPage: React.FC = () => {
                 <option value="">Select Department</option>
                 {WARRANT_DEPARTMENTS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
+              {errors.department && <p className="text-xs text-rose-500 mt-1">{errors.department.message}</p>}
             </div>
             <div className="space-y-2 md:col-span-2">
               <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Amount (MYR)</label>
@@ -1072,7 +1176,7 @@ export const WarrantPage: React.FC = () => {
           <div className="pt-6 border-t border-slate-100 flex justify-end gap-3">
             <button
               type="button"
-              onClick={() => setIsFormOpen(false)}
+              onClick={resetModalForm}
               className="h-10 px-5 rounded-xl border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-655 font-bold text-xs active:scale-95 transition-all shadow-sm"
             >
               Cancel

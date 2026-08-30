@@ -117,8 +117,10 @@ const dictionary: Record<string, Record<Language, string>> = {
   'module.kunci': { en: 'MyKunci', ms: 'MyKunci' },
   'module.kunci.desc': { en: 'Key Management & Security Audit System', ms: 'Sistem Pengurusan Kunci & Audit Keselamatan' },
 
-  'module.cuti': { en: 'MyCuti', ms: 'MyCuti' },
-  'module.cuti.desc': { en: 'Staff Leave Management System', ms: 'Sistem Pengurusan Cuti Kakitangan' },
+  'module.staff': { en: 'MyStaff', ms: 'MyStaff' },
+  'module.staff.desc': { en: 'Staff Management System', ms: 'Sistem Pengurusan Kakitangan' },
+  'module.cuti': { en: 'MyStaff', ms: 'MyStaff' },
+  'module.cuti.desc': { en: 'Staff Management System', ms: 'Sistem Pengurusan Kakitangan' },
 
   'module.timeoff': { en: 'MyTimeOff', ms: 'MyTimeOff' },
   'module.timeoff.desc': { en: 'Time & Movement Management System', ms: 'Sistem Pengurusan Masa & Pergerakan' },

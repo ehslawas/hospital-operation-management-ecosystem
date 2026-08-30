@@ -170,16 +170,20 @@ export async function generateOxygenPoPdf(options: OxygenPdfOptions): Promise<Bl
     })
   })
 
-  // 2. Build Loan PO block for loan items AND loan cylinder sizes (101-N, 101-F)
+  // 2. Build Loan PO block for loan items
   const loanMap: Record<string, number> = {}
+  const loanItems = items.filter(itm => itm.is_loan)
+  const targetLoanItems = loanItems.length > 0 
+    ? loanItems 
+    : items.filter(itm => {
+        const rawSize = itm.size_code
+        return rawSize.startsWith('101-') || rawSize === '101-N' || rawSize === '101-F'
+      })
   
-  items.forEach(itm => {
+  targetLoanItems.forEach(itm => {
     const rawSize = itm.size_code
-    const isLoanCylinderSize = rawSize.startsWith('101-') || rawSize === '101-N' || rawSize === '101-F'
-    if (itm.is_loan || isLoanCylinderSize) {
-      const displaySize = rawSize === '101-F' ? 'P101-F' : rawSize
-      loanMap[displaySize] = (loanMap[displaySize] || 0) + itm.quantity
-    }
+    const displaySize = rawSize === '101-F' ? 'P101-F' : rawSize
+    loanMap[displaySize] = (loanMap[displaySize] || 0) + itm.quantity
   })
 
   const consolidatedLoanItems = Object.keys(loanMap).map(sizeCode => {
@@ -759,15 +763,33 @@ export async function generateOxygenReceptionReportPdf(options: OxygenPdfOptions
 
   doc.setFont('times', 'normal')
   doc.setFontSize(9)
-  doc.text(`No. Rekod Penerimaan: PO-O2-${firstDoReport.substring(0, 8).toUpperCase()}`, margin + 8, y)
-  doc.text(`Tarikh Penerimaan: ${formattedReportDate}`, pageWidth / 2 + 5, y)
-  y += 5
-  
-  const doLines = doc.splitTextToSize(`No. Delivery Order (DO): ${reception.delivery_order_no || '-'}`, pageWidth / 2 - 12)
-  doc.text(doLines[0] || '', margin + 8, y)
-  doc.text(`No. Sales Order (SO): ${reception.sales_order_no || '-'}`, pageWidth / 2 + 5, y)
-  y += 5
-  doc.text(`Kategori Belanjawan: Oksigen Perubatan (Vote: ${reception.vote_code || '080702'} / ${reception.vote_activity || '27402'})`, margin + 8, y)
+
+  // Two-column layout: left col starts at margin+8, right col at pageWidth/2+5
+  const col1X = margin + 8
+  const col2X = pageWidth / 2 + 5
+  const col1MaxW = pageWidth / 2 - margin - 8 - 4  // ~83 mm – safe gap before right col
+  const col2MaxW = pageWidth - margin - 5 - col2X   // ~85 mm – right edge of content
+
+  // Row 1: Rekod Penerimaan | Tarikh Penerimaan
+  const rekodLines = doc.splitTextToSize(`No. Rekod Penerimaan: PO-O2-${firstDoReport.substring(0, 8).toUpperCase()}`, col1MaxW)
+  const tarikhLines = doc.splitTextToSize(`Tarikh Penerimaan: ${formattedReportDate}`, col2MaxW)
+  const row1Height = Math.max(rekodLines.length, tarikhLines.length) * 4.5
+  doc.text(rekodLines, col1X, y)
+  doc.text(tarikhLines, col2X, y)
+  y += row1Height
+
+  // Row 2: Delivery Order | Sales Order
+  const doLines = doc.splitTextToSize(`No. Delivery Order (DO): ${reception.delivery_order_no || '-'}`, col1MaxW)
+  const soLines = doc.splitTextToSize(`No. Sales Order (SO): ${reception.sales_order_no || '-'}`, col2MaxW)
+  const row2Height = Math.max(doLines.length, soLines.length) * 4.5
+  doc.text(doLines, col1X, y)
+  doc.text(soLines, col2X, y)
+  y += row2Height
+
+  // Row 3: Kategori Belanjawan (full width)
+  const kategoriLines = doc.splitTextToSize(`Kategori Belanjawan: Oksigen Perubatan (Vote: ${reception.vote_code || '080702'} / ${reception.vote_activity || '27402'})`, col1MaxW + col2MaxW + (col2X - col1X - col1MaxW))
+  doc.text(kategoriLines, col1X, y)
+  y += kategoriLines.length * 4.5 - 4.5  // subtract one line-height; the caller adds spacing after
 
   y += 10
 
@@ -796,16 +818,16 @@ export async function generateOxygenReceptionReportPdf(options: OxygenPdfOptions
 
     if (itm.is_loan) {
       totalLoanQty += itm.quantity
-    }
-
-    if (!refillGroup[displaySizeCode]) {
-      refillGroup[displaySizeCode] = {
-        size_code: displaySizeCode,
-        quantity: itm.quantity,
-        unit_price: refillPrice
-      }
     } else {
-      refillGroup[displaySizeCode].quantity += itm.quantity
+      if (!refillGroup[displaySizeCode]) {
+        refillGroup[displaySizeCode] = {
+          size_code: displaySizeCode,
+          quantity: itm.quantity,
+          unit_price: refillPrice
+        }
+      } else {
+        refillGroup[displaySizeCode].quantity += itm.quantity
+      }
     }
   })
 

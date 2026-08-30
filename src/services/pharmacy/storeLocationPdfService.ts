@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { JATA_NEGARA_BASE64 } from '@/modules/mytransporter/pages/jataNegaraBase64'
+import { useAuthStore } from '@/stores/authStore'
 import type { StoreLocationWithOccupancy } from '@/types/pharmacy'
 
 export interface StoreLocationPdfItem {
@@ -33,7 +34,9 @@ export interface StoreLocationPdfOptions {
   hospitalName?: string
   department?: string
   preparedBy?: string
+  preparedByTitle?: string
   approvedBy?: string
+  approvedByTitle?: string
   referenceNo?: string
   subLocationsList?: Array<{ name: string; code: string; type: string }>
 }
@@ -75,11 +78,14 @@ export function generateStoreLocationPdf(
   items: StoreLocationPdfItem[],
   opts: StoreLocationPdfOptions = {}
 ) {
+  const currentUser = useAuthStore.getState().user
   const {
-    hospitalName = 'HOSPITAL LAWAS',
+    hospitalName = currentUser?.hospital?.hospital_name || (currentUser?.hospital as any)?.name || 'HOSPITAL LAWAS',
     department = 'Jabatan Farmasi / Unit Logistik Stor',
-    preparedBy = 'Pegawai Farmasi / Penolong Pegawai Farmasi',
+    preparedBy = currentUser?.full_name || (currentUser as any)?.name || 'Pegawai Farmasi / Penolong Pegawai Farmasi',
+    preparedByTitle = currentUser?.jawatan || 'Pegawai Farmasi / Penyelia Stor',
     approvedBy = 'Ketua Jabatan / Pegawai Farmasi Y/M',
+    approvedByTitle = 'Ketua Unit Stor / Pegawai Farmasi Y/M',
     referenceNo = `KKM/HL/STOR/${location.location_code || 'LOG'}/${new Date().getFullYear()}/${String(new Date().getMonth() + 1).padStart(2, '0')}`,
   } = opts
 
@@ -122,7 +128,7 @@ export function generateStoreLocationPdf(
     doc.setFontSize(7)
     doc.setTextColor(80, 80, 80)
     doc.text(
-      'Jalan Hospital, 98850 Lawas, Sarawak  |  Tel: 085-283122  |  Faks: 085-283123  |  hlawas@moh.gov.my',
+      'Jalan Hospital, 98850 Lawas, Sarawak  |  Tel: 085 283 781 (ext 206)  |  farmasi.hlawas@moh.gov.my',
       38, 23.5
     )
 
@@ -395,8 +401,8 @@ export function generateStoreLocationPdf(
     doc.setTextColor(0, 0, 0)
   }
 
-  drawSigBox(14, sigBoxY, colW, 'DISEDIAKAN OLEH (PENYELIA STOR)', preparedBy, 'Pegawai Farmasi / Storekeeper')
-  drawSigBox(14 + colW + 8, sigBoxY, colW, 'DISAHKAN OLEH (KETUA UNIT)', approvedBy, 'Ketua Unit Stor / Pegawai Farmasi Y/M')
+  drawSigBox(14, sigBoxY, colW, 'DISEDIAKAN OLEH (PENYELIA STOR)', preparedBy, preparedByTitle)
+  drawSigBox(14 + colW + 8, sigBoxY, colW, 'DISAHKAN OLEH (KETUA UNIT)', approvedBy, approvedByTitle)
 
   // ─── Footer with Page Numbers ─────────────────────────────────────────────
   const totalPages = (doc.internal as any).getNumberOfPages()

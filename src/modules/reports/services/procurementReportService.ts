@@ -116,40 +116,59 @@ export async function generateProcurementReport(
       .gte('document_date', dateFrom)
       .lte('document_date', dateTo)
 
-    // 3. Order Tracking 
-    const trackingPromise = supabase
-      .from('pharmacy_order_tracking')
-      .select(`
-        id, 
-        lpo_id, 
-        status, 
-        is_overdue, 
-        days_overdue, 
-        reminder_count, 
-        last_reminder_sent,
-        expected_delivery_date, 
-        actual_delivery_date, 
-        lpo:pharmacy_lpo(
-          id,
-          lpo_number,
-          status,
-          document_date,
-          document_url,
-          expected_delivery_date,
-          po:pharmacy_purchase_orders(
-            id,
-            po_number,
-            vote_code,
-            category,
-            manual_supplier_name,
-            supplier:suppliers(
+    // 3. Order Tracking (batched to prevent 1000-row truncation)
+    const fetchAllTrackingForReport = async () => {
+      let allTracking: any[] = []
+      let from = 0
+      let hasMore = true
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('pharmacy_order_tracking')
+          .select(`
+            id, 
+            lpo_id, 
+            status, 
+            is_overdue, 
+            days_overdue, 
+            reminder_count, 
+            last_reminder_sent,
+            expected_delivery_date, 
+            actual_delivery_date, 
+            lpo:pharmacy_lpo(
               id,
-              company_name
+              lpo_number,
+              status,
+              document_date,
+              document_url,
+              expected_delivery_date,
+              po:pharmacy_purchase_orders(
+                id,
+                po_number,
+                vote_code,
+                category,
+                manual_supplier_name,
+                supplier:suppliers(
+                  id,
+                  company_name
+                )
+              )
             )
-          )
-        )
-      `)
-      .eq('hospital_id', hospitalId)
+          `)
+          .eq('hospital_id', hospitalId)
+          .range(from, from + 999)
+        
+        if (error) return { data: null, error }
+        if (data && data.length > 0) {
+          allTracking = allTracking.concat(data)
+          from += 1000
+          if (data.length < 1000) hasMore = false
+        } else {
+          hasMore = false
+        }
+      }
+      return { data: allTracking, error: null }
+    }
+    const trackingPromise = fetchAllTrackingForReport()
       
     // 4. Goods Receipts
     const grPromise = supabase
@@ -231,6 +250,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   pathologist: 'Pathologist',
   medical_cylinder: 'Medical Cylinder',
   x_ray: 'X-Ray',
+  duit_khas: 'Duit Khas',
 }
 
 function normalizeCategory(cat: string | null): string {
@@ -249,6 +269,7 @@ function normalizeCategory(cat: string | null): string {
   if (['pathologist', 'patologi'].includes(normalized)) return 'pathologist'
   if (['medical_cylinder', 'silinder'].includes(normalized)) return 'medical_cylinder'
   if (['x_ray', 'xray', 'x-ray'].includes(normalized)) return 'x_ray'
+  if (['duit_khas', 'duit khas', 'duit-khas', 'khas'].includes(normalized)) return 'duit_khas'
   
   const isStationery = /tulis|alat|pejabat|cetak|printing|stationery|paper|kertas/i.test(normalized)
   const isComputer = /komputer|computer|it|software|hardware/i.test(normalized)

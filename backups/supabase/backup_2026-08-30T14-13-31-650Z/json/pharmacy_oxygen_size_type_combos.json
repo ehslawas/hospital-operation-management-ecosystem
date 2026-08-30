@@ -1,0 +1,72 @@
+[
+  {
+    "id": "a4d39528-abf7-46d6-a68c-822446fb2925",
+    "size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "display_name": "P101 - F (1.4m3) BN",
+    "display_order": 3,
+    "is_active": true,
+    "created_at": "2026-01-26T06:48:57.333751+00:00",
+    "updated_at": "2026-01-26T06:48:57.333751+00:00"
+  },
+  {
+    "id": "c3cd23c3-76a1-480f-9b9f-bbeda7c6a8d0",
+    "size_id": "1f04245e-de6a-4598-bab2-5b5a421e606a",
+    "type_id": "1874961b-a46d-4cf6-8a47-90b18a1e0fb7",
+    "display_name": "P101 - F (1.4m3) PI",
+    "display_order": 4,
+    "is_active": true,
+    "created_at": "2026-01-26T06:48:57.333751+00:00",
+    "updated_at": "2026-01-26T06:48:57.333751+00:00"
+  },
+  {
+    "id": "4b896a84-35e7-4bd5-b9c5-3b510c5b71d7",
+    "size_id": "0b3d30f9-d4fc-4d94-b624-d993d1f8098d",
+    "type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "display_name": "P101 -HS (6.4m3)",
+    "display_order": 5,
+    "is_active": true,
+    "created_at": "2026-01-26T06:48:57.333751+00:00",
+    "updated_at": "2026-01-26T06:48:57.333751+00:00"
+  },
+  {
+    "id": "905d7f82-cee2-4cd6-9d42-dff2fa78d75b",
+    "size_id": "332911a0-9e8c-4c0e-980a-9df3d0197dce",
+    "type_id": "3edfc0fe-98fb-4592-9ce1-4229718871a2",
+    "display_name": "101 - N (8.0m3) Loan",
+    "display_order": 6,
+    "is_active": true,
+    "created_at": "2026-01-26T06:48:57.333751+00:00",
+    "updated_at": "2026-01-26T06:48:57.333751+00:00"
+  },
+  {
+    "id": "1ed119ae-e972-471f-a53f-b0f5da76d74f",
+    "size_id": "2175d196-4e97-4bb9-bfaa-c335a25743d3",
+    "type_id": "1874961b-a46d-4cf6-8a47-90b18a1e0fb7",
+    "display_name": "101 - F (1.4m3) Loan",
+    "display_order": 7,
+    "is_active": true,
+    "created_at": "2026-01-26T06:48:57.333751+00:00",
+    "updated_at": "2026-01-26T06:48:57.333751+00:00"
+  },
+  {
+    "id": "ac962bbb-c77d-4d09-901b-fd067b9ce85e",
+    "size_id": "16207ded-639a-4240-92ad-a2a06d95a0a5",
+    "type_id": "1874961b-a46d-4cf6-8a47-90b18a1e0fb7",
+    "display_name": "P101 - E (0.7m3)",
+    "display_order": 2,
+    "is_active": true,
+    "created_at": "2026-01-26T06:48:57.333751+00:00",
+    "updated_at": "2026-01-26T06:48:57.333751+00:00"
+  },
+  {
+    "id": "f6a20202-fa01-40f7-a86f-2af783561748",
+    "size_id": "f5a38d74-4d0d-49c4-af20-1dab5f5cb852",
+    "type_id": "1874961b-a46d-4cf6-8a47-90b18a1e0fb7",
+    "display_name": "P101 - D (0.5m3)",
+    "display_order": 1,
+    "is_active": true,
+    "created_at": "2026-01-26T06:48:57.333751+00:00",
+    "updated_at": "2026-01-26T06:48:57.333751+00:00"
+  }
+]

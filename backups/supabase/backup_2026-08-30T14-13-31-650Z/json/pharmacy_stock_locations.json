@@ -1,0 +1,44 @@
+[
+  {
+    "id": "a6e4cb7d-6dba-42a1-9cb6-3a7fcc953fbe",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "location_code": "MS",
+    "location_name": "Main Store",
+    "location_type": "store",
+    "parent_location_id": "84fa2b70-1fd5-4720-bdab-cb4f4dd7bd31",
+    "capacity": null,
+    "temperature_required": null,
+    "is_active": true,
+    "created_at": "2026-01-31T16:48:42.383792+00:00",
+    "updated_at": "2026-02-02T15:57:46.719943+00:00",
+    "department_id": "7a3bd6c4-c8e6-491b-8441-0ee9bd73f880"
+  },
+  {
+    "id": "acea459d-23e6-4898-a2cb-95c2a0784c8d",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "location_code": "DC",
+    "location_name": "Decanting",
+    "location_type": "store",
+    "parent_location_id": "84fa2b70-1fd5-4720-bdab-cb4f4dd7bd31",
+    "capacity": null,
+    "temperature_required": null,
+    "is_active": true,
+    "created_at": "2026-01-31T16:48:42.383792+00:00",
+    "updated_at": "2026-02-02T15:57:46.719943+00:00",
+    "department_id": "7a3bd6c4-c8e6-491b-8441-0ee9bd73f880"
+  },
+  {
+    "id": "84fa2b70-1fd5-4720-bdab-cb4f4dd7bd31",
+    "hospital_id": "85bb6adc-b868-428b-83f4-e5af2f5cf904",
+    "location_code": "Hosp Lawas",
+    "location_name": "Pharmacy Logistic",
+    "location_type": "warehouse",
+    "parent_location_id": null,
+    "capacity": 0,
+    "temperature_required": "ambient",
+    "is_active": true,
+    "created_at": "2026-01-31T07:17:11.815434+00:00",
+    "updated_at": "2026-02-02T15:57:46.719943+00:00",
+    "department_id": "7a3bd6c4-c8e6-491b-8441-0ee9bd73f880"
+  }
+]

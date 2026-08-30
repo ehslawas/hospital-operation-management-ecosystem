@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { cn } from "@/lib/utils";
 
 type ButtonVariant = 
   | "default" 
@@ -100,7 +101,12 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const isAnyLoading = loading || isLoading;
     const spinnerSize = size === "xs" ? "xs" : size === "sm" ? "sm" : size === "lg" || size === "xl" ? "lg" : "md";
     
-    const buttonClasses = `inline-flex items-center justify-center rounded-xl font-semibold transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:transform-none ${variantClasses[variant]} ${sizeClasses[size]} ${className}`;
+    const buttonClasses = cn(
+      "inline-flex items-center justify-center rounded-xl font-semibold transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:transform-none",
+      variantClasses[variant],
+      sizeClasses[size],
+      className
+    );
     
     // If asChild is true, render children directly with the classes applied
     if (asChild && React.isValidElement(children)) {

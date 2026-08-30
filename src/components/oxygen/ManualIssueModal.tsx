@@ -55,7 +55,9 @@ export const ManualIssueModal: React.FC<ManualIssueModalProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
 
-  // Available in-stock cylinders (status = 'available')
+  // All in-stock cylinders in store (status = 'available') including Loan & Saboxy
+  const [allAvailableCylinders, setAllAvailableCylinders] = useState<any[]>([]);
+  // Standard trackable cylinders for the scan & picker console
   const [availableCylinders, setAvailableCylinders] = useState<any[]>([]);
   const [isLoadingCylinders, setIsLoadingCylinders] = useState(false);
   const [selectedCylinders, setSelectedCylinders] = useState<any[]>([]);
@@ -85,15 +87,18 @@ export const ManualIssueModal: React.FC<ManualIssueModalProps> = ({
   const [showSuggestionsF, setShowSuggestionsF] = useState(false);
   const [showSuggestionsN, setShowSuggestionsN] = useState(false);
 
-  // Resolves partial inputs (e.g. "3051") to the full serial number (e.g. "101-N3051" or DB serial)
+  // Resolves partial inputs (e.g. "3051", "054610", "saboxy-1463051") to the full serial number
   const resolveFullSerial = (input: string, sizeCode: '101-F' | '101-N'): string => {
     const clean = input.trim();
     if (!clean) return '';
+    const cleanUpper = clean.toUpperCase();
 
-    // 1. Search available database cylinders for exact or partial serial match
-    const matchedCyl = availableCylinders.find(c => {
-      const s = (c.serial_number || c.qr_code || '').toUpperCase();
-      return s === clean.toUpperCase() || s.endsWith(clean.toUpperCase());
+    // 1. Search all available database cylinders for exact, prefix, suffix or substring match
+    const pool = allAvailableCylinders.length > 0 ? allAvailableCylinders : availableCylinders;
+    const matchedCyl = pool.find(c => {
+      const s = (c.serial_number || '').toUpperCase();
+      const qr = (c.qr_code || '').toUpperCase();
+      return s === cleanUpper || qr === cleanUpper || s.endsWith(cleanUpper) || s.includes(cleanUpper) || qr.includes(cleanUpper);
     });
 
     if (matchedCyl) {
@@ -114,24 +119,63 @@ export const ManualIssueModal: React.FC<ManualIssueModalProps> = ({
     const q = query.trim().toUpperCase();
     if (!q) return [];
 
-    const matches: { id: string; full_serial: string }[] = [];
+    const alreadyAdded = sizeCode === '101-F' ? loanSerialsF : loanSerialsN;
+    const pool = allAvailableCylinders.length > 0 ? allAvailableCylinders : availableCylinders;
+    const matches: { id: string; full_serial: string; size_code?: string; status?: string; is_db_match?: boolean; is_target_size?: boolean }[] = [];
 
-    availableCylinders.forEach((c) => {
-      const full = c.serial_number || c.qr_code || '';
-      if (full.toUpperCase().includes(q)) {
-        matches.push({ id: c.id, full_serial: full });
+    pool.forEach((c) => {
+      const serial = (c.serial_number || '').trim();
+      const qr = (c.qr_code || '').trim();
+      const full = serial || qr;
+      if (!full) return;
+
+      // Skip already added serials
+      if (alreadyAdded.some(s => s.toUpperCase() === full.toUpperCase())) return;
+
+      const upperSerial = serial.toUpperCase();
+      const upperQr = qr.toUpperCase();
+      const cylSizeCode = c.size_info?.code || '';
+
+      // Match query anywhere in serial or QR code
+      if (upperSerial.includes(q) || upperQr.includes(q)) {
+        const isTargetSize = 
+          (sizeCode === '101-N' && (cylSizeCode === '101-N' || c.supplier_tagged || upperSerial.includes('SABOXY') || upperSerial.includes('101-N') || upperSerial.includes('101N'))) ||
+          (sizeCode === '101-F' && (cylSizeCode === '101-F' || cylSizeCode === 'P101-F' || upperSerial.includes('101-F') || upperSerial.includes('101F')));
+
+        matches.push({
+          id: c.id,
+          full_serial: full,
+          size_code: cylSizeCode || sizeCode,
+          status: c.status || 'available',
+          is_db_match: true,
+          is_target_size: isTargetSize
+        });
       }
+    });
+
+    // Prioritize target size matching cylinders, then exact or alphabetical
+    matches.sort((a, b) => {
+      if (a.is_target_size && !b.is_target_size) return -1;
+      if (!a.is_target_size && b.is_target_size) return 1;
+      return a.full_serial.localeCompare(b.full_serial);
     });
 
     // Add formatted suggestion if query is purely numeric
     if (/^\d+$/.test(q)) {
       const formatted = `${sizeCode}${q}`;
-      if (!matches.some(m => m.full_serial === formatted)) {
-        matches.unshift({ id: `fmt-${formatted}`, full_serial: formatted });
+      if (!matches.some(m => m.full_serial.toUpperCase() === formatted) && !alreadyAdded.includes(formatted)) {
+        matches.unshift({
+          id: `fmt-${formatted}`,
+          full_serial: formatted,
+          size_code: sizeCode,
+          status: 'formatted',
+          is_db_match: false,
+          is_target_size: true
+        });
       }
     }
 
-    return matches.slice(0, 5);
+    return matches.slice(0, 10);
   };
 
   const handleAddSerialF = (inputVal?: string) => {
@@ -186,11 +230,13 @@ export const ManualIssueModal: React.FC<ManualIssueModalProps> = ({
             .eq('status', 'available');
 
           if (!err && data) {
-            // Map or store standard trackable cylinders (filter out 101-N / 8m┬│ loan unit)
+            setAllAvailableCylinders(data);
+
+            // Map or store standard trackable cylinders (filter out 101-N / 8m³ loan unit)
             const normalized = data
               .filter((c: any) => {
                 const sizeCode = c.size_info?.code || '';
-                const isLoan = c.is_loan || c.size_info?.is_loan || !sizeCode.startsWith('P');
+                const isLoan = c.supplier_tagged || c.is_loan || c.size_info?.is_loan || !sizeCode.startsWith('P');
                 return !isLoan;
               })
               .map((c: any) => {
@@ -503,13 +549,33 @@ export const ManualIssueModal: React.FC<ManualIssueModalProps> = ({
     setError(null);
     try {
       const selectedUser = users.find(u => u.id === selectedRequesterId);
+
+      // Collect cylinder IDs from both trackable selections AND matched loan serial numbers
+      const matchedLoanCylIds: string[] = [];
+      const allAddedLoanSerials = [...loanSerialsF, ...loanSerialsN];
+      
+      allAddedLoanSerials.forEach(s => {
+        const found = allAvailableCylinders.find(c => 
+          (c.serial_number && c.serial_number.toLowerCase() === s.toLowerCase()) ||
+          (c.qr_code && c.qr_code.toLowerCase() === s.toLowerCase())
+        );
+        if (found && !matchedLoanCylIds.includes(found.id)) {
+          matchedLoanCylIds.push(found.id);
+        }
+      });
+
+      const allCylinderIds = Array.from(new Set([
+        ...selectedCylinders.map(c => c.id),
+        ...matchedLoanCylIds
+      ]));
+
       await onSubmit({
         department_id: selectedDeptId,
         items: dispatchItems,
         remarks: remarks || undefined,
         requested_by: isManualRequester ? undefined : selectedRequesterId,
         manual_requester_name: isManualRequester ? manualRequesterName : selectedUser?.full_name,
-        cylinder_ids: selectedCylinders.map(c => c.id)
+        cylinder_ids: allCylinderIds
       });
       onClose();
     } catch (err) {
@@ -992,6 +1058,9 @@ export const ManualIssueModal: React.FC<ManualIssueModalProps> = ({
                           placeholder="Type/paste serial no (e.g. SBX-001, 3051)..."
                           value={serialInputF}
                           onFocus={() => setShowSuggestionsF(true)}
+                          onBlur={() => {
+                            setTimeout(() => setShowSuggestionsF(false), 200);
+                          }}
                           onChange={(e) => {
                             setSerialInputF(e.target.value);
                             setShowSuggestionsF(true);
@@ -1008,28 +1077,67 @@ export const ManualIssueModal: React.FC<ManualIssueModalProps> = ({
                           type="button"
                           onClick={() => handleAddSerialF()}
                           disabled={!serialInputF.trim()}
-                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                          className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
                         >
                           + Add
                         </button>
                       </div>
 
                       {/* Autocomplete Suggestions Popup for 101-F */}
-                      {showSuggestionsF && serialInputF.trim().length > 0 && (
-                        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-40 overflow-y-auto divide-y divide-slate-100">
-                          {getSerialSuggestions('101-F', serialInputF).map((sugg) => (
-                            <button
-                              key={sugg.id}
-                              type="button"
-                              onClick={() => handleAddSerialF(sugg.full_serial)}
-                              className="w-full px-3 py-2 text-left hover:bg-indigo-50 flex items-center justify-between transition-colors cursor-pointer"
-                            >
-                              <span className="font-extrabold text-xs text-slate-900 font-mono">🏷️ {sugg.full_serial}</span>
-                              <span className="text-[10px] text-indigo-600 font-extrabold bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">Use Full Serial</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                      {showSuggestionsF && serialInputF.trim().length > 0 && (() => {
+                        const suggestions = getSerialSuggestions('101-F', serialInputF);
+                        return (
+                          <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200/90 rounded-2xl shadow-2xl z-50 max-h-52 overflow-y-auto divide-y divide-slate-100 ring-1 ring-slate-900/5">
+                            <div className="px-3 py-1.5 bg-slate-50/95 flex items-center justify-between sticky top-0 backdrop-blur-xs z-10">
+                              <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
+                                Matching Cylinders ({suggestions.length})
+                              </span>
+                              <span className="text-[9px] text-indigo-600 font-bold">Click to add</span>
+                            </div>
+                            {suggestions.length > 0 ? (
+                              suggestions.map((sugg) => (
+                                <button
+                                  key={sugg.id}
+                                  type="button"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    handleAddSerialF(sugg.full_serial);
+                                  }}
+                                  className="w-full px-3.5 py-2.5 text-left hover:bg-indigo-50/80 flex items-center justify-between transition-colors cursor-pointer group"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-extrabold text-xs text-slate-900 font-mono group-hover:text-indigo-700">
+                                      🏷️ {sugg.full_serial}
+                                    </span>
+                                    {sugg.is_db_match && (
+                                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md">
+                                        In Stock
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-[10px] text-indigo-600 font-bold bg-indigo-50 group-hover:bg-indigo-600 group-hover:text-white border border-indigo-100 px-2.5 py-0.5 rounded-lg transition-all">
+                                    + Add
+                                  </span>
+                                </button>
+                              ))
+                            ) : (
+                              <div className="p-3 text-center">
+                                <p className="text-xs text-slate-500 mb-2">No matching cylinder found in stock.</p>
+                                <button
+                                  type="button"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    handleAddSerialF(serialInputF);
+                                  }}
+                                  className="w-full py-1.5 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl transition-colors border border-indigo-200 cursor-pointer"
+                                >
+                                  + Add "{serialInputF.trim()}" as custom serial
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {loanSerialsF.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 pt-1">
@@ -1107,6 +1215,9 @@ export const ManualIssueModal: React.FC<ManualIssueModalProps> = ({
                           placeholder="Type/paste serial no (e.g. SBX-001, 3051)..."
                           value={serialInputN}
                           onFocus={() => setShowSuggestionsN(true)}
+                          onBlur={() => {
+                            setTimeout(() => setShowSuggestionsN(false), 200);
+                          }}
                           onChange={(e) => {
                             setSerialInputN(e.target.value);
                             setShowSuggestionsN(true);
@@ -1123,28 +1234,67 @@ export const ManualIssueModal: React.FC<ManualIssueModalProps> = ({
                           type="button"
                           onClick={() => handleAddSerialN()}
                           disabled={!serialInputN.trim()}
-                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                          className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
                         >
                           + Add
                         </button>
                       </div>
 
                       {/* Autocomplete Suggestions Popup for 101-N */}
-                      {showSuggestionsN && serialInputN.trim().length > 0 && (
-                        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-40 overflow-y-auto divide-y divide-slate-100">
-                          {getSerialSuggestions('101-N', serialInputN).map((sugg) => (
-                            <button
-                              key={sugg.id}
-                              type="button"
-                              onClick={() => handleAddSerialN(sugg.full_serial)}
-                              className="w-full px-3 py-2 text-left hover:bg-indigo-50 flex items-center justify-between transition-colors cursor-pointer"
-                            >
-                              <span className="font-extrabold text-xs text-slate-900 font-mono">🏷️ {sugg.full_serial}</span>
-                              <span className="text-[10px] text-indigo-600 font-extrabold bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">Use Full Serial</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                      {showSuggestionsN && serialInputN.trim().length > 0 && (() => {
+                        const suggestions = getSerialSuggestions('101-N', serialInputN);
+                        return (
+                          <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200/90 rounded-2xl shadow-2xl z-50 max-h-52 overflow-y-auto divide-y divide-slate-100 ring-1 ring-slate-900/5">
+                            <div className="px-3 py-1.5 bg-slate-50/95 flex items-center justify-between sticky top-0 backdrop-blur-xs z-10">
+                              <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
+                                Matching Cylinders ({suggestions.length})
+                              </span>
+                              <span className="text-[9px] text-indigo-600 font-bold">Click to add</span>
+                            </div>
+                            {suggestions.length > 0 ? (
+                              suggestions.map((sugg) => (
+                                <button
+                                  key={sugg.id}
+                                  type="button"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    handleAddSerialN(sugg.full_serial);
+                                  }}
+                                  className="w-full px-3.5 py-2.5 text-left hover:bg-indigo-50/80 flex items-center justify-between transition-colors cursor-pointer group"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-extrabold text-xs text-slate-900 font-mono group-hover:text-indigo-700">
+                                      🏷️ {sugg.full_serial}
+                                    </span>
+                                    {sugg.is_db_match && (
+                                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md">
+                                        In Stock
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-[10px] text-indigo-600 font-bold bg-indigo-50 group-hover:bg-indigo-600 group-hover:text-white border border-indigo-100 px-2.5 py-0.5 rounded-lg transition-all">
+                                    + Add
+                                  </span>
+                                </button>
+                              ))
+                            ) : (
+                              <div className="p-3 text-center">
+                                <p className="text-xs text-slate-500 mb-2">No matching cylinder found in stock.</p>
+                                <button
+                                  type="button"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    handleAddSerialN(serialInputN);
+                                  }}
+                                  className="w-full py-1.5 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl transition-colors border border-indigo-200 cursor-pointer"
+                                >
+                                  + Add "{serialInputN.trim()}" as custom serial
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {loanSerialsN.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 pt-1">

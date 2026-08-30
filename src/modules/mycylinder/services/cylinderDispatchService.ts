@@ -219,6 +219,7 @@ export async function getCylinderDispatchRequests(
             cylinder_size_id,
             quantity,
             quantity_issued,
+            usage_notes,
             size_info:pharmacy_oxygen_cylinder_sizes(id, code)
           )
         `)
@@ -304,6 +305,7 @@ export async function getCylinderDispatchRequestById(
             cylinder_size_id,
             quantity,
             quantity_issued,
+            usage_notes,
             size_info:pharmacy_oxygen_cylinder_sizes(id, code)
           )
         `)

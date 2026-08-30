@@ -386,7 +386,7 @@ export const StoreBalanceGrid: React.FC<StoreBalanceGridProps> = ({
                       <div className="text-[11px] text-indigo-700 font-semibold mt-0.5">Refill in Progress</div>
                     </div>
                     <div className="w-full py-2 bg-indigo-100 text-indigo-800 rounded-lg text-xs font-bold text-center border border-indigo-200">
-                      Returned to Linde
+                      Returned to Supplier
                     </div>
                   </div>
 
@@ -493,9 +493,9 @@ export const StoreBalanceGrid: React.FC<StoreBalanceGridProps> = ({
                     <button
                       onClick={() => onQuickScanEmpty(combo)}
                       disabled={combo.in_use <= 0}
-                      className="flex-1 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+                      className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
                     >
-                      Mark Empty
+                      Mark Depleted
                     </button>
                   )}
                   {onQuickCreateReturn && (
@@ -560,7 +560,7 @@ export const StoreBalanceGrid: React.FC<StoreBalanceGridProps> = ({
                             <button
                               onClick={() => onQuickIssue(combo)}
                               disabled={combo.available <= 0}
-                              className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-30 text-white rounded text-[10px] font-bold"
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-30 text-white rounded text-[10px] font-bold"
                             >
                               Issue
                             </button>
@@ -569,9 +569,9 @@ export const StoreBalanceGrid: React.FC<StoreBalanceGridProps> = ({
                             <button
                               onClick={() => onQuickScanEmpty(combo)}
                               disabled={combo.in_use <= 0}
-                              className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 disabled:opacity-30 text-white rounded text-[10px] font-bold"
+                              className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-30 text-white rounded text-[10px] font-bold"
                             >
-                              Empty
+                              Deplete
                             </button>
                           )}
                           {onQuickCreateReturn && (

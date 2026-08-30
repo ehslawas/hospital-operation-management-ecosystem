@@ -45,6 +45,10 @@ import {
   RotateCcw,
   Trash2,
   FastForward,
+  ShieldCheck,
+  Scale,
+  FileCheck,
+  CheckCheck,
 } from 'lucide-react'
 import jsQR from 'jsqr'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -59,6 +63,9 @@ import {
   createStockReceipt,
   issueStock,
   performStockCheckAndFound,
+  performStoreVerification,
+  getStoreVerificationHistory,
+  deleteStoreVerificationRecord,
   bringForwardStock,
   getStockBatches,
   updateStockTransaction,
@@ -78,7 +85,8 @@ import type {
   MovementSummary,
   DeptBreakdownRow,
   StockLocation,
-  StockBatchWithRelations
+  StockBatchWithRelations,
+  StoreVerificationRecord
 } from '@/types/pharmacy'
 import { JATA_NEGARA_BASE64 } from '@/modules/mytransporter/pages/jataNegaraBase64'
 
@@ -444,6 +452,32 @@ export const KewPs4LedgerPage: React.FC = () => {
     })
   }
 
+  // Store Verification (Verifikasi Stor Tahunan) State
+  const [isStoreVerificationModalOpen, setIsStoreVerificationModalOpen] = useState(false)
+  const [verificationYear, setVerificationYear] = useState<number>(() => new Date().getFullYear())
+  const [verificationDate, setVerificationDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [appointmentRef, setAppointmentRef] = useState(() => `KKM/HQ/VER/${new Date().getFullYear()}/042`)
+  const [declarationConfirmed, setDeclarationConfirmed] = useState(false)
+  const [physicalStockInput, setPhysicalStockInput] = useState('')
+  const [kewPs4StockInput, setKewPs4StockInput] = useState('')
+  const [phisStockInput, setPhisStockInput] = useState('')
+  const [verificationBatchId, setVerificationBatchId] = useState('')
+  const [adjustKewPs4, setAdjustKewPs4] = useState(true)
+  const [verificationRemarks, setVerificationRemarks] = useState('')
+  const [verificationActionTaken, setVerificationActionTaken] = useState('')
+  const [isSubmittingVerification, setIsSubmittingVerification] = useState(false)
+  const [verificationStatus, setVerificationStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [isVerificationHistoryModalOpen, setIsVerificationHistoryModalOpen] = useState(false)
+  const [selectedVerificationForCert, setSelectedVerificationForCert] = useState<StoreVerificationRecord | null>(null)
+  const [storeVerificationLogs, setStoreVerificationLogs] = useState<StoreVerificationRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem('kewps4_annual_store_verifications')
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
+
   // Edit Transaction & Audit Log Modal States
   const [isEditTxModalOpen, setIsEditTxModalOpen] = useState(false)
   const [editingTxRow, setEditingTxRow] = useState<any>(null)
@@ -573,6 +607,23 @@ export const KewPs4LedgerPage: React.FC = () => {
     return user?.department?.department_name || (user as any)?.department_name || (user as any)?.jawatan || 'Logistik Farmasi'
   }, [user])
 
+  // Logged-in Verifier Identity (Follows the active logged-in user account during verification)
+  const loggedInVerifierName = useMemo(() => {
+    return user?.full_name || (user as any)?.name || user?.email?.split('@')[0] || 'Pegawai Pemverifikasi'
+  }, [user])
+
+  const loggedInVerifierStaffId = useMemo(() => {
+    return user?.employee_id || user?.ic_number || (user as any)?.staff_id || user?.id?.slice(0, 8) || '—'
+  }, [user])
+
+  const loggedInVerifierDesignation = useMemo(() => {
+    return user?.jawatan || (user as any)?.role?.name || (user as any)?.role || 'Pegawai Pemverifikasi'
+  }, [user])
+
+  const loggedInVerifierDepartment = useMemo(() => {
+    return user?.department?.department_name || (user as any)?.department_name || userDepartmentName || 'Unit / Jabatan Bertugas'
+  }, [user, userDepartmentName])
+
   // Ground-truth stock summary calculations
   const currentStockBalance = useMemo(() => {
     if (ledgerRows && ledgerRows.length > 0) {
@@ -614,6 +665,9 @@ export const KewPs4LedgerPage: React.FC = () => {
     let resolved = ''
     if (row.transaction_type === 'check_found') {
       return 'Semakan Stok Fizikal (Audit)'
+    }
+    if (row.transaction_type === 'store_verification') {
+      return 'Verifikasi Stor Tahunan (Pegawai Luar)'
     }
     if (row.transaction_type === 'bring_forward') {
       return 'Baki Bawa Ke Hadapan (Pembukaan Ledger)'
@@ -771,12 +825,21 @@ export const KewPs4LedgerPage: React.FC = () => {
   const formatReferenceNumber = (row: any) => {
     const rawNum = row.transaction_number || ''
     if (!rawNum || rawNum === '—') {
-      return row.transaction_type === 'receipt' ? 'GRN-SUP-2026-0001' : row.transaction_type === 'bring_forward' ? 'BKH-2026-0001' : 'ISS-DEPT-2026-0001'
+      return row.transaction_type === 'store_verification'
+        ? 'VER-STR-2026-0001'
+        : row.transaction_type === 'receipt'
+        ? 'GRN-SUP-2026-0001'
+        : row.transaction_type === 'bring_forward'
+        ? 'BKH-2026-0001'
+        : 'ISS-DEPT-2026-0001'
     }
     if (rawNum.startsWith('TXN-')) {
       const parts = rawNum.split('-')
       const lastDigits = parts[parts.length - 1] || '0001'
       const isReceipt = row.transaction_type === 'receipt'
+      if (row.transaction_type === 'store_verification') {
+        return `VER-STR-2026-${lastDigits}`
+      }
       if (isReceipt) {
         const isFacility = row.reason?.toLowerCase().includes('fasiliti')
         return isFacility ? `TRF-FAC-2026-${lastDigits}` : `GRN-SUP-2026-${lastDigits}`
@@ -935,12 +998,13 @@ export const KewPs4LedgerPage: React.FC = () => {
           const isBringForward = t.transaction_type === 'bring_forward'
           const isReturn = t.transaction_type === 'return'
           const isCheckFound = t.transaction_type === 'check_found'
+          const isStoreVerification = t.transaction_type === 'store_verification'
           const qty = Number(t.quantity) || 0
 
           let receiptQty: number | null = null
           let issueQty: number | null = null
 
-          if (isCheckFound) {
+          if (isCheckFound || isStoreVerification) {
             const reasonStr = t.reason || ''
 
             // Primary approach: extract physical quantity from reason text "Fizikal: X"
@@ -1052,6 +1116,24 @@ export const KewPs4LedgerPage: React.FC = () => {
     setCheckFoundReason('Semakan Stok Fizikal / Audit KEW.PS-4')
     setCheckFoundStatus(null)
     setIsCheckFoundModalOpen(true)
+  }
+
+  // Open Store Verification (Verifikasi Stor Tahunan) Modal
+  const openStoreVerificationModal = () => {
+    const curBal = activeLedgerStock.toString()
+    setPhysicalStockInput(curBal)
+    setKewPs4StockInput(curBal)
+    setPhisStockInput(curBal)
+    setVerificationYear(new Date().getFullYear())
+    setVerificationDate(new Date().toISOString().split('T')[0])
+    setVerificationBatchId(itemBatches.length > 0 ? itemBatches[0].id : '')
+    setDeclarationConfirmed(false)
+    setAppointmentRef(`KKM/HQ/VER/${new Date().getFullYear()}/042`)
+    setVerificationRemarks('')
+    setVerificationActionTaken('Semakan Verifikasi Tahunan Bebas Selesai')
+    setAdjustKewPs4(true)
+    setVerificationStatus(null)
+    setIsStoreVerificationModalOpen(true)
   }
 
   // Computed values for Bring Forward Live Summary
@@ -1788,6 +1870,476 @@ export const KewPs4LedgerPage: React.FC = () => {
     } finally {
       setIsSubmittingCheckFound(false)
     }
+  }
+
+  // Submit Store Verification (Verifikasi Stor Tahunan)
+  const handleStoreVerificationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!hospitalId || !selectedItem) return
+
+    const pStock = parseInt(physicalStockInput, 10)
+    const kStock = parseInt(kewPs4StockInput, 10)
+    const phisStock = parseInt(phisStockInput, 10)
+
+    if (isNaN(pStock) || pStock < 0) {
+      setVerificationStatus({ type: 'error', text: 'Sila masukkan kuantiti Stok Fizikal yang sah (≥ 0).' })
+      return
+    }
+    if (isNaN(kStock) || kStock < 0) {
+      setVerificationStatus({ type: 'error', text: 'Sila masukkan kuantiti Stok KEW.PS-4 yang sah (≥ 0).' })
+      return
+    }
+    if (isNaN(phisStock) || phisStock < 0) {
+      setVerificationStatus({ type: 'error', text: 'Sila masukkan kuantiti Stok PHiS yang sah (≥ 0).' })
+      return
+    }
+
+    if (!declarationConfirmed) {
+      setVerificationStatus({
+        type: 'error',
+        text: 'Sila tandakan kotak perakuan pengesahan verifikasi oleh akaun log masuk anda.'
+      })
+      return
+    }
+
+    setIsSubmittingVerification(true)
+    setVerificationStatus(null)
+
+    try {
+      const res = await performStoreVerification(hospitalId, {
+        item_type: selectedItem.item_type,
+        item_id: selectedItem.item_id,
+        item_code: selectedItem.item_code,
+        item_name: selectedItem.item_name,
+        unit_of_measure: selectedItem.unit_of_measure,
+        packaging_description: selectedItem.packaging_description,
+        location_name: selectedItem.location || undefined,
+        location_id: locations[0]?.id || undefined,
+        batch_id: verificationBatchId || undefined,
+        verification_year: Number(verificationYear) || new Date().getFullYear(),
+        verification_date: verificationDate || new Date().toISOString().split('T')[0],
+        physical_stock: pStock,
+        kew_ps4_stock: kStock,
+        phis_stock: phisStock,
+        verifier_name: loggedInVerifierName,
+        verifier_staff_id: loggedInVerifierStaffId !== '—' ? loggedInVerifierStaffId : undefined,
+        verifier_designation: loggedInVerifierDesignation,
+        verifier_department: loggedInVerifierDepartment,
+        appointment_ref: appointmentRef.trim() || undefined,
+        declaration_confirmed: declarationConfirmed,
+        remarks: verificationRemarks.trim() || undefined,
+        corrective_action: verificationActionTaken.trim() || undefined,
+        adjust_kew_ps4: adjustKewPs4
+      })
+
+      if (res.error) throw new Error(res.error)
+
+      if (res.data) {
+        setStoreVerificationLogs(prev => [
+          res.data!,
+          ...prev.filter(v => !(v.item_id === res.data!.item_id && v.verification_year === res.data!.verification_year))
+        ])
+      }
+
+      playBeep('success')
+      setVerificationStatus({
+        type: 'success',
+        text: res.data?.is_tally
+          ? `Verifikasi Stor Tahunan ${verificationYear} BERJAYA: 3-Way Tally (Semua Seimbang).`
+          : `Verifikasi Stor Tahunan ${verificationYear} BERJAYA direkodkan dengan catatan percanggahan.`
+      })
+
+      const catRes = await getStockLevelSummary(hospitalId)
+      if (catRes.data) setCatalogItems(catRes.data)
+      await reloadMovementData()
+
+      setTimeout(() => {
+        setIsStoreVerificationModalOpen(false)
+        setVerificationStatus(null)
+      }, 1600)
+    } catch (err: any) {
+      playBeep('error')
+      setVerificationStatus({ type: 'error', text: err.message || 'Gagal merekodkan Verifikasi Stor.' })
+    } finally {
+      setIsSubmittingVerification(false)
+    }
+  }
+
+  // Delete Store Verification Record
+  const handleDeleteVerificationRecord = async (recordId: string) => {
+    if (!window.confirm('Adakah anda pasti untuk memadamkan rekod verifikasi stor ini?')) return
+    try {
+      await deleteStoreVerificationRecord(recordId)
+      setStoreVerificationLogs(prev => prev.filter(r => r.id !== recordId))
+      playBeep('success')
+    } catch (err) {
+      console.error('Error deleting verification record:', err)
+    }
+  }
+
+  // Printable Official Store Verification Certificate (KEW.PS-14)
+  const handlePrintVerificationCertificate = (customRecord?: StoreVerificationRecord) => {
+    const record: StoreVerificationRecord = customRecord || storeVerificationLogs.find(
+      r => r.item_id === selectedItem?.item_id && r.verification_year === verificationYear
+    ) || {
+      id: `VER-STR-${verificationYear}-${Date.now().toString().slice(-4)}`,
+      hospital_id: hospitalId || '',
+      item_id: selectedItem?.item_id || '',
+      item_type: selectedItem?.item_type || 'drug',
+      item_code: selectedItem?.item_code || '',
+      item_name: selectedItem?.item_name || '',
+      unit_of_measure: selectedItem?.unit_of_measure || 'PACK',
+      packaging_description: selectedItem?.packaging_description || '',
+      location_name: selectedItem?.location || 'Stor Utama Farmasi',
+      verification_year: verificationYear,
+      verification_date: verificationDate || new Date().toISOString().split('T')[0],
+      physical_stock: parseInt(physicalStockInput, 10) || activeLedgerStock,
+      kew_ps4_stock: parseInt(kewPs4StockInput, 10) || activeLedgerStock,
+      phis_stock: parseInt(phisStockInput, 10) || activeLedgerStock,
+      is_tally: (parseInt(physicalStockInput, 10) || 0) === (parseInt(kewPs4StockInput, 10) || 0) && (parseInt(physicalStockInput, 10) || 0) === (parseInt(phisStockInput, 10) || 0),
+      discrepancy_physical_kew: (parseInt(physicalStockInput, 10) || 0) - (parseInt(kewPs4StockInput, 10) || 0),
+      discrepancy_physical_phis: (parseInt(physicalStockInput, 10) || 0) - (parseInt(phisStockInput, 10) || 0),
+      discrepancy_kew_phis: (parseInt(kewPs4StockInput, 10) || 0) - (parseInt(phisStockInput, 10) || 0),
+      verifier_name: loggedInVerifierName,
+      verifier_staff_id: loggedInVerifierStaffId,
+      verifier_designation: loggedInVerifierDesignation,
+      verifier_department: loggedInVerifierDepartment,
+      appointment_ref: appointmentRef.trim() || `KKM/HQ/VER/${verificationYear}/042`,
+      declaration_confirmed: true,
+      status: ((parseInt(physicalStockInput, 10) || 0) === (parseInt(kewPs4StockInput, 10) || 0) && (parseInt(physicalStockInput, 10) || 0) === (parseInt(phisStockInput, 10) || 0)) ? 'tally' : 'discrepancy_flagged',
+      remarks: verificationRemarks.trim() || 'Semakan verifikasi tahunan stor selesai selaras Tatacara Pengurusan Stor.',
+      corrective_action: verificationActionTaken.trim() || 'Tiada pelarasan diperlukan (Seimbang).',
+      adjust_kew_ps4: adjustKewPs4,
+      created_at: new Date().toISOString()
+    }
+
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) return
+
+    const diffPhysKew = record.discrepancy_physical_kew ?? (record.physical_stock - record.kew_ps4_stock)
+    const diffPhysPhis = record.discrepancy_physical_phis ?? (record.physical_stock - record.phis_stock)
+    const diffKewPhis = record.discrepancy_kew_phis ?? (record.kew_ps4_stock - record.phis_stock)
+    const isAllTally = record.is_tally || (diffPhysKew === 0 && diffPhysPhis === 0)
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Sijil Verifikasi Stor Tahunan - ${record.item_code} (${record.verification_year})</title>
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: 15mm;
+            }
+            body {
+              font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+              margin: 0;
+              padding: 0;
+              color: #0f172a;
+              font-size: 11px;
+              line-height: 1.4;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            .cert-container {
+              border: 3px double #047857;
+              padding: 24px;
+              border-radius: 8px;
+              background-color: #ffffff;
+            }
+            .header-strip {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              border-bottom: 2px solid #047857;
+              padding-bottom: 14px;
+              margin-bottom: 18px;
+            }
+            .header-titles {
+              text-align: center;
+              flex: 1;
+            }
+            .header-titles h1 {
+              font-size: 15px;
+              font-weight: 900;
+              margin: 0;
+              color: #0f172a;
+              letter-spacing: 0.5px;
+              text-transform: uppercase;
+            }
+            .header-titles h2 {
+              font-size: 12.5px;
+              font-weight: 800;
+              margin: 3px 0 0;
+              color: #047857;
+              text-transform: uppercase;
+            }
+            .header-titles p {
+              font-size: 9.5px;
+              margin: 2px 0 0;
+              color: #475569;
+              font-weight: 600;
+            }
+            .kewps-tag {
+              background-color: #047857;
+              color: white;
+              font-weight: 900;
+              font-size: 11px;
+              padding: 6px 12px;
+              border-radius: 6px;
+              font-family: monospace;
+              letter-spacing: 0.5px;
+            }
+            .info-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 12px;
+              background-color: #f8fafc;
+              border: 1px solid #cbd5e1;
+              padding: 12px 16px;
+              border-radius: 6px;
+              margin-bottom: 18px;
+            }
+            .info-item {
+              font-size: 10.5px;
+            }
+            .info-label {
+              font-weight: bold;
+              color: #475569;
+              display: inline-block;
+              width: 140px;
+            }
+            .info-val {
+              font-weight: 800;
+              color: #0f172a;
+            }
+            .table-title {
+              font-size: 12px;
+              font-weight: 900;
+              color: #0f172a;
+              text-transform: uppercase;
+              margin-bottom: 8px;
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 18px;
+            }
+            th, td {
+              border: 1px solid #334155;
+              padding: 7px 10px;
+              font-size: 10.5px;
+            }
+            th {
+              background-color: #f1f5f9;
+              font-weight: 800;
+              text-align: left;
+              color: #1e293b;
+            }
+            .tally-badge {
+              display: inline-block;
+              padding: 4px 10px;
+              border-radius: 4px;
+              font-weight: 900;
+              font-size: 11px;
+            }
+            .tally-badge.success {
+              background-color: #d1fae5;
+              color: #065f46;
+              border: 1px solid #34d399;
+            }
+            .tally-badge.danger {
+              background-color: #fee2e2;
+              color: #991b1b;
+              border: 1px solid #f87171;
+            }
+            .declaration-box {
+              background-color: #ecfdf5;
+              border: 1px solid #a7f3d0;
+              padding: 12px 16px;
+              border-radius: 6px;
+              margin-bottom: 20px;
+              font-size: 10px;
+              color: #064e3b;
+              line-height: 1.5;
+            }
+            .declaration-box strong {
+              color: #065f46;
+              font-size: 10.5px;
+            }
+            .signatures-row {
+              display: grid;
+              grid-template-columns: 1fr 1fr 1fr;
+              gap: 16px;
+              margin-top: 24px;
+            }
+            .sign-box {
+              border: 1px solid #cbd5e1;
+              background-color: #fafafa;
+              padding: 12px;
+              border-radius: 6px;
+              min-height: 135px;
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+              font-size: 9.5px;
+            }
+            .sign-box strong {
+              font-size: 10px;
+              color: #0f172a;
+              display: block;
+              border-bottom: 1px solid #e2e8f0;
+              padding-bottom: 4px;
+              margin-bottom: 6px;
+            }
+            .sign-line {
+              border-top: 1px dashed #64748b;
+              padding-top: 6px;
+              margin-top: 35px;
+            }
+            .watermark {
+              text-align: right;
+              font-size: 8.5px;
+              color: #94a3b8;
+              margin-top: 14px;
+              font-family: monospace;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="cert-container">
+            <div class="header-strip">
+              <img src="${JATA_NEGARA_BASE64}" alt="Jata Negara" style="height: 48px; width: auto;" />
+              <div class="header-titles">
+                <h1>KEMENTERIAN KESIHATAN MALAYSIA</h1>
+                <h2>SIJIL VERIFIKASI STOR TAHUNAN (KEW.PS-14)</h2>
+                <p>REKONSILIASI 3-HALA: STOK FIZIKAL, KAD PETAK KEW.PS-4 &amp; SISTEM PHiS</p>
+              </div>
+              <div class="kewps-tag">KEW.PS-14</div>
+            </div>
+
+            <div class="info-grid">
+              <div>
+                <div class="info-item"><span class="info-label">Kod Item:</span> <span class="info-val" style="font-family: monospace;">${record.item_code}</span></div>
+                <div class="info-item" style="margin-top: 4px;"><span class="info-label">Perihal Stok:</span> <span class="info-val">${record.item_name}</span></div>
+                <div class="info-item" style="margin-top: 4px;"><span class="info-label">Unit Ukuran (UOM):</span> <span class="info-val">${record.unit_of_measure}</span></div>
+                <div class="info-item" style="margin-top: 4px;"><span class="info-label">Lokasi / Rak:</span> <span class="info-val">${record.location_name || 'Stor Utama Farmasi'}</span></div>
+              </div>
+              <div>
+                <div class="info-item"><span class="info-label">Tahun Verifikasi:</span> <span class="info-val" style="font-size: 13px; color: #047857;">${record.verification_year}</span></div>
+                <div class="info-item" style="margin-top: 4px;"><span class="info-label">Tarikh Semakan:</span> <span class="info-val">${new Date(record.verification_date).toLocaleDateString('ms-MY', { day: '2-digit', month: 'long', year: 'numeric' })}</span></div>
+                <div class="info-item" style="margin-top: 4px;"><span class="info-label">No. Rujukan Sijil:</span> <span class="info-val" style="font-family: monospace;">${record.id}</span></div>
+                <div class="info-item" style="margin-top: 4px;"><span class="info-label">Ruj. Surat Lantikan:</span> <span class="info-val">${record.appointment_ref || '—'}</span></div>
+              </div>
+            </div>
+
+            <div class="table-title">
+              <span>Keputusan Rekonsiliasi Stok 3-Hala</span>
+              <span class="tally-badge ${isAllTally ? 'success' : 'danger'}">
+                ${isAllTally ? '✓ 3-WAY TALLY (SEMUA SEIMBANG 100%)' : '⚠ PERCANGGAHAN DIKESAN'}
+              </span>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th width="8%">Bil</th>
+                  <th width="42%">Komponen Pemeriksaan</th>
+                  <th width="25%" style="text-align: right;">Kuantiti (Unit)</th>
+                  <th width="25%" style="text-align: center;">Status Padanan</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="text-align: center; font-weight: bold;">1</td>
+                  <td><strong>Stok Fizikal Dikira di Rak (Physical Count)</strong><br/><span style="font-size: 9px; color: #64748b;">Kiraan sebenar oleh Pegawai Pemverifikasi Bebas</span></td>
+                  <td style="text-align: right; font-family: monospace; font-weight: 900; font-size: 13px; color: #0f172a;">${record.physical_stock} ${record.unit_of_measure}</td>
+                  <td style="text-align: center; font-weight: bold; color: #047857;">Kiraan Asas Fizikal</td>
+                </tr>
+                <tr>
+                  <td style="text-align: center; font-weight: bold;">2</td>
+                  <td><strong>Baki Kad Petak / Buku Rekod KEW.PS-4</strong><br/><span style="font-size: 9px; color: #64748b;">Baki akhir lejar sebelum semakan tahunan</span></td>
+                  <td style="text-align: right; font-family: monospace; font-weight: 800; font-size: 12px; color: #0369a1;">${record.kew_ps4_stock} ${record.unit_of_measure}</td>
+                  <td style="text-align: center; font-weight: bold; color: ${diffPhysKew === 0 ? '#047857' : '#b91c1c'};">
+                    ${diffPhysKew === 0 ? '✓ Tally (Sama)' : `${diffPhysKew > 0 ? `+${diffPhysKew}` : diffPhysKew} (Perbezaan)`}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align: center; font-weight: bold;">3</td>
+                  <td><strong>Baki Sistem Maklumat Farmasi (PHiS Stock)</strong><br/><span style="font-size: 9px; color: #64748b;">Baki rekod elektronik dalam portal PHiS</span></td>
+                  <td style="text-align: right; font-family: monospace; font-weight: 800; font-size: 12px; color: #6d28d9;">${record.phis_stock} ${record.unit_of_measure}</td>
+                  <td style="text-align: center; font-weight: bold; color: ${diffPhysPhis === 0 ? '#047857' : '#b91c1c'};">
+                    ${diffPhysPhis === 0 ? '✓ Tally (Sama)' : `${diffPhysPhis > 0 ? `+${diffPhysPhis}` : diffPhysPhis} (Perbezaan)`}
+                  </td>
+                </tr>
+                <tr style="background-color: #f8fafc; font-weight: bold;">
+                  <td colspan="2" style="text-align: right; text-transform: uppercase;">Keputusan Keseluruhan:</td>
+                  <td colspan="2" style="text-align: center; font-size: 11px; color: ${isAllTally ? '#047857' : '#b91c1c'};">
+                    ${isAllTally ? 'SEMUA SEPADAN (FIZIKAL = KEW.PS-4 = PHiS)' : `TERDAPAT PERBEZAAN (Kiraaan Fizikal vs KEW.PS-4: ${diffPhysKew >= 0 ? `+${diffPhysKew}` : diffPhysKew}, vs PHiS: ${diffPhysPhis >= 0 ? `+${diffPhysPhis}` : diffPhysPhis})`}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="declaration-box">
+              <strong>PERAKUAN PEGAWAI PEMVERIFIKASI LUAR (BEBAS):</strong><br/>
+              "Saya dengan ini mengesahkan bahawa saya telah menjalankan pengiraan fizikal stok ini secara bebas pada ${new Date(record.verification_date).toLocaleDateString('ms-MY')} selaras dengan Tatacara Pengurusan Stor Kerajaan (TPS). Saya mengesahkan bahawa saya <u>BUKAN</u> kakitangan Stor/Farmasi yang diperiksa dan maklumat rekonsiliasi 3-hala di atas adalah benar dan tepat."
+            </div>
+
+            <div style="margin-bottom: 14px; font-size: 10px;">
+              <strong>Catatan &amp; Penjelasan Pemverifikasi:</strong> ${record.remarks || 'Semua stok dalam keadaan baik, teratur dan sepadan sepenuhnya.'}<br/>
+              <strong>Syor / Cadangan Tindakan:</strong> ${record.corrective_action || 'Kekalkan tatacara penyimpanan dan perekodan semasa.'}
+            </div>
+
+            <div class="signatures-row">
+              <div class="sign-box">
+                <div>
+                  <strong>1. Pegawai Pemverifikasi Luar:</strong>
+                  Nama: <strong>${record.verifier_name}</strong><br/>
+                  Jawatan: ${record.verifier_designation}<br/>
+                  Jabatan: ${record.verifier_department}<br/>
+                  No. KP / Staf: ${record.verifier_staff_id || '—'}
+                </div>
+                <div class="sign-line">Tandatangan &amp; Tarikh</div>
+              </div>
+
+              <div class="sign-box">
+                <div>
+                  <strong>2. Pegawai Stor Farmasi:</strong>
+                  Nama: <strong>${recorderName}</strong><br/>
+                  Jawatan: Pegawai Farmasi / Stor<br/>
+                  Unit: Stor Farmasi Hospital Lawas
+                </div>
+                <div class="sign-line">Tandatangan &amp; Tarikh</div>
+              </div>
+
+              <div class="sign-box">
+                <div>
+                  <strong>3. Pengesahan Ketua Jabatan:</strong>
+                  Nama: <strong>Ketua Pegawai Farmasi / Pengarah Hospital</strong><br/>
+                  Hospital Lawas, Sarawak
+                </div>
+                <div class="sign-line">Tandatangan &amp; Cop Rasmi</div>
+              </div>
+            </div>
+
+            <div class="watermark">
+              Dijana secara digital melalui Hospital Operation Management Ecosystem (HOME) | Sijil KEW.PS-14 | ${new Date().toLocaleString('ms-MY')}
+            </div>
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.print();
+            }
+          </script>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
   }
 
   // Step 1: Trigger Password Prompt when Pinda is clicked
@@ -2799,8 +3351,9 @@ export const KewPs4LedgerPage: React.FC = () => {
             </thead>
             <tbody>
               ${ledgerRows.map(row => {
+                const isStoreVerification = row.transaction_type === 'store_verification'
                 const isCheckFound = row.transaction_type === 'check_found'
-                const rowBg = isCheckFound ? 'background-color: #eef2ff;' : ''
+                const rowBg = isStoreVerification ? 'background-color: #ecfdf5;' : isCheckFound ? 'background-color: #eef2ff;' : ''
                 return `
                 <tr style="${rowBg}">
                   <td class="center mono">${row.index}</td>
@@ -2818,7 +3371,7 @@ export const KewPs4LedgerPage: React.FC = () => {
                     ${row.issueQty !== null && row.batch?.batch_number ? `<br/><span style="font-size: 8px; color: #0d9488; font-weight: bold;">B: ${row.batch.batch_number}</span>` : ''}
                     ${row.issueQty !== null && row.batch?.expiry_date ? `<br/><span style="font-size: 8px; color: #b45309; font-weight: bold;">L: ${new Date(row.batch.expiry_date).toLocaleDateString('ms-MY')}</span>` : ''}
                   </td>
-                  <td class="right mono" style="background-color: ${isCheckFound ? '#e0e7ff' : '#f8fafc'}; font-weight: 800;">${row.runningBalance}</td>
+                  <td class="right mono" style="background-color: ${isStoreVerification ? '#d1fae5' : isCheckFound ? '#e0e7ff' : '#f8fafc'}; font-weight: 800;">${row.runningBalance}</td>
                   <td style="font-weight: 600;">${resolveRecipientName(row)}</td>
                   <td>${resolveRecorderName(row.performed_by_user?.name || row.performed_by, row.performed_by_user)}</td>
                   <td style="font-size: 8.5px; color: #475569;">${sanitizeSupplierName(row.reason || '—')}</td>
@@ -2862,29 +3415,15 @@ export const KewPs4LedgerPage: React.FC = () => {
     printWindow.document.close()
   }
 
-  // Filter catalog by search query & filter down to selected item when clicked
-  const allMatchingCount = useMemo(() => {
-    if (!searchQuery.trim()) return 0
+  // Filter catalog by search query
+  const filteredCatalog = useMemo(() => {
+    if (!searchQuery.trim()) return []
     const q = searchQuery.toLowerCase().trim()
     return catalogItems.filter(i => 
       i.item_code.toLowerCase().includes(q) ||
       i.item_name.toLowerCase().includes(q)
-    ).length
-  }, [catalogItems, searchQuery])
-
-  const filteredCatalog = useMemo(() => {
-    if (!searchQuery.trim()) return []
-    const q = searchQuery.toLowerCase().trim()
-    const matches = catalogItems.filter(i => 
-      i.item_code.toLowerCase().includes(q) ||
-      i.item_name.toLowerCase().includes(q)
     )
-    if (selectedItemId) {
-      const selectedMatch = matches.filter(i => i.item_id === selectedItemId)
-      if (selectedMatch.length > 0) return selectedMatch
-    }
-    return matches
-  }, [catalogItems, searchQuery, selectedItemId])
+  }, [catalogItems, searchQuery])
 
   // Calculate percentage of current stock against max level for safety band indicator
   const stockPercentage = useMemo(() => {
@@ -3001,131 +3540,122 @@ export const KewPs4LedgerPage: React.FC = () => {
             </div>
           )}
 
-          {/* SEARCH BOX & CATALOG LIST (Always on Desktop, Collapsible on Mobile) */}
-          {(!selectedItem || isMobileSearchExpanded) && (
-            <div className="bg-white border border-slate-100 rounded-3xl shadow-soft p-5 space-y-5">
-              <div className="flex items-center justify-between border-b border-slate-50 pb-3">
-                <h3 className="font-black text-slate-800 text-sm flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-teal-600" />
-                  <span>Pilih Item Inventori</span>
-                </h3>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="font-mono text-[10px]">
-                    {catalogItems.length} Item
-                  </Badge>
-                  {selectedItem && (
-                    <button
-                      type="button"
-                      onClick={() => setIsMobileSearchExpanded(false)}
-                      className="lg:hidden text-slate-400 hover:text-slate-600 p-1"
-                      title="Tutup carian"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Filter Search */}
-              <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                <Input
-                  placeholder="Cari kod atau nama item..."
-                  className={`pl-9 ${searchQuery ? 'pr-8' : ''} rounded-xl text-xs py-1.5`}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                {searchQuery && (
+          {/* SEARCH BOX & CATALOG LIST (Always visible on Desktop, Collapsible on Mobile) */}
+          <div className={`bg-white border border-slate-100 rounded-3xl shadow-soft p-5 space-y-5 ${
+            selectedItem && !isMobileSearchExpanded ? 'hidden lg:block' : 'block'
+          }`}>
+            <div className="flex items-center justify-between border-b border-slate-50 pb-3">
+              <h3 className="font-black text-slate-800 text-sm flex items-center gap-2">
+                <Layers className="w-4 h-4 text-teal-600" />
+                <span>Pilih Item Inventori</span>
+              </h3>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="font-mono text-[10px]">
+                  {catalogItems.length} Item
+                </Badge>
+                {selectedItem && (
                   <button
                     type="button"
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 transition-colors"
-                    title="Kosongkan carian"
+                    onClick={() => setIsMobileSearchExpanded(false)}
+                    className="lg:hidden text-slate-400 hover:text-slate-600 p-1"
+                    title="Tutup carian"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 )}
               </div>
+            </div>
 
-              {/* Catalog Item Buttons / Search Results */}
-              {isLoadingCatalog ? (
-                <div className="flex items-center justify-center p-8">
-                  <Spinner size="sm" />
-                </div>
-              ) : !searchQuery.trim() ? (
-                <div className="text-center p-6 bg-slate-50/80 rounded-2xl border border-dashed border-slate-200 space-y-2">
-                  <Search className="w-6 h-6 text-slate-300 mx-auto" />
-                  <p className="text-xs font-bold text-slate-600">Carian Item Inventori</p>
-                  <p className="text-[11px] text-slate-400 font-medium">
-                    Sila taip kod atau nama item pada ruangan carian di atas untuk memaparkan senarai item.
-                  </p>
-                </div>
-              ) : filteredCatalog.length === 0 ? (
-                <div className="text-center p-6 text-xs text-slate-400 font-bold bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                  Tiada item ditemui untuk &quot;{searchQuery}&quot;.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 font-bold">
-                    <span>{selectedItemId ? 'Item Dipilih' : 'Hasil Carian'} ({filteredCatalog.length})</span>
-                    {selectedItemId && allMatchingCount > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => setSelectedItemId('')}
-                        className="text-[10px] text-teal-600 hover:text-teal-700 font-bold hover:underline"
-                      >
-                        Tunjuk Semua Hasil ({allMatchingCount})
-                      </button>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-1 gap-2 max-h-[400px] overflow-y-auto pr-1">
-                    {filteredCatalog.map(item => {
-                      const isSelected = selectedItemId === item.item_id
-                      const displayedStock = (isSelected && ledgerRows.length > 0)
-                        ? ledgerRows[0].runningBalance
-                        : item.current_stock
-
-                      return (
-                        <button
-                          key={`${item.item_type}-${item.item_id}`}
-                          onClick={() => {
-                            setSelectedItemId(item.item_id)
-                            setIsMobileSearchExpanded(false)
-                          }}
-                          className={`text-left p-3.5 rounded-2xl border transition-all flex items-center justify-between text-xs ${
-                            isSelected
-                              ? 'bg-teal-50/70 border-teal-400 text-teal-950 shadow-md ring-1 ring-teal-400'
-                              : 'bg-white border-slate-150 hover:bg-slate-50 text-slate-700'
-                          }`}
-                        >
-                          <div className="min-w-0 pr-2">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-mono font-bold text-slate-400 text-[10px]">{item.item_code}</span>
-                              <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase ${
-                                item.item_type === 'drug' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'
-                              }`}>
-                                {item.item_type === 'drug' ? 'Ubat' : 'Bukan Ubat'}
-                              </span>
-                            </div>
-                            <span className="font-black truncate block mt-1">{item.item_name}</span>
-                          </div>
-                          <div className="text-right">
-                            <Badge 
-                              variant={displayedStock <= (item.min_stock || 0) ? 'danger' : 'success'} 
-                              className="font-mono font-black"
-                            >
-                              {displayedStock}
-                            </Badge>
-                            <span className="text-[9px] text-slate-400 block mt-0.5 uppercase">{item.unit_of_measure}</span>
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
+            {/* Filter Search */}
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <Input
+                placeholder="Cari kod atau nama item..."
+                className={`pl-9 ${searchQuery ? 'pr-8' : ''} rounded-xl text-xs py-1.5`}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 transition-colors"
+                  title="Kosongkan carian"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               )}
             </div>
-          )}
+
+            {/* Catalog Item Buttons / Search Results */}
+            {isLoadingCatalog ? (
+              <div className="flex items-center justify-center p-8">
+                <Spinner size="sm" />
+              </div>
+            ) : !searchQuery.trim() ? (
+              <div className="text-center p-6 bg-slate-50/80 rounded-2xl border border-dashed border-slate-200 space-y-2">
+                <Search className="w-6 h-6 text-slate-300 mx-auto" />
+                <p className="text-xs font-bold text-slate-600">Carian Item Inventori</p>
+                <p className="text-[11px] text-slate-400 font-medium">
+                  Sila taip kod atau nama item pada ruangan carian di atas untuk memaparkan senarai item.
+                </p>
+              </div>
+            ) : filteredCatalog.length === 0 ? (
+              <div className="text-center p-6 text-xs text-slate-400 font-bold bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                Tiada item ditemui untuk &quot;{searchQuery}&quot;.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 font-bold">
+                  <span>Hasil Carian ({filteredCatalog.length})</span>
+                </div>
+                <div className="grid grid-cols-1 gap-2 max-h-[400px] overflow-y-auto pr-1">
+                  {filteredCatalog.map(item => {
+                    const isSelected = selectedItemId === item.item_id
+                    const displayedStock = (isSelected && ledgerRows.length > 0)
+                      ? ledgerRows[0].runningBalance
+                      : item.current_stock
+
+                    return (
+                      <button
+                        key={`${item.item_type}-${item.item_id}`}
+                        onClick={() => {
+                          setSelectedItemId(item.item_id)
+                          setIsMobileSearchExpanded(false)
+                        }}
+                        className={`text-left p-3.5 rounded-2xl border transition-all flex items-center justify-between text-xs cursor-pointer ${
+                          isSelected
+                            ? 'bg-teal-50/70 border-teal-400 text-teal-950 shadow-md ring-1 ring-teal-400'
+                            : 'bg-white border-slate-150 hover:bg-slate-50 text-slate-700'
+                        }`}
+                      >
+                        <div className="min-w-0 pr-2">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-bold text-slate-400 text-[10px]">{item.item_code}</span>
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase ${
+                              item.item_type === 'drug' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'
+                            }`}>
+                              {item.item_type === 'drug' ? 'Ubat' : 'Bukan Ubat'}
+                            </span>
+                          </div>
+                          <span className="font-black truncate block mt-1">{item.item_name}</span>
+                        </div>
+                        <div className="text-right">
+                          <Badge 
+                            variant={displayedStock <= (item.min_stock || 0) ? 'danger' : 'success'} 
+                            className="font-mono font-black"
+                          >
+                            {displayedStock}
+                          </Badge>
+                          <span className="text-[9px] text-slate-400 block mt-0.5 uppercase">{item.unit_of_measure}</span>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* DESKTOP-ONLY ACTIVE ITEM METADATA & SAFETY STOCK BAND */}
           {selectedItem && (
@@ -3302,12 +3832,21 @@ export const KewPs4LedgerPage: React.FC = () => {
                     )}
                   </div>
 
-                  <Badge 
-                    variant={(ledgerRows.length > 0 ? ledgerRows[0].runningBalance : selectedItem.current_stock) <= (selectedItem.min_stock || 0) ? 'danger' : 'success'}
-                    className="text-xs px-3 py-1 font-bold shadow-2xs"
-                  >
-                    {(ledgerRows.length > 0 ? ledgerRows[0].runningBalance : selectedItem.current_stock) <= (selectedItem.min_stock || 0) ? '⚠ STOK MINIMA' : '● STOK MENCUKUPI'}
-                  </Badge>
+                    <div className="flex items-center gap-2">
+                      {storeVerificationLogs.some(r => r.item_id === selectedItem.item_id && r.verification_year === new Date().getFullYear()) && (
+                        <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider px-3 py-1 rounded-xl border bg-emerald-50 text-emerald-800 border-emerald-300 shadow-2xs">
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Verifikasi {new Date().getFullYear()}: Tally</span>
+                        </span>
+                      )}
+
+                      <Badge 
+                        variant={(ledgerRows.length > 0 ? ledgerRows[0].runningBalance : selectedItem.current_stock) <= (selectedItem.min_stock || 0) ? 'danger' : 'success'}
+                        className="text-xs px-3 py-1 font-bold shadow-2xs"
+                      >
+                        {(ledgerRows.length > 0 ? ledgerRows[0].runningBalance : selectedItem.current_stock) <= (selectedItem.min_stock || 0) ? '⚠ STOK MINIMA' : '● STOK MENCUKUPI'}
+                      </Badge>
+                    </div>
                 </div>
 
                 {/* Main Item Title & Storage Location */}
@@ -3363,6 +3902,16 @@ export const KewPs4LedgerPage: React.FC = () => {
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
+                      onClick={openStoreVerificationModal}
+                      className="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl font-bold text-xs gap-1.5 px-3.5 py-2.5 shadow-sm transition-all active:scale-[0.98] whitespace-nowrap inline-flex items-center justify-center cursor-pointer"
+                      title="Verifikasi Stor Tahunan oleh Pegawai Pemverifikasi Luar (Semakan Fizikal vs KEW.PS-4 vs PHiS)"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5 text-white" />
+                      <span className="text-white font-bold">Store Verification</span>
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={openCheckFoundModal}
                       className="bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 border border-slate-300 rounded-xl font-bold text-xs gap-1.5 px-3.5 py-2.5 shadow-2xs transition-all active:scale-[0.98] whitespace-nowrap inline-flex items-center justify-center cursor-pointer"
                       title="Check & Found Audit"
@@ -3390,6 +3939,20 @@ export const KewPs4LedgerPage: React.FC = () => {
                       <Lock className="w-3.5 h-3.5 text-slate-950" />
                       <span className="text-slate-950 font-black">Set Semula Ledger</span>
                     </button>
+
+                    {storeVerificationLogs.filter(r => r.item_id === selectedItem?.item_id).length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setIsVerificationHistoryModalOpen(true)}
+                        className="bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-950 border border-emerald-300 rounded-xl font-bold text-xs gap-1.5 px-3.5 py-2.5 transition-all whitespace-nowrap inline-flex items-center justify-center cursor-pointer"
+                        title="Lihat Sejarah Log Verifikasi Stor Tahunan"
+                      >
+                        <FileCheck className="w-3.5 h-3.5 text-emerald-700" />
+                        <span className="text-emerald-950 font-bold">
+                          Log Verifikasi ({storeVerificationLogs.filter(r => r.item_id === selectedItem?.item_id).length})
+                        </span>
+                      </button>
+                    )}
 
                     {resetAuditLogs.length > 0 && (
                       <button
@@ -3791,6 +4354,7 @@ export const KewPs4LedgerPage: React.FC = () => {
                         onChange={(e) => setSelectedTxType(e.target.value)}
                       >
                         <option value="all">Semua Jenis Transaksi</option>
+                        <option value="store_verification">Verifikasi Stor Tahunan (External Audit)</option>
                         <option value="bring_forward">Bawa Ke Hadapan (Bring Forward)</option>
                         <option value="check_found">Semak & Penemuan (Check & Found)</option>
                         <option value="receipt">Penerimaan (+)</option>
@@ -3872,6 +4436,7 @@ export const KewPs4LedgerPage: React.FC = () => {
                       {ledgerRows.map(row => {
                         const isReceipt = row.receiptQty !== null
                         const isCheckFound = row.transaction_type === 'check_found'
+                        const isStoreVerification = row.transaction_type === 'store_verification'
                         const txKey = row.id || `row-${row.index}`
                         const rowAuditLogs = auditLogStore[txKey] || []
                         const hasBeenEdited = rowAuditLogs.length > 0
@@ -3880,7 +4445,9 @@ export const KewPs4LedgerPage: React.FC = () => {
                           <div 
                             key={txKey}
                             className={`rounded-2xl p-4 shadow-sm border space-y-3 ${
-                              isCheckFound
+                              isStoreVerification
+                                ? 'bg-emerald-50/70 border-l-4 border-l-emerald-600 border-emerald-200'
+                                : isCheckFound
                                 ? 'bg-indigo-50/70 border-l-4 border-l-indigo-600 border-indigo-200'
                                 : isReceipt 
                                 ? 'bg-white border-l-4 border-l-emerald-500 border-slate-200/80' 
@@ -3892,14 +4459,30 @@ export const KewPs4LedgerPage: React.FC = () => {
                                 <span className="font-mono font-black text-xs text-slate-400">#{row.index}</span>
                                 <span 
                                   className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
-                                    row.transaction_type === 'check_found'
+                                    row.transaction_type === 'store_verification'
+                                      ? 'bg-emerald-100 text-emerald-950 border border-emerald-300'
+                                      : row.transaction_type === 'check_found'
                                       ? 'bg-indigo-100 text-indigo-900 border border-indigo-300/80'
+                                      : row.transaction_type === 'bring_forward'
+                                      ? 'bg-sky-100 text-sky-900 border border-sky-300/80'
                                       : isReceipt 
                                       ? 'bg-emerald-100 text-emerald-800 border border-emerald-300/80' 
                                       : 'bg-rose-100 text-rose-800 border border-rose-300/80'
                                   }`}
                                 >
-                                  {row.transaction_type === 'check_found' ? 'Semak & Penemuan' : row.transaction_type === 'receipt' ? 'Penerimaan' : row.transaction_type === 'issue' ? 'Pengeluaran' : row.transaction_type === 'return' ? 'Pulangan' : 'Pelarasan'}
+                                  {row.transaction_type === 'store_verification'
+                                    ? 'Verifikasi Stor Tahunan'
+                                    : row.transaction_type === 'check_found'
+                                    ? 'Semak & Penemuan'
+                                    : row.transaction_type === 'bring_forward'
+                                    ? 'Bawa Ke Hadapan'
+                                    : row.transaction_type === 'receipt'
+                                    ? 'Penerimaan'
+                                    : row.transaction_type === 'issue'
+                                    ? 'Pengeluaran'
+                                    : row.transaction_type === 'return'
+                                    ? 'Pulangan'
+                                    : 'Pelarasan'}
                                 </span>
                               </div>
 
@@ -3934,49 +4517,30 @@ export const KewPs4LedgerPage: React.FC = () => {
                                     <span className="font-mono text-sm text-rose-600 font-black block">-{row.issueQty}</span>
                                     <span className="text-[10px] text-slate-500 font-medium block">{row.batch?.packaging || selectedItem.packaging_description || 'Pack'}</span>
                                     {row.batch?.batch_number && <span className="text-[9px] text-teal-700 font-bold block">Batch: {row.batch.batch_number}</span>}
-                                    {row.batch?.expiry_date && <span className="text-[9px] text-amber-700 font-bold block">Luput: {new Date(row.batch.expiry_date).toLocaleDateString('ms-MY')}</span>}
                                   </div>
                                 )}
                               </div>
-                              <div className="text-right border-l border-slate-200/80 pl-2">
-                                <span className="text-[9px] font-bold text-slate-400 uppercase block">Baki Semasa</span>
-                                <span className="font-mono text-base text-slate-900 font-black block">{row.runningBalance}</span>
-                                <span className="text-[9px] text-slate-400 font-sans block uppercase font-bold">{selectedItem.unit_of_measure}</span>
+                              <div>
+                                <span className="text-[9px] font-bold text-slate-400 uppercase block">Baki Berjalan</span>
+                                <span className="font-mono text-base font-black text-slate-900">{row.runningBalance}</span>
+                                <span className="text-[10px] text-slate-500 font-medium block">{selectedItem.unit_of_measure}</span>
                               </div>
                             </div>
 
-                            <div className="space-y-1 text-xs pt-1">
-                              <div className="flex justify-between">
-                                <span className="text-slate-400 text-[10px] font-bold uppercase">Penerima:</span>
-                                <span className="font-bold text-slate-800">{resolveRecipientName(row)}</span>
+                            <div className="space-y-1 text-xs pt-1 border-t border-slate-100">
+                              <div className="text-slate-700 font-bold flex items-center justify-between">
+                                <span>{resolveRecipientName(row)}</span>
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-slate-400 text-[10px] font-bold uppercase">Perekod:</span>
-                                <span className="text-slate-600 font-medium">{resolveRecorderName(row.performed_by_user?.name || row.performed_by)}</span>
-                              </div>
-                            </div>
-
-                            <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
-                              <button
-                                type="button"
-                                onClick={() => triggerEditAuth(row)}
-                                className="px-3 py-1.5 rounded-lg bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200/80 transition-all text-xs font-bold flex items-center gap-1 shadow-2xs"
-                              >
-                                <Lock className="w-3 h-3 text-amber-700" />
-                                <Pencil className="w-3 h-3 text-amber-700" />
-                                <span>Pinda</span>
-                              </button>
-
-                              {hasBeenEdited && (
+                              <div className="text-[10px] text-slate-400 flex items-center justify-between">
+                                <span>Perekod: {resolveRecorderName(row.performed_by_user?.name || row.performed_by, row.performed_by_user)}</span>
                                 <button
                                   type="button"
-                                  onClick={() => { setAuditTxRow(row); setIsAuditModalOpen(true); }}
-                                  className="px-3 py-1.5 rounded-lg bg-purple-50 text-purple-800 hover:bg-purple-100 border border-purple-200/80 transition-all text-xs font-bold flex items-center gap-1 shadow-2xs"
+                                  onClick={() => triggerEditAuth(row)}
+                                  className="text-indigo-600 hover:text-indigo-900 font-bold underline cursor-pointer"
                                 >
-                                  <History className="w-3 h-3 text-purple-700" />
-                                  <span>Log ({rowAuditLogs.length})</span>
+                                  Pinda
                                 </button>
-                              )}
+                              </div>
                             </div>
                           </div>
                         )
@@ -4004,6 +4568,7 @@ export const KewPs4LedgerPage: React.FC = () => {
                           {ledgerRows.map(row => {
                             const isReceipt = row.receiptQty !== null
                             const isCheckFound = row.transaction_type === 'check_found'
+                            const isStoreVerification = row.transaction_type === 'store_verification'
                             const txKey = row.id || `row-${row.index}`
                             const rowAuditLogs = auditLogStore[txKey] || []
                             const hasBeenEdited = rowAuditLogs.length > 0
@@ -4012,7 +4577,9 @@ export const KewPs4LedgerPage: React.FC = () => {
                               <Table.Row 
                                 key={txKey} 
                                 className={`transition-colors ${
-                                  isCheckFound
+                                  isStoreVerification
+                                    ? 'bg-emerald-50/70 hover:bg-emerald-100/70 border-l-4 border-l-emerald-600'
+                                    : isCheckFound
                                     ? 'bg-indigo-50/70 hover:bg-indigo-100/70 border-l-4 border-l-indigo-600'
                                     : isReceipt 
                                     ? 'hover:bg-slate-50/50 border-l-4 border-l-emerald-500' 
@@ -4044,7 +4611,9 @@ export const KewPs4LedgerPage: React.FC = () => {
                                 <Table.Cell>
                                   <span 
                                     className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                                      row.transaction_type === 'check_found'
+                                      row.transaction_type === 'store_verification'
+                                        ? 'bg-emerald-100 text-emerald-950 border border-emerald-300'
+                                        : row.transaction_type === 'check_found'
                                         ? 'bg-indigo-100 text-indigo-900 border border-indigo-300/80'
                                         : row.transaction_type === 'bring_forward'
                                         ? 'bg-sky-100 text-sky-900 border border-sky-300/80'
@@ -4053,7 +4622,9 @@ export const KewPs4LedgerPage: React.FC = () => {
                                         : 'bg-rose-100 text-rose-800 border border-rose-300/80'
                                     }`}
                                   >
-                                    {row.transaction_type === 'check_found'
+                                    {row.transaction_type === 'store_verification'
+                                      ? 'Verifikasi Stor'
+                                      : row.transaction_type === 'check_found'
                                       ? 'Semak & Penemuan'
                                       : row.transaction_type === 'bring_forward'
                                       ? 'Bawa Ke Hadapan'
@@ -4207,6 +4778,42 @@ export const KewPs4LedgerPage: React.FC = () => {
         maxWidth="sm"
       >
         <div className="space-y-3 pt-2">
+          <button
+            type="button"
+            onClick={() => {
+              setIsMobileMoreActionsOpen(false)
+              openStoreVerificationModal()
+            }}
+            className="w-full text-left p-3.5 rounded-2xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-xs font-bold text-emerald-950 flex items-center gap-3 transition-all cursor-pointer"
+          >
+            <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="font-extrabold text-emerald-950">Store Verification (Tahunan)</div>
+              <div className="text-[10px] text-emerald-700">Semakan 3-Hala: Fizikal vs KEW.PS-4 vs PHiS</div>
+            </div>
+          </button>
+
+          {storeVerificationLogs.filter(r => r.item_id === selectedItem?.item_id).length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setIsMobileMoreActionsOpen(false)
+                setIsVerificationHistoryModalOpen(true)
+              }}
+              className="w-full text-left p-3.5 rounded-2xl bg-emerald-50/60 hover:bg-emerald-100/80 border border-emerald-200 text-xs font-bold text-emerald-950 flex items-center gap-3 transition-all cursor-pointer"
+            >
+              <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                <FileCheck className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="font-extrabold text-emerald-950">Log Verifikasi Stor ({storeVerificationLogs.filter(r => r.item_id === selectedItem?.item_id).length})</div>
+                <div className="text-[10px] text-emerald-700">Rekod &amp; Sijil Verifikasi Tahunan</div>
+              </div>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => {
@@ -4737,6 +5344,485 @@ export const KewPs4LedgerPage: React.FC = () => {
                   {isSubmittingBf ? <Spinner size="sm" /> : <FastForward className="w-4 h-4" />}
                   {isSubmittingBf ? 'Menyimpan Baki...' : 'Simpan Baki Bawa Ke Hadapan'}
                 </Button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* STORE VERIFICATION (VERIFIKASI STOR TAHUNAN) SLIDE-OVER DRAWER */}
+      {isStoreVerificationModalOpen && (
+        <div className="fixed inset-0 z-50 overflow-hidden">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm transition-opacity duration-300 animate-in fade-in"
+            onClick={() => {
+              setIsStoreVerificationModalOpen(false)
+              setVerificationStatus(null)
+            }}
+          />
+
+          <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
+            <div className="w-screen max-w-4xl bg-white shadow-2xl flex flex-col transform transition-all duration-300 ease-in-out animate-in slide-in-from-right">
+              
+              {/* Drawer Top Header Strip */}
+              <div className="h-1.5 bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-700 shrink-0" />
+
+              {/* Drawer Header */}
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-gradient-to-b from-emerald-50/70 to-slate-50/40 shrink-0">
+                <div className="flex items-center gap-3.5">
+                  <div className="p-3 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-md shadow-emerald-500/20">
+                    <ShieldCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-base font-black text-slate-900 tracking-tight">Verifikasi Stor Tahunan (Store Verification)</h2>
+                      <Badge className="bg-emerald-100 text-emerald-900 border-emerald-300 text-[10px] font-black uppercase">
+                        KEW.PS-14
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-slate-500 font-medium">Pemeriksaan Bebas 3-Hala: Fizikal vs KEW.PS-4 vs PHiS oleh Pegawai Pemverifikasi Luar</p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsStoreVerificationModalOpen(false)
+                    setVerificationStatus(null)
+                  }}
+                  className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Drawer Scrollable Body */}
+              <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 text-slate-800">
+                
+                {/* HEADER INFO BANNER */}
+                {selectedItem && (
+                  <div className="bg-gradient-to-r from-slate-950 via-emerald-950 to-slate-950 text-white rounded-2xl p-5 shadow-md space-y-3 border border-emerald-800/80">
+                    <div className="flex items-center justify-between border-b border-emerald-800/60 pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-emerald-500/30 text-emerald-200 border-emerald-400/40 text-[10px] uppercase font-bold">
+                          VERIFIKASI BEBAS TAHUNAN
+                        </Badge>
+                        <span className="font-mono text-xs text-emerald-200 font-bold">{selectedItem.item_code}</span>
+                      </div>
+                      <span className="text-xs text-emerald-300 font-mono">UOM: {selectedItem.unit_of_measure}</span>
+                    </div>
+                    <h4 className="text-lg font-black text-white">{selectedItem.item_name}</h4>
+                    <div className="flex items-center justify-between text-xs pt-1">
+                      <span className="text-emerald-200 font-medium">Baki Stok Dalam Rekod Lejar Semasa:</span>
+                      <span className="font-mono text-xl font-black text-emerald-300">
+                        {activeLedgerStock} {selectedItem.unit_of_measure}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* STATUS NOTIFICATION MESSAGE */}
+                {verificationStatus && (
+                  <div className={`p-4 rounded-2xl border flex items-center gap-3 text-xs font-bold ${
+                    verificationStatus.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-900 shadow-sm' : 'bg-rose-50 border-rose-200 text-rose-900 shadow-sm'
+                  }`}>
+                    {verificationStatus.type === 'success' ? <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" /> : <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />}
+                    <span>{verificationStatus.text}</span>
+                  </div>
+                )}
+
+                <form id="store-verification-form" onSubmit={handleStoreVerificationSubmit} className="space-y-6">
+                  
+                  {/* SECTION 1: IDENTITI PEGAWAI PEMVERIFIKASI (MENGIKUT AKAUN LOG MASUK SEMASA) */}
+                  <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-200/70 pb-2.5">
+                      <div className="flex items-center gap-2 text-xs font-black text-slate-900 uppercase tracking-wide">
+                        <User className="w-4 h-4 text-emerald-600" />
+                        <span>1. Maklumat Pegawai Pemverifikasi (Akaun Log Masuk Semasa)</span>
+                      </div>
+                      <Badge className="bg-emerald-100 text-emerald-950 border-emerald-300 text-[9px] font-extrabold flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        <span>ID LOG MASUK DISAHKAN</span>
+                      </Badge>
+                    </div>
+
+                    {/* Logged-in Verifier Identity Card */}
+                    <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs">
+                      <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center font-black text-sm shadow-sm shrink-0">
+                            {loggedInVerifierName.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="text-sm font-black text-slate-900 leading-tight">
+                              {loggedInVerifierName}
+                            </div>
+                            <div className="text-[11px] text-slate-500 font-medium mt-0.5">
+                              No. Kad Pengenalan / No. Pekerja: <span className="font-mono font-bold text-slate-800">{loggedInVerifierStaffId}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
+                          {user?.email || 'Sesi Log Masuk Aktif'}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 text-xs">
+                        <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                          <span className="text-[9px] font-bold text-slate-400 uppercase block">Jawatan &amp; Gred Pegawai</span>
+                          <span className="font-bold text-slate-800">{loggedInVerifierDesignation}</span>
+                        </div>
+                        <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                          <span className="text-[9px] font-bold text-slate-400 uppercase block">Jabatan / Unit Pegawai</span>
+                          <span className="font-bold text-emerald-900">{loggedInVerifierDepartment}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Tahun Verifikasi <span className="text-rose-500">*</span>
+                        </label>
+                        <Select
+                          value={verificationYear}
+                          onChange={(e) => setVerificationYear(Number(e.target.value))}
+                          className="text-xs py-2.5 rounded-xl font-bold font-mono"
+                        >
+                          {[2026, 2025, 2024, 2023, 2027].map(yr => (
+                            <option key={yr} value={yr}>Tahun {yr}</option>
+                          ))}
+                        </Select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Tarikh Semakan Verifikasi <span className="text-rose-500">*</span>
+                        </label>
+                        <Input
+                          type="date"
+                          value={verificationDate}
+                          onChange={(e) => setVerificationDate(e.target.value)}
+                          className="text-xs py-2.5 rounded-xl font-mono font-medium"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          No. Rujukan Surat Lantikan Pemverifikasi (Pilihan)
+                        </label>
+                        <Input
+                          placeholder="Contoh: KKM/HQ/VER/2026/042"
+                          value={appointmentRef}
+                          onChange={(e) => setAppointmentRef(e.target.value)}
+                          className="text-xs py-2 rounded-xl font-mono text-slate-600"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Pilihan Batch Stok (Pilihan)
+                        </label>
+                        <Select
+                          className="text-xs py-2 rounded-xl"
+                          value={verificationBatchId}
+                          onChange={(e) => setVerificationBatchId(e.target.value)}
+                        >
+                          <option value="">Semua Batch (Pemeriksaan Am / Menyeluruh)</option>
+                          {itemBatches.map(b => (
+                            <option key={b.id} value={b.id}>
+                              Batch {b.batch_number} (Baki: {b.quantity_on_hand}) - Exp: {b.expiry_date ? new Date(b.expiry_date).toLocaleDateString('ms-MY') : '—'}
+                            </option>
+                          ))}
+                        </Select>
+                      </div>
+                    </div>
+
+                    {/* STATUTORY DECLARATION CHECKBOX */}
+                    <div className="pt-2 border-t border-slate-200">
+                      <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={declarationConfirmed}
+                          onChange={(e) => setDeclarationConfirmed(e.target.checked)}
+                          className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                          required
+                        />
+                        <span className="text-[11px] text-slate-700 font-bold leading-snug">
+                          Saya dengan ini memperakui bahawa semakan verifikasi stok fizikal, KEW.PS-4 dan PHiS ini disahkan secara rasmi menerusi akaun log masuk saya ({loggedInVerifierName}) selaras dengan tatacara verifikasi stor tahunan. <span className="text-rose-500">*</span>
+                        </span>
+                      </label>
+                    </div>
+
+                  </div>
+
+                  {/* SECTION 2: 3-WAY RECONCILIATION CARDS (PHYSICAL vs KEW.PS-4 vs PHIS) */}
+                  <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-200/70 pb-2.5">
+                      <div className="flex items-center gap-2 text-xs font-black text-slate-900 uppercase tracking-wide">
+                        <Scale className="w-4 h-4 text-emerald-600" />
+                        <span>2. Semakan &amp; Padanan 3-Hala (Physical vs KEW.PS-4 vs PHiS)</span>
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-500 font-bold">UOM: {selectedItem?.unit_of_measure}</span>
+                    </div>
+
+                    {/* 3 Prominent Comparison Cards */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                      
+                      {/* 1. PHYSICAL STOCK */}
+                      <div className="bg-white p-4 rounded-2xl border-2 border-emerald-300 shadow-xs space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase text-emerald-800 tracking-wider">
+                            📦 1. Stok Fizikal
+                          </span>
+                          <Badge className="bg-emerald-100 text-emerald-900 border-emerald-300 text-[8px] font-black uppercase">
+                            DI RAK
+                          </Badge>
+                        </div>
+                        <label className="block text-[11px] font-bold text-slate-600">
+                          Kiraan Fizikal Sebenar <span className="text-rose-500">*</span>
+                        </label>
+                        <Input
+                          type="number"
+                          min="0"
+                          placeholder="0"
+                          className="text-lg py-2 rounded-xl font-mono font-black text-emerald-950 border-emerald-300 focus:ring-2 focus:ring-emerald-500 bg-emerald-50/30"
+                          value={physicalStockInput}
+                          onChange={(e) => setPhysicalStockInput(e.target.value)}
+                          required
+                        />
+                        <p className="text-[10px] text-slate-500 leading-tight">
+                          Kiraan manual unit fizikal di rak/petak simpanan stor.
+                        </p>
+                      </div>
+
+                      {/* 2. KEW.PS-4 LEDGER STOCK */}
+                      <div className="bg-white p-4 rounded-2xl border border-sky-200 shadow-xs space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase text-sky-800 tracking-wider">
+                            📋 2. Stok KEW.PS-4
+                          </span>
+                          <Badge className="bg-sky-100 text-sky-900 border-sky-300 text-[8px] font-black uppercase">
+                            KAD PETAK
+                          </Badge>
+                        </div>
+                        <label className="block text-[11px] font-bold text-slate-600">
+                          Baki Kad Petak Semasa <span className="text-rose-500">*</span>
+                        </label>
+                        <Input
+                          type="number"
+                          min="0"
+                          placeholder="0"
+                          className="text-lg py-2 rounded-xl font-mono font-black text-sky-950 border-sky-300 focus:ring-2 focus:ring-sky-500 bg-sky-50/30"
+                          value={kewPs4StockInput}
+                          onChange={(e) => setKewPs4StockInput(e.target.value)}
+                          required
+                        />
+                        <p className="text-[10px] text-slate-500 leading-tight">
+                          Baki rekod lejar kad petak (Auto-isi dari lejar semasa).
+                        </p>
+                      </div>
+
+                      {/* 3. PHIS SYSTEM STOCK */}
+                      <div className="bg-white p-4 rounded-2xl border border-purple-200 shadow-xs space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase text-purple-800 tracking-wider">
+                            💻 3. Stok PHiS
+                          </span>
+                          <Badge className="bg-purple-100 text-purple-900 border-purple-300 text-[8px] font-black uppercase">
+                            SISTEM PHIS
+                          </Badge>
+                        </div>
+                        <label className="block text-[11px] font-bold text-slate-600">
+                          Baki Sistem Farmasi PHiS <span className="text-rose-500">*</span>
+                        </label>
+                        <Input
+                          type="number"
+                          min="0"
+                          placeholder="0"
+                          className="text-lg py-2 rounded-xl font-mono font-black text-purple-950 border-purple-300 focus:ring-2 focus:ring-purple-500 bg-purple-50/30"
+                          value={phisStockInput}
+                          onChange={(e) => setPhisStockInput(e.target.value)}
+                          required
+                        />
+                        <p className="text-[10px] text-slate-500 leading-tight">
+                          Baki dalam Sistem Maklumat Farmasi (Portal PHiS).
+                        </p>
+                      </div>
+
+                    </div>
+
+                    {/* LIVE 3-WAY TALLY CALCULATION ENGINE & COMPARISON PANEL */}
+                    {(() => {
+                      const pVal = parseInt(physicalStockInput, 10)
+                      const kVal = parseInt(kewPs4StockInput, 10)
+                      const phisVal = parseInt(phisStockInput, 10)
+
+                      const validP = isNaN(pVal) || pVal < 0 ? 0 : pVal
+                      const validK = isNaN(kVal) || kVal < 0 ? 0 : kVal
+                      const validPhis = isNaN(phisVal) || phisVal < 0 ? 0 : phisVal
+
+                      const diffPhysKew = validP - validK
+                      const diffPhysPhis = validP - validPhis
+                      const diffKewPhis = validK - validPhis
+
+                      const is3WayTally = (diffPhysKew === 0 && diffPhysPhis === 0)
+
+                      return (
+                        <div className="space-y-3 pt-1">
+                          <div className={`p-4 rounded-2xl border ${
+                            is3WayTally 
+                              ? 'bg-emerald-50/90 border-emerald-300 text-emerald-950' 
+                              : 'bg-amber-50/90 border-amber-300 text-amber-950'
+                          }`}>
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-3">
+                                <div className={`p-2.5 rounded-xl ${
+                                  is3WayTally ? 'bg-emerald-600 text-white' : 'bg-amber-600 text-white'
+                                }`}>
+                                  {is3WayTally ? <CheckCheck className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
+                                </div>
+                                <div>
+                                  <div className="text-sm font-black uppercase tracking-tight">
+                                    {is3WayTally ? '✅ 3-WAY TALLY CONFIRMED (SEMUA SEIMBANG 100%)' : '⚠️ PERCANGGAHAN DIKESAN (VARIANCE DETECTED)'}
+                                  </div>
+                                  <p className="text-xs font-medium opacity-90 mt-0.5">
+                                    {is3WayTally 
+                                      ? `Stok Fizikal (${validP}), Kad Petak KEW.PS-4 (${validK}) dan Sistem PHiS (${validPhis}) adalah sepadan sepenuhnya tanpa ralat.`
+                                      : `Terdapat perbezaan antara kiraan fizikal, kad KEW.PS-4 atau rekod sistem PHiS.`
+                                    }
+                                  </p>
+                                </div>
+                              </div>
+
+                              <Badge className={`font-black text-xs px-3 py-1 uppercase ${
+                                is3WayTally ? 'bg-emerald-600 text-white' : 'bg-amber-600 text-white'
+                              }`}>
+                                {is3WayTally ? 'TALLY' : 'PERBEZAAN'}
+                              </Badge>
+                            </div>
+
+                            {/* Variance breakdown strip */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-3.5 pt-3 border-t border-slate-200/80 text-xs">
+                              <div className="bg-white/80 p-2.5 rounded-xl border border-slate-200 flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-slate-600">Fizikal vs KEW.PS-4:</span>
+                                <span className={`font-mono font-black ${diffPhysKew === 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                  {diffPhysKew === 0 ? '✓ Tally (0)' : `${diffPhysKew > 0 ? `+${diffPhysKew}` : diffPhysKew} ${selectedItem?.unit_of_measure}`}
+                                </span>
+                              </div>
+                              <div className="bg-white/80 p-2.5 rounded-xl border border-slate-200 flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-slate-600">Fizikal vs PHiS:</span>
+                                <span className={`font-mono font-black ${diffPhysPhis === 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                  {diffPhysPhis === 0 ? '✓ Tally (0)' : `${diffPhysPhis > 0 ? `+${diffPhysPhis}` : diffPhysPhis} ${selectedItem?.unit_of_measure}`}
+                                </span>
+                              </div>
+                              <div className="bg-white/80 p-2.5 rounded-xl border border-slate-200 flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-slate-600">KEW.PS-4 vs PHiS:</span>
+                                <span className={`font-mono font-black ${diffKewPhis === 0 ? 'text-emerald-700' : 'text-purple-700'}`}>
+                                  {diffKewPhis === 0 ? '✓ Tally (0)' : `${diffKewPhis > 0 ? `+${diffKewPhis}` : diffKewPhis} ${selectedItem?.unit_of_measure}`}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Stock sync checkbox if discrepancy */}
+                          {!is3WayTally && (
+                            <div className="p-3.5 bg-blue-50/80 border border-blue-200 rounded-xl">
+                              <label className="flex items-start gap-2.5 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={adjustKewPs4}
+                                  onChange={(e) => setAdjustKewPs4(e.target.checked)}
+                                  className="mt-0.5 w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
+                                />
+                                <div className="text-xs">
+                                  <span className="font-bold text-blue-950 block">
+                                    Laras Baki Kad Petak KEW.PS-4 mengikut Kiraan Fizikal ({validP} {selectedItem?.unit_of_measure})
+                                  </span>
+                                  <span className="text-[11px] text-blue-800 font-medium">
+                                    Sistem akan merekodkan transaksi verifikasi audit dan mengemas kini baki berjalan dalam kad petak.
+                                  </span>
+                                </div>
+                              </label>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
+
+                    {/* SECTION 3: REMARKS & RECOMMENDATIONS */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                          Catatan &amp; Penjelasan Pemverifikasi Luar
+                        </label>
+                        <Input
+                          placeholder="Contoh: Semakan fizikal seimbang, keadaan pek sempurna."
+                          className="text-xs py-2 rounded-xl"
+                          value={verificationRemarks}
+                          onChange={(e) => setVerificationRemarks(e.target.value)}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                          Syor / Cadangan Tindakan Susulan
+                        </label>
+                        <Input
+                          placeholder="Contoh: Kekalkan kawalan stok semasa / Laras baki PHiS."
+                          className="text-xs py-2 rounded-xl"
+                          value={verificationActionTaken}
+                          onChange={(e) => setVerificationActionTaken(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                  </div>
+
+                </form>
+
+              </div>
+
+              {/* Drawer Footer Bar */}
+              <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-3 shrink-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => handlePrintVerificationCertificate()}
+                  className="rounded-xl text-xs font-bold px-4 py-2.5 gap-2 border-emerald-300 text-emerald-800 hover:bg-emerald-50 cursor-pointer"
+                >
+                  <Printer className="w-4 h-4 text-emerald-600" />
+                  <span>Cetak Sijil KEW.PS-14</span>
+                </Button>
+
+                <div className="flex items-center gap-2.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setIsStoreVerificationModalOpen(false)
+                      setVerificationStatus(null)
+                    }}
+                    className="rounded-xl text-xs font-bold px-5 py-2.5 cursor-pointer"
+                  >
+                    Batal
+                  </Button>
+                  <Button
+                    type="submit"
+                    form="store-verification-form"
+                    disabled={isSubmittingVerification}
+                    className="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-bold px-7 py-2.5 shadow-md gap-2 cursor-pointer"
+                  >
+                    {isSubmittingVerification ? <Spinner size="sm" /> : <ShieldCheck className="w-4 h-4" />}
+                    {isSubmittingVerification ? 'Menyimpan Verifikasi...' : 'Sahkan & Rekodkan Verifikasi'}
+                  </Button>
+                </div>
               </div>
 
             </div>
@@ -6671,6 +7757,117 @@ export const KewPs4LedgerPage: React.FC = () => {
               type="button"
               variant="outline"
               onClick={() => setIsResetAuditModalOpen(false)}
+              className="rounded-xl text-xs py-2 px-4 font-bold"
+            >
+              Tutup
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* STORE VERIFICATION HISTORY LOGS MODAL */}
+      <Modal
+        isOpen={isVerificationHistoryModalOpen}
+        onClose={() => setIsVerificationHistoryModalOpen(false)}
+        title={`Sejarah Log Verifikasi Stor Tahunan - ${selectedItem?.item_name || 'Item'}`}
+        maxWidth="2xl"
+      >
+        <div className="space-y-4 pt-2 text-slate-800">
+          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-950 flex items-center justify-between">
+            <div className="flex items-center gap-2 font-bold">
+              <ShieldCheck className="w-4 h-4 text-emerald-700" />
+              <span>Rekod Verifikasi Bebas Tahunan (KEW.PS-14 Audit Trail)</span>
+            </div>
+            <span className="text-[11px] font-mono font-bold">
+              {storeVerificationLogs.filter(r => r.item_id === selectedItem?.item_id).length} Rekod Tersimpan
+            </span>
+          </div>
+
+          {storeVerificationLogs.filter(r => r.item_id === selectedItem?.item_id).length === 0 ? (
+            <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+              <ShieldAlert className="w-8 h-8 text-slate-400 mx-auto" />
+              <p className="text-xs font-bold text-slate-600">Tiada Rekod Verifikasi Stor Tahunan</p>
+              <p className="text-[11px] text-slate-400">Klik butang Store Verification untuk merekodkan pemeriksaan tahunan pertama.</p>
+            </div>
+          ) : (
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+              {storeVerificationLogs
+                .filter(r => r.item_id === selectedItem?.item_id)
+                .map(log => {
+                  const isTally = log.is_tally
+                  return (
+                    <div key={log.id} className="p-4 rounded-2xl border border-slate-200/80 bg-white shadow-xs space-y-3">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-emerald-100 text-emerald-950 border-emerald-300 font-mono font-black text-xs">
+                            TAHUN {log.verification_year}
+                          </Badge>
+                          <Badge className={`text-[10px] font-bold uppercase ${
+                            isTally ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200'
+                          }`}>
+                            {isTally ? '✓ 3-Way Tally' : '⚠️ Percanggahan'}
+                          </Badge>
+                        </div>
+                        <span className="text-xs font-mono font-medium text-slate-500">
+                          {new Date(log.verification_date).toLocaleDateString('ms-MY', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 text-center bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                        <div>
+                          <span className="text-[9px] font-bold text-slate-400 uppercase block">Stok Fizikal</span>
+                          <span className="font-mono text-sm font-black text-emerald-700">{log.physical_stock} {log.unit_of_measure}</span>
+                        </div>
+                        <div>
+                          <span className="text-[9px] font-bold text-slate-400 uppercase block">KEW.PS-4</span>
+                          <span className="font-mono text-sm font-black text-sky-700">{log.kew_ps4_stock} {log.unit_of_measure}</span>
+                        </div>
+                        <div>
+                          <span className="text-[9px] font-bold text-slate-400 uppercase block">PHiS</span>
+                          <span className="font-mono text-sm font-black text-purple-700">{log.phis_stock} {log.unit_of_measure}</span>
+                        </div>
+                      </div>
+
+                      <div className="text-xs space-y-1 text-slate-600">
+                        <div><strong>Pegawai Pemverifikasi Luar:</strong> {log.verifier_name} ({log.verifier_designation}) - <em className="text-emerald-700 font-semibold">{log.verifier_department}</em></div>
+                        {log.remarks && <div><strong>Catatan:</strong> {log.remarks}</div>}
+                        {log.action_taken && <div><strong>Syor / Tindakan:</strong> {log.action_taken}</div>}
+                        {log.appointment_ref && <div className="text-[10px] text-slate-400">Ruj. Lantikan: {log.appointment_ref}</div>}
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                        <span className="text-[10px] font-mono text-slate-400">ID: {log.id}</span>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handlePrintVerificationCertificate(log)}
+                            className="text-xs gap-1.5 border-emerald-300 text-emerald-800 hover:bg-emerald-50 rounded-xl"
+                          >
+                            <Printer className="w-3.5 h-3.5" />
+                            <span>Cetak Sijil KEW.PS-14</span>
+                          </Button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteVerificationRecord(log.id)}
+                            className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
+                            title="Padam rekod"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+            </div>
+          )}
+
+          <div className="flex justify-end pt-2 border-t border-slate-100">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsVerificationHistoryModalOpen(false)}
               className="rounded-xl text-xs py-2 px-4 font-bold"
             >
               Tutup

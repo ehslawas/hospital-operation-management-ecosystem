@@ -30,7 +30,8 @@ export const IndentRequestFormPage: React.FC = () => {
   const { success: showSuccess, error: showError } = useToastStore()
 
   const [departments, setDepartments] = useState<any[]>([])
-  const [selectedDeptId, setSelectedDeptId] = useState<string>('dept-nephro')
+  const [selectedDeptId, setSelectedDeptId] = useState<string>('')
+  const [fulfillingDeptId, setFulfillingDeptId] = useState<string>('')
   const [priority, setPriority] = useState<IndentPriority>('normal')
   const [requiredDate, setRequiredDate] = useState<string>(
     new Date(Date.now() + 3600000 * 24 * 3).toISOString().split('T')[0]
@@ -61,13 +62,28 @@ export const IndentRequestFormPage: React.FC = () => {
     getDepartments(hospitalId).then((res) => {
       if (res.data && res.data.length > 0) {
         setDepartments(res.data)
-        const match = res.data.find(d => d.id === selectedDeptId)
-        if (!match) {
-          setSelectedDeptId(res.data[0].id)
-        }
+        setSelectedDeptId((prev) => {
+          if (prev && res.data?.some((d) => d.id === prev)) {
+            return prev
+          }
+          return user?.department_id || res.data[0].id
+        })
+
+        // Default Target / Fulfilling Department to Pharmacy logistic or first matching
+        setFulfillingDeptId((prev) => {
+          if (prev && res.data?.some((d) => d.id === prev)) {
+            return prev
+          }
+          const defaultTarget = res.data.find(
+            (d) =>
+              d.department_name?.toLowerCase().includes('pharmacy logis') ||
+              d.department_code?.toLowerCase().includes('pharmacy_logis')
+          )
+          return defaultTarget ? defaultTarget.id : res.data[0].id
+        })
       }
     })
-  }, [hospitalId])
+  }, [hospitalId, user?.department_id])
 
   // Load entitlements for selected department
   useEffect(() => {
@@ -115,6 +131,13 @@ export const IndentRequestFormPage: React.FC = () => {
         )
       )
     } else {
+      const resolvedUnit =
+        ent.unit ||
+        (ent as any).packaging ||
+        (ent as any).packaging_description ||
+        (ent as any).unit_of_measure ||
+        (ent.item_type === 'drug' ? 'UNIT' : 'UNIT')
+
       setCartItems((prev) => [
         ...prev,
         {
@@ -122,7 +145,7 @@ export const IndentRequestFormPage: React.FC = () => {
           item_id: ent.item_id,
           item_code: ent.item_code,
           item_name: ent.item_name,
-          unit: ent.item_type === 'drug' ? 'TAB/VIAL' : 'PCS/PKT',
+          unit: resolvedUnit,
           qty_requested: addQty,
           max_qty: ent.max_qty_per_request,
         },
@@ -153,6 +176,7 @@ export const IndentRequestFormPage: React.FC = () => {
     setIsSubmitting(true)
     const res = await createIndentRequest(hospitalId, user?.id || 'user-1', {
       requesting_department_id: selectedDeptId,
+      fulfilling_department_id: fulfillingDeptId,
       priority,
       required_date: requiredDate,
       notes,
@@ -177,7 +201,7 @@ export const IndentRequestFormPage: React.FC = () => {
   const selectedDeptObj = departments.find((d) => d.id === selectedDeptId)
 
   return (
-    <div className="p-6 space-y-6 bg-slate-950 min-h-screen text-slate-100 max-w-6xl mx-auto">
+    <div className="p-6 space-y-6 bg-slate-950 min-h-screen text-slate-100 w-full">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -200,16 +224,16 @@ export const IndentRequestFormPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {/* Left Form: Meta Info */}
-        <div className="lg:col-span-1 p-5 rounded-2xl bg-slate-900/90 border border-slate-800/90 space-y-4 shadow-xl">
+        <div className="lg:col-span-1 xl:col-span-1 p-5 rounded-2xl bg-slate-900/90 border border-slate-800/90 space-y-4 shadow-xl">
           <h2 className="text-sm font-semibold text-emerald-400 flex items-center gap-2">
             <Building2 className="w-4 h-4" /> Request Information
           </h2>
 
           <div>
             <label className="block text-xs font-medium text-slate-300 mb-1">
-              Requesting Department <span className="text-rose-400">*</span>
+              Requesting Department (From) <span className="text-rose-400">*</span>
             </label>
             <Select
               value={selectedDeptId}
@@ -223,7 +247,30 @@ export const IndentRequestFormPage: React.FC = () => {
               ))}
             </Select>
             <p className="text-[11px] text-slate-500 mt-1">
-              Items available for selection are limited to this department's entitlement configuration.
+              Items available are based on this department's entitlement configuration.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-emerald-400 mb-1 flex items-center justify-between">
+              <span>Send Indent To (Fulfilling Dept) <span className="text-rose-400">*</span></span>
+              <span className="text-[9px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 uppercase font-bold">
+                Target Unit
+              </span>
+            </label>
+            <Select
+              value={fulfillingDeptId}
+              onChange={(e) => setFulfillingDeptId(e.target.value)}
+              className="bg-slate-950 border-emerald-500/40 text-xs text-emerald-200 font-semibold focus:border-emerald-500"
+            >
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.department_name}
+                </option>
+              ))}
+            </Select>
+            <p className="text-[11px] text-slate-400 mt-1">
+              Hanya staf dari unit penerima ini yang dibenarkan untuk meluluskan permohonan indent.
             </p>
           </div>
 
@@ -266,7 +313,7 @@ export const IndentRequestFormPage: React.FC = () => {
         </div>
 
         {/* Right Section: Items Selection & Cart */}
-        <div className="lg:col-span-2 space-y-5">
+        <div className="lg:col-span-2 xl:col-span-3 space-y-5">
           {/* Entitlement Picker */}
           <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800/90 space-y-4 shadow-xl">
             <div className="flex items-center justify-between">

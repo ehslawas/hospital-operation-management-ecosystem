@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { JATA_NEGARA_BASE64 } from '@/modules/mytransporter/pages/jataNegaraBase64'
 import { getDrugTherapeuticCategory, getDrugPrescriberCategory } from '@/lib/drugCategorizer'
+import { useAuthStore } from '@/stores/authStore'
 
 export interface FormulariDrugItem {
   id?: string
@@ -25,8 +26,11 @@ export interface FormulariDrugItem {
 export interface FormulariPdfOptions {
   skim?: string
   preparedBy?: string
+  preparedByTitle?: string
   checkedBy?: string
+  checkedByTitle?: string
   approvedBy?: string
+  approvedByTitle?: string
   hospitalName?: string
   department?: string
   referenceNo?: string
@@ -37,13 +41,17 @@ export function generateFormulariPdf(
   items: FormulariDrugItem[],
   opts: FormulariPdfOptions = {}
 ) {
+  const currentUser = useAuthStore.getState().user
   const {
     skim = 'SEMUA',
-    preparedBy = 'Pegawai Farmasi',
+    preparedBy = currentUser?.full_name || (currentUser as any)?.name || 'Pegawai Farmasi',
+    preparedByTitle = currentUser?.jawatan || (opts.isNonDrug ? 'Pegawai Farmasi / Penolong Pegawai Farmasi' : 'Pegawai Farmasi (S41/S44/S48)'),
     checkedBy = 'Ketua Unit Farmasi',
+    checkedByTitle = 'Ketua Unit Farmasi',
     approvedBy = 'Pengarah Hospital',
-    hospitalName = 'HOSPITAL LAWAS',
-    department = 'Jabatan Farmasi',
+    approvedByTitle = 'Pengarah Hospital',
+    hospitalName = currentUser?.hospital?.hospital_name || (currentUser?.hospital as any)?.name || 'HOSPITAL LAWAS',
+    department = opts.isNonDrug ? 'Stor Integrasi Bukan Ubat' : 'Jabatan Farmasi',
     referenceNo = `KKM/HL/FARM/${new Date().getFullYear()}/${String(new Date().getMonth() + 1).padStart(2, '0')}`,
     isNonDrug = false,
   } = opts
@@ -89,7 +97,7 @@ export function generateFormulariPdf(
     doc.setFontSize(7)
     doc.setTextColor(80, 80, 80)
     doc.text(
-      'Jalan Hospital, 98850 Lawas, Sarawak  |  Tel: 085-283122  |  Faks: 085-283123  |  hlawas@moh.gov.my',
+      'Jalan Hospital, 98850 Lawas, Sarawak  |  Tel: 085 283 781 (ext 206)  |  farmasi.hlawas@moh.gov.my',
       40, 25
     )
 
@@ -161,15 +169,31 @@ export function generateFormulariPdf(
 
   const activeCount = items.filter(i => i.is_active !== false).length
   const totalItems = items.length
-  const categories = [...new Set(items.map(i => i.category?.category_name || i.category_name || 'General'))].length
+
+  const getVote = (i: FormulariDrugItem) => {
+    const raw = (i.procurement_vote || i.scheme || i.skim || '').toString().toLowerCase().trim()
+    if (raw === 'cc') return 'CC'
+    if (raw === 'lp') return 'LP'
+    if (raw === 'dp') return 'DP'
+    if (raw === 'appl') return 'APPL'
+    return isNonDrug ? 'CC' : 'APPL'
+  }
+
+  const applCount = items.filter(i => getVote(i) === 'APPL').length
+  const ccCount = items.filter(i => getVote(i) === 'CC').length
+  const lpCount = items.filter(i => getVote(i) === 'LP').length
+  const dpCount = items.filter(i => getVote(i) === 'DP').length
 
   doc.setFont('Helvetica', 'bold')
   doc.setFontSize(7.5)
   doc.setTextColor(isNonDrug ? 6 : 0, isNonDrug ? 90 : 60, isNonDrug ? 44 : 120)
-  doc.text(isNonDrug ? `Jumlah Item: ${totalItems}` : `Jumlah Item Formulari: ${totalItems}`, 20, summaryY + 7.5)
-  doc.text(`Item Aktif: ${activeCount}`, 90, summaryY + 7.5)
-  doc.text(isNonDrug ? `Kategori: ${categories}` : `Kategori Terapeutik: ${categories}`, 155, summaryY + 7.5)
-  doc.text(`Skim Perolehan: ${skim.toUpperCase()}`, 215, summaryY + 7.5)
+  doc.text(isNonDrug ? `Jumlah Item: ${totalItems}` : `Jumlah Item Formulari: ${totalItems}`, 18, summaryY + 7.5)
+  doc.text(`Item Aktif: ${activeCount}`, 62, summaryY + 7.5)
+  doc.text(`APPL: ${applCount}`, 104, summaryY + 7.5)
+  doc.text(`CC: ${ccCount}`, 138, summaryY + 7.5)
+  doc.text(`LP: ${lpCount}`, 170, summaryY + 7.5)
+  doc.text(`DP: ${dpCount}`, 202, summaryY + 7.5)
+  doc.text(`Skim Perolehan: ${skim.toUpperCase()}`, 234, summaryY + 7.5)
   doc.setTextColor(0, 0, 0)
 
   // ─── Main Formulary Table ─────────────────────────────────────────────────
@@ -369,9 +393,9 @@ export function generateFormulariPdf(
     doc.setTextColor(0, 0, 0)
   }
 
-  drawSigBox(14, sigBoxY, colW, 'DISEDIAKAN OLEH', preparedBy, 'Pegawai Farmasi (S41/S44/S48)')
-  drawSigBox(14 + colW + gap, sigBoxY, colW, 'DISEMAK OLEH', checkedBy, 'Ketua Unit Farmasi')
-  drawSigBox(14 + (colW + gap) * 2, sigBoxY, colW, 'DISAHKAN OLEH', approvedBy, 'Pengarah Hospital')
+  drawSigBox(14, sigBoxY, colW, 'DISEDIAKAN OLEH', preparedBy, preparedByTitle)
+  drawSigBox(14 + colW + gap, sigBoxY, colW, 'DISEMAK OLEH', checkedBy, checkedByTitle)
+  drawSigBox(14 + (colW + gap) * 2, sigBoxY, colW, 'DISAHKAN OLEH', approvedBy, approvedByTitle)
 
   // Stamp area placeholder
   doc.setFillColor(248, 248, 248)
@@ -416,16 +440,20 @@ export function generateFormulariPdf(
 
 // ─── Non-Drug Facility Catalog PDF Generator ─────────────────────────────────
 
-export function generateNonDrugCatalogPdf(
-  items: any[],
+export function generateFormulariSimplePdf(
+  items: FormulariDrugItem[],
   opts: FormulariPdfOptions = {}
 ) {
+  const currentUser = useAuthStore.getState().user
   const {
     skim = 'SEMUA',
-    preparedBy = 'Pegawai Farmasi / Logistik',
+    preparedBy = currentUser?.full_name || (currentUser as any)?.name || 'Pegawai Farmasi / Logistik',
+    preparedByTitle = currentUser?.jawatan || 'Pegawai Farmasi / Logistik',
     checkedBy = 'Ketua Unit Logistik / Inventori',
+    checkedByTitle = 'Ketua Unit Logistik / Inventori',
     approvedBy = 'Pengarah Hospital',
-    hospitalName = 'HOSPITAL LAWAS',
+    approvedByTitle = 'Pengarah Hospital',
+    hospitalName = currentUser?.hospital?.hospital_name || (currentUser?.hospital as any)?.name || 'HOSPITAL LAWAS',
     department = 'Unit Inventori Bukan Ubat & Logistik',
     referenceNo = `KKM/HL/NONDRUG/${new Date().getFullYear()}/${String(new Date().getMonth() + 1).padStart(2, '0')}`,
   } = opts
@@ -463,7 +491,7 @@ export function generateNonDrugCatalogPdf(
     doc.setFontSize(7)
     doc.setTextColor(80, 80, 80)
     doc.text(
-      'Jalan Hospital, 98850 Lawas, Sarawak  |  Tel: 085-283122  |  Faks: 085-283123  |  hlawas@moh.gov.my',
+      'Jalan Hospital, 98850 Lawas, Sarawak  |  Tel: 085 283 781 (ext 206)  |  farmasi.hlawas@moh.gov.my',
       40, 25
     )
     doc.setDrawColor(15, 30, 70)
@@ -526,13 +554,24 @@ export function generateNonDrugCatalogPdf(
     return acc + priceVal * (d.facility_stock || 0)
   }, 0)
 
+  const applCount = items.filter(i => (i.procurement_vote || i.scheme || i.skim || '').toString().toLowerCase() === 'appl').length
+  const ccCount = items.filter(i => {
+    const v = (i.procurement_vote || i.scheme || i.skim || '').toString().toLowerCase()
+    return v === 'cc' || (!v)
+  }).length
+  const lpCount = items.filter(i => (i.procurement_vote || i.scheme || i.skim || '').toString().toLowerCase() === 'lp').length
+  const dpCount = items.filter(i => (i.procurement_vote || i.scheme || i.skim || '').toString().toLowerCase() === 'dp').length
+
   doc.setFont('Helvetica', 'bold')
   doc.setFontSize(7.5)
   doc.setTextColor(15, 118, 110)
-  doc.text(`Jumlah Item: ${items.length}`, 20, summaryY + 7.5)
-  doc.text(`Status: Aktif Sedia Ada`, 85, summaryY + 7.5)
-  doc.text(`Jumlah Nilai Inventori: RM ${totalValuation.toLocaleString('ms-MY', { minimumFractionDigits: 2 })}`, 150, summaryY + 7.5)
-  doc.text(`Skim Perolehan: ${skim.toUpperCase()}`, 235, summaryY + 7.5)
+  doc.text(`Jumlah Item: ${items.length}`, 18, summaryY + 7.5)
+  doc.text(`APPL: ${applCount}`, 56, summaryY + 7.5)
+  doc.text(`CC: ${ccCount}`, 88, summaryY + 7.5)
+  doc.text(`LP: ${lpCount}`, 118, summaryY + 7.5)
+  doc.text(`DP: ${dpCount}`, 148, summaryY + 7.5)
+  doc.text(`Jumlah Nilai: RM ${totalValuation.toLocaleString('ms-MY', { minimumFractionDigits: 2 })}`, 178, summaryY + 7.5)
+  doc.text(`Skim: ${skim.toUpperCase()}`, 240, summaryY + 7.5)
   doc.setTextColor(0, 0, 0)
 
   // ─── Table ────────────────────────────────────────────────────────────────
@@ -656,9 +695,9 @@ export function generateNonDrugCatalogPdf(
     doc.setTextColor(0, 0, 0)
   }
 
-  drawSigBox(14, sigBoxY, colW, 'DISEDIAKAN OLEH', preparedBy, 'Pegawai Farmasi / Logistik')
-  drawSigBox(14 + colW + gap, sigBoxY, colW, 'DISEMAK OLEH', checkedBy, 'Ketua Unit Logistik / Inventori')
-  drawSigBox(14 + (colW + gap) * 2, sigBoxY, colW, 'DISAHKAN OLEH', approvedBy, 'Pengarah Hospital')
+  drawSigBox(14, sigBoxY, colW, 'DISEDIAKAN OLEH', preparedBy, preparedByTitle)
+  drawSigBox(14 + colW + gap, sigBoxY, colW, 'DISEMAK OLEH', checkedBy, checkedByTitle)
+  drawSigBox(14 + (colW + gap) * 2, sigBoxY, colW, 'DISAHKAN OLEH', approvedBy, approvedByTitle)
 
   // Stamp area placeholder
   doc.setFillColor(248, 248, 248)

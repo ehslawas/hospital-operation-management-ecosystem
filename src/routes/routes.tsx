@@ -16,6 +16,7 @@ const DashboardPage = lazy(() => import('@/pages/dashboard/DashboardPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 const PrivacyPolicyPage = lazy(() => import('@/pages/legal/PrivacyPolicyPage'))
 const TermsOfServicePage = lazy(() => import('@/pages/legal/TermsOfServicePage'))
+const UnauthorizedPage = lazy(() => import('@/pages/error/UnauthorizedPage'))
 
 // Hub pages
 const ModuleHubPage = lazy(() => import('@/modules/hub/pages/ModuleHubPage'))
@@ -34,14 +35,49 @@ const AdminSubMenu = lazy(() => import('@/modules/hub/pages/modules/AdminSubMenu
 const PerolehanSubMenu = lazy(() => import('@/modules/hub/pages/modules/PerolehanSubMenu'))
 const FileSubMenu = lazy(() => import('@/modules/hub/pages/modules/FileSubMenu'))
 const FormulariSubMenu = lazy(() => import('@/modules/hub/pages/modules/FormulariSubMenu'))
+const FormulariDashboardPage = lazy(() => import('@/modules/myformulari/pages/FormulariDashboardPage'))
+const DrugDetailPage = lazy(() => import('@/modules/myformulari/pages/DrugDetailPage'))
+const HamListPage = lazy(() => import('@/modules/myformulari/pages/HamListPage'))
+const LasaListPage = lazy(() => import('@/modules/myformulari/pages/LasaListPage'))
+const DilutionProtocolPage = lazy(() => import('@/modules/myformulari/pages/DilutionProtocolPage'))
+const AntimicrobialGuidelinePage = lazy(() => import('@/modules/myformulari/pages/AntimicrobialGuidelinePage'))
+const DrugQuotaPage = lazy(() => import('@/modules/myformulari/pages/DrugQuotaPage'))
+const DrugAlternativesPage = lazy(() => import('@/modules/myformulari/pages/DrugAlternativesPage'))
 const PorterSubMenu = lazy(() => import('@/modules/hub/pages/modules/PorterSubMenu'))
 const TransporterSubMenu = lazy(() => import('@/modules/hub/pages/modules/TransporterSubMenu'))
 const PriviledgingSubMenu = lazy(() => import('@/modules/hub/pages/modules/PriviledgingSubMenu'))
+const PriviledgingDashboardPage = lazy(() => import('@/modules/mypriviledging/pages/PriviledgingDashboardPage'))
+const CredentialingCriteriaPage = lazy(() => import('@/modules/mypriviledging/pages/CredentialingCriteriaPage'))
+const ProcedureCatalogPage = lazy(() => import('@/modules/mypriviledging/pages/ProcedureCatalogPage'))
+const MySubmissionsPage = lazy(() => import('@/modules/mypriviledging/pages/MySubmissionsPage'))
+const AdminReviewQueuePage = lazy(() => import('@/modules/mypriviledging/pages/AdminReviewQueuePage'))
+const StaffProgressPage = lazy(() => import('@/modules/mypriviledging/pages/StaffProgressPage'))
+const PrintPriviledgingPage = lazy(() => import('@/modules/mypriviledging/pages/PrintPriviledgingPage'))
 const TempahanSubMenu = lazy(() => import('@/modules/hub/pages/modules/TempahanSubMenu'))
+const TempahanDashboardPage = lazy(() => import('@/modules/mytempahan/pages/TempahanDashboardPage'))
+const TempahanCalendarPage = lazy(() => import('@/modules/mytempahan/pages/TempahanCalendarPage'))
+const TempahanRequestFormPage = lazy(() => import('@/modules/mytempahan/pages/TempahanRequestFormPage'))
+const TempahanMyBookingsPage = lazy(() => import('@/modules/mytempahan/pages/TempahanMyBookingsPage'))
+const TempahanApprovalQueuePage = lazy(() => import('@/modules/mytempahan/pages/TempahanApprovalQueuePage'))
+const TempahanRoomRegistryPage = lazy(() => import('@/modules/mytempahan/pages/TempahanRoomRegistryPage'))
+const TempahanReportsPage = lazy(() => import('@/modules/mytempahan/pages/TempahanReportsPage'))
 const KunciSubMenu = lazy(() => import('@/modules/hub/pages/modules/KunciSubMenu'))
 const CrossBorderSubMenu = lazy(() => import('@/modules/hub/pages/modules/CrossBorderSubMenu'))
-const CutiSubMenu = lazy(() => import('@/modules/hub/pages/modules/CutiSubMenu'))
+const StaffSubMenu = lazy(() => import('@/modules/hub/pages/modules/StaffSubMenu'))
 const TimeOffSubMenu = lazy(() => import('@/modules/hub/pages/modules/TimeOffSubMenu'))
+
+// Staff pages
+const StaffDashboardPage = lazy(() => import('@/modules/mystaff/pages/StaffDashboardPage'))
+const StaffCalendarPage = lazy(() => import('@/modules/mystaff/pages/StaffCalendarPage'))
+const StaffMovementPage = lazy(() => import('@/modules/mystaff/pages/StaffMovementPage'))
+const StaffLeavePage = lazy(() => import('@/modules/mystaff/pages/StaffLeavePage'))
+const StaffLeaveApplyPage = lazy(() => import('@/modules/mystaff/pages/StaffLeaveApplyPage'))
+const StaffReminderPage = lazy(() => import('@/modules/mystaff/pages/StaffReminderPage'))
+const StaffHodPage = lazy(() => import('@/modules/mystaff/pages/StaffHodPage'))
+const StaffOrgChartPage = lazy(() => import('@/modules/mystaff/pages/StaffOrgChartPage'))
+
+// MyPerolehan pages
+const MyPerolehanDashboard = lazy(() => import('@/modules/myperolehan/pages/MyPerolehanDashboard'))
 
 // Kunci pages
 const KunciDashboardPage = lazy(() => import('@/modules/mykunci/pages/KunciDashboardPage'))
@@ -69,6 +105,17 @@ const TransporterDriverMonitorPage = lazy(() => import('@/modules/mytransporter/
 const TransporterReportsPage = lazy(() => import('@/modules/mytransporter/pages/TransporterReportsPage'))
 const TransporterVehicleIssuesPage = lazy(() => import('@/modules/mytransporter/pages/TransporterVehicleIssuesPage'))
 const TransporterRoleAssignmentPage = lazy(() => import('@/modules/mytransporter/pages/TransporterRoleAssignmentPage'))
+
+// MyPorter pages
+const PorterDashboardPage = lazy(() => import('@/modules/myporter/pages/PorterDashboardPage'))
+const PorterRequestWizardPage = lazy(() => import('@/modules/myporter/pages/PorterRequestWizardPage'))
+const PorterMyRequestsPage = lazy(() => import('@/modules/myporter/pages/PorterMyRequestsPage'))
+const PorterDriverPanelPage = lazy(() => import('@/modules/myporter/pages/PorterDriverPanelPage'))
+const PorterReceiverPanelPage = lazy(() => import('@/modules/myporter/pages/PorterReceiverPanelPage'))
+const PorterManagerDispatchPage = lazy(() => import('@/modules/myporter/pages/PorterManagerDispatchPage'))
+const PorterRosterPage = lazy(() => import('@/modules/myporter/pages/PorterRosterPage'))
+const PorterReportsPage = lazy(() => import('@/modules/myporter/pages/PorterReportsPage'))
+const PorterRoleAssignmentPage = lazy(() => import('@/modules/myporter/pages/PorterRoleAssignmentPage'))
 
 
 // Gallery pages
@@ -123,6 +170,7 @@ const APPLInventoryPage = lazy(() => import('@/modules/inventory/pages/inventory
 const OxygenDashboardPage = lazy(() => import('@/modules/mycylinder/pages/oxygen/OxygenDashboardPage'))
 const CylinderReportPage = lazy(() => import('@/modules/mycylinder/pages/oxygen/CylinderReportPage'))
 const CylinderMaintenancePage = lazy(() => import('@/modules/mycylinder/pages/oxygen/CylinderMaintenancePage'))
+const CylinderKewPs4LedgerPage = lazy(() => import('@/modules/mycylinder/pages/oxygen/CylinderKewPs4LedgerPage'))
 const MyPhisDashboardPage = lazy(() => import('@/modules/myphis/pages/MyPhisDashboardPage'))
 const MyMsdsDashboardPage = lazy(() => import('@/modules/mymsds/pages/MyMsdsDashboardPage'))
 const PurchaseOrderListPage = lazy(() => import('@/modules/procurement/pages/procurement/PurchaseOrderListPage'))
@@ -294,19 +342,11 @@ const router = createBrowserRouter(
       },
       {
         path: 'priviledging',
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <PriviledgingSubMenu />
-          </Suspense>
-        ),
+        element: <Navigate to="/priviledging" replace />,
       },
       {
         path: 'tempahan',
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <TempahanSubMenu />
-          </Suspense>
-        ),
+        element: <Navigate to="/tempahan" replace />,
       },
       {
         path: 'kunci',
@@ -325,11 +365,18 @@ const router = createBrowserRouter(
         ),
       },
       {
-        path: 'cuti',
-
+        path: 'staff',
         element: (
           <Suspense fallback={<PageLoader />}>
-            <CutiSubMenu />
+            <StaffSubMenu />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'cuti',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <StaffSubMenu />
           </Suspense>
         ),
       },
@@ -364,6 +411,14 @@ const router = createBrowserRouter(
     element: (
       <Suspense fallback={<PageLoader />}>
         <TermsOfServicePage />
+      </Suspense>
+    ),
+  },
+  {
+    path: ROUTES.UNAUTHORIZED,
+    element: (
+      <Suspense fallback={<PageLoader />}>
+        <UnauthorizedPage />
       </Suspense>
     ),
   },
@@ -772,6 +827,79 @@ const router = createBrowserRouter(
         ],
       },
       {
+        path: 'formulari',
+        children: [
+          {
+            index: true,
+            element: <Navigate to="/formulari/dashboard" replace />,
+          },
+          {
+            path: 'dashboard',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <FormulariDashboardPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'drug/:id',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <DrugDetailPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'ham',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <HamListPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'lasa',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <LasaListPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'dilution',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <DilutionProtocolPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'antimicrobial',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <AntimicrobialGuidelinePage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'quota',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <DrugQuotaPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'alternatives',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <DrugAlternativesPage />
+              </Suspense>
+            ),
+          },
+        ],
+      },
+      {
         path: 'kunci',
         children: [
           {
@@ -821,11 +949,384 @@ const router = createBrowserRouter(
         ],
       },
       {
+        path: 'priviledging',
+        children: [
+          {
+            index: true,
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <PriviledgingDashboardPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'dashboard',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <PriviledgingDashboardPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'criteria',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <CredentialingCriteriaPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'catalog',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <ProcedureCatalogPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'my-submissions',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <MySubmissionsPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'review-queue',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <AdminReviewQueuePage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'staff-progress',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <StaffProgressPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'print',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <PrintPriviledgingPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'print/:staffId',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <PrintPriviledgingPage />
+              </Suspense>
+            ),
+          },
+        ],
+      },
+      {
+        path: 'tempahan',
+        children: [
+          {
+            index: true,
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <TempahanDashboardPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'dashboard',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <TempahanDashboardPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'kalendar',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <TempahanCalendarPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'permohonan-baru',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <TempahanRequestFormPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'permohonan-saya',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <TempahanMyBookingsPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'kelulusan',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <TempahanApprovalQueuePage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'senarai-bilik',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <TempahanRoomRegistryPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'laporan',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <TempahanReportsPage />
+              </Suspense>
+            ),
+          },
+        ],
+      },
+      {
+        path: 'staff',
+        children: [
+          {
+            index: true,
+            element: <Navigate to="/staff/dashboard" replace />,
+          },
+          {
+            path: 'dashboard',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <StaffDashboardPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'calendar',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <StaffCalendarPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'movement',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <StaffMovementPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'leave',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <StaffLeavePage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'leave/apply',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <StaffLeaveApplyPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'reminders',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <StaffReminderPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'deadlines',
+            element: <Navigate to="/staff/reminders" replace />,
+          },
+          {
+            path: 'hod',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <StaffHodPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'org-chart',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <StaffOrgChartPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'organization-chart',
+            element: <Navigate to="/staff/org-chart" replace />,
+          },
+        ],
+      },
+      {
+        path: 'perolehan',
+        children: [
+          {
+            index: true,
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <MyPerolehanDashboard initialTab="overview" />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'dashboard',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <MyPerolehanDashboard initialTab="overview" />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'pengurusan',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <MyPerolehanDashboard initialTab="pengurusan" />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'pembangunan',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <MyPerolehanDashboard initialTab="pembangunan" />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'orders',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <MyPerolehanDashboard initialTab="orders" />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'payments',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <MyPerolehanDashboard initialTab="receiving_payments" />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'catalog',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <MyPerolehanDashboard initialTab="catalog" />
+              </Suspense>
+            ),
+          },
+        ],
+      },
+      {
         path: 'crossborder',
         children: [
           {
             path: '*',
             element: <Navigate to="/transporter/dashboard" replace />,
+          },
+        ],
+      },
+      {
+        path: 'hub/porter',
+        element: <Navigate to="/porter/dashboard" replace />,
+      },
+      {
+        path: 'porter',
+        children: [
+          {
+            index: true,
+            element: <Navigate to="/porter/dashboard" replace />,
+          },
+          {
+            path: 'dashboard',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <PorterDashboardPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'requests/new',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <PorterRequestWizardPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'requests/my',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <PorterMyRequestsPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'panel',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <PorterDriverPanelPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'receiver',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <PorterReceiverPanelPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'manager',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <PorterManagerDispatchPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'roster',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <PorterRosterPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'reports',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <PorterReportsPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'roles',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <PorterRoleAssignmentPage />
+              </Suspense>
+            ),
           },
         ],
       },
@@ -1065,6 +1566,24 @@ const router = createBrowserRouter(
           ]}>
             <Suspense fallback={<PageLoader />}>
               <CylinderMaintenancePage />
+            </Suspense>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'pharmacy/oxygen/ledger',
+        element: (
+          <ProtectedRoute allowedRoles={[
+            SYSTEM_ROLES.PHARMACY_DIRECTOR,
+            SYSTEM_ROLES.PHARMACY_MANAGER,
+            SYSTEM_ROLES.PHARMACIST,
+            SYSTEM_ROLES.PHARMACY_ASSISTANT,
+            SYSTEM_ROLES.ASSISTANT_PHARMACIST,
+            SYSTEM_ROLES.PHARMACY_STOREKEEPER,
+            SYSTEM_ROLES.PHARMACY_STAFF,
+          ]}>
+            <Suspense fallback={<PageLoader />}>
+              <CylinderKewPs4LedgerPage />
             </Suspense>
           </ProtectedRoute>
         ),

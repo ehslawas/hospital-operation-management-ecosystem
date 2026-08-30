@@ -223,9 +223,9 @@ const MODULES = [
   {
     id: 'perolehan',
     name: 'MyPerolehan',
-    description: 'Procurement System',
+    description: 'Procurement & Budget System',
     icon: ShoppingCart,
-    path: ROUTES.PHARMACY_PROCUREMENT,
+    path: ROUTES.HUB_PEROLEHAN,
     colorKey: 'yellow'
   },
   {
@@ -257,7 +257,7 @@ const MODULES = [
     name: 'MyFormulari',
     description: 'Drug Formulary Search',
     icon: Search,
-    path: ROUTES.HUB_FORMULARI,
+    path: '/formulari',
     colorKey: 'violet'
   },
   {
@@ -265,7 +265,7 @@ const MODULES = [
     name: 'MyPorter',
     description: 'Portering Services',
     icon: Truck,
-    path: ROUTES.HUB_PORTER,
+    path: '/porter/dashboard',
     colorKey: 'sky'
   },
   {
@@ -281,7 +281,7 @@ const MODULES = [
     name: 'MyPriviledging',
     description: 'Clinical Privileges & Credentialing',
     icon: UserCheck,
-    path: ROUTES.HUB_PRIVILEDGING,
+    path: '/priviledging',
     colorKey: 'lime'
   },
   {
@@ -309,11 +309,11 @@ const MODULES = [
     colorKey: 'amber'
   },
   {
-    id: 'cuti',
-    name: 'MyCuti',
-    description: 'Leave Management System',
-    icon: Plane,
-    path: ROUTES.HUB_CUTI,
+    id: 'staff',
+    name: 'MyStaff',
+    description: 'Staff Management System',
+    icon: Users,
+    path: '/staff',
     colorKey: 'emerald'
   },
   {
@@ -697,11 +697,18 @@ export const ModuleHubPage: React.FC = () => {
                       module.id === 'cylinder' || 
                       module.id === 'suhu' || 
                       module.id === 'admin' || 
+                      module.id === 'perolehan' ||
                       module.id === 'myphis' || 
                       module.id === 'mymsds' || 
                       module.id === 'kunci' ||
                       module.id === 'transporter' ||
-                      module.id === 'inventory'
+                      module.id === 'inventory' ||
+                      module.id === 'staff' ||
+                      module.id === 'cuti' ||
+                      module.id === 'formulari' ||
+                      module.id === 'porter' ||
+                      module.id === 'priviledging' ||
+                      module.id === 'tempahan'
                     ) {
                       navigate(module.path)
                     } else {

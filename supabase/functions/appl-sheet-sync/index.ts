@@ -87,13 +87,15 @@ function deriveDosageForm(productName: string, pkgDesc: string): string {
 
 function parsePrice(val: string): number | null {
   if (!val) return null;
-  const clean = val.replace(/[^0-9.]/g, '');
+  const trimmed = val.trim();
+  if (trimmed.startsWith('-')) return null;
+  const clean = trimmed.replace(/[^0-9.]/g, '');
   const parsed = parseFloat(clean);
-  return isNaN(parsed) ? null : parsed;
+  return isNaN(parsed) || parsed <= 0 ? null : parsed;
 }
 
 function parseDate(val: string): string | null {
-  if (!val || val.toLowerCase() === 'not applicable' || val.toLowerCase() === 'in progress') return null;
+  if (!val || val === '-' || val.toLowerCase() === 'not applicable' || val.toLowerCase() === 'in progress') return null;
   try {
     const d = new Date(val);
     if (isNaN(d.getTime())) return null;
@@ -101,6 +103,57 @@ function parseDate(val: string): string | null {
   } catch {
     return null;
   }
+}
+
+function cleanCode(code: string | undefined): string {
+  if (!code) return '';
+  const trimmed = code.trim();
+  if (trimmed === '-' || trimmed === 'N/A' || trimmed.toLowerCase().startsWith('iklan') || trimmed.toLowerCase().startsWith('tiada')) {
+    return '';
+  }
+  return trimmed;
+}
+
+function deriveApplStatus(
+  newKod: string,
+  priceVal: number | null,
+  priceNextVal: number | null,
+  notes: string | undefined
+): 'active' | 'inactive' {
+  const n = (notes || '').toLowerCase();
+
+  // Explicit deactivation / suspension / termination keywords in KKM notes
+  if (
+    n.includes('dinyahaktif') ||
+    n.includes('habis dibekalkan') ||
+    n.includes('pembatalan') ||
+    n.includes('digantung') ||
+    n.includes('disekat') ||
+    n.includes('tidak aktif')
+  ) {
+    return 'inactive';
+  }
+
+  // Active concession purchase indicators
+  if (
+    n.includes('boleh dibeli melalui konsesi') ||
+    n.includes('boleh dibeli di bawah konsesi') ||
+    n.includes('boleh dipesan')
+  ) {
+    return 'active';
+  }
+
+  // If new 2023-2026 contract code exists and price is valid
+  if (newKod && (priceVal !== null || priceNextVal !== null)) {
+    return 'active';
+  }
+
+  // If no new contract code and no valid 2023-2026 price
+  if (!newKod && priceVal === null && priceNextVal === null) {
+    return 'inactive';
+  }
+
+  return priceVal !== null || priceNextVal !== null ? 'active' : 'inactive';
 }
 
 serve(async (req) => {
@@ -141,22 +194,62 @@ serve(async (req) => {
     const rows = parseCSV(csvText);
     console.log(`Parsed CSV, total rows: ${rows.length}`);
 
-    // Filter data rows (starts at row index 2)
-    const dataRows = rows.slice(2).filter(row => {
-      return row.length > 5 && row[2] && row[4] && (row[2].startsWith('D') || row[2].startsWith('N'));
+    // Detect header row index
+    let headerIdx = -1;
+    for (let i = 0; i < Math.min(rows.length, 25); i++) {
+      if (rows[i] && (rows[i][0] === 'Bil.' || (rows[i][1] && rows[i][1].toLowerCase().includes('kod')))) {
+        headerIdx = i;
+        break;
+      }
+    }
+    const startIdx = headerIdx >= 0 ? headerIdx + 1 : 2;
+
+    // Filter valid data rows
+    const dataRows = rows.slice(startIdx).filter(row => {
+      if (!row || row.length < 5) return false;
+      const rawKod = cleanCode(row[1]);
+      const newKod = cleanCode(row[2]);
+      const itemName = (row[4] || '').trim();
+      if (!itemName || itemName.toLowerCase() === 'produk') return false;
+      if (!rawKod && !newKod) return false;
+      return true;
     });
 
     console.log(`Processing ${dataRows.length} valid rows (drugs + non-drugs)`);
 
-    const drugRows = dataRows.filter(r => r[2].startsWith('D') || r[5] === 'Ubat');
-    const nonDrugRows = dataRows.filter(r => r[2].startsWith('N') || r[5] === 'Bukan Ubat');
+    const drugRows: string[][] = [];
+    const nonDrugRows: string[][] = [];
+
+    for (const row of dataRows) {
+      const rawKod = cleanCode(row[1]);
+      const newKod = cleanCode(row[2]);
+      const cat = (row[5] || '').trim().toLowerCase();
+
+      const isDrug = cat === 'ubat' || (newKod.startsWith('D') && cat !== 'bukan ubat');
+      const isNonDrug = cat === 'bukan ubat' || (newKod.startsWith('N') && cat !== 'ubat');
+
+      if (isNonDrug) {
+        nonDrugRows.push(row);
+      } else if (isDrug) {
+        drugRows.push(row);
+      } else {
+        if (newKod.startsWith('N') || rawKod.startsWith('09') || rawKod.startsWith('10') || rawKod.startsWith('12') || rawKod.startsWith('17') || rawKod.startsWith('20') || rawKod.startsWith('25') || rawKod.startsWith('46')) {
+          nonDrugRows.push(row);
+        } else {
+          drugRows.push(row);
+        }
+      }
+    }
 
     console.log(`Found ${drugRows.length} drug rows and ${nonDrugRows.length} non-drug rows`);
 
     // --- 1. DRUGS ---
     const groupedDrugs = new Map<string, any[]>();
     for (const row of drugRows) {
-      const drugCode = row[2];
+      const rawKod = cleanCode(row[1]);
+      const newKod = cleanCode(row[2]);
+      const drugCode = newKod || rawKod;
+      if (!drugCode) continue;
       if (!groupedDrugs.has(drugCode)) {
         groupedDrugs.set(drugCode, []);
       }
@@ -169,13 +262,17 @@ serve(async (req) => {
     for (const [drugCode, items] of groupedDrugs.entries()) {
       const primaryItem = items[0];
       const name = primaryItem[4];
-      const rawKod = primaryItem[1];
+      const rawKod = cleanCode(primaryItem[1]);
+      const newKod = cleanCode(primaryItem[2]);
       const pkgDesc = primaryItem[6];
       const sku = primaryItem[7] || 'unit';
       const moq = primaryItem[8];
       const priceTrans = parsePrice(primaryItem[9]);
       const priceVal = parsePrice(primaryItem[10]);
       const priceNextVal = parsePrice(primaryItem[11]);
+      const notes = primaryItem[17] || '';
+      const itemStatus = deriveApplStatus(newKod, priceVal, priceNextVal, notes);
+      const finalPrice = priceNextVal ?? priceVal ?? (itemStatus === 'active' ? priceTrans : null) ?? 0;
       const malNo = primaryItem[16];
       const effectiveDate = parseDate(primaryItem[18]);
       const originCountry = primaryItem[14];
@@ -188,20 +285,20 @@ serve(async (req) => {
         drug_name: name,
         generic_name: name,
         dosage_form: dosageForm,
-        unit_of_measure: sku.toLowerCase(),
+        unit_of_measure: (sku || 'unit').toLowerCase(),
         min_stock_level: 0,
-        status: 'active',
+        status: itemStatus,
         procurement_vote: 'appl',
-        appl_kod: rawKod,
+        appl_kod: rawKod || null,
         appl_code: drugCode,
-        mal_mda_number: malNo,
-        moq,
+        mal_mda_number: malNo || null,
+        moq: moq || null,
         price_transition: priceTrans,
-        price: priceNextVal ?? priceVal,
+        price: finalPrice,
         price_next: priceNextVal,
         appl_effective_date: effectiveDate,
-        country_of_origin: originCountry,
-        packaging_description: pkgDesc,
+        country_of_origin: originCountry || null,
+        packaging_description: pkgDesc || null,
         last_synced_from_sheet: new Date().toISOString(),
         sheet_source: 'Lampiran B',
       });
@@ -235,7 +332,10 @@ serve(async (req) => {
     // --- 2. NON-DRUGS ---
     const groupedNonDrugs = new Map<string, any[]>();
     for (const row of nonDrugRows) {
-      const itemCode = row[2];
+      const rawKod = cleanCode(row[1]);
+      const newKod = cleanCode(row[2]);
+      const itemCode = newKod || rawKod;
+      if (!itemCode) continue;
       if (!groupedNonDrugs.has(itemCode)) {
         groupedNonDrugs.set(itemCode, []);
       }
@@ -246,13 +346,17 @@ serve(async (req) => {
     for (const [itemCode, items] of groupedNonDrugs.entries()) {
       const primaryItem = items[0];
       const name = primaryItem[4];
-      const rawKod = primaryItem[1];
+      const rawKod = cleanCode(primaryItem[1]);
+      const newKod = cleanCode(primaryItem[2]);
       const pkgDesc = primaryItem[6];
       const sku = primaryItem[7] || 'unit';
       const moq = primaryItem[8];
       const priceTrans = parsePrice(primaryItem[9]);
       const priceVal = parsePrice(primaryItem[10]);
       const priceNextVal = parsePrice(primaryItem[11]);
+      const notes = primaryItem[17] || '';
+      const itemStatus = deriveApplStatus(newKod, priceVal, priceNextVal, notes);
+      const finalPrice = priceNextVal ?? priceVal ?? (itemStatus === 'active' ? priceTrans : null) ?? 0;
       const malNo = primaryItem[16];
       const effectiveDate = parseDate(primaryItem[18]);
       const originCountry = primaryItem[14];
@@ -261,20 +365,22 @@ serve(async (req) => {
         hospital_id,
         item_code: itemCode,
         item_name: name,
-        unit_of_measure: sku.toLowerCase(),
+        unit_of_measure: (sku || 'unit').toLowerCase(),
         min_stock_level: 0,
-        status: 'active',
+        status: itemStatus,
         procurement_vote: 'appl',
-        appl_kod: rawKod,
+        appl_kod: rawKod || null,
         appl_code: itemCode,
-        mal_mda_number: malNo,
-        moq,
+        mal_mda_number: malNo || null,
+        moq: moq || null,
         price_transition: priceTrans,
-        price: priceNextVal ?? priceVal,
+        price: finalPrice,
         price_next: priceNextVal,
         appl_effective_date: effectiveDate,
-        country_of_origin: originCountry,
-        packaging_description: pkgDesc,
+        country_of_origin: originCountry || null,
+        packaging_description: pkgDesc || null,
+        cc_supplier_name: primaryItem[12] || null,
+        cc_brand_name: primaryItem[15] || null,
         last_synced_from_sheet: new Date().toISOString(),
         sheet_source: 'Lampiran B',
       });

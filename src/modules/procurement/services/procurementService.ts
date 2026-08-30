@@ -411,18 +411,19 @@ export async function getProcurementMetadata(hospitalId: string): Promise<ApiRes
 }>> {
   try {
     if (isSupabaseConfigured()) {
-      const { data, error } = await supabase
-        .from('pharmacy_purchase_orders')
-        .select('vote_code, category')
-        .eq('hospital_id', hospitalId)
+      const [poRes, warrantRes] = await Promise.all([
+        supabase.from('pharmacy_purchase_orders').select('vote_code, category').eq('hospital_id', hospitalId),
+        supabase.from('pharmacy_warrants').select('vote_code, category').eq('hospital_id', hospitalId),
+      ])
 
-      if (error) throw error
-
-      const voteCodes = Array.from(new Set((data || []).map(d => d.vote_code).filter(Boolean))) as string[]
+      const allData = [...(poRes.data || []), ...(warrantRes.data || [])]
+      const defaultVoteCodes = ['080702', '990102', '080600 (APPL)', '080600 (CC)']
+      const extractedVoteCodes = (allData || []).map(d => d.vote_code).filter(Boolean)
+      const voteCodes = Array.from(new Set([...defaultVoteCodes, ...extractedVoteCodes])) as string[]
       
       // Filter categories against standard pharmacy categories
       const validCategoryValues = WARRANT_CATEGORIES.map(c => c.value.toLowerCase());
-      const categories = Array.from(new Set((data || [])
+      const categories = Array.from(new Set((allData || [])
         .map(d => d.category?.toLowerCase())
         .filter(cat => cat && validCategoryValues.includes(cat))
       )) as string[]
@@ -430,7 +431,7 @@ export async function getProcurementMetadata(hospitalId: string): Promise<ApiRes
       return { data: { voteCodes, categories }, error: null }
     }
 
-    return { data: { voteCodes: ['080702', '990102'], categories: ['drug', 'non_drug'] }, error: null }
+    return { data: { voteCodes: ['080702', '990102', '080600 (APPL)', '080600 (CC)'], categories: ['drug', 'non_drug', 'duit_khas'] }, error: null }
   } catch (error) {
     console.error('Error fetching metadata:', error)
     return { data: null, error: error instanceof Error ? error.message : 'Failed to fetch metadata' }
